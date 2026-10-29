@@ -77,7 +77,8 @@ function roster(
 async function start(
   root: string,
   extra = roster(),
-  readyTimeoutMs = 5_000,
+  // Default restart window is a guard too: tests about short windows pass their own.
+  readyTimeoutMs = 15_000,
   bootTimeoutMs = readyTimeoutMs,
 ): Promise<Hypervisor> {
   const hv = await Hypervisor.start({
