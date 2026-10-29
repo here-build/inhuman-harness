@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@inhuman.tools/harness-transcript": [
+        "packages/harness-transcript/src/tape.tsx"
+      ]
+    }
+  }
+}

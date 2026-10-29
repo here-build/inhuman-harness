@@ -1,0 +1,41 @@
+{
+  "name": "@inhuman.tools/scope-plane-tinybase",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Hermetic TinyBase adapter for the scope plane.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src", "!**/__tests__"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "pnpm --filter @inhuman.tools/scope-plane build && tsc -p tsconfig.json --noEmit && vitest run",
+    "typecheck": "pnpm --filter @inhuman.tools/scope-plane build && tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@inhuman.tools/scope-plane": "workspace:^",
+    "tinybase": "10.0.1"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/scope-plane-tinybase"
+  }
+}

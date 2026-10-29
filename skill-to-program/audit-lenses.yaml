@@ -1,0 +1,43 @@
+- id: semantic-fidelity
+  purpose: Check that generated code preserves the recovered semantic program.
+  checks:
+    - Every important semantic IR item survives lowering and code generation.
+    - Loop bounds, stop conditions, branches, retries, budgets and ordering constraints are preserved.
+    - Parallel regions preserve independence, joins and batching semantics.
+    - Fresh versus persistent context boundaries are preserved.
+    - Effects, state, human gates and reactive conditions remain observable where required.
+    - Declared runtime gaps are acceptable only when they honestly preserve unsupported semantics.
+  reject:
+    - Silent deletion or weakening of a semantic requirement.
+    - Replacing a hard constraint with an informal prompt suggestion.
+    - Changing sequential shared-state behavior into parallel execution.
+  passCondition: Pass only when there is no error-level semantic mismatch.
+
+- id: arrival-idiom
+  purpose: Check that lowering uses Arrival's small calculus instead of recreating an orchestration framework.
+  checks:
+    - Fresh inference is represented by imported .prompt callables.
+    - Persistent actor calls exist only for actual persistent actor semantics.
+    - Independent work is expressed through ordinary values and collection operations such as map.
+    - Loops and branching are ordinary Scheme control flow.
+    - Prompt execution policy stays in .prompt rather than leaking into Scheme.
+    - Runtime gaps are explicit rather than hidden behind invented primitives.
+  reject:
+    - agent/one-shot/ask in generated Scheme.
+    - async/await, futures, Promise.all, Promise.race, explicit barriers, schedulers or task objects.
+    - Workflow, Supervisor, Router, Team or similar entities when ordinary Scheme/data suffices.
+    - Manual provenance for opaque model or agent reasoning.
+    - Invented runtime primitives.
+  passCondition: Pass only when there is no error-level Arrival-model violation.
+
+- id: control-plane-leakage
+  purpose: Check that algorithmic control flow lives in Scheme while local approximate semantics live in .prompt files.
+  checks:
+    - Generated .prompt files contain only local reasoning, templating and call contracts.
+    - Cross-operator sequencing, retry policy, fan-out/join and global loop logic remain in Scheme.
+    - Approximate semantic judgments identified by analysis remain model-facing prompt operators rather than brittle symbolic rules.
+  reject:
+    - Prompts that instruct the model to simulate outer workflow sequencing.
+    - Prompts that contain repeat-until loops, global counters or multi-stage orchestration belonging in Scheme.
+    - Scheme that hard-codes an approximate judgment which semantic IR identified as an inference unit.
+  passCondition: Pass only when there is no error-level control-plane boundary violation.

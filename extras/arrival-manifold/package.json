@@ -1,0 +1,70 @@
+{
+  "name": "@inhuman.tools/arrival-manifold",
+  "version": "0.9.0",
+  "description": "Collapse N MCP servers into one discovery-shaped tool: a scheme `expr` surface over every bound remote tool, positional args zipped from each tool's JSON Schema.",
+  "license": "MIT",
+  "author": "here.build",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "arrival-manifold": "./dist/bin.js"
+  },
+  "files": [
+    "dist/**/*",
+    "src/**/*",
+    "!**/__tests__",
+    "!**/*.test.*",
+    "!**/__research__",
+    "!**/__benchmarks__",
+    "!**/__custdev__",
+    "!**/__visual__",
+    "!**/*.stories.*"
+  ],
+  "scripts": {
+    "benchmarks": "NODE_OPTIONS=--expose-gc tsx src/__benchmarks__/heap-leak.bench.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "research": "vitest run --config vitest.research.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@here.build/arrival": "^0.10.2",
+    "@here.build/arrival-serializer": "^0.10.2",
+    "@here.build/arrival-sugarcoat": "^0.10.0",
+    "@inhuman.tools/substrate": "workspace:^",
+    "@modelcontextprotocol/sdk": "1.26.0",
+    "dedent": "1.7.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@-internal-/tsconfig": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "tsx": "^4.20.6",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/here-build/inhuman-harness#readme",
+  "bugs": {
+    "url": "https://github.com/here-build/inhuman-harness/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "extras/arrival-manifold"
+  }
+}

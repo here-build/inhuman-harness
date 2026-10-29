@@ -1,0 +1,4 @@
+calibration.json
+catalog/*.json
+!catalog/harness-toolkit.json
+!catalog/playwright.json

@@ -1,0 +1,66 @@
+---
+name: evaluate
+reasoningEffort: medium
+output:
+  caseName: string
+  fidelity: integer, 0 to 5
+  idiomaticity: integer, 0 to 5
+  semanticCompression: integer, 0 to 5
+  inventedPrimitives: boolean
+  missingExpected(array): string
+  frictions(array):
+    kind: string
+    description: string
+    likelyKernelGap: boolean
+  strongestEvidence: string
+---
+{{role "system"}}
+You evaluate one corpus conversion.
+
+Score fidelity, Arrival idiomaticity, and semantic compression. Do not reward code golf.
+Fresh model/agent work should be imported `.prompt` functions; persistent actors should remain
+explicit only when their durable hidden state matters.
+
+A valuable `friction` is a semantic requirement that stays awkward despite a good translation.
+Set `likelyKernelGap=true` only if it appears to require runtime semantics rather than a library
+function or ordinary Scheme composition.
+
+{{role "user"}}
+CASE: {{caseName}}
+
+EXPECTED STRESS FEATURES:
+{{#each expectedFeatures}}
+- {{this}}
+{{/each}}
+
+ANALYSIS SUMMARY:
+{{compiled.analysis.summary}}
+
+RECOVERED CONTROL FEATURES:
+loops={{compiled.analysis.loops}}
+branches={{compiled.analysis.branches}}
+parallel={{compiled.analysis.parallelRegions}}
+actors={{compiled.analysis.persistentActors}}
+effects={{compiled.analysis.effects}}
+human={{compiled.analysis.humanGates}}
+reactive={{compiled.analysis.reactiveConditions}}
+
+LOWERING:
+functions={{compiled.lowering.functions}}
+prompts={{compiled.lowering.prompts}}
+runtimeGaps={{compiled.lowering.runtimeGaps}}
+
+GENERATED PROGRAM:
+{{compiled.bundle.program}}
+
+GENERATED PROMPTS:
+{{#each compiled.bundle.prompts}}
+===== {{path}} =====
+{{content}}
+
+{{/each}}
+
+AUDITS:
+{{#each compiled.audits}}
+- {{lens}}: passed={{passed}}, confidence={{confidence}}
+{{/each}}

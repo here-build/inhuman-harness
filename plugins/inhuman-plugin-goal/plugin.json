@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "inhuman-plugin-goal",
+  "version": "0.0.1",
+  "description": "Single-session goal. The foreground hook continues it. /goal is a command file.",
+  "extensions": {
+    "tools.inhuman": {
+      "bots": ["./behavior/foreground.prompt"],
+      "states": { "session": "./behavior/session.scm" },
+      "commands": {
+        "goal": {
+          "description": "Set, inspect, or clear the session goal",
+          "importPath": "./tools/inhuman/commands/goal.scm"
+        }
+      }
+    }
+  }
+}

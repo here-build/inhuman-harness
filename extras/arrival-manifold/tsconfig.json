@@ -1,0 +1,22 @@
+{
+  "extends": [
+    "@-internal-/tsconfig/purpose/lib",
+    "@-internal-/tsconfig/env/node"
+  ],
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "noUncheckedIndexedAccess": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

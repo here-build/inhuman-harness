@@ -1,0 +1,25 @@
+packages:
+  # Product forests (repo layout = monorepo harness/ content).
+  - "packages/*"
+  - "packages-policy/*"
+  - "packages-statusline/*"
+  - "packages-activity/*"
+  - "packages-continuation/*"
+  - "packages-runtime/*"
+  - "env-capabilities/*"
+  - "extras/*"
+  - "plugins/*"
+  # Private config quasi-packages. Not product. Scope is @-internal-/*.
+  - "internal/*"
+
+minimumReleaseAge: 10080 # 7 days
+minimumReleaseAgeExclude:
+  - "@here.build/*"
+  - "@inhuman.tools/*"
+  - "sage-sdk"
+
+onlyBuiltDependencies:
+  - better-sqlite3
+  - gl
+  - esbuild
+  - unrs-resolver

@@ -1,0 +1,9 @@
+{
+  "categories": [
+    "fence",
+    "schema-repair",
+    "args-xml",
+    "audit-repros"
+  ],
+  "notes": "§13 full matrix grows over Phase 1.1; F0 runner requires every listed dir to exist and contain ≥1 .json"
+}

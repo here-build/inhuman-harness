@@ -1,0 +1,16 @@
+{
+  "id": "policy-openclaw-jev",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "authorizationPath": { "type": "string" },
+      "jevApiKey": { "type": "string" }
+    }
+  },
+  "configContracts": {
+    "secretInputs": {
+      "paths": [{ "path": "jevApiKey", "expected": "string" }]
+    }
+  }
+}

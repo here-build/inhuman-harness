@@ -1,0 +1,55 @@
+{
+  "name": "@inhuman.tools/continuation-pi",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pi extension: nudges the agent when it promised work and stopped, using pi's own model.",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "browserslist": [
+    "node >= 22"
+  ],
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
+  "pi": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@inhuman.tools/continuation": "workspace:^"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages-continuation/pi-continuation"
+  }
+}

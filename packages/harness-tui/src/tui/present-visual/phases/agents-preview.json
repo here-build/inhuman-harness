@@ -1,0 +1,525 @@
+{
+  "posted": [],
+  "runs": [
+    {
+      "y": 0,
+      "x": 73,
+      "text": "/tmp/p",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": true
+    },
+    {
+      "y": 1,
+      "x": 1,
+      "text": "Sub",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 1,
+      "x": 4,
+      "text": "╭─",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 1,
+      "x": 7,
+      "text": "Explore",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 1,
+      "x": 15,
+      "text": "────────────────────────────────────────────────────────────╮",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 2,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 2,
+      "x": 9,
+      "text": "loads; request-time read would pick up the rotate.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 2,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 3,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 3,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 9,
+      "text": "Cookie name stays. /logout already clears it; the 401",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 76,
+      "text": " PM",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 5,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 5,
+      "x": 9,
+      "text": "was the stale hash, not the cookie.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 5,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 6,
+      "x": 1,
+      "text": "Col",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 6,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 6,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 7,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 7,
+      "x": 9,
+      "text": "Also keep the session cookie on rotate so the stale",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 7,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 8,
+      "x": 1,
+      "text": "Ses",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 8,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 8,
+      "x": 9,
+      "text": "hash cannot come back through /login.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 8,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 9,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 9,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 10,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 10,
+      "x": 9,
+      "text": "AuthForm still reads AUTH_SECRET from the module",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 10,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 9,
+      "text": "scope. Move the lookup into the handler.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 12,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 12,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 13,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 13,
+      "x": 9,
+      "text": "The 401 is the old hash, not the session cookie.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 13,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 9,
+      "text": "Rotate the secret and keep the cookie name.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 15,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 15,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 16,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 16,
+      "x": 9,
+      "text": "Write a recap of every auth path in the login form and",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 16,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 17,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 17,
+      "x": 9,
+      "text": "the cookie rotate.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 17,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 18,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 18,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 19,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 19,
+      "x": 9,
+      "text": "Do not leave the previous password hash in the form",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 19,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 20,
+      "x": 4,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 20,
+      "x": 9,
+      "text": "after AUTH_SECRET changes.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 20,
+      "x": 75,
+      "text": "│",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 21,
+      "x": 4,
+      "text": "╰─",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 21,
+      "x": 7,
+      "text": "Esc:",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 21,
+      "x": 12,
+      "text": "close ─────────────────────────────────────────────────────────╯",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 21,
+      "x": 76,
+      "text": "───╮",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 22,
+      "x": 40,
+      "text": "                                       │",
+      "role": "foreground",
+      "ink": "whisper",
+      "dim": true
+    },
+    {
+      "y": 23,
+      "x": 40,
+      "text": "───────────────────────────────────────╯",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    }
+  ]
+}

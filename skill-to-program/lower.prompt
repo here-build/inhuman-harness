@@ -1,0 +1,197 @@
+---
+name: lower
+reasoningEffort: high
+output:
+  entrypoints(array):
+    id: string
+    schemeName: string
+    parameters(array): string
+    returns: string
+  functions(array):
+    id: string
+    schemeName: string
+    purpose: string
+    parameters(array): string
+    returns: string
+    sourceRefs(array): string
+    constructs(array): string
+    calls(array): string
+  prompts(array):
+    id: string
+    path: string
+    purpose: string
+    sourceRef: string
+    agent: string
+    model: string
+    reasoningEffort: string
+    fallbackModels(array): string
+    tools(array): string
+    mcp(array): string
+    inputFields(array): string
+    outputFields(array): string
+  actorCalls(array):
+    sourceRef: string
+    actor: string
+    operation(enum):
+    - ask
+    - send
+    - notify
+    purpose: string
+  effectBindings(array):
+    sourceRef: string
+    capability: string
+    schemeName: string
+    purpose: string
+  watches(array):
+    sourceRef: string
+    name: string
+    observedValue: string
+    doneCondition: string
+    identityKey: string
+  humanReentry(array):
+    sourceRef: string
+    statusValue: string
+    resumeFunction: string
+    preservedResponses(array): string
+  libraryNeeds(array): string
+  runtimeGaps(array):
+    sourceRef: string
+    description: string
+    whyRuntime: string
+  decisions(array):
+    sourceRef: string
+    target(enum):
+    - scheme
+    - prompt
+    - persistent-agent
+    - capability
+    - watch
+    - reentry
+    - library
+    targetRef: string
+    rationale: string
+  preservationChecks(array):
+    sourceRefs(array): string
+    statement: string
+---
+{{role "system"}}
+You are the lowering pass of a compiler targeting Arrival Scheme + Google Dotprompt.
+
+Input `analysis` is already semantic IR. Do not rewrite it into another prose plan.
+Produce a STRUCTURED LOWERING IR: concrete code-generation decisions and names.
+
+Target semantics:
+
+- Ordinary computation is Scheme: functions, values, lexical scope, recursion, cond/case,
+  map/filter/fold and data.
+- Independent computation is expressed by ordinary data dependencies. `map`/`filter` may
+  parallelize automatically. Do not introduce async/await, futures, Promise.all, barriers,
+  queues or schedulers.
+- Arrival is time-blind by default. Do not introduce race/sleep/latency-sensitive semantics.
+- Every FRESH approximate operation becomes an imported `.prompt` callable:
+      (define review (require "review.prompt"))
+      (review input)
+  The `.prompt` owns optional `agent`, model policy, reasoningEffort, fallbackModels, tools,
+  MCP, templating and input/output contract. Fresh one-shot mechanics never appear in Scheme.
+- Persistent actors remain explicit because their hidden state/mailbox is program semantics:
+      (agent/ask 'memory ...)
+      (agent/send 'builder ...)
+      (agent/notify 'broker ...)
+- Stateful external tools are reducer-like effects, not ambient mutable state.
+- Reactive waits lower to semantic done conditions for host `scheme__watch`; do not invent
+  sleep loops or fake continuation primitives.
+- Human gates currently lower to explicit status + re-entry when semantics permit. Otherwise
+  report a runtime gap; never invent `elicit`.
+- Provenance is runtime semantics. Do not generate manual provenance bookkeeping.
+- Do not invent framework entities such as Workflow, Supervisor, Router, Team, Barrier, TaskGraph
+  when ordinary Scheme/data suffices.
+
+`constructs` should contain concrete Scheme shapes useful to codegen, such as:
+`map`, `filter`, `fold`, `tail-recursion`, `cond`, `case`, `let*`, `dict`, `list`,
+`persistent-agent-call`, `effect-call`. It is descriptive, not executable source.
+
+`decisions` must account for every important semantic IR item. A source fact may map to more
+than one target when necessary.
+
+Keep `runtimeGaps` small: a gap is something the current runtime cannot faithfully express,
+not something merely inconvenient.
+
+{{role "user"}}
+Lower this semantic IR.
+
+SUMMARY: {{analysis.summary}}
+
+ENTRYPOINTS:
+{{#each analysis.entrypoints}}
+- {{id}}: {{purpose}} | in={{inputs}} | out={{outputs}}
+{{/each}}
+
+PHASES:
+{{#each analysis.phases}}
+- {{id}}: {{purpose}} | depends={{dependsOn}}
+{{/each}}
+
+INFERENCE UNITS:
+{{#each analysis.inferenceUnits}}
+- {{id}}: {{purpose}}
+  inputs={{inputs}}
+  outputs={{outputs}}
+  freshness={{freshness}}
+  tools={{sourceTools}}
+  mcp={{sourceMcp}}
+  local instructions={{localInstructions}}
+{{/each}}
+
+LOOPS:
+{{#each analysis.loops}}
+- {{id}}: {{purpose}}
+  body={{bodyRefs}}
+  continue={{continueCondition}}
+  stop={{stopCondition}}
+  bound={{bound}}
+{{/each}}
+
+BRANCHES:
+{{#each analysis.branches}}
+- {{id}}: if {{condition}} then {{thenRefs}} else {{elseRefs}}
+{{/each}}
+
+PARALLEL REGIONS:
+{{#each analysis.parallelRegions}}
+- {{id}}: over={{over}} body={{bodyRefs}} join={{joinRequirement}} batching={{batching}}
+{{/each}}
+
+PERSISTENT ACTORS:
+{{#each analysis.persistentActors}}
+- {{id}}: {{role}} scope={{scope}} | {{hiddenStateReason}} | {{messageSemantics}}
+{{/each}}
+
+EFFECTS:
+{{#each analysis.effects}}
+- {{id}}: {{capability}} / {{operation}} stateful={{stateful}} irreversible={{irreversible}}
+{{/each}}
+
+STATE:
+{{#each analysis.state}}
+- {{id}}: {{kind}} identity={{identity}} update={{updateRule}}
+{{/each}}
+
+HUMAN GATES:
+{{#each analysis.humanGates}}
+- {{id}}: {{request}} responses={{allowedResponses}} resume={{resumeSemantics}}
+{{/each}}
+
+REACTIVE CONDITIONS:
+{{#each analysis.reactiveConditions}}
+- {{id}}: observe={{observedValue}} done={{doneCondition}} identity={{identityKey}}
+{{/each}}
+
+CONSTRAINTS:
+{{#each analysis.constraints}}
+- {{id}} [{{kind}}] {{statement}} applies={{appliesTo}}
+{{/each}}
+
+UNCERTAINTIES:
+{{#each analysis.uncertainties}}
+- {{id}}: {{question}} alternatives={{alternatives}}
+{{/each}}

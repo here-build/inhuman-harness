@@ -1,0 +1,213 @@
+{
+  "posted": [],
+  "runs": [
+    {
+      "y": 0,
+      "x": 73,
+      "text": "/tmp/p",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 1,
+      "text": "❯",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 3,
+      "text": "Replace the greeting in src/hello.ts.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 71,
+      "text": "10:13 PM",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 5,
+      "x": 3,
+      "text": "Keep the export name.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 8,
+      "x": 1,
+      "text": "·",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 8,
+      "x": 3,
+      "text": "updated",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 8,
+      "x": 11,
+      "text": "src/hello.ts",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 10,
+      "x": 0,
+      "text": " 1",
+      "role": "chrome",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 10,
+      "x": 3,
+      "text": "export function greet() {",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 10,
+      "x": 40,
+      "text": " 1",
+      "role": "chrome",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 10,
+      "x": 43,
+      "text": "export function greet() {",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 0,
+      "text": "▌",
+      "role": "diff_del",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 1,
+      "text": "2",
+      "role": "chrome",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 3,
+      "text": "  return \"hello\";",
+      "role": "diff_del",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 40,
+      "text": "▌",
+      "role": "diff_add",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 41,
+      "text": "2",
+      "role": "chrome",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 43,
+      "text": "  return \"hi, world\";",
+      "role": "diff_add",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 12,
+      "x": 0,
+      "text": " 3",
+      "role": "chrome",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 12,
+      "x": 3,
+      "text": "}",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 12,
+      "x": 40,
+      "text": " 3",
+      "role": "chrome",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 12,
+      "x": 43,
+      "text": "}",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 21,
+      "x": 0,
+      "text": "╭──────────────────────────────────────────────────────────────────────────────╮",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 22,
+      "x": 0,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 22,
+      "x": 79,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 23,
+      "x": 0,
+      "text": "╰──────────────────────────────────────────────────────────────────────────────╯",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    }
+  ]
+}

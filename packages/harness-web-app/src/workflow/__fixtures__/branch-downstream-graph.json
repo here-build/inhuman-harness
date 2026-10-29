@@ -1,0 +1,192 @@
+{
+  "roots": [
+    {
+      "kind": "fanout",
+      "id": 59,
+      "scope": "map@59",
+      "stages": [
+        {
+          "label": "map",
+          "id": 59
+        }
+      ],
+      "iterations": [
+        [
+          {
+            "kind": "leaf",
+            "id": 69,
+            "label": "spark",
+            "scope": "spark@93:6",
+            "nodeKind": "prompt",
+            "meta": {
+              "kind": "prompt",
+              "path": "spark.prompt",
+              "model": "qwen3.5-9b",
+              "inputs": {
+                "topic": "a bold idea"
+              },
+              "inputsProvenance": {
+                "topic": []
+              },
+              "reads": {
+                "topic": []
+              }
+            },
+            "value": {
+              "idea": "idea-0",
+              "energy": 0.5
+            },
+            "state": "resolved"
+          },
+          {
+            "kind": "leaf",
+            "id": 62,
+            "label": "digest",
+            "scope": "digest@96:17",
+            "nodeKind": "prompt",
+            "meta": {
+              "kind": "prompt",
+              "path": "digest.prompt",
+              "model": "qwen3.5-9b",
+              "inputs": {
+                "ideas": [
+                  {
+                    "idea": "idea-0",
+                    "energy": 0.5
+                  }
+                ]
+              },
+              "inputsProvenance": {
+                "ideas": [
+                  69
+                ]
+              },
+              "reads": {
+                "ideas": [
+                  "idea"
+                ]
+              }
+            },
+            "value": {
+              "summary": "summary-2",
+              "count": 1
+            },
+            "state": "resolved"
+          }
+        ],
+        [
+          {
+            "kind": "leaf",
+            "id": 79,
+            "label": "spark",
+            "scope": "spark@94:6",
+            "nodeKind": "prompt",
+            "meta": {
+              "kind": "prompt",
+              "path": "spark.prompt",
+              "model": "qwen3.5-9b",
+              "inputs": {
+                "topic": "a quiet idea"
+              },
+              "inputsProvenance": {
+                "topic": []
+              },
+              "reads": {
+                "topic": []
+              }
+            },
+            "value": {
+              "idea": "idea-1",
+              "energy": 0.5
+            },
+            "state": "resolved"
+          },
+          {
+            "kind": "leaf",
+            "id": 72,
+            "label": "digest",
+            "scope": "digest@96:17",
+            "nodeKind": "prompt",
+            "meta": {
+              "kind": "prompt",
+              "path": "digest.prompt",
+              "model": "qwen3.5-9b",
+              "inputs": {
+                "ideas": [
+                  {
+                    "idea": "idea-1",
+                    "energy": 0.5
+                  }
+                ]
+              },
+              "inputsProvenance": {
+                "ideas": [
+                  79
+                ]
+              },
+              "reads": {
+                "ideas": [
+                  "idea"
+                ]
+              }
+            },
+            "value": {
+              "summary": "summary-3",
+              "count": 1
+            },
+            "state": "resolved"
+          }
+        ]
+      ],
+      "incoming": 2,
+      "inputs": [],
+      "outputs": [
+        {
+          "producer": "digest@96:17"
+        }
+      ]
+    },
+    {
+      "kind": "output",
+      "id": -1,
+      "value": [
+        {
+          "summary": "summary-2",
+          "count": 1
+        },
+        {
+          "summary": "summary-3",
+          "count": 1
+        }
+      ],
+      "state": "resolved"
+    }
+  ],
+  "edges": [
+    {
+      "from": 69,
+      "to": 62,
+      "kind": "data",
+      "field": "ideas",
+      "fromField": "idea"
+    },
+    {
+      "from": 79,
+      "to": 72,
+      "kind": "data",
+      "field": "ideas",
+      "fromField": "idea"
+    },
+    {
+      "from": 62,
+      "to": -1,
+      "kind": "data"
+    },
+    {
+      "from": 72,
+      "to": -1,
+      "kind": "data"
+    }
+  ],
+  "warnings": []
+}

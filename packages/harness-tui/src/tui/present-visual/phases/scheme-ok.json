@@ -1,0 +1,109 @@
+{
+  "posted": [],
+  "runs": [
+    {
+      "y": 0,
+      "x": 73,
+      "text": "/tmp/p",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 1,
+      "text": "❯",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 3,
+      "text": "Eval (read_file \"src/tea.ts\")",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 71,
+      "text": "10:13 PM",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 5,
+      "x": 3,
+      "text": "and show me the bindings it returns.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 8,
+      "x": 0,
+      "text": "⒪",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 8,
+      "x": 3,
+      "text": "(read_file \"src/tea.ts\")",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 9,
+      "x": 3,
+      "text": "·",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 9,
+      "x": 5,
+      "text": "Read src/tea.ts",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 21,
+      "x": 0,
+      "text": "╭──────────────────────────────────────────────────────────────────────────────╮",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 22,
+      "x": 0,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 22,
+      "x": 79,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 23,
+      "x": 0,
+      "text": "╰──────────────────────────────────────────────────────────────────────────────╯",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    }
+  ]
+}

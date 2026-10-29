@@ -1,0 +1,60 @@
+{
+  "name": "@inhuman.tools/scheme-program",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Scheme program tool. Evaluates one ProgrammaticJob. The host passes the EnvCapabilities; this package does not know the catalog or the tool bodies.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./eval": {
+      "types": "./dist/eval.d.ts",
+      "import": "./dist/eval.js",
+      "default": "./dist/eval.js"
+    },
+    "./fs": {
+      "types": "./dist/source-fs.d.ts",
+      "import": "./dist/source-fs.js",
+      "default": "./dist/source-fs.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@here.build/arrival": "^0.10.2",
+    "@here.build/arrival-modules": "^0.10.0",
+    "@here.build/arrival-serializer": "^0.10.2",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/substrate": "workspace:^",
+    "mobx": "6.16.1",
+    "tiny-invariant": "^1.3.3"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages-runtime/scheme-program"
+  }
+}

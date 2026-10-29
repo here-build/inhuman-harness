@@ -1,0 +1,16 @@
+---
+attach: foreground
+mode: instruct
+behavior:
+  program: ./foreground.scm
+  bindings:
+    plan:
+      plugin: fusion
+      scope: session
+      methods: [get, advance, recall, block]
+    offload:
+      plugin: offload-tingle
+      scope: project
+      methods: [get-memory, search]
+---
+Keep the session plan moving. Read retained memory. Do not commit it.

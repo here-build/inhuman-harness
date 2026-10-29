@@ -1,0 +1,38 @@
+{
+  "name": "@inhuman.tools/harness-transcript",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The session transcript: the tape, without a composer or a model picker.",
+  "type": "module",
+  "exports": {
+    ".": "./src/tape.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@tabler/icons-react": "^3.49.0",
+    "mdast-util-from-markdown": "^2.1.0",
+    "mdast-util-gfm": "^3.1.0",
+    "micromark-extension-gfm": "^3.0.0",
+    "mobx-react-lite": "^4.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "remend": "^1.0.0"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@storybook/react-vite": "10.6.1",
+    "@types/mdast": "^4.0.4",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "eslint": "9.39.2",
+    "storybook": "10.6.1",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT"
+}

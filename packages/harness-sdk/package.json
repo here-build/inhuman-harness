@@ -1,0 +1,79 @@
+{
+  "name": "@inhuman.tools/harness-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Node client for the harness daemon: Client over the unix socket, daemon paths, launch helpers (model flags, terminal continue), and the plain-text projections of work cells shared by the TUI and the headless eval client.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./paths": {
+      "types": "./dist/paths.d.ts",
+      "import": "./dist/paths.js",
+      "default": "./dist/paths.js"
+    },
+    "./launch": {
+      "types": "./dist/launch/index.d.ts",
+      "import": "./dist/launch/index.js",
+      "default": "./dist/launch/index.js"
+    },
+    "./text": {
+      "types": "./dist/text/index.d.ts",
+      "import": "./dist/text/index.js",
+      "default": "./dist/text/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
+  "browserslist": [
+    "node >= 22"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run"
+  },
+  "dependencies": {
+    "@here.build/arrival": "^0.10.2",
+    "@here.build/arrival-serializer": "^0.10.2",
+    "@here.build/arrival-sugarcoat": "^0.10.0",
+    "@here.build/collections": "^0.9.0",
+    "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/harness-diagnostics": "workspace:^",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/harness-peer": "workspace:^",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/pretty-mcp": "workspace:^",
+    "mobx": "6.16.1",
+    "sh-syntax": "^0.6.0",
+    "ws": "8.18.3",
+    "y-websocket": "3.1.0",
+    "yjs": "13.6.33"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@inhuman.tools/harness-commons": "workspace:^",
+    "@types/node": "^24.0.0",
+    "@types/ws": "8.18.1",
+    "eslint": "9.39.2",
+    "lib0": "0.2.119",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/harness-sdk"
+  }
+}

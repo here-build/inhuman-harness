@@ -1,0 +1,14 @@
+{
+  "name": "demo-pack",
+  "extensions": {
+    "tools.inhuman": {
+      "plugins": [
+        {
+          "name": "demo-pack",
+          "description": "demo",
+          "importPath": "./plugin.js"
+        }
+      ]
+    }
+  }
+}

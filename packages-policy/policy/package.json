@@ -1,0 +1,55 @@
+{
+  "name": "@inhuman.tools/policy",
+  "version": "0.0.1",
+  "private": true,
+  "description": "JSON floor and the authorization program. The caller supplies the decide capability.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./floor": {
+      "types": "./dist/floor.d.ts",
+      "import": "./dist/floor.js",
+      "default": "./dist/floor.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "authorize.scm",
+    "!**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@here.build/arrival": "^0.10.2",
+    "@inhuman.tools/error-with-invariant": "workspace:^",
+    "@inhuman.tools/policy-bash-disassembler": "workspace:^",
+    "minimatch": "10.2.6",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@inhuman.tools/env-capability-decision-structured": "workspace:^",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages-policy/policy"
+  }
+}

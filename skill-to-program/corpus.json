@@ -1,0 +1,219 @@
+[
+  {
+    "name": "wayfinder",
+    "url": "https://github.com/mattpocock/skills/blob/main/skills/engineering/wayfinder/SKILL.md",
+    "expected": [
+      "dynamic task graph",
+      "frontier traversal",
+      "atomic claiming",
+      "research fan-out",
+      "human gates",
+      "topology mutation"
+    ]
+  },
+  {
+    "name": "microsoft-research",
+    "url": "https://github.com/microsoft/vscode-team-kit/blob/main/research/skills/research/SKILL.md",
+    "expected": [
+      "parallel research threads",
+      "quality gate",
+      "targeted redispatch",
+      "contradiction reconciliation",
+      "semantic loop"
+    ]
+  },
+  {
+    "name": "deep-research",
+    "url": "https://github.com/drknowhow/deep-research/blob/main/SKILL.md",
+    "expected": [
+      "durable state machine",
+      "parallel roles",
+      "human approval gates",
+      "resume modes",
+      "persistent storage"
+    ]
+  },
+  {
+    "name": "browserbase-agent-experience",
+    "url": "https://github.com/browserbase/skills/blob/main/skills/agent-experience/SKILL.md",
+    "expected": [
+      "persona x language matrix",
+      "parallel runs",
+      "trace collection",
+      "scoring",
+      "report reduction"
+    ]
+  },
+  {
+    "name": "translate-book",
+    "url": "https://github.com/deusyu/translate-book/blob/main/SKILL.md",
+    "expected": [
+      "chunking",
+      "bounded parallel batches",
+      "shared immutable glossary snapshot",
+      "batch barrier",
+      "assembly",
+      "retries"
+    ]
+  },
+  {
+    "name": "product-strategy-session",
+    "url": "https://github.com/deanpeters/Product-Manager-Skills/blob/main/skills/product-strategy-session/SKILL.md",
+    "expected": [
+      "multi-phase composition",
+      "human decision point",
+      "optional discovery loop",
+      "long-lived process"
+    ]
+  },
+  {
+    "name": "nvidia-deft-aoi",
+    "url": "https://github.com/NVIDIA/skills/blob/main/skills/tao-run-deft-aoi/SKILL.md",
+    "expected": [
+      "iterative pipeline",
+      "canonical state",
+      "KPI stop",
+      "hard-stop conditions",
+      "progress reporting"
+    ]
+  },
+  {
+    "name": "repo-task-proof-loop",
+    "url": "https://github.com/DenisSergeevitch/repo-task-proof-loop/blob/main/SKILL.md",
+    "expected": [
+      "build",
+      "evidence",
+      "fresh verifier",
+      "fix loop",
+      "PASS termination"
+    ]
+  },
+  {
+    "name": "review-loop",
+    "url": "https://github.com/microsoft/bocpy/blob/main/.github/skills/review-loop/SKILL.md",
+    "expected": [
+      "fresh review",
+      "human triage",
+      "apply fixes",
+      "repeat until satisfied"
+    ]
+  },
+  {
+    "name": "claude-review-loop",
+    "url": "https://github.com/yamadashy/skills/blob/main/skills/claude-review-loop/SKILL.md",
+    "expected": [
+      "bounded outer loop",
+      "review",
+      "triage",
+      "fix",
+      "verify-until-green",
+      "stop when no fix items"
+    ]
+  },
+  {
+    "name": "open-ralph",
+    "url": "https://github.com/openclaw/skills/blob/main/skills/bderiel/open-ralph/SKILL.md",
+    "expected": [
+      "repeat until semantic completion",
+      "iteration budget",
+      "completion promise",
+      "model failover"
+    ]
+  },
+  {
+    "name": "loopcoding",
+    "url": "https://github.com/0xArx/loopcoding-skill/blob/main/SKILL.md",
+    "expected": [
+      "generated LOOP.md as interpreted control file",
+      "goal verification",
+      "guardrails",
+      "persistent loop state"
+    ]
+  },
+  {
+    "name": "subagent-driven-development",
+    "url": "https://github.com/openai/plugins/blob/main/plugins/superpowers/skills/subagent-driven-development/SKILL.md",
+    "expected": [
+      "fresh worker per task",
+      "spec review",
+      "quality review",
+      "nested fix loops",
+      "sequential shared repo state"
+    ]
+  },
+  {
+    "name": "systematic-debugging",
+    "url": "https://github.com/openai/plugins/blob/main/plugins/superpowers/skills/systematic-debugging/SKILL.md",
+    "expected": [
+      "phased state machine",
+      "hypothesis-test branch",
+      "failure counter",
+      "architectural escalation after repeated failure"
+    ]
+  },
+  {
+    "name": "write-spec",
+    "url": "https://github.com/dzhng/skills/blob/main/skills/engineering/write-spec/SKILL.md",
+    "expected": [
+      "progressive decomposition",
+      "dynamic reslicing",
+      "browser/screenshot gates",
+      "staged plan"
+    ]
+  },
+  {
+    "name": "skill-creator",
+    "url": "https://github.com/austindixson/skill-creator/blob/main/SKILL.md",
+    "expected": [
+      "generate or modify skill",
+      "tests and baseline",
+      "reviewer",
+      "human feedback",
+      "optimization loop",
+      "multiple stop conditions"
+    ]
+  },
+  {
+    "name": "literature-review",
+    "url": "https://github.com/lingzhi227/agent-research-skills/blob/main/skills/literature-review/SKILL.md",
+    "expected": [
+      "runtime-generated personas",
+      "parallel perspective dialogues",
+      "grounded search",
+      "multi-turn local loops",
+      "synthesis"
+    ]
+  },
+  {
+    "name": "aedelon-brainstorm",
+    "url": "https://github.com/Aedelon/claude-code-blueprint/blob/main/skills/brainstorm/SKILL.md",
+    "expected": [
+      "clarification branch",
+      "dynamic perspective selection",
+      "parallel exploration",
+      "join and synthesis"
+    ]
+  },
+  {
+    "name": "orchestkit-brainstorm",
+    "url": "https://github.com/yonatangross/orchestkit/blob/main/plugins/ork/skills/brainstorm/SKILL.md",
+    "expected": [
+      "candidate generation",
+      "feasibility filter",
+      "multi-dimensional critique",
+      "ranking",
+      "synthesis pipeline"
+    ]
+  },
+  {
+    "name": "last30days",
+    "url": "https://github.com/mvanhorn/last30days-skill/blob/main/skills/last30days/SKILL.md",
+    "expected": [
+      "large prose control plane",
+      "source routing",
+      "recovery branches",
+      "parallel comparison mode",
+      "adjacent Python runtime"
+    ]
+  }
+]

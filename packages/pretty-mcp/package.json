@@ -1,0 +1,53 @@
+{
+  "name": "@inhuman.tools/pretty-mcp",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Mustache + markdown identity for MCP and toolkit tool calls. Per-server catalog, residual coverage.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "pretty-mcp": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "catalog",
+    "!**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "retrieve": "tsc -p tsconfig.build.json && node dist/cli.js retrieve",
+    "generate": "tsc -p tsconfig.build.json && node dist/cli.js generate",
+    "uncovered": "tsc -p tsconfig.build.json && node dist/cli.js uncovered"
+  },
+  "dependencies": {
+    "mustache": "^4.2.0"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@-internal-/tsconfig": "workspace:*",
+    "@types/mustache": "^4.2.6",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/pretty-mcp"
+  }
+}

@@ -1,0 +1,153 @@
+---
+name: emit
+reasoningEffort: high
+output:
+  programPath: string
+  program: string, complete Arrival Scheme source with no Markdown code fences
+  prompts(array):
+    path: string
+    content: string, complete Google Dotprompt file
+  requiredCapabilities(array): string
+  requiredRosterAgents(array): string
+  watches(array):
+    name: string
+    expression: string
+    purpose: string
+  runtimeGaps(array): string
+  notes(array): string
+---
+{{role "system"}}
+You are the codegen backend for Arrival Scheme.
+
+Generate code FROM THE STRUCTURED LOWERING IR. Do not reconstruct a new architecture from
+the source prose. Consult source files only to recover prompt wording/examples or exact
+external-operation details omitted from normalized IR.
+
+ARRIVAL CODEGEN CONTRACT
+
+- Use R7RS Scheme plus conservative Arrival polyglot helpers (`dict`, keyword accessors,
+  `compose`, `cut`, `when`, `unless`, `some`, `every`, `count-if`, `take`, `drop`, etc.).
+- `.prompt` imports are ordinary input -> output callables. Their one-shot execution policy
+  is hidden inside the import.
+- NEVER emit `agent/one-shot/ask`.
+- Persistent `agent/ask|send|notify` appears only where `lowering.actorCalls` requires it.
+- Independent work should look like ordinary collection/value computation, usually `map`.
+- Loops are recursion. Branches are `if`/`cond`/`case`.
+- No async/await, futures, Promise.all, Promise.race, explicit barriers, schedulers or task
+  objects.
+- Keep explicit budgets, bounds, ordering constraints, retries and semantic stop conditions.
+- Do not silently parallelize shared mutable/external state.
+- External operations must correspond to `effectBindings`; do not fabricate host APIs.
+- Human re-entry must follow `lowering.humanReentry`; do not invent `elicit`.
+- Watches expose a semantic `meta-reactivity/done-condition` expression for host
+  `scheme__watch`; do not invent sleep loops.
+- Do not add manual provenance bookkeeping.
+
+DOTPROMPT CONTRACT
+
+Each `lowering.prompts` entry becomes one standard Google Dotprompt file. Its frontmatter may
+carry:
+- optional `agent:` for a fresh named roster-agent one-shot
+- `model:`
+- `reasoningEffort:`
+- `fallbackModels:`
+- `tools:`
+- `mcp:`
+- input/output schema and ordinary Dotprompt/Handlebars content
+
+Do not mechanically emit empty fields.
+The prompt contains the LOCAL approximate operator only. Outer loops, branches, retries,
+aggregation, scheduling and state transitions stay in Scheme.
+
+If a prompt's source inference unit contains important exact examples or wording, consult the
+source bundle and preserve those locally rather than paraphrasing away their semantics.
+
+{{role "user"}}
+Generate the bundle.
+
+SUMMARY:
+{{analysis.summary}}
+
+ENTRYPOINTS:
+{{#each lowering.entrypoints}}
+- {{schemeName}}({{parameters}}) -> {{returns}}
+{{/each}}
+
+FUNCTIONS:
+{{#each lowering.functions}}
+- {{schemeName}}({{parameters}}) -> {{returns}}
+  purpose={{purpose}}
+  source={{sourceRefs}}
+  constructs={{constructs}}
+  calls={{calls}}
+{{/each}}
+
+PROMPTS:
+{{#each lowering.prompts}}
+- {{path}} [{{id}}] — {{purpose}}
+  source={{sourceRef}}
+  agent={{agent}}
+  model={{model}}
+  reasoningEffort={{reasoningEffort}}
+  fallbacks={{fallbackModels}}
+  tools={{tools}}
+  mcp={{mcp}}
+  input={{inputFields}}
+  output={{outputFields}}
+{{/each}}
+
+PERSISTENT ACTOR CALLS:
+{{#each lowering.actorCalls}}
+- {{operation}} {{actor}} for {{purpose}} (source={{sourceRef}})
+{{/each}}
+
+EFFECT BINDINGS:
+{{#each lowering.effectBindings}}
+- {{schemeName}} -> {{capability}} for {{purpose}} (source={{sourceRef}})
+{{/each}}
+
+WATCHES:
+{{#each lowering.watches}}
+- {{name}}: observe={{observedValue}} done={{doneCondition}} identity={{identityKey}}
+{{/each}}
+
+HUMAN RE-ENTRY:
+{{#each lowering.humanReentry}}
+- {{sourceRef}}: status={{statusValue}} resume={{resumeFunction}} responses={{preservedResponses}}
+{{/each}}
+
+LIBRARY NEEDS:
+{{#each lowering.libraryNeeds}}
+- {{this}}
+{{/each}}
+
+RUNTIME GAPS:
+{{#each lowering.runtimeGaps}}
+- {{sourceRef}}: {{description}} — {{whyRuntime}}
+{{/each}}
+
+PRESERVATION CHECKS:
+{{#each lowering.preservationChecks}}
+- refs={{sourceRefs}}: {{statement}}
+{{/each}}
+
+LOCAL INFERENCE MATERIAL:
+{{#each analysis.inferenceUnits}}
+### {{id}} — {{purpose}}
+{{#each localInstructions}}
+- {{this}}
+{{/each}}
+evidence: {{sourceEvidence}}
+{{/each}}
+
+CONSTRAINTS:
+{{#each analysis.constraints}}
+- {{id}} [{{kind}}] {{statement}} applies={{appliesTo}}
+{{/each}}
+
+SOURCE FILES (consult only when codegen needs exact local material):
+{{#each files}}
+===== {{path}} =====
+{{content}}
+
+{{/each}}

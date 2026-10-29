@@ -1,0 +1,48 @@
+{
+  "name": "@-internal-/eslint-configs",
+  "description": "Private ESLint flat configs. Not product. Not published.",
+  "version": "0.0.0",
+  "private": true,
+  "author": "here.build",
+  "license": "MIT",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "lint": "true",
+    "typecheck": "true"
+  },
+  "files": [
+    "index.js",
+    "package.json"
+  ],
+  "dependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-compat": "^6.1.0",
+    "eslint-plugin-import-x": "^4.17.1",
+    "eslint-plugin-no-secrets": "^2.3.3",
+    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-promise": "^7.3.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-regexp": "^3.2.0",
+    "eslint-plugin-security": "^3.0.1",
+    "eslint-plugin-unicorn": "^63.0.0",
+    "globals": "^17.11.0",
+    "prettier": "^3.9.6",
+    "typescript": "6.0.2",
+    "typescript-eslint": "^8.68.0"
+  },
+  "devDependencies": {
+    "eslint": "9.39.2"
+  },
+  "peerDependencies": {
+    "eslint": "^9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "internal/eslint-config"
+  }
+}

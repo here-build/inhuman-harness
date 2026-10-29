@@ -1,0 +1,40 @@
+Vendored pure-parse slice of @pierre/diffs
+==========================================
+
+This directory contains a minimal, non-browser subset of code from:
+
+  Package:  @pierre/diffs
+  Version:  1.2.12  (see UPSTREAM_VERSION)
+  License:  Apache License 2.0  (full text: APACHE-2.0-LICENSE.md)
+  Upstream: https://www.npmjs.com/package/@pierre/diffs
+
+Copyright of the original work belongs to the @pierre/diffs authors and
+contributors as stated in that package.
+
+What was taken
+--------------
+Only the pure parse path used by here.build's TUI diff projection:
+
+  - dist/utils/parseDiffFromFile.js
+  - dist/utils/parsePatchFiles.js
+  - dist/utils/cleanLastNewline.js
+  - dist/utils/detachString.js
+  - related constants from dist/constants.js
+
+Not taken: React/DOM components (CodeView, FileDiff, …), SSR, workers,
+highlighters, CSS, or any code that touches `navigator` / the DOM.
+
+Why
+---
+The published package entry re-exports browser UI that evaluates
+`navigator.userAgent` at module load time, which crashes under Node (storybook
+fixtures, tests, harness CLI). We only need structured hunk metadata.
+
+Modifications by here.build
+---------------------------
+  - TypeScript modules and local type definitions for the parse surface
+  - Dropped unused constants / exports
+  - No intentional changes to parse algorithms
+
+Apache-2.0 requires that recipients receive a copy of the license (included)
+and that modified files carry notices of change (file headers + this NOTICE).

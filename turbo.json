@@ -1,0 +1,33 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "*.tsbuildinfo"]
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "lint": {
+      "outputs": []
+    },
+    "lint:fix": {
+      "outputs": []
+    },
+    "check:color-parity": {
+      "inputs": [
+        "packages/quickdraw/scripts/check-color-parity.mjs",
+        "packages/quickdraw/scripts/color-parity-baseline.json",
+        "packages/quickdraw/src/**/*.ts",
+        "packages/harness-tui/src/e2e/**/*.ts"
+      ],
+      "outputs": []
+    }
+  }
+}

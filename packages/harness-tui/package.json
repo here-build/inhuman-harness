@@ -1,0 +1,80 @@
+{
+  "name": "@inhuman.tools/harness-tui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Terminal shell for the harness daemon: the Tea state machine, the paint pipeline over quickdraw, the host and worker, the client-side Scheme sandbox, and the Mac terminal screenshot driver.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "browserslist": [
+    "node >= 22"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run --project logic",
+    "test:visual": "vitest run --project visual",
+    "screenshots": "RECORD_PRESENT=1 vitest run --project visual",
+    "terminals": "vitest run --config vitest.terminals.config.ts",
+    "terminals:update": "UPDATE_SCREENSHOTS=1 vitest run --config vitest.terminals.config.ts"
+  },
+  "dependencies": {
+    "@here.build/arrival": "^0.10.2",
+    "@here.build/collections": "^0.9.0",
+    "@inhuman.tools/harness-contract": "workspace:^",
+    "@inhuman.tools/harness-diagnostics": "workspace:^",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/harness-peer": "workspace:^",
+    "@inhuman.tools/harness-scheme": "workspace:^",
+    "@inhuman.tools/harness-sdk": "workspace:^",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/policy": "workspace:^",
+    "@inhuman.tools/quickdraw": "workspace:*",
+    "fast-deep-equal": "3.1.3",
+    "mobx": "6.16.1",
+    "mobx-state-tree": "7.4.0",
+    "tiny-invariant": "^1.3.3",
+    "zod": "^4.4.3"
+  },
+  "optionalDependencies": {
+    "@inhuman.tools/qd-darwin-arm64": "workspace:*",
+    "@inhuman.tools/qd-darwin-x64": "workspace:*",
+    "@inhuman.tools/qd-linux-arm64": "workspace:*",
+    "@inhuman.tools/qd-linux-x64": "workspace:*"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/harness": "workspace:^",
+    "@inhuman.tools/harness-commons": "workspace:^",
+    "@types/node": "^24.0.0",
+    "@types/pixelmatch": "5.2.6",
+    "@types/pngjs": "6.0.5",
+    "eslint": "9.39.2",
+    "execa": "9.6.1",
+    "pixelmatch": "7.2.0",
+    "pngjs": "7.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0",
+    "yjs": "13.6.33"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/harness-tui"
+  }
+}

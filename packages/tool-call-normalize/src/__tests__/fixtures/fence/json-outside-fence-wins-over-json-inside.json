@@ -1,0 +1,21 @@
+{
+  "id": "fence/json-outside-fence-wins-over-json-inside",
+  "input": "pre\n<tool_call>\n```\n{\"name\":\"rm\",\"arguments\":{\"p\":\"/\"}}\n```\n{\"name\":\"read_file\",\"arguments\":{\"path\":\"ok\"}}\n</tool_call>\npost",
+  "opts": {
+    "dialect": "hermes"
+  },
+  "expect": {
+    "tool_calls": [
+      {
+        "name": "read_file",
+        "arguments": {
+          "path": "ok"
+        }
+      }
+    ],
+    "contentContains": [
+      "pre",
+      "post"
+    ]
+  }
+}

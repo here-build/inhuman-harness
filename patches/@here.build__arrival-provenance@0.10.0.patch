@@ -1,0 +1,163 @@
+diff --git a/dist/analysis/trace-region-fold.js b/dist/analysis/trace-region-fold.js
+index a42882065e4fd350f9be58aa3dcb2b4cca7fa7e8..634d066bb3d3ff09c7c3f42614f09111b423e9c4 100644
+--- a/dist/analysis/trace-region-fold.js
++++ b/dist/analysis/trace-region-fold.js
+@@ -202,7 +202,7 @@ export class TraceRegionFold {
+             if (!inv.isProvenancePoint)
+                 continue;
+             const plain = this.#invById.get(inv.id);
+-            const up = upstreamOfPoint(plain, this.#pointIds);
++            const up = upstreamOfPoint(plain, this.#pointIds, this.#liveById.get(plain.id)?.symbolContributions);
+             const { edges: added } = addPointToHasse(plain.id, up, this.#reach);
+             this.#baseEdges.push(...added);
+         }
+@@ -410,7 +410,7 @@ export class TraceRegionFold {
+             i--;
+         points.splice(i, 0, plain);
+         this.#pointIds.add(plain.id);
+-        const up = upstreamOfPoint(plain, this.#pointIds);
++        const up = upstreamOfPoint(plain, this.#pointIds, live.symbolContributions);
+         const { edges: added } = addPointToHasse(plain.id, up, this.#reach);
+         // Base edges stay grouped ascending by target point (parity with from-scratch).
+         const edges = this.#baseEdges;
+diff --git a/dist/analysis/trace-to-regions.d.ts b/dist/analysis/trace-to-regions.d.ts
+index 8490e2946a929c5239b04b562d3ade160124afe3..6973473a0629e7754c00abbce7a8b874d0763a0d 100644
+--- a/dist/analysis/trace-to-regions.d.ts
++++ b/dist/analysis/trace-to-regions.d.ts
+@@ -188,7 +188,7 @@ export declare function addPointToHasse(x: number, up: ReadonlySet<number>, reac
+ };
+ /** x's in-graph upstream origin set: ⋃ over x's children of child.provenance, origin-
+  *  resolved (identity under forward) and kept iff it's a point and not x. */
+-export declare function upstreamOfPoint(x: PlainInv, pointIds: ReadonlySet<number>): Set<number>;
++export declare function upstreamOfPoint(x: PlainInv, pointIds: ReadonlySet<number>, symbols?: Iterable<ReadonlySet<number>> | null): Set<number>;
+ export declare const routeOf: (inv: PlainInv) => object;
+ /** An OPTIONAL per-iteration memo hook (the incremental seam). `regionsAt` calls this
+  *  at each iteration-producing site so `TraceRegionFold` can REUSE a frozen iteration's
+diff --git a/dist/analysis/trace-to-regions.js b/dist/analysis/trace-to-regions.js
+index 209fbf5e6534149765b5fde0908c25feb9abd062..0d5782b6d3b76c0b2cd5ec6e1635899adcfcd962 100644
+--- a/dist/analysis/trace-to-regions.js
++++ b/dist/analysis/trace-to-regions.js
+@@ -377,14 +377,20 @@ export function addPointToHasse(x, up, reach) {
+ }
+ /** x's in-graph upstream origin set: ⋃ over x's children of child.provenance, origin-
+  *  resolved (identity under forward) and kept iff it's a point and not x. */
+-export function upstreamOfPoint(x, pointIds) {
++export function upstreamOfPoint(x, pointIds, symbols) {
+     const up = new Set();
++    const take = (p) => {
++        const o = resolveOriginVia(p);
++        if (o !== x.id && pointIds.has(o))
++            up.add(o);
++    };
+     for (const c of x.children)
+-        for (const p of c.provenance) {
+-            const o = resolveOriginVia(p);
+-            if (o !== x.id && pointIds.has(o))
+-                up.add(o);
+-        }
++        for (const p of c.provenance)
++            take(p);
++    // A bare-symbol argument is no invocation: its provenance lands on the point itself.
++    for (const s of symbols ?? [])
++        for (const p of s)
++            take(p);
+     return up;
+ }
+ // ── the region walk (regionsAt) — shared by from-scratch + incremental ─────────
+@@ -629,7 +635,7 @@ export function regionsAt(inv, ctx) {
+         // ARGUMENT is recognized by its node being one of the form's own argument ASTs;
+         // element applications' nodes are the lambda/body, never an argument position.
+         const argNodes = new Set(astArgs(inv.node));
+-        const applChildren = inv.children.filter((c) => c.children.length > 0 && !argNodes.has(c.node));
++        const applChildren = inv.children.filter((c) => (c.children.length > 0 || c.isProvenancePoint) && !argNodes.has(c.node));
+         // An iteration that flattens to nothing meaningful is dropped; `incoming`
+         // keeps the RAW count so the banner can say "10 incoming, 5 mattered". A map
+         // application is FROZEN once it has resolved (its subtree no longer grows —
+@@ -1075,8 +1081,12 @@ function buildRegions(snap, trace) {
+     // Edges (Hasse transitive reduction) over the points, in ascending id order.
+     const reach = new Map();
+     const edges = [];
++    const symbolsOf = new Map();
++    for (const inv of trace.invocationLog)
++        if (inv.isProvenancePoint && inv.symbolContributions)
++            symbolsOf.set(inv.id, inv.symbolContributions);
+     for (const x of [...points].sort((a, b) => a.id - b.id)) {
+-        const up = upstreamOfPoint(x, pointIds);
++        const up = upstreamOfPoint(x, pointIds, symbolsOf.get(x.id));
+         const { edges: added } = addPointToHasse(x.id, up, reach);
+         edges.push(...added);
+     }
+diff --git a/src/analysis/trace-region-fold.ts b/src/analysis/trace-region-fold.ts
+index 05f87855b72053ad1eaf851bd25b9e3bad00316c..4c62e93ab4d9d70b7203296303d88860e5ee2fb7 100644
+--- a/src/analysis/trace-region-fold.ts
++++ b/src/analysis/trace-region-fold.ts
+@@ -266,7 +266,7 @@ export class TraceRegionFold {
+     for (const inv of fresh) {
+       if (!inv.isProvenancePoint) continue;
+       const plain = this.#invById.get(inv.id)!;
+-      const up = upstreamOfPoint(plain, this.#pointIds);
++      const up = upstreamOfPoint(plain, this.#pointIds, this.#liveById.get(plain.id)?.symbolContributions);
+       const { edges: added } = addPointToHasse(plain.id, up, this.#reach);
+       this.#baseEdges.push(...added);
+     }
+@@ -479,7 +479,7 @@ export class TraceRegionFold {
+     while (i > 0 && points[i - 1]!.id > plain.id) i--;
+     points.splice(i, 0, plain);
+     this.#pointIds.add(plain.id);
+-    const up = upstreamOfPoint(plain, this.#pointIds);
++    const up = upstreamOfPoint(plain, this.#pointIds, live.symbolContributions);
+     const { edges: added } = addPointToHasse(plain.id, up, this.#reach);
+     // Base edges stay grouped ascending by target point (parity with from-scratch).
+     const edges = this.#baseEdges;
+diff --git a/src/analysis/trace-to-regions.ts b/src/analysis/trace-to-regions.ts
+index 0425a80165a85dd0783a4be15e7165452f4dbc39..e8687a14924322d8f3624a22a37ee09c7d4444f1 100644
+--- a/src/analysis/trace-to-regions.ts
++++ b/src/analysis/trace-to-regions.ts
+@@ -516,13 +516,19 @@ export function addPointToHasse(
+ 
+ /** x's in-graph upstream origin set: ⋃ over x's children of child.provenance, origin-
+  *  resolved (identity under forward) and kept iff it's a point and not x. */
+-export function upstreamOfPoint(x: PlainInv, pointIds: ReadonlySet<number>): Set<number> {
++export function upstreamOfPoint(
++  x: PlainInv,
++  pointIds: ReadonlySet<number>,
++  symbols?: Iterable<ReadonlySet<number>> | null,
++): Set<number> {
+   const up = new Set<number>();
+-  for (const c of x.children)
+-    for (const p of c.provenance) {
+-      const o = resolveOriginVia(p);
+-      if (o !== x.id && pointIds.has(o)) up.add(o);
+-    }
++  const take = (p: number): void => {
++    const o = resolveOriginVia(p);
++    if (o !== x.id && pointIds.has(o)) up.add(o);
++  };
++  for (const c of x.children) for (const p of c.provenance) take(p);
++  // A bare-symbol argument is no invocation: its provenance lands on the point itself.
++  for (const s of symbols ?? []) for (const p of s) take(p);
+   return up;
+ }
+ 
+@@ -815,7 +821,7 @@ export function regionsAt(inv: PlainInv, ctx: RegionWalkCtx): Region[] {
+     // ARGUMENT is recognized by its node being one of the form's own argument ASTs;
+     // element applications' nodes are the lambda/body, never an argument position.
+     const argNodes = new Set(astArgs(inv.node));
+-    const applChildren = inv.children.filter((c) => c.children.length > 0 && !argNodes.has(c.node));
++    const applChildren = inv.children.filter((c) => (c.children.length > 0 || c.isProvenancePoint) && !argNodes.has(c.node));
+     // An iteration that flattens to nothing meaningful is dropped; `incoming`
+     // keeps the RAW count so the banner can say "10 incoming, 5 mattered". A map
+     // application is FROZEN once it has resolved (its subtree no longer grows —
+@@ -1270,8 +1276,11 @@ function buildRegions(snap: PlainTrace, trace: EvalTrace): RegionGraph {
+   // Edges (Hasse transitive reduction) over the points, in ascending id order.
+   const reach = new Map<number, Set<number>>();
+   const edges: RegionEdge[] = [];
++  const symbolsOf = new Map<number, Iterable<ReadonlySet<number>>>();
++  for (const inv of trace.invocationLog)
++    if (inv.isProvenancePoint && inv.symbolContributions) symbolsOf.set(inv.id, inv.symbolContributions);
+   for (const x of [...points].sort((a, b) => a.id - b.id)) {
+-    const up = upstreamOfPoint(x, pointIds);
++    const up = upstreamOfPoint(x, pointIds, symbolsOf.get(x.id));
+     const { edges: added } = addPointToHasse(x.id, up, reach);
+     edges.push(...added);
+   }

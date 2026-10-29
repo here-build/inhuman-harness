@@ -1,0 +1,53 @@
+{
+  "name": "@inhuman.tools/plugin-offload-tingle",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Cited project memory. Writer and scout behaviors, with an optional SQLite MCP adapter.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/plugin.d.ts",
+      "default": "./dist/plugin.js"
+    }
+  },
+  "files": [
+    "plugin.json",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@inhuman.tools/harness-commons": "workspace:^",
+    "@inhuman.tools/plugin-sdk": "workspace:^",
+    "@modelcontextprotocol/sdk": "1.26.0",
+    "better-sqlite3": "^11.10.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "mobx": "6.16.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "plugins/inhuman-plugin-offload-tingle"
+  }
+}

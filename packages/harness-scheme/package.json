@@ -1,0 +1,80 @@
+{
+  "name": "@inhuman.tools/harness-scheme",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Scheme faces of a session: catalog description, keywords, the scheme_repl interpreter host, and provenance replay. `./keywords` and `./replay` are browser-safe and the web app bundles them; the root entry reaches node:fs through scheme-program/fs and is for the daemon.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./keywords": {
+      "types": "./dist/keywords.d.ts",
+      "import": "./dist/keywords.js",
+      "default": "./dist/keywords.js"
+    },
+    "./replay": {
+      "types": "./dist/replay.d.ts",
+      "import": "./dist/replay.js",
+      "default": "./dist/replay.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
+  "sideEffects": false,
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16",
+    "node >= 22"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run"
+  },
+  "dependencies": {
+    "@here.build/arrival": "^0.10.2",
+    "@here.build/arrival-modules": "^0.10.0",
+    "@here.build/arrival-serializer": "^0.10.2",
+    "@inhuman.tools/env-capability-module-prompt": "workspace:^",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/scheme-program": "workspace:^",
+    "@inhuman.tools/scheme-watch": "workspace:^",
+    "@inhuman.tools/substrate": "workspace:^",
+    "@inhuman.tools/tool-call-normalize": "workspace:^",
+    "@inhuman.tools/turn": "workspace:^",
+    "dedent": "1.7.2",
+    "mobx": "6.16.1",
+    "tiny-invariant": "^1.3.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@here.build/arrival-provenance": "^0.10.0",
+    "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/harness-commons": "workspace:^",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0",
+    "yjs": "13.6.33"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/harness-scheme"
+  }
+}

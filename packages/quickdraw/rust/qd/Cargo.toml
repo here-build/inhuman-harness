@@ -1,0 +1,24 @@
+[package]
+name = "qd"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Quickdraw runtime process. Modules land only with the TypeScript oracle."
+
+[dependencies]
+irosashi = "0.3"
+libc = "0.2"
+regex = "1"
+serde_json = "1"
+tree-sitter = "0.25.0"
+tree-sitter-javascript = "0.25.0"
+tree-sitter-python = "0.25.0"
+tree-sitter-rust = "0.24.2"
+tree-sitter-scheme = "0.25.0"
+tree-sitter-typescript = "0.23.2"
+unicode-segmentation = "1.12"
+unicode-width = "0.2"
+
+[[bin]]
+name = "qd"
+path = "src/bin/qd.rs"

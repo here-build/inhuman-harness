@@ -1,0 +1,16 @@
+{
+  "id": "policy-openclaw-sage",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "authorizationPath": { "type": "string" },
+      "sageApiKey": { "type": "string" }
+    }
+  },
+  "configContracts": {
+    "secretInputs": {
+      "paths": [{ "path": "sageApiKey", "expected": "string" }]
+    }
+  }
+}

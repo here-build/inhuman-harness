@@ -1,0 +1,4025 @@
+@import "tailwindcss";
+
+/*
+ * One scale per quantity, so a value off the scale cannot be written.
+ *
+ * Type: a minor third (×1.2) on a 16px base: 11 / 13 / 16 / 19 / 23 / 28.
+ * Weight: regular, and 620 for every emphasis, heading or not.
+ * Space: the 4px grid, written as `--spacing(n)` with whole n.
+ * Radius: 4 for chips and dots, 8 for rows inside a 12 container (outer = inner + inset),
+ * 12 for containers; all drawn as squircles. Nothing is a pill.
+ * Motion: ease-out; 150ms for feedback.
+ */
+@theme {
+  --font-weight-*: initial;
+  --font-weight-normal: 400;
+  --font-weight-strong: 620;
+
+  --text-*: initial;
+  --text-xs: 0.6875rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.1875rem;
+  --text-lg--line-height: 1.3;
+  --text-xl: 1.4375rem;
+  --text-xl--line-height: 1.25;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 1.2;
+
+  --radius-*: initial;
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+
+  /* Enter and exit ease out, strongly; constant motion is linear; nothing eases in. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: var(--ease-out);
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("./fonts/source-sans-3.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF, U+0301,
+    U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("./fonts/source-sans-3-italic.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: italic;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF, U+0301,
+    U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: "Nunito Sans";
+  src: url("./fonts/nunito-sans.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF, U+0301,
+    U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: "Nunito Sans";
+  src: url("./fonts/nunito-sans-italic.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-style: italic;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF, U+0301,
+    U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@theme inline {
+  /* Self-hosted full-feature files under the bare family name. Petite caps need those features. */
+  --font-sans: "Source Sans 3", ui-sans-serif, sans-serif;
+  --font-heading: "Nunito Sans", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --color-canvas: var(--canvas);
+  --color-wash: var(--wash);
+  --color-raised: var(--raised);
+  --color-field: var(--field);
+  --color-line: var(--line);
+  --color-edge: var(--edge);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-working: var(--working);
+  --color-hover: var(--hover);
+  --color-selected: var(--selected);
+}
+
+/*
+ * Color, in OKLCH so equal steps read as equal. Each token is one
+ * `light-dark()` pair, resolved by the element's `color-scheme`: the OS
+ * preference, or `data-scheme` on the root when something pins it.
+ * `__tests__/contrast.test.ts` holds every pair to WCAG AA in both schemes.
+ *
+ * Surfaces rise by lightness: canvas → wash (containers, sidebar) → raised
+ * (menus, popovers). Hover and selection are ink laid over whatever surface
+ * is under them, so one token works on all three.
+ * Text has three tiers: ink, muted (secondary), subtle (tertiary); each is
+ * AA on every surface. `line` divides and decorates; `edge` bounds a control
+ * and holds 3:1 against what is around it.
+ */
+:root {
+  color-scheme: light dark;
+  --canvas: light-dark(oklch(1 0 0), oklch(0.18 0.005 286));
+  --wash: light-dark(oklch(0.967 0.005 286), oklch(0.225 0.005 286));
+  --raised: light-dark(oklch(1 0 0), oklch(0.27 0.005 286));
+  --field: light-dark(oklch(1 0 0), oklch(0.21 0.005 286));
+  --line: light-dark(oklch(0.905 0.005 286), oklch(0.31 0.005 286));
+  --edge: light-dark(oklch(0.62 0.005 286), oklch(0.535 0.005 286));
+  --ink: light-dark(oklch(0.21 0.005 286), oklch(0.93 0.004 286));
+  --muted: light-dark(oklch(0.44 0.005 286), oklch(0.76 0.005 286));
+  --subtle: light-dark(oklch(0.52 0.005 286), oklch(0.665 0.005 286));
+  --danger: light-dark(oklch(0.53 0.2 27), oklch(0.72 0.16 25));
+  --warning: light-dark(oklch(0.53 0.13 65), oklch(0.8 0.15 80));
+  --success: light-dark(oklch(0.5 0.13 152), oklch(0.76 0.15 152));
+  --working: light-dark(oklch(0.53 0.15 255), oklch(0.74 0.13 250));
+  /* A changed line: lightness held near the surface, so syntax colors keep AA; hue alone marks it. */
+  --added-line: light-dark(oklch(0.965 0.04 152), oklch(0.235 0.035 152));
+  --removed-line: light-dark(oklch(0.975 0.032 25), oklch(0.235 0.035 25));
+  --hover: color-mix(in oklab, var(--ink) 7%, transparent);
+  --selected: color-mix(in oklab, var(--ink) 11%, transparent);
+  /* A shadow vanishes on a dark page; there the raised surface carries the lift. */
+  --overlay-shadow: 0 0.75rem 2rem light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.45));
+}
+
+:root[data-scheme="light"] {
+  color-scheme: light;
+}
+
+:root[data-scheme="dark"] {
+  color-scheme: dark;
+}
+
+*,
+::before,
+::after {
+  corner-shape: squircle;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-strong);
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-variant-caps: all-petite-caps;
+  font-feature-settings: normal;
+  font-synthesis: none;
+  letter-spacing: 0.04em;
+}
+
+.mono,
+code,
+pre,
+.shiki-host,
+.shiki-host pre {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-synthesis: none;
+}
+
+/* Coarse pointers get the 44px target; fine pointers keep the 24px floor. */
+@media (pointer: coarse) {
+  .touch-target {
+    min-block-size: 2.75rem;
+  }
+}
+
+/* The rail's sections split its height fairly: each is owed an equal share, a short one takes only what it holds
+   and leaves the rest to the others, and one held to its share scrolls inside itself. */
+.rail-section {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-block-size: 0;
+  max-block-size: max-content;
+}
+
+.rail-section + .rail-section {
+  border-block-start: 1px solid var(--color-line);
+}
+
+.rail-section > ul {
+  min-block-size: 0;
+  overflow-y: auto;
+}
+
+/* Project tabs. The strip's top rule is the tape's bottom edge and runs the full
+   frame. The corner under the rail is the cell that rule and the rail's right
+   rule close. The active tab carries a 2px ink bar on that top rule. */
+.frame {
+  display: flex;
+  flex-direction: column;
+  block-size: 100dvh;
+  overflow: hidden;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+.frame-body {
+  display: flex;
+  min-block-size: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+@media (width >= 64rem) {
+  .frame-body {
+    position: relative;
+    flex-direction: row;
+    /* The preview queries this row. `.tape` stays its own container, so the lane fold still measures the tape. */
+    container: preview-row / inline-size;
+  }
+}
+
+.project-strip {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  min-block-size: 2.5rem;
+  border-block-start: 1px solid var(--color-line);
+  background: var(--color-wash);
+}
+
+.rail-brand {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-block-size: 3rem;
+  margin: 0;
+  padding-inline: --spacing(4);
+  border-block-end: 1px solid var(--color-line);
+  font-size: var(--text-base);
+}
+
+.project-corner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  gap: --spacing(2);
+  padding-inline: --spacing(4);
+  border-inline-end: 1px solid var(--color-line);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+}
+
+.project-corner:hover {
+  background: var(--color-hover);
+}
+
+.settings-dialog {
+  display: flex;
+  flex-direction: column;
+  inline-size: min(56rem, calc(100vw - 2rem));
+  block-size: min(40rem, calc(100dvh - 2rem));
+  max-block-size: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  box-shadow: var(--overlay-shadow);
+}
+
+.settings-dialog::backdrop {
+  background: light-dark(rgb(0 0 0 / 0.25), rgb(0 0 0 / 0.55));
+}
+
+.settings-layout {
+  display: flex;
+  min-block-size: 0;
+  flex: 1;
+}
+
+.settings-nav {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: --spacing(1);
+  inline-size: 11rem;
+  padding: --spacing(3);
+  border-inline-end: 1px solid var(--color-line);
+  background: var(--color-wash);
+}
+
+.settings-nav button {
+  min-block-size: 2rem;
+  padding: --spacing(2) --spacing(3);
+  border-radius: var(--radius-sm);
+  text-align: start;
+  font-size: var(--text-sm);
+}
+
+.settings-nav button:hover {
+  background: var(--color-hover);
+}
+
+.settings-nav button[aria-current="true"],
+.settings-nav button[aria-current="true"]:hover {
+  background: var(--color-selected);
+  font-weight: var(--font-weight-strong);
+}
+
+.settings-body {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: --spacing(4);
+  padding: --spacing(5);
+  overflow: auto;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: --spacing(3);
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(2);
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(2);
+  padding: --spacing(3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.settings-clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.swipe-clip {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-canvas);
+  touch-action: pan-y;
+}
+
+.swipe-main {
+  display: flex;
+  box-sizing: border-box;
+  inline-size: 100%;
+  align-items: center;
+  gap: --spacing(3);
+  padding: --spacing(3);
+  padding-inline-start: calc(--spacing(3) + var(--swipe-pad-start, 0px));
+  padding-inline-end: calc(--spacing(3) + var(--swipe-pad-end, 0px));
+  border: 0;
+  background: var(--color-canvas);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  transform: translateX(var(--swipe-x, 0px));
+  user-select: none;
+}
+
+.swipe-clip[data-dragging="false"] .swipe-main {
+  transition:
+    transform 150ms var(--ease-out),
+    padding-inline 150ms var(--ease-out);
+}
+
+.swipe-main:focus-visible,
+.swipe-action:focus-visible {
+  outline-offset: -2px;
+}
+
+.swipe-action {
+  position: absolute;
+  inset-block: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding-inline: --spacing(2);
+  border: 0;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.swipe-clip[data-dragging="false"] .swipe-action {
+  transition: width 150ms var(--ease-out);
+}
+
+.swipe-action[data-side="leading"] {
+  inset-inline-start: 0;
+}
+
+.swipe-action[data-side="trailing"] {
+  inset-inline-end: 0;
+}
+
+.swipe-action[data-live="false"] {
+  pointer-events: none;
+}
+
+.swipe-action[data-tone="destructive"] {
+  background: var(--color-danger);
+  color: var(--color-canvas);
+}
+
+.swipe-action[data-tone="action"] {
+  background: var(--color-ink);
+  color: var(--color-canvas);
+}
+
+.swipe-action[data-tone="quiet"] {
+  background: var(--color-canvas);
+  color: var(--color-warning);
+  box-shadow: inset 0 0 0 1px var(--color-warning);
+}
+
+.settings-switch {
+  position: relative;
+  flex: none;
+  inline-size: 2.5rem;
+  block-size: 1.5rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-edge);
+}
+
+.settings-switch[data-on="true"] {
+  background: var(--color-success);
+}
+
+.settings-switch::after {
+  content: "";
+  position: absolute;
+  inset-block: 2px;
+  inset-inline-start: 2px;
+  inline-size: 1.25rem;
+  border-radius: var(--radius-xs);
+  background: var(--color-canvas);
+  transition: transform 150ms var(--ease-out);
+}
+
+.settings-switch[data-on="true"]::after {
+  transform: translateX(1rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swipe-main,
+  .swipe-action,
+  .settings-switch::after {
+    transition: none;
+  }
+}
+
+.settings-row-main {
+  display: flex;
+  align-items: center;
+  gap: --spacing(3);
+}
+
+.settings-grow {
+  min-inline-size: 0;
+  flex: 1;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: --spacing(2);
+}
+
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: --spacing(2);
+  min-block-size: 2rem;
+  font-size: var(--text-sm);
+}
+
+.settings-list > h3 {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.settings-select {
+  block-size: 2.25rem;
+  inline-size: 100%;
+  padding-inline: --spacing(3);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-sm);
+  background: var(--color-field);
+  font-size: var(--text-sm);
+}
+
+@media (pointer: coarse) {
+  .settings-nav button,
+  .settings-check,
+  .settings-select {
+    min-block-size: 2.75rem;
+  }
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: --spacing(2) --spacing(3);
+  align-items: center;
+}
+
+.settings-mcp {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(2);
+}
+
+.settings-mcp-grant {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: --spacing(2) --spacing(3);
+  align-items: center;
+  margin: 0;
+  padding: --spacing(3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.settings-mcp-grant legend,
+.settings-mcp-grant button {
+  grid-column: 1 / -1;
+}
+
+.settings-mcp-grant legend {
+  padding-inline: --spacing(1);
+}
+
+@media (width < 40rem) {
+  .settings-mcp-grant {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width < 40rem) {
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    inline-size: auto;
+    overflow-x: auto;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--color-line);
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width >= 64rem) {
+  .project-corner {
+    inline-size: 18rem;
+  }
+}
+
+.project-tablist {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1;
+  align-items: stretch;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.project-tab {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  max-inline-size: 16rem;
+  color: var(--color-muted);
+}
+
+.project-tab[data-active] {
+  color: var(--color-ink);
+  box-shadow: inset 0 2px 0 var(--color-ink);
+}
+
+.project-tab-main {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: --spacing(2);
+  padding-inline: --spacing(3);
+  color: inherit;
+}
+
+/* The space before the chevron belongs to the tab hit target. A flex gap sat in neither target, so the hover stopped short. */
+.project-tab:has(.project-tab-chevron) .project-tab-main {
+  padding-inline-end: --spacing(1);
+}
+
+.project-tab-label {
+  flex: 1 1 auto;
+  min-inline-size: 2rem;
+}
+
+/* One layer on the whole tab. Hover is translucent, so the column must not paint again while the tab does.
+   Pointing at the chevron, or leaving its menu open, drops the tab and lights only that column. */
+.project-tab:has(.project-tab-main:hover),
+.project-tab:not(:has(.project-tab-main:hover)) > .project-tab-menu:hover,
+.project-tab:not(:has(.project-tab-main:hover)) > .project-tab-menu:has(.project-menu:popover-open),
+.project-menu-item:hover {
+  background: var(--color-hover);
+}
+
+.project-tab-menu {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  inline-size: calc(1.5rem + --spacing(1));
+}
+
+.project-tab-chevron {
+  anchor-name: --project-menu;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-inline-end: --spacing(1);
+  color: inherit;
+}
+
+.project-add {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding-inline: --spacing(2);
+}
+
+/* Above the chevron, overlapping it inline so the menu reads as that button's.
+   Top layer: the strip's scrollport clips an absolute menu. */
+.project-menu {
+  inset: auto;
+  position-anchor: --project-menu;
+  position-area: top span-left;
+  position-try-fallbacks: --project-menu-below, --project-menu-flip, --project-menu-flip-below;
+  margin-block: --spacing(1);
+  margin-inline-end: calc(-1 * --spacing(3));
+  min-inline-size: 10rem;
+  max-inline-size: calc(100vw - 2rem);
+  padding: --spacing(1);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-raised);
+  color: var(--color-ink);
+  box-shadow: var(--overlay-shadow);
+}
+
+/* Closed, a popover stays in the tree and keeps its box over the chevron. */
+.project-menu:not(:popover-open) {
+  display: none;
+}
+
+.project-menu:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+
+@position-try --project-menu-below {
+  position-area: bottom span-left;
+}
+
+@position-try --project-menu-flip {
+  position-area: top span-right;
+  margin-inline: calc(-1 * --spacing(3)) 0;
+}
+
+@position-try --project-menu-flip-below {
+  position-area: bottom span-right;
+  margin-inline: calc(-1 * --spacing(3)) 0;
+}
+
+.project-menu-item {
+  display: flex;
+  align-items: center;
+  gap: --spacing(2);
+  inline-size: 100%;
+  padding: --spacing(1) --spacing(2);
+  border-radius: var(--radius-xs);
+  text-align: start;
+}
+
+.add-project {
+  inline-size: min(28rem, calc(100vw - 2 * --spacing(6)));
+  margin: auto;
+  padding: --spacing(6);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  box-shadow: var(--overlay-shadow);
+}
+
+.add-project::backdrop {
+  background: light-dark(rgb(0 0 0 / 0.25), rgb(0 0 0 / 0.55));
+}
+
+@media (pointer: coarse) {
+  .project-tab-menu:has(.project-tab-chevron) {
+    inline-size: calc(2.75rem + --spacing(1));
+  }
+}
+
+@media (width < 40rem) {
+  .project-tab[data-tab="overview"] .project-tab-main {
+    position: relative;
+  }
+
+  .project-tab[data-tab="overview"] .project-tab-label {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    min-inline-size: 0;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .project-tab[data-tab="project"]:not([data-active]),
+  .project-tab[data-tab="bots"]:not([data-active]) {
+    flex: 0 1 6rem;
+    min-inline-size: 5rem;
+    max-inline-size: 6rem;
+  }
+
+  .project-tab[data-active] {
+    flex: 1 0 8rem;
+    min-inline-size: 8rem;
+    max-inline-size: 16rem;
+  }
+
+  .project-tab[data-tab="overview"] {
+    flex: none;
+    min-inline-size: 0;
+    max-inline-size: none;
+  }
+}
+
+.frame[data-embed] .tape {
+  padding-top: var(--embed-safe-top, 0px);
+  padding-bottom: var(--embed-safe-bottom, 0px);
+  scrollbar-gutter: auto;
+}
+
+.tape {
+  --transcript-center: min(48rem, 54cqw);
+  /* The selector row under the model lane; held model notes rest above it. */
+  --model-rest: 3.75rem;
+  --transcript-gutter: clamp(1rem, 4vw, 2.5rem);
+  /* Proximity is the grouping: a tool run touches, cells in a round sit apart, rounds sit further. */
+  --cell-gap: --spacing(4);
+  --round-gap: --spacing(8);
+  --note-gap: --spacing(6);
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: auto;
+  overflow-anchor: auto;
+  scrollbar-gutter: stable;
+  container-type: inline-size;
+}
+
+.tape > * {
+  overflow-anchor: none;
+}
+
+.tape > .anchor {
+  overflow-anchor: auto;
+  block-size: 1px;
+  flex: none;
+}
+
+.composer-field {
+  field-sizing: content;
+  min-block-size: 2.5rem;
+  max-block-size: 12lh;
+}
+
+/* Three lanes, as the tape: the selector beside the input, the right lane void. */
+.composer {
+  --composer-input-h: 3rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--transcript-center) minmax(0, 1fr);
+  align-items: end;
+  pointer-events: none;
+  background: none;
+}
+
+.composer[hidden] {
+  display: none;
+}
+
+.composer-lane {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+  height: var(--model-rest);
+  padding: 0 --spacing(3) --spacing(3);
+  background: var(--canvas);
+  pointer-events: auto;
+}
+
+.composer-picks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.composer-column {
+  grid-column: 2;
+  grid-row: 1;
+  pointer-events: auto;
+  width: calc(var(--transcript-center) - 2 * var(--transcript-gutter));
+  max-width: calc(100% - 2 * var(--transcript-gutter));
+  margin-inline: auto;
+  --composer-fade-h: calc(var(--composer-input-h) * 0.5);
+  padding-top: calc(var(--composer-fade-h) + --spacing(3));
+  padding-bottom: --spacing(3);
+  background-color: var(--canvas);
+  /* log10(1+9t) across the top strip. A two-stop mask is linear between its ends. */
+  --composer-mask: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0) 0,
+    rgb(0 0 0 / 0.243) calc(var(--composer-fade-h) * 0.0833),
+    rgb(0 0 0 / 0.398) calc(var(--composer-fade-h) * 0.1667),
+    rgb(0 0 0 / 0.512) calc(var(--composer-fade-h) * 0.25),
+    rgb(0 0 0 / 0.602) calc(var(--composer-fade-h) * 0.3333),
+    rgb(0 0 0 / 0.677) calc(var(--composer-fade-h) * 0.4167),
+    rgb(0 0 0 / 0.74) calc(var(--composer-fade-h) * 0.5),
+    rgb(0 0 0 / 0.796) calc(var(--composer-fade-h) * 0.5833),
+    rgb(0 0 0 / 0.845) calc(var(--composer-fade-h) * 0.6667),
+    rgb(0 0 0 / 0.889) calc(var(--composer-fade-h) * 0.75),
+    rgb(0 0 0 / 0.929) calc(var(--composer-fade-h) * 0.8333),
+    rgb(0 0 0 / 0.966) calc(var(--composer-fade-h) * 0.9167),
+    #000 var(--composer-fade-h),
+    #000 100%
+  );
+  -webkit-mask-image: var(--composer-mask);
+  mask-image: var(--composer-mask);
+  -webkit-mask-mode: alpha;
+  mask-mode: alpha;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* One line of 16/24 centered on the grid: 48 with a 32 action, 56 with a 48 action under a finger. */
+.composer-draft {
+  display: block;
+  min-block-size: 3rem;
+}
+
+@media (pointer: coarse) {
+  .composer-draft {
+    min-block-size: 3.5rem;
+  }
+}
+
+/* The control you type into is the strongest outline on the page. */
+.composer-pill {
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-md);
+  background: var(--field);
+}
+
+.composer-pill:focus-within {
+  border-color: var(--ink);
+}
+
+.composer-pill :focus-visible {
+  outline: none;
+}
+
+.composer-ask:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.composer kbd {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: var(--font-weight-strong);
+}
+
+.composer-keys {
+  white-space: nowrap;
+}
+
+/* A field that cannot take input steps back: no fill, a divider for an edge. */
+.composer-pill:has(textarea:disabled) {
+  border-color: var(--line);
+  background: transparent;
+}
+
+/* The picker stays in the field for tests and paste-adjacent picks. Drag is the gesture. */
+.composer-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* A file over the window: the field takes the outline, the page steps back, Drop here sits on top. */
+html:has(.composer-pill[data-drop]) {
+  background: color-mix(in oklab, var(--canvas) 55%, black);
+}
+
+.frame:has(.composer-pill[data-drop]) .tape,
+.frame:has(.composer-pill[data-drop]) .rail,
+.frame:has(.composer-pill[data-drop]) .project-strip {
+  opacity: 0.45;
+}
+
+.composer-pill[data-drop] {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+.composer-pill[data-drop="hot"] .composer-drop {
+  background: color-mix(in oklab, var(--ink) 14%, var(--field));
+}
+
+.composer-drop {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--canvas) 72%, transparent);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-strong);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.composer-pill[data-drop]) {
+    background: var(--canvas);
+  }
+
+  .frame:has(.composer-pill[data-drop]) .tape,
+  .frame:has(.composer-pill[data-drop]) .rail,
+  .frame:has(.composer-pill[data-drop]) .project-strip {
+    opacity: 1;
+  }
+}
+
+.composer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: --spacing(2);
+  margin: --spacing(2) --spacing(3) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.composer-chip {
+  position: relative;
+  width: 7.5rem;
+  height: 7.5rem;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--field);
+}
+
+.composer-chip-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.composer-chip-open:disabled {
+  cursor: default;
+}
+
+.composer-chip-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.composer-chip-remove {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 0;
+  border-start-start-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--ink) 55%, transparent);
+  color: var(--canvas);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.composer-chip:hover .composer-chip-remove,
+.composer-chip:focus-within .composer-chip-remove {
+  opacity: 1;
+}
+
+.picture-preview {
+  max-inline-size: calc(100vw - 2rem);
+  max-block-size: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.picture-preview img {
+  display: block;
+  max-inline-size: calc(100vw - 2rem);
+  max-block-size: calc(100dvh - 2rem);
+  object-fit: contain;
+}
+
+.picture-preview::backdrop {
+  background: light-dark(rgb(0 0 0 / 0.72), rgb(0 0 0 / 0.82));
+}
+
+/* One composer per page, so one anchor name. */
+.model-trigger {
+  anchor-name: --model-picker;
+  display: inline-flex;
+  max-width: 100%;
+  min-block-size: --spacing(8);
+  align-items: center;
+  gap: --spacing(2);
+  padding: --spacing(1) --spacing(3);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.permission-trigger,
+.agent-trigger {
+  max-width: 100%;
+  padding: 0 --spacing(2);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.permission-trigger {
+  anchor-name: --permission-mode;
+}
+
+.agent-trigger {
+  anchor-name: --agent-menu;
+}
+
+.permission-trigger:hover,
+.agent-trigger:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+/* Above the word. Top layer, so the composer cannot cover it. */
+.permission-menu,
+.agent-menu {
+  inset: auto;
+  position-area: top span-left;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+  margin: --spacing(1);
+  min-inline-size: 11rem;
+  padding: --spacing(1);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-raised);
+  color: var(--color-ink);
+  box-shadow: var(--overlay-shadow);
+}
+
+.permission-menu {
+  position-anchor: --permission-mode;
+}
+
+.agent-menu {
+  position-anchor: --agent-menu;
+}
+
+/* Closed, a popover stays in the tree and keeps its box over the word that opens it. */
+.permission-menu:not(:popover-open),
+.agent-menu:not(:popover-open) {
+  display: none;
+}
+
+.permission-menu:popover-open,
+.agent-menu:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+
+.permission-row {
+  padding: --spacing(1) --spacing(2);
+  border-radius: var(--radius-xs);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  text-align: start;
+}
+
+.permission-row[aria-checked="true"] {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-strong);
+}
+
+.permission-row:hover {
+  background: var(--color-hover);
+}
+
+@media (pointer: coarse) {
+  .model-trigger {
+    min-block-size: 2.75rem;
+  }
+}
+
+.model-trigger:hover,
+.model-trigger:has(+ .model-picker:popover-open) {
+  background: var(--hover);
+}
+
+.model-trigger:disabled {
+  opacity: 0.5;
+}
+
+/* The menu surface. The providers' popovers nest inside the root's DOM, so the
+   platform keeps the root open under them and closes them topmost-first.
+   The popover's own overflow is hidden: a short cap made the whole popup scroll. */
+.model-menu {
+  inset: auto;
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  color: var(--ink);
+  box-shadow: var(--overlay-shadow);
+}
+
+/* Closed, a popover stays in the tree. Without this it keeps its box and sits
+   over the model name, so the click that should open it never reaches it. */
+.model-menu:not(:popover-open) {
+  display: none;
+}
+
+.model-menu:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Above the model name. The shell stays clear so a provider's models can paint
+   beside a row; the sheet is the card, as tall as its rows. */
+.model-picker {
+  position-anchor: --model-picker;
+  position-area: top span-left;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+  margin: --spacing(1);
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.model-sheet {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 100%;
+  height: max-content;
+  max-height: calc(100dvh - 2 * --spacing(2));
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  box-shadow: var(--overlay-shadow);
+}
+
+/* Beside its provider row, top edges aligned (less the list's own padding).
+   As tall as its models, up to the screen. Flips; on a phone it drops under the row. */
+.model-submenu {
+  position-anchor: var(--wire-anchor);
+  position-area: right span-bottom;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline,
+    --model-wire-below;
+  height: max-content;
+  max-height: calc(100dvh - 2 * --spacing(2));
+  margin: calc(-1 * --spacing(1)) --spacing(2);
+  overflow-y: auto;
+  padding-block: --spacing(1);
+}
+
+@position-try --model-wire-below {
+  position-area: bottom span-left;
+  margin: --spacing(1) 0;
+}
+
+/* Name and current model; under them, who is signed in and what is left. */
+.model-option.model-wire {
+  anchor-name: var(--wire-anchor);
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
+  gap: --spacing(1) --spacing(3);
+}
+
+.model-wire[data-open] {
+  background: var(--selected);
+}
+
+.model-wire-value {
+  color: var(--muted);
+  text-align: end;
+}
+
+.model-wire-chevron {
+  grid-row: span 2;
+}
+
+/* One fact per line. A long line ellipsizes; the title keeps the raw text. */
+.model-wire-account {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  grid-area: 2 / 1 / 3 / 3;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.model-wire-account > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A mapped failure is a sentence, so it wraps instead of disappearing into the ellipsis. */
+.model-wire-account > [data-failed] {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.model-wire-funds[data-low] {
+  color: var(--warning);
+}
+
+.model-wire-account [data-failed] {
+  color: var(--danger);
+}
+
+.model-search {
+  flex: none;
+  padding: --spacing(2) --spacing(3);
+  border-top: 1px solid var(--line);
+  background: transparent;
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.model-search::placeholder {
+  color: var(--subtle);
+}
+
+/* Inset, so the ring sits in the field instead of on the menu's border. */
+.model-search:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.model-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-block: --spacing(1);
+}
+
+.model-group + .model-group {
+  margin-top: --spacing(1);
+  padding-top: --spacing(1);
+  border-top: 1px solid var(--line);
+}
+
+.model-group-label {
+  padding: --spacing(2) --spacing(3) --spacing(1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: --spacing(3);
+  min-block-size: --spacing(8);
+  margin-inline: --spacing(1);
+  padding: --spacing(2) --spacing(2);
+  border-radius: var(--radius-sm);
+  cursor: default;
+  font-size: var(--text-sm);
+}
+
+.model-option[data-active] {
+  background: var(--hover);
+}
+
+.model-empty {
+  padding: --spacing(3) --spacing(3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* A provider to connect: its name and how sign-in works, then what it is. */
+.provider-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 --spacing(3);
+}
+
+.provider-hint {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.provider-note {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* One connect flow in the menu's own space: what the daemon asked, then Cancel. */
+.connect-step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: --spacing(3);
+  padding: --spacing(3);
+  font-size: var(--text-sm);
+}
+
+.model-sheet > .connect-step {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.connect-title {
+  font-size: var(--text-base);
+}
+
+.connect-note {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.connect-field {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(2);
+  align-self: stretch;
+}
+
+.connect-row {
+  display: flex;
+  gap: --spacing(2);
+}
+
+/* A start-aligned column would shrink the notice to its text, and the text's basis would wrap it under the glyph. */
+.connect-step .link-notice {
+  align-self: stretch;
+  margin: 0;
+}
+
+.connect-detail {
+  margin-top: --spacing(1);
+}
+
+.connect-detail > summary {
+  width: fit-content;
+  color: var(--subtle);
+  cursor: pointer;
+  list-style: none;
+}
+
+.connect-detail > summary::-webkit-details-marker {
+  display: none;
+}
+
+.connect-detail > p {
+  margin: --spacing(1) 0 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.prose-wrap {
+  text-wrap: pretty;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--canvas);
+}
+
+.transcript {
+  width: 100%;
+  min-width: 0;
+  padding: --spacing(8) clamp(1.5rem, 3vw, 3rem) --spacing(12);
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: --spacing(6);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* Header, cells, and composer share one content edge: the center column less one gutter per side. */
+.transcript-column,
+.beat-body {
+  width: var(--transcript-center);
+  margin-inline: auto;
+  padding-inline: var(--transcript-gutter);
+}
+
+.timeline {
+  position: relative;
+  anchor-scope: all;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.timeline-main {
+  anchor-name: --timeline-main;
+  grid-column: 2;
+  grid-row: 1;
+  width: var(--transcript-center);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--round-gap);
+}
+
+.beat {
+  display: contents;
+}
+
+/* Keep the panes unpositioned: their annotations must resolve body anchors
+   against the common timeline containing block. They never size its tracks. */
+.side-pane {
+  grid-row: 1;
+  min-width: 0;
+  contain: size;
+}
+
+.side-pane.side-left {
+  grid-column: 1;
+}
+
+.side-pane.side-right {
+  grid-column: 3;
+}
+
+.side-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Try top alignment at the annotation's natural height, then bottom alignment
+   against the same response. Both options respect the preceding annotation;
+   when neither fits, native positioning retains the last viable placement. */
+.annotation-slot {
+  position: absolute;
+  position-anchor: var(--beat-anchor);
+  top: max(anchor(top), var(--previous-note));
+  bottom: var(--annotation-end);
+  position-try-fallbacks: --annotation-bottom;
+  min-height: max-content;
+  min-width: 0;
+  pointer-events: none;
+}
+
+/* An explicit bottom alignment keeps the horizontal side unchanged. The
+   previous-note inset is also the fit boundary, so flipping cannot cross it. */
+@position-try --annotation-bottom {
+  top: var(--previous-note);
+  bottom: anchor(bottom);
+  height: max-content;
+  align-self: end;
+}
+
+.annotation-slot.side-left {
+  left: max(0px, calc(anchor(--timeline-main left) - 22rem));
+  right: anchor(--timeline-main left);
+}
+
+.annotation-slot.side-right {
+  left: anchor(--timeline-main right);
+  right: max(0px, calc(anchor(--timeline-main right) - 22rem));
+}
+
+/* A note holds to the top of its span; the span is its slot. */
+.side-note {
+  anchor-name: var(--note-anchor);
+  position: sticky;
+  top: --spacing(4);
+  pointer-events: auto;
+}
+
+/* A model note rests at the end of its span and holds to the bottom, just
+   above the composer's selector, which is the lane's live end. */
+.model-slot {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  position-try-fallbacks: none;
+}
+
+.model-note {
+  top: auto;
+  bottom: var(--model-rest);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  z-index: 1;
+  padding: --spacing(6) --spacing(4) --spacing(6) --spacing(3);
+  border-right: 2px solid var(--line);
+  background: color-mix(in oklab, var(--canvas) 70%, transparent);
+  backdrop-filter: blur(4px);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* The connection under the model is metadata; the model name above it is the scan. */
+.model-note > .text-muted {
+  font-size: var(--text-xs);
+}
+
+/* Agents rest at the end of the round that took their result in. The ones
+   still out share the tape's end: one stack, held to the bottom beside the
+   model note's rest. A settled stack stays where it came back. */
+.agent-slot {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  position-try-fallbacks: none;
+}
+
+.agent-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cell-gap);
+  z-index: 1;
+}
+
+.agent-slot[data-out] > .agent-stack {
+  top: auto;
+  bottom: var(--model-rest);
+}
+
+.agent-slot:not([data-out]) > .agent-stack {
+  position: relative;
+  top: auto;
+}
+
+/* The bar is the agent's state: working, asking, settled, failed. The note, its peek, and a workflow card share it. */
+:is(.agent-note, .agent-peek, .wf-card, .wf-dot) {
+  --agent-bar: var(--working);
+}
+
+:is(.agent-note, .agent-peek, .wf-card, .wf-dot)[data-state="asking"] {
+  --agent-bar: var(--warning);
+}
+
+:is(.agent-note, .agent-peek, .wf-card, .wf-dot):is([data-state="ok"], [data-state="cancelled"]) {
+  --agent-bar: var(--edge);
+}
+
+:is(.agent-note, .agent-peek, .wf-card, .wf-dot)[data-state="failed"] {
+  --agent-bar: var(--danger);
+}
+
+/* A note is the button to its peek. */
+.agent-note {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: --spacing(2) --spacing(3) --spacing(2) --spacing(4);
+  border-left: 2px solid var(--agent-bar);
+  background: color-mix(in oklab, var(--canvas) 70%, transparent);
+  backdrop-filter: blur(4px);
+  color: var(--subtle);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* Focus wears the hover tint, not the ring: the bar already draws the note's edge. */
+.agent-note:is(:hover, :focus-visible):not(:disabled) {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+.agent-note:focus-visible {
+  outline: none;
+}
+
+.agent-note:disabled {
+  cursor: default;
+}
+
+.agent-note > span {
+  display: flex;
+  align-items: baseline;
+  gap: --spacing(2);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.agent-note > span > span,
+.agent-task {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-name {
+  flex: none;
+  color: var(--ink);
+  font-weight: var(--font-weight-strong);
+}
+
+.agent-note > .agent-task {
+  display: block;
+  color: var(--muted);
+}
+
+/* A peek is the note opened up: the agent's own transcript over the page, the
+   same lanes, its own scroll. It is as tall as what it holds, up to the viewport,
+   and keeps the note's bar down its whole left edge. */
+.agent-peek {
+  width: min(100rem, calc(100vw - 2 * --spacing(6)));
+  max-width: none;
+  max-height: calc(100dvh - 2 * --spacing(6));
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--canvas);
+  color: var(--ink);
+  box-shadow:
+    inset 2px 0 0 var(--agent-bar),
+    var(--overlay-shadow);
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out),
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+
+.agent-peek[open] {
+  display: flex;
+  flex-direction: column;
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/* Leaving is quicker than arriving: the reader is done. */
+.agent-peek:not([open]) {
+  opacity: 0;
+  transform: scale(0.98);
+  transition-duration: 140ms;
+}
+
+.agent-peek::backdrop {
+  background: transparent;
+  transition:
+    background-color 200ms var(--ease-out),
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+
+/* The page shares the dialog's canvas; a light blur sets it back so the edge reads. */
+.agent-peek[open]::backdrop {
+  background: light-dark(rgb(0 0 0 / 0.25), rgb(0 0 0 / 0.55));
+  backdrop-filter: blur(2px);
+
+  @starting-style {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-peek,
+  .agent-peek:not([open]) {
+    transform: none;
+  }
+
+  .agent-peek[open] {
+    @starting-style {
+      transform: none;
+    }
+  }
+}
+
+.agent-peek-header {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: --spacing(6);
+  padding: --spacing(5) --spacing(4) --spacing(4) --spacing(6);
+  border-bottom: 1px solid var(--line);
+}
+
+.agent-peek-title {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(1);
+  min-width: 0;
+}
+
+.agent-peek-who {
+  display: flex;
+  align-items: baseline;
+  gap: --spacing(2);
+  margin: 0;
+  color: var(--subtle);
+  font-size: var(--text-sm);
+}
+
+.agent-peek-who > .mono {
+  font-size: var(--text-xs);
+}
+
+.agent-peek-title > h2 {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--text-lg);
+  line-height: 1.3;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.agent-peek-status {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-peek-close {
+  flex: none;
+  margin: calc(-1 * --spacing(1)) 0 0;
+  padding-inline: --spacing(2);
+  color: var(--subtle);
+}
+
+.agent-peek-close:hover {
+  color: var(--ink);
+}
+
+/* No composer under a peek: held notes rest at the scrollport's edge. */
+.agent-peek-tape {
+  --model-rest: --spacing(4);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.agent-peek-tape:focus-visible {
+  outline: none;
+}
+
+/* A graph is as large as the room it is given: the canvas scrolls inside the dialog. */
+.workflow-peek {
+  height: calc(100dvh - 2 * --spacing(6));
+}
+
+.workflow-peek > .wf-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The way into a program's graph, first in its disclosure. */
+.tool-graph {
+  align-self: flex-start;
+  gap: --spacing(2);
+  margin: --spacing(3) --spacing(3) 0;
+  color: var(--muted);
+}
+
+.beat-body {
+  anchor-name: var(--beat-anchor);
+  width: 100%;
+  min-block-size: 1lh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cell-gap);
+  min-width: 0;
+  margin-inline: 0;
+}
+
+/* A reasoning-only round keeps its anchor for the note but no height; the
+   negative margin cancels one of the two timeline gaps around it. */
+.beat-body:empty {
+  min-block-size: 0;
+  margin-block-end: calc(-1 * var(--round-gap));
+}
+
+/* A bare diff on the tape sits on the content edge, not inside a card's padding. */
+.beat-body > .tool-pad {
+  padding-inline: 0;
+}
+
+/* Reasoning is shown beside the round on a wide page; the fold only exists on a narrow one. */
+.beat-thoughts {
+  width: min(22rem, 100%);
+  min-width: 0;
+}
+
+.beat-thoughts > summary {
+  display: none;
+}
+
+.beat-thoughts::details-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--note-gap);
+  content-visibility: visible;
+}
+
+.assistant-body {
+  min-width: 0;
+}
+
+.progress-mark {
+  width: 100%;
+  padding: --spacing(1) --spacing(4) --spacing(1) --spacing(3);
+  border-right: 2px solid var(--line);
+  background: var(--canvas);
+  text-align: right;
+  z-index: 1;
+}
+
+.progress-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.progress-description {
+  margin-top: --spacing(1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+
+.progress-items {
+  margin: --spacing(2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-title + .progress-items,
+.progress-description + .progress-items {
+  margin-top: --spacing(2);
+  padding-top: --spacing(2);
+  border-top: 1px solid var(--line);
+}
+
+.progress-items li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: --spacing(1);
+}
+
+.progress-items li + li {
+  margin-top: --spacing(2);
+}
+
+.progress-item-label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.3;
+}
+
+.progress-item-detail {
+  color: var(--subtle);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+/* A narrow side lane rags a right-aligned title. Sit the mark on the left until the column has room. */
+@container (max-width: 72rem) {
+  .progress-mark {
+    text-align: left;
+  }
+
+  .progress-items li {
+    align-items: flex-start;
+  }
+}
+
+/* Three lanes hold down to 52rem. A 1280 page with an 18rem rail leaves the tape
+   about 62rem, so the lanes stay open there. Narrower than that — a phone, or
+   the tape beside a collapsed rail on a small window — folds reasoning into a
+   disclosure. The file preview sheets rather than docking through this floor. */
+@container (max-width: 52rem) {
+  .transcript {
+    padding-inline: 0;
+  }
+
+  .transcript-column {
+    width: min(52rem, 100%);
+  }
+
+  .timeline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .timeline-main,
+  .side-pane,
+  .side-notes {
+    display: contents;
+  }
+
+  .annotation-slot {
+    position: static;
+    position-try-fallbacks: none;
+    inset: auto;
+    height: auto;
+    align-self: auto;
+    min-height: 0;
+    pointer-events: auto;
+  }
+
+  .annotation-slot,
+  .beat-body {
+    grid-column: 1;
+    width: min(52rem, 100%);
+    margin-inline: auto;
+  }
+
+  .composer-column {
+    width: calc(min(52rem, 100%) - 2 * var(--transcript-gutter));
+  }
+
+  .annotation-slot.side-left {
+    grid-row: calc(var(--beat-row) * 5 + 1);
+  }
+
+  /* Reasoning precedes the round it motivated, folded: the answer is what you came for. */
+  .annotation-slot.side-right {
+    grid-row: calc(var(--beat-row) * 5 + 2);
+    padding: 0 var(--transcript-gutter) var(--cell-gap);
+  }
+
+  .beat-thoughts > summary {
+    display: flex;
+    align-items: center;
+    gap: --spacing(2);
+    min-block-size: --spacing(8);
+    color: var(--subtle);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .beat-thoughts > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Tabler's chevron-right at the shared glyph size and stroke, so this disclosure matches the rail's. */
+  .beat-thoughts > summary::before {
+    content: "";
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6l-6 6'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    transition: transform 150ms var(--ease-out);
+  }
+
+  .beat-thoughts[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .beat-thoughts:not([open])::details-content {
+    content-visibility: hidden;
+  }
+
+  .beat-thoughts[open]::details-content {
+    padding-top: --spacing(2);
+  }
+
+  .side-note {
+    position: static;
+    width: 100%;
+  }
+
+  .progress-mark {
+    grid-row: 1;
+    max-width: none;
+    padding: --spacing(2) var(--transcript-gutter);
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+  }
+
+  .progress-items li {
+    align-items: flex-start;
+  }
+
+  .beat-body {
+    grid-row: calc(var(--beat-row) * 5 + 3);
+    margin-block: 0 var(--round-gap);
+  }
+
+  /* Agents follow the round that took them in; the ones still out close the tape. */
+  .annotation-slot.agent-slot {
+    grid-row: calc(var(--beat-row) * 5 + 4);
+    margin-block: calc(-1 * var(--round-gap) + var(--cell-gap)) var(--round-gap);
+  }
+
+  /* The model follows the last round it ran. */
+  .annotation-slot.model-slot {
+    grid-row: calc(var(--model-last-row) * 5 + 5);
+    margin-block: calc(-1 * var(--round-gap) + var(--cell-gap)) var(--round-gap);
+  }
+
+  .model-note {
+    flex-direction: row;
+    gap: --spacing(2);
+    padding: 0 var(--transcript-gutter);
+    border-right: 0;
+  }
+
+  .composer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .composer-column {
+    grid-column: 1;
+    padding-bottom: 0;
+  }
+
+  .composer-lane {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
+    height: auto;
+    padding: --spacing(2) var(--transcript-gutter) --spacing(3);
+  }
+
+  .composer-picks {
+    align-items: flex-start;
+  }
+
+  /* A round with only reasoning has no body. */
+  .beat-body:empty {
+    display: none;
+  }
+}
+
+/*
+ * The line to the daemon: one sentence and at most one action, no box. A
+ * wait breathes (opacity, the sidebar dot's size) and shows only past a beat;
+ * a state that needs you rings, as a row waiting on you does.
+ */
+.link-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: --spacing(2) --spacing(3);
+  margin: 0 0 --spacing(2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.link-notice[data-waiting] {
+  animation: connecting-in 200ms var(--ease-out) 400ms both;
+}
+
+.link-text {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.link-text code {
+  font-size: inherit;
+}
+
+.link-glyph {
+  flex: none;
+  width: --spacing(2);
+  height: --spacing(2);
+  border-radius: var(--radius-xs);
+}
+
+.link-glyph[data-waiting] {
+  background: var(--subtle);
+  animation: link-breathe 1600ms linear infinite;
+}
+
+.link-glyph[data-settled] {
+  background: var(--success);
+}
+
+.link-glyph[data-needs] {
+  border: 2px solid var(--warning);
+}
+
+.link-notice:has(.link-glyph[data-needs]) {
+  color: var(--ink);
+}
+
+.link-later {
+  animation: connecting-in 300ms var(--ease-out) 8s both;
+}
+
+@keyframes link-breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link-glyph[data-waiting] {
+    animation: none;
+  }
+}
+
+/* The measure narrows the text, not the column, so the empty state keeps the content edge. */
+.transcript-empty {
+  margin-block: clamp(2rem, 10vh, 6rem);
+}
+
+.transcript-empty > * {
+  max-width: 34rem;
+}
+
+.transcript-empty h2,
+.transcript-empty h3 {
+  margin-bottom: --spacing(2);
+  font-size: var(--text-2xl);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.transcript-empty p {
+  color: var(--muted);
+  margin-top: --spacing(2);
+}
+
+/*
+ * Connecting: three bars the width of a heading and two lines draw in, hold,
+ * and fade, staggered, where the greeting will land. Nothing shows for the
+ * first 400ms, the usual connect; the hint arrives only after 4s. A clip
+ * reveal keeps each bar's rounded ends while it draws (a scale would squash
+ * them); with opacity, nothing here touches layout.
+ */
+.connecting {
+  animation: connecting-in 200ms var(--ease-out) 400ms both;
+}
+
+.connecting-lines {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(3);
+}
+
+.connecting-lines > span {
+  display: block;
+  height: --spacing(2);
+  border-radius: var(--radius-xs);
+  background: var(--line);
+  animation: connecting-draw 1800ms var(--ease-out) infinite both;
+}
+
+.connecting-lines > span:nth-child(1) {
+  width: min(14rem, 45%);
+  height: --spacing(4);
+}
+
+.connecting-lines > span:nth-child(2) {
+  width: min(26rem, 85%);
+  animation-delay: 50ms;
+}
+
+.connecting-lines > span:nth-child(3) {
+  width: min(18rem, 60%);
+  animation-delay: 100ms;
+}
+
+.connecting .connecting-hint {
+  margin-top: --spacing(6);
+  color: var(--subtle);
+  font-size: var(--text-sm);
+  animation: connecting-in 300ms var(--ease-out) 4s both;
+}
+
+@keyframes connecting-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes connecting-draw {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0 round var(--radius-xs));
+  }
+  40%,
+  75% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round var(--radius-xs));
+  }
+  100% {
+    opacity: 0;
+    clip-path: inset(0 0 0 0 round var(--radius-xs));
+  }
+}
+
+/* Still bars: the place is held, nothing draws. The fades keep, as opacity is not movement. */
+@media (prefers-reduced-motion: reduce) {
+  .connecting-lines > span {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+.empty-project-path {
+  font-size: var(--text-sm);
+}
+
+/* A fresh session has no tape: the place and the composer sit together a little
+   above center. It is the same mounted composer seat; the first message has a
+   tape to fill, so the seat falls back to the bottom with no remount. */
+.tape:has(> .transcript > .transcript-fresh) {
+  justify-content: center;
+  padding-bottom: 12dvh;
+}
+
+.tape:has(> .transcript > .transcript-fresh) > .transcript {
+  flex-grow: 0;
+  padding-block: 0;
+}
+
+.transcript-fresh h2 {
+  font-size: var(--text-2xl);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+
+.transcript-fresh p {
+  margin-top: --spacing(1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.tape-message {
+  min-width: 0;
+}
+
+/* A sent message is a container, not a field: a fill and no edge. */
+.tape-user {
+  position: relative;
+  padding: --spacing(4) --spacing(5);
+  border-radius: var(--radius-md);
+  background: var(--wash);
+}
+
+.tape-user:has(.message-edit) {
+  padding-inline-end: --spacing(16);
+}
+
+.message-edit {
+  position: absolute;
+  top: --spacing(2);
+  inset-inline-end: --spacing(2);
+  min-block-size: 2rem;
+  padding-inline: --spacing(2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.tape-user:hover .message-edit,
+.tape-user:focus-within .message-edit {
+  opacity: 1;
+}
+
+.message-edit:hover,
+.message-edit:focus-visible {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+@media (pointer: coarse) {
+  .message-edit {
+    opacity: 1;
+    min-block-size: 2.75rem;
+  }
+}
+
+.composer-restore {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: --spacing(3);
+  margin-bottom: --spacing(2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.user-text {
+  white-space: pre-wrap;
+}
+
+.user-pictures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: --spacing(2);
+  margin-top: --spacing(3);
+}
+
+.tape-user .user-pictures:first-child {
+  margin-top: 0;
+}
+
+.user-picture {
+  width: 7.5rem;
+  height: 7.5rem;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--field);
+}
+
+.user-picture-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.user-picture-miss {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.user-picture img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*
+ * The iPhone embed: a sent message is a Messages bubble (systemBlue, trailing),
+ * and the page meets the native screen on systemBackground with no seam.
+ */
+:root:has(.frame[data-embed]) {
+  --canvas: light-dark(#fff, #000);
+}
+
+.frame[data-embed] .tape-user {
+  --bubble: light-dark(#007aff, #0a84ff);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  inline-size: fit-content;
+  max-inline-size: min(80%, 34rem);
+  margin-inline-start: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 22px;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.frame[data-embed] .tape-user:has(.message-edit) {
+  padding-inline-end: 0;
+}
+
+/* The fill sits on the text, so the edit caption can rest outside it. */
+.frame[data-embed] .tape-user .user-text {
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: var(--bubble);
+  color: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.frame[data-embed] .tape-user ::selection {
+  background: rgb(255 255 255 / 0.85);
+  color: var(--bubble);
+}
+
+.frame[data-embed] .tape-user .user-pictures {
+  justify-content: flex-end;
+  max-inline-size: 100%;
+}
+
+.frame[data-embed] .tape-user .user-picture {
+  max-inline-size: 100%;
+  border-radius: 14px;
+}
+
+.frame[data-embed] .tape-user .user-pictures:not(:last-child) {
+  margin-block-end: 4px;
+}
+
+.frame[data-embed] .tape-user .user-pictures + .user-text {
+  margin-block-start: 0;
+}
+
+/* Long-press on the bubble opens the native Copy / Edit menu; the button stays only for VoiceOver and scripted clicks. */
+.frame[data-embed] .tape-user {
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.frame[data-embed] .tape-user .message-edit {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-end: 0;
+  inline-size: 1px;
+  block-size: 1px;
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tape-assistant {
+  padding-block: --spacing(1);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tape-tool {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+/* Consecutive tools are one list: shared edges, no gap, outer corners only. */
+.beat-body > .tape-tool + .tape-tool {
+  margin-top: calc(-1 * var(--cell-gap) - 1px);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.beat-body > .tape-tool:has(+ .tape-tool) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.tool-disclosure {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(3);
+  padding-bottom: --spacing(3);
+}
+
+.diff {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--canvas);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  /* A changed line is its own token, painted as is (the view's own mix is zeroed); the changed words keep the strong mark. */
+  --diffs-addition-color-override: var(--success);
+  --diffs-deletion-color-override: var(--danger);
+  --diffs-bg-addition-override: var(--added-line);
+  --diffs-bg-deletion-override: var(--removed-line);
+  --diffs-bg-addition-number-override: var(--added-line);
+  --diffs-bg-deletion-number-override: var(--removed-line);
+}
+
+.diff-path {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.diff-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.diff diffs-container {
+  display: block;
+  min-width: 0;
+}
+
+.tool-disclosure > .tape-tool,
+.tool-disclosure > .read-lines,
+.tool-disclosure > .fail-line {
+  margin-inline: --spacing(3);
+}
+
+/* A run of looks is one ambient block: its sentences sit closer than cells do. */
+.read-lines {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(1);
+}
+
+.read-line {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.look-target {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5ch;
+  max-width: 100%;
+}
+
+.look-target > .mono {
+  font-size: var(--text-sm);
+}
+
+.look-target .tool-outcome {
+  margin-left: 0;
+  align-self: center;
+}
+
+/* In a sentence the glyph sits tight to its word; the 24px target overlaps the gap, which WCAG's spacing rule allows. */
+.look-target .fail-info {
+  margin-inline: calc(-1 * --spacing(1));
+  align-self: center;
+}
+
+/* A failed look keeps its name and drops the link; the info glyph carries the why. */
+.read-path[data-failed] {
+  color: var(--danger);
+  text-decoration: none;
+  cursor: default;
+}
+
+.read-path {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-decoration: underline dashed;
+  text-decoration-color: var(--subtle);
+  text-underline-offset: 0.2em;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.read-path:hover {
+  text-decoration-color: var(--ink);
+}
+
+.read-path:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.fail-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: --spacing(1) --spacing(2);
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.fail-info {
+  display: inline-flex;
+}
+
+/* The glyph stays 15px; the target is the 24px floor. */
+.fail-info > button {
+  anchor-name: var(--fail-anchor);
+  display: grid;
+  place-items: center;
+  min-inline-size: --spacing(6);
+  min-block-size: --spacing(6);
+  padding: 0;
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: help;
+}
+
+.fail-info > button:hover,
+.fail-info > button:focus-visible {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+/* Below the glyph, start edges aligned. Top layer, so the tape's scrollport cannot clip it. */
+.fail-info-bubble {
+  inset: auto;
+  position-anchor: var(--fail-anchor);
+  position-area: bottom span-right;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+  margin: --spacing(2);
+  width: max-content;
+  max-width: min(22rem, 70vw);
+  padding: --spacing(2) --spacing(2);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--overlay-shadow);
+}
+
+.fail-info-bubble:popover-open {
+  display: block;
+}
+
+.file-sidebar {
+  display: flex;
+  width: min(36rem, 40vw);
+  min-width: 18rem;
+  min-height: 0;
+  flex-shrink: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid var(--line);
+  background: var(--canvas);
+}
+
+@media (max-width: 767px) {
+  .file-sidebar {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 30;
+    width: min(100%, 28rem);
+    min-width: 0;
+    height: 100dvh;
+    box-shadow: var(--overlay-shadow);
+  }
+}
+
+/* The row is the rail plus the tape plus the preview. Overlay under the 89rem tape-and-preview
+   floor (52rem lanes + 1rem gutter + 36rem cap) plus the 18rem rail, so the tape keeps the
+   width beside the rail and its lanes stay open. Phones keep the fixed sheet below. */
+@container preview-row (max-width: calc(89rem + 18rem)) {
+  .file-sidebar {
+    position: absolute;
+    inset-block: 0;
+    right: 0;
+    z-index: 30;
+    width: min(36rem, max(18rem, 40vw));
+    background: var(--canvas);
+    border-left: 1px solid var(--line);
+  }
+}
+
+.file-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: --spacing(4);
+  padding: --spacing(3) --spacing(4);
+  border-bottom: 1px solid var(--line);
+}
+
+.file-sidebar-head h2 {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-sidebar-body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: --spacing(3);
+}
+
+.file-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.file-pdf {
+  width: 100%;
+  height: 100%;
+  min-height: 24rem;
+  border: 0;
+}
+
+/* A tool row is an action that opens its receipt, not a field: shorter than an input, no fill. */
+.tape-tool summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: --spacing(4);
+  padding: --spacing(2) --spacing(3);
+  border-radius: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.tool-summary {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tape-tool summary:hover {
+  background: var(--hover);
+}
+
+.tape-tool[open] summary {
+  border-bottom: 1px solid var(--line);
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.tool-outcome {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.tool-spinner {
+  display: block;
+  animation: tool-spin 0.8s linear infinite;
+}
+
+@keyframes tool-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tool-outcome[data-outcome="failed"],
+.shell-exit {
+  color: var(--danger);
+}
+
+.tool-pad > .tool-outcome {
+  display: block;
+  margin-top: --spacing(1);
+}
+
+/* The proposed operation sits in a well of the page's own canvas, as the tape will paint it. */
+.ask-receipt {
+  max-height: 16rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  font-size: var(--text-sm);
+}
+
+.tool-body {
+  max-height: 28rem;
+  overflow: auto;
+  padding: --spacing(4);
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.tool-empty {
+  color: var(--muted);
+  padding: --spacing(3) --spacing(4);
+}
+
+.tape-thought {
+  min-width: 0;
+  margin: 0;
+  padding: --spacing(1) --spacing(3) --spacing(1) --spacing(4);
+  border-left: 2px solid var(--line);
+  background: var(--canvas);
+  color: var(--subtle);
+  text-align: left;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.prose {
+  min-width: 0;
+}
+
+.prose > * + * {
+  margin-top: --spacing(4);
+}
+
+/* Answer headings: 19 / 16 / 16 / 13. */
+.prose :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: --spacing(7);
+  margin-bottom: --spacing(2);
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose strong,
+.prose b {
+  font-weight: var(--font-weight-strong);
+}
+
+.prose h1 {
+  font-size: var(--text-lg);
+}
+.prose :is(h2, h3) {
+  font-size: var(--text-base);
+}
+.prose :is(h4, h5, h6) {
+  font-size: var(--text-sm);
+}
+
+.prose a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--subtle);
+  text-underline-offset: 0.2em;
+}
+
+.prose a:hover {
+  text-decoration-color: var(--ink);
+}
+
+.prose :is(ul, ol) {
+  padding-left: --spacing(6);
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+.prose ol {
+  list-style-type: decimal;
+}
+.prose li + li {
+  margin-top: --spacing(2);
+}
+.prose li > :is(ul, ol, p) {
+  margin-top: --spacing(2);
+}
+.prose li::marker {
+  color: var(--subtle);
+}
+.prose .contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+.prose .task-list-item input {
+  margin-right: --spacing(2);
+  accent-color: var(--ink);
+}
+
+.prose blockquote {
+  border-left: 2px solid var(--line);
+  padding-left: --spacing(4);
+  color: var(--muted);
+}
+
+.prose blockquote > * + * {
+  margin-top: --spacing(3);
+}
+
+/* Inline code is the small text step. A heading's code keeps the heading's size. The chip marks it as code. */
+.prose :not(pre) > code {
+  padding: 0 --spacing(1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--wash);
+  color: inherit;
+  font-size: var(--text-sm);
+  white-space: break-spaces;
+}
+
+.prose :is(h1, h2, h3, h4, h5, h6) > code {
+  font-size: inherit;
+}
+
+.prose pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: --spacing(4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--wash);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  tab-size: 2;
+  text-wrap: nowrap;
+  overflow-wrap: normal;
+}
+
+.code-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--wash);
+}
+
+.code-scroll pre {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  padding: --spacing(4);
+  background: transparent;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.code-line {
+  display: block;
+  min-height: 1lh;
+  white-space: pre;
+}
+
+.prose .code-scroll pre {
+  max-width: none;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+}
+
+.tool-pad {
+  padding: --spacing(3);
+}
+
+.tool-parts {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(3);
+  padding: --spacing(3);
+}
+
+/* The 16 terminal colors, each AA on the output's wash in both schemes. Grays are the page's own tiers. */
+.shell-term {
+  background: none;
+  border: 0;
+  --vt-0: light-dark(var(--ink), var(--subtle));
+  --vt-1: light-dark(#b91c1c, #f87171);
+  --vt-2: light-dark(#15803d, #4ade80);
+  --vt-3: light-dark(#854d0e, #facc15);
+  --vt-4: light-dark(#1d4ed8, #60a5fa);
+  --vt-5: light-dark(#a21caf, #e879f9);
+  --vt-6: light-dark(#0e7490, #22d3ee);
+  --vt-7: var(--muted);
+  --vt-8: var(--subtle);
+  --vt-9: light-dark(#b91c1c, #fca5a5);
+  --vt-10: light-dark(#15803d, #86efac);
+  --vt-11: light-dark(#854d0e, #fde047);
+  --vt-12: light-dark(#1d4ed8, #93c5fd);
+  --vt-13: light-dark(#a21caf, #f0abfc);
+  --vt-14: light-dark(#0e7490, #67e8f9);
+  --vt-15: var(--ink);
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.shell-term > summary {
+  display: flex;
+  align-items: flex-start;
+  gap: --spacing(2);
+  list-style: none;
+  cursor: pointer;
+  padding: --spacing(1) 0;
+}
+
+.shell-term > summary::-webkit-details-marker {
+  display: none;
+}
+
+.shell-chevron {
+  display: grid;
+  flex: none;
+  margin-top: --spacing(1);
+  color: var(--muted);
+}
+
+.shell-term[open] > summary .shell-chevron {
+  transform: rotate(90deg);
+}
+
+.shell-identity {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell-cwd,
+.shell-sigil {
+  color: var(--muted);
+}
+
+.shell-cwd,
+.shell-exit {
+  margin: 0;
+}
+
+.shell-cwd {
+  margin-bottom: --spacing(1);
+}
+
+.shell-exit {
+  flex: none;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.shell-cmd {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6ch;
+  min-width: 0;
+}
+
+.shell-sigil {
+  flex: none;
+}
+
+.shell-script-name {
+  align-items: center;
+  color: var(--subtle);
+}
+
+.shell-script {
+  margin-top: --spacing(1);
+}
+
+.shell-script pre {
+  margin: 0;
+  background: transparent;
+}
+
+.shell-term .shell-cmd pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  background: transparent;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+}
+
+.shell-term .shell-cmd code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.shell-term .code-line,
+.shell-out-line {
+  display: block;
+  min-height: 1lh;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.shell-out {
+  max-height: 28rem;
+  margin: --spacing(1) 0 0;
+  overflow: auto;
+  overflow-anchor: none;
+  padding: --spacing(3) --spacing(3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--wash);
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.shell-out-anchor {
+  display: block;
+  overflow-anchor: auto;
+  height: 1px;
+}
+
+.prose pre code {
+  font-size: inherit;
+  white-space: pre;
+}
+
+.prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.prose :is(th, td) {
+  padding: --spacing(2) --spacing(3);
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  background: var(--wash);
+  font-weight: var(--font-weight-strong);
+}
+.prose hr {
+  margin-block: --spacing(7);
+  border-color: var(--line);
+}
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * First run. The page is one task, so it gets the whole window and nothing
+ * else. Providers sit in clusters; each cluster's tiles are sized by how
+ * likely they are the answer (large, medium, small), so the eye lands on the
+ * plans you already pay for before the long tail. Gutters are 16px at phone
+ * width; clusters stack, and the two columns appear only where both fit.
+ */
+.splash {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.splash-column {
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: --spacing(10) --spacing(4) --spacing(16);
+}
+
+@media (min-width: 48rem) {
+  .splash-column {
+    padding: --spacing(16) --spacing(8) --spacing(24);
+  }
+}
+
+.splash-head h1 {
+  font-size: var(--text-2xl);
+  line-height: 1.2;
+}
+
+.splash-head p {
+  max-width: 60ch;
+  margin-top: --spacing(2);
+  color: var(--muted);
+}
+
+.splash-clusters {
+  display: grid;
+  gap: --spacing(10) --spacing(12);
+  margin-top: --spacing(10);
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .splash-clusters:has(> :nth-child(2)) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.splash-col {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(8);
+  min-width: 0;
+}
+
+.cluster-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: --spacing(3);
+  min-height: --spacing(9);
+  margin-bottom: --spacing(2);
+}
+
+.cluster-head h2 {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.splash-search {
+  max-width: 11rem;
+}
+
+.cluster-note {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-min), 1fr));
+  gap: --spacing(2);
+}
+
+.tiles[data-size="large"] {
+  --tile-min: 13rem;
+}
+
+.tiles[data-size="medium"] {
+  --tile-min: 11rem;
+}
+
+.tiles[data-size="small"] {
+  --tile-min: 8.5rem;
+}
+
+.tile-item {
+  display: flex;
+  min-width: 0;
+}
+
+/* A tile is an action: a surface a step above the page, bounded, answering the press. */
+.tile {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: --spacing(1);
+  height: 100%;
+  min-width: 0;
+  padding: --spacing(3) --spacing(4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background-color: var(--wash);
+  color: var(--ink);
+  text-align: start;
+}
+
+.tile[data-size="large"] {
+  min-height: 7.5rem;
+  gap: --spacing(1);
+  /* Inline padding matches the medium tiles below, so names share one left edge down the column. */
+  padding-block: --spacing(4);
+}
+
+.tile[data-size="small"] {
+  justify-content: center;
+  min-height: --spacing(10);
+  padding: --spacing(2) --spacing(3);
+  border-radius: var(--radius-sm);
+}
+
+@media (pointer: coarse) {
+  .tile[data-size="small"] {
+    min-height: 2.75rem;
+  }
+}
+
+@media (hover: hover) {
+  .tile:hover:enabled {
+    border-color: var(--edge);
+    background-image: linear-gradient(var(--hover), var(--hover));
+  }
+}
+
+.tile:disabled {
+  opacity: 0.5;
+}
+
+.tile-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: --spacing(3);
+  width: 100%;
+  min-width: 0;
+}
+
+.tile-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.3;
+}
+
+.tile[data-size="large"] .tile-name {
+  font-size: var(--text-lg);
+}
+
+.tile[data-size="small"] .tile-name {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+.tile-copy {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.tile[data-size="large"] .tile-copy {
+  min-height: 2lh;
+}
+
+.tile-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: --spacing(2);
+  margin-top: auto;
+  padding-top: --spacing(3);
+  font-size: var(--text-sm);
+}
+
+/* Shape and the word "Live" carry the state as well as hue. */
+.live-dot {
+  display: inline-block;
+  width: --spacing(2);
+  height: --spacing(2);
+  margin-inline-end: --spacing(2);
+  border-radius: var(--radius-xs);
+  background: var(--success);
+  vertical-align: 0.05em;
+}
+
+/* The connect flow in place of the grid, as a raised panel under the heading. */
+.splash-head + .link-notice {
+  margin-block: --spacing(4) 0;
+}
+
+.splash-panel {
+  max-width: 28rem;
+  margin-top: --spacing(10);
+  padding: --spacing(6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  box-shadow: var(--overlay-shadow);
+  animation: tile-in 200ms var(--ease-out) both;
+}
+
+.splash-panel .connect-step {
+  padding: 0;
+}
+
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-panel {
+    animation: none;
+  }
+}
+
+/* Workflow graph */
+
+/* Colour is state: the cards' bars and a tab's dot wear it (see the shared --agent-bar rules); wires, frames and marks are greyscale. */
+.wf-canvas {
+  height: 100%;
+  overflow: auto;
+  padding: --spacing(8);
+  background: var(--canvas);
+}
+
+/* Cards are in the page from the first render so they can be measured; the graph shows once the layout has met their sizes. */
+.wf-canvas:not([data-ready]) > .wf-wrap {
+  visibility: hidden;
+}
+
+.wf-wrap {
+  position: relative;
+  isolation: isolate;
+}
+
+/* A zero-height row pinned to the scrollport's top-right corner, over the graph. */
+.wf-bar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  height: 0;
+}
+
+.wf-bar-toggle {
+  gap: --spacing(2);
+  min-block-size: --spacing(8);
+  translate: 0 calc(-1 * --spacing(6));
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  color: var(--muted);
+  font-size: var(--text-sm);
+
+  &:hover {
+    background: var(--hover);
+  }
+
+  &[aria-pressed="true"] {
+    background: var(--selected);
+    color: var(--ink);
+  }
+}
+
+.wf-svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.wf-empty {
+  padding: --spacing(4);
+  color: var(--subtle);
+  font-size: var(--text-sm);
+}
+
+.wf-node {
+  position: absolute;
+  transition:
+    opacity 150ms var(--ease-out),
+    translate 150ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-node {
+    @starting-style {
+      translate: none;
+    }
+  }
+}
+
+.wf-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(1);
+  width: 18rem;
+  padding: --spacing(2) --spacing(3) --spacing(2) --spacing(4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--agent-bar);
+  color: var(--subtle);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+/* A tool is an instrument: lighter than an actor. */
+.wf-card[data-kind="tool"] {
+  width: 15rem;
+  padding-block: --spacing(2);
+  gap: 0;
+}
+
+.wf-head {
+  display: flex;
+  align-items: center;
+  gap: --spacing(2);
+  min-width: 0;
+}
+
+.wf-head .tool-outcome {
+  margin-left: 0;
+}
+
+.wf-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-strong);
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-model {
+  flex: none;
+  color: var(--subtle);
+}
+
+.wf-verb {
+  flex: none;
+  margin-left: auto;
+  color: var(--subtle);
+}
+
+/* The name is the card's button; its hit area is the whole card, and the tint says so, as a note's does. */
+.wf-card[data-kind="output"] .wf-verb {
+  margin-left: 0;
+}
+
+.wf-pick {
+  cursor: pointer;
+}
+
+.wf-pick::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.wf-card:has(.wf-pick:is(:hover, :focus-visible)) {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+
+/* The name's hit target is the card, so the ring is the card's. */
+.wf-card:has(.wf-pick:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.wf-pick:focus-visible {
+  outline: none;
+}
+
+.wf-message,
+.wf-value,
+.wf-error,
+.wf-preview,
+.wf-arg,
+.wf-status {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.wf-message,
+.wf-value {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+}
+
+.wf-message {
+  color: var(--muted);
+  -webkit-line-clamp: 3;
+}
+
+.wf-value {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  -webkit-line-clamp: 6;
+}
+
+.wf-value.mono {
+  font-size: var(--text-xs);
+}
+
+.wf-arg,
+.wf-preview,
+.wf-error {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-arg {
+  color: var(--muted);
+}
+
+.wf-arg > span {
+  color: var(--subtle);
+}
+
+.wf-status {
+  color: var(--muted);
+}
+
+.wf-card[data-state="asking"] .wf-status {
+  color: var(--ink);
+}
+
+.wf-result {
+  margin-top: --spacing(1);
+  padding-top: --spacing(2);
+  border-top: 1px solid var(--line);
+}
+
+.wf-card[data-kind="tool"] .wf-result {
+  margin-top: --spacing(1);
+  padding-top: --spacing(1);
+}
+
+.wf-result:empty {
+  display: none;
+}
+
+.wf-preview {
+  color: var(--ink);
+}
+
+.wf-summary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Above the card button's hit layer, so opening the value does not pick the card. */
+.wf-json {
+  position: relative;
+  z-index: 1;
+}
+
+.wf-json > summary {
+  display: flex;
+  align-items: center;
+  gap: --spacing(1);
+  min-width: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.wf-json > summary::-webkit-details-marker {
+  display: none;
+}
+
+.wf-json > summary::marker {
+  content: none;
+}
+
+.wf-json > summary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.wf-json-body {
+  margin: --spacing(2) 0 0;
+  padding: 0;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wf-error {
+  color: var(--danger);
+}
+
+/* Frames and marks: structure, drawn in the neutral tokens. */
+.wf-frame {
+  position: absolute;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.wf-frame-head {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: --spacing(2);
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.wf-crumb {
+  color: var(--muted);
+}
+
+.wf-count {
+  color: var(--subtle);
+}
+
+.wf-toggle,
+.wf-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: --spacing(1);
+  padding-inline: --spacing(2);
+  border-radius: var(--radius-xs);
+  color: var(--subtle);
+  transition:
+    background-color 150ms var(--ease-out),
+    color 150ms var(--ease-out);
+}
+
+.wf-chevron {
+  flex: none;
+  transition: transform 150ms var(--ease-out);
+}
+
+.wf-toggle[aria-expanded="true"] .wf-chevron,
+.wf-json[open] > summary .wf-chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-chevron {
+    transition: none;
+  }
+}
+
+.wf-toggle:hover,
+.wf-tab:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.wf-tab[aria-selected="true"] {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.wf-tab:disabled {
+  opacity: 0.4;
+}
+
+.wf-tabs {
+  display: flex;
+  gap: --spacing(1);
+}
+
+.wf-dot {
+  width: --spacing(2);
+  height: --spacing(2);
+  border-radius: var(--radius-xs);
+  background: var(--agent-bar);
+}
+
+/* Wires: data is a line, a ghost route a dashed hairline. */
+.wf-wire {
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.wf-wire[data-ghost] {
+  stroke: var(--line);
+  stroke-dasharray: 4 4;
+}
+
+.wf-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.wf-loop {
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wf-arrow {
+  fill: var(--edge);
+}
+
+.wf-port {
+  fill: var(--canvas);
+  stroke: var(--edge);
+  stroke-width: 1.5;
+}
+
+/* A fold count is a label on its wire, on a pill of the canvas so the line passes behind it. */
+.wf-fold-pill {
+  fill: var(--canvas);
+}
+
+.wf-fold {
+  fill: var(--subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.ack-kicker {
+  /* Clears the title's focus ring (2px outline + 2px offset) so the label is never covered. */
+  margin-block-start: --spacing(1.5);
+  margin-block-end: --spacing(1);
+}
+
+.ack-flags {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.ack-flag-label {
+  font-weight: var(--font-weight-strong, 600);
+}
+
+.ack-remember-select {
+  inline-size: auto;
+  max-inline-size: 100%;
+}
+
+.layer-badge {
+  display: inline-block;
+  padding-inline: --spacing(1.5);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-sm);
+  color: var(--color-muted, inherit);
+  font-size: var(--text-xs, 0.75rem);
+}
+
+.layer-badge[data-layer="project"],
+.layer-badge[data-layer="managed"] {
+  border-color: currentColor;
+}
+
+.permissions-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.permissions-table th,
+.permissions-table td {
+  padding: --spacing(1) --spacing(2);
+  border-block-end: 1px solid var(--color-edge);
+  text-align: start;
+  font-weight: normal;
+}
+
+.permissions-explain {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: --spacing(1) --spacing(3);
+}
+
+.permissions-explain dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

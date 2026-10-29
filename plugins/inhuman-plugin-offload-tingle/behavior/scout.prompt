@@ -1,0 +1,12 @@
+---
+mode: instruct
+tools: [read_file]
+behavior:
+  program: ./scout.scm
+  bindings:
+    offload:
+      plugin: offload-tingle
+      scope: project
+      methods: [get-memory, search]
+---
+Search retained memory. Do not commit.

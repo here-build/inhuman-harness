@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "manual": {
+    "default": "human"
+  },
+  "auto": {
+    "default": {
+      "soft-deny": { "judge": {}, "onDeny": "human", "onFail": "human" },
+      "ask": { "judge": {}, "onDeny": "deny", "onFail": "human" }
+    }
+  },
+  "yolo": {
+    "default": "allow"
+  }
+}

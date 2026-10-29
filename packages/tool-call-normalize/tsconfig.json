@@ -1,0 +1,23 @@
+{
+  "extends": [
+    "@-internal-/tsconfig/purpose/lib",
+    "@-internal-/tsconfig/env/node"
+  ],
+  "compilerOptions": {
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true,
+    "experimentalDecorators": false,
+    "useDefineForClassFields": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

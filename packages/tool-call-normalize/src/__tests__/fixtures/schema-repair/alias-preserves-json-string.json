@@ -1,0 +1,30 @@
+{
+  "id": "schema-repair/alias-preserves-json-string",
+  "input": "<tool_call>\n{\"name\": \"write_file\", \"arguments\": {\"path\": \"a.json\", \"text\": \"[\\\"a\\\",\\\"b\\\"]\"}}\n</tool_call>",
+  "opts": {
+    "dialect": "hermes",
+    "argAliases": {
+      "*": { "text": "content" }
+    },
+    "tools": [
+      {
+        "name": "write_file",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "content": { "type": "string" }
+          }
+        }
+      }
+    ]
+  },
+  "expect": {
+    "tool_calls": [
+      {
+        "name": "write_file",
+        "arguments": { "path": "a.json", "content": "[\"a\",\"b\"]" }
+      }
+    ]
+  }
+}

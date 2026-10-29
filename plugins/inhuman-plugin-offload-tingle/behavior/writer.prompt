@@ -1,0 +1,15 @@
+---
+mode: instruct
+behavior:
+  program: ./writer.scm
+  bindings:
+    offload:
+      plugin: offload-tingle
+      scope: project
+      methods: [get-memory, put-memory, search]
+    global-offload:
+      plugin: offload-tingle
+      scope: global
+      methods: [get-memory, put-memory]
+---
+Retain cited project facts. Promote only through the global receiver.

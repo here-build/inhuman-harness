@@ -1,0 +1,46 @@
+{
+  "name": "@inhuman.tools/continuation",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Text-only continuation check: promised work, a question for the user, or a finished answer. Pure TS.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "browserslist": [
+    "node >= 22"
+  ],
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages-continuation/continuation"
+  },
+  "dependencies": {
+    "@inhuman.tools/tool-call-normalize": "workspace:^"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "schema-repair/mcp-json-body",
+  "input": "<tool_call>\n{\"name\": \"create_remote_json_file\", \"arguments\": {\"path\": \"users.json\", \"body\": \"[\\\"a\\\",\\\"b\\\"]\"}}\n</tool_call>",
+  "opts": {
+    "dialect": "hermes",
+    "tools": [
+      {
+        "name": "create_remote_json_file",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "body": { "type": "string" }
+          },
+          "required": ["path", "body"]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "tool_calls": [
+      {
+        "name": "create_remote_json_file",
+        "arguments": { "path": "users.json", "body": "[\"a\",\"b\"]" }
+      }
+    ]
+  }
+}

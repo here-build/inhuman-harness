@@ -1,0 +1,52 @@
+{
+  "name": "@inhuman.tools/plugin-sdk",
+  "version": "0.0.1",
+  "private": true,
+  "description": "InhumanPlugin barrel — tools, actions, optional EnvCapability.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@inhuman.tools/harness-commons": "workspace:^",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@here.build/arrival": "^0.10.2"
+  },
+  "peerDependenciesMeta": {
+    "@here.build/arrival": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "eslint": "9.39.2",
+    "@types/node": "^24.0.0",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/harness-plugin-sdk"
+  }
+}

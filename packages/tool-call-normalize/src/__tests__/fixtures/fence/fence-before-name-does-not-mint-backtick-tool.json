@@ -1,0 +1,23 @@
+{
+  "id": "fence/fence-before-name-does-not-mint-backtick-tool",
+  "input": "<longcat_tool_call>\n```\n<longcat_tool_call>\n</longcat_tool_call>\n```\nread_file\n<longcat_arg_key>path</longcat_arg_key><longcat_arg_value>a</longcat_arg_value>\n</longcat_tool_call>\n<longcat_tool_call>\nwrite_file\n<longcat_arg_key>path</longcat_arg_key><longcat_arg_value>b</longcat_arg_value>\n</longcat_tool_call>",
+  "opts": {
+    "dialect": "longcat"
+  },
+  "expect": {
+    "tool_calls": [
+      {
+        "name": "read_file",
+        "arguments": {
+          "path": "a"
+        }
+      },
+      {
+        "name": "write_file",
+        "arguments": {
+          "path": "b"
+        }
+      }
+    ]
+  }
+}

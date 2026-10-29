@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "fusion",
+  "version": "0.0.1",
+  "description": "Session planner. One round-end note fuses the plan with a granted memory read.",
+  "extensions": {
+    "tools.inhuman": {
+      "bots": ["./behavior/foreground.prompt"],
+      "states": { "session": "./behavior/session.scm" },
+      "commands": {
+        "plan": {
+          "description": "Open or clear the session plan",
+          "importPath": "./tools/inhuman/commands/plan.scm"
+        }
+      }
+    }
+  }
+}

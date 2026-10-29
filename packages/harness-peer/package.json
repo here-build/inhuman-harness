@@ -1,0 +1,70 @@
+{
+  "name": "@inhuman.tools/harness-peer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Browser- and React-Native-safe dial onto the harness daemon: Yjs room frames, awareness binding, and the JSON-RPC port. No node:, no ws.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./frames": {
+      "types": "./dist/frames.d.ts",
+      "import": "./dist/frames.js",
+      "default": "./dist/frames.js"
+    },
+    "./awareness": {
+      "types": "./dist/awareness.d.ts",
+      "import": "./dist/awareness.js",
+      "default": "./dist/awareness.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
+  "sideEffects": true,
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16",
+    "node >= 22"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run"
+  },
+  "dependencies": {
+    "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/harness-contract": "workspace:^",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "lib0": "0.2.119",
+    "y-protocols": "1.0.7",
+    "y-websocket": "3.1.0",
+    "yjs": "13.6.33"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "mobx": "6.16.1",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/harness-peer"
+  }
+}

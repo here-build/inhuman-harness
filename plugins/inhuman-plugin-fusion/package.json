@@ -1,0 +1,26 @@
+{
+  "name": "@inhuman.tools/plugin-fusion",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Devin-style session planner. One activating note from the plan plus a granted memory read.",
+  "license": "MIT",
+  "keywords": [
+    "inhuman",
+    "harness-plugin",
+    "fusion"
+  ],
+  "scripts": {
+    "typecheck": "true"
+  },
+  "files": [
+    "plugin.json",
+    "behavior/",
+    "tools/",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "plugins/inhuman-plugin-fusion"
+  }
+}

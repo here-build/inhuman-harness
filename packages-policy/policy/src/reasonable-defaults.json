@@ -1,0 +1,1662 @@
+{
+  "read_file": [
+    "/tmp",
+    "/private/tmp",
+    "/var/tmp",
+    "/dev/null",
+    ".",
+    "/private/var/tmp"
+  ],
+  "read_block": [
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.development.local",
+    ".env.production",
+    ".env.production.local",
+    ".env.staging",
+    ".env.test",
+    ".env.test.local",
+    ".env.prod",
+    ".env.dev",
+    ".env.ci",
+    ".envrc",
+    ".dev.vars",
+    ".netrc",
+    ".npmrc",
+    ".pypirc",
+    ".yarnrc",
+    ".yarnrc.yml",
+    ".ssh",
+    ".gnupg",
+    ".gpg",
+    ".aws",
+    ".azure",
+    ".gcloud",
+    ".kube",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+    "credentials.json",
+    "credentials.yml",
+    "credentials.yaml",
+    ".git-credentials",
+    "master.key",
+    ".secrets"
+  ],
+  "write_file": [
+    "/tmp",
+    "/private/tmp",
+    "/var/tmp",
+    "/private/var/tmp",
+    "/dev/null",
+    ".",
+    "!package.json",
+    "!package-lock.json",
+    "!yarn.lock",
+    "!pnpm-lock.yaml",
+    "!bun.lock",
+    "!bun.lockb",
+    "!Cargo.lock",
+    "!Makefile",
+    "!makefile",
+    {
+      "path": "!.github/workflows",
+      "class": "control-plane"
+    }
+  ],
+  "write_block": [
+    {
+      "path": ".env",
+      "class": "credential"
+    },
+    {
+      "path": ".env.local",
+      "class": "credential"
+    },
+    {
+      "path": ".env.development",
+      "class": "credential"
+    },
+    {
+      "path": ".env.development.local",
+      "class": "credential"
+    },
+    {
+      "path": ".env.production",
+      "class": "credential"
+    },
+    {
+      "path": ".env.production.local",
+      "class": "credential"
+    },
+    {
+      "path": ".env.staging",
+      "class": "credential"
+    },
+    {
+      "path": ".env.test",
+      "class": "credential"
+    },
+    {
+      "path": ".env.test.local",
+      "class": "credential"
+    },
+    {
+      "path": ".env.prod",
+      "class": "credential"
+    },
+    {
+      "path": ".env.dev",
+      "class": "credential"
+    },
+    {
+      "path": ".env.ci",
+      "class": "credential"
+    },
+    {
+      "path": ".envrc",
+      "class": "credential"
+    },
+    {
+      "path": ".dev.vars",
+      "class": "credential"
+    },
+    {
+      "path": ".netrc",
+      "class": "credential"
+    },
+    {
+      "path": ".npmrc",
+      "class": "credential"
+    },
+    {
+      "path": ".pypirc",
+      "class": "credential"
+    },
+    {
+      "path": ".yarnrc",
+      "class": "credential"
+    },
+    {
+      "path": ".yarnrc.yml",
+      "class": "credential"
+    },
+    {
+      "path": ".ssh",
+      "class": "credential"
+    },
+    {
+      "path": ".gnupg",
+      "class": "credential"
+    },
+    {
+      "path": ".gpg",
+      "class": "credential"
+    },
+    {
+      "path": ".aws",
+      "class": "credential"
+    },
+    {
+      "path": ".azure",
+      "class": "credential"
+    },
+    {
+      "path": ".gcloud",
+      "class": "credential"
+    },
+    {
+      "path": ".kube",
+      "class": "credential"
+    },
+    {
+      "path": "id_rsa",
+      "class": "credential"
+    },
+    {
+      "path": "id_dsa",
+      "class": "credential"
+    },
+    {
+      "path": "id_ecdsa",
+      "class": "credential"
+    },
+    {
+      "path": "id_ed25519",
+      "class": "credential"
+    },
+    {
+      "path": "credentials.json",
+      "class": "credential"
+    },
+    {
+      "path": "credentials.yml",
+      "class": "credential"
+    },
+    {
+      "path": "credentials.yaml",
+      "class": "credential"
+    },
+    {
+      "path": ".git-credentials",
+      "class": "credential"
+    },
+    {
+      "path": "master.key",
+      "class": "credential"
+    },
+    {
+      "path": ".secrets",
+      "class": "credential"
+    },
+    ".git/hooks",
+    ".git/config",
+    ".gitmodules",
+    ".gitconfig",
+    ".husky",
+    ".pre-commit-config.yaml",
+    "lefthook.yml",
+    "lefthook.yaml",
+    ".mcp.json",
+    ".cursorignore",
+    ".vscode",
+    ".claude",
+    ".cursor",
+    ".bashrc",
+    ".bash_profile",
+    ".bash_aliases",
+    ".zshrc",
+    ".zprofile",
+    ".zshenv",
+    ".zlogin",
+    ".zlogout",
+    ".profile",
+    ".pi/policy-pi.json",
+    ".inhuman/authorization.json"
+  ],
+  ".unix_read": {
+    "policy": "approve",
+    "arg_rest_type": "read_path"
+  },
+  ".unix_write": {
+    "policy": "approve",
+    "arg_rest_type": "write_path"
+  },
+  ".pkg_install": {
+    "policy": "ask",
+    "subcommands": {
+      "install": "deny"
+    }
+  },
+  ".docker_run": {
+    "policy": "ask",
+    "matcher": [
+      {
+        "flags": {
+          "--privileged": true
+        },
+        "policy": "deny",
+        "class": "privilege"
+      },
+      {
+        "flags": {
+          "--pid": {
+            "value": "host"
+          }
+        },
+        "policy": "deny",
+        "class": "privilege"
+      },
+      {
+        "flags": {
+          "--network": {
+            "alias": [
+              "--net"
+            ],
+            "value": "host"
+          }
+        },
+        "policy": "deny",
+        "class": "privilege"
+      },
+      {
+        "flags": {
+          "--volume": {
+            "alias": [
+              "-v"
+            ],
+            "value": [
+              "*docker.sock*",
+              "/:*",
+              "/etc:*"
+            ]
+          }
+        },
+        "policy": "deny",
+        "class": "privilege"
+      },
+      {
+        "flags": {
+          "--mount": {
+            "value": "*docker.sock*"
+          }
+        },
+        "policy": "deny",
+        "class": "privilege"
+      }
+    ]
+  },
+  "bash": {
+    "policy": "ask",
+    "class": "exec-unknown",
+    "subcommands": {
+      "sudo": {
+        "policy": "deny",
+        "class": "privilege"
+      },
+      "doas": {
+        "policy": "deny",
+        "class": "privilege"
+      },
+      "dd": {
+        "policy": "deny",
+        "class": "destroy-catastrophic",
+        "guard": [
+          "dd-device"
+        ]
+      },
+      "eval": "deny",
+      "mkfs": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.ext4": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.xfs": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.vfat": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.ntfs": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "fdisk": {
+        "policy": "deny",
+        "class": "destroy-catastrophic",
+        "guard": [
+          "disk-write"
+        ]
+      },
+      "parted": {
+        "policy": "deny",
+        "class": "destroy-catastrophic",
+        "guard": [
+          "disk-write"
+        ]
+      },
+      "shred": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "wipefs": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "shutdown": {
+        "policy": "deny",
+        "class": "privilege"
+      },
+      "reboot": {
+        "policy": "deny",
+        "class": "privilege"
+      },
+      "halt": {
+        "policy": "deny",
+        "class": "privilege"
+      },
+      "poweroff": {
+        "policy": "deny",
+        "class": "privilege"
+      },
+      "rm": {
+        "policy": "approve",
+        "class": "destroy-catastrophic",
+        "arg_rest_type": "write_path",
+        "matcher": [
+          {
+            "flags": {
+              "--recursive": {
+                "alias": [
+                  "-r",
+                  "-R"
+                ]
+              },
+              "--force": {
+                "alias": [
+                  "-f"
+                ]
+              }
+            },
+            "matcher": [
+              {
+                "glob": "/",
+                "policy": "deny"
+              },
+              {
+                "tok": "/*",
+                "policy": "deny"
+              },
+              {
+                "glob": "~",
+                "policy": "deny"
+              }
+            ]
+          }
+        ],
+        "guard": [
+          "recursive-root"
+        ]
+      },
+      "chmod": {
+        "policy": "ask",
+        "class": "workspace-write",
+        "subcommands": {
+          "777": {
+            "policy": "deny",
+            "class": "privilege"
+          },
+          "0777": {
+            "policy": "deny",
+            "class": "privilege"
+          },
+          "a+rwx": {
+            "policy": "deny",
+            "class": "privilege"
+          },
+          "a=rwx": {
+            "policy": "deny",
+            "class": "privilege"
+          }
+        },
+        "matcher": [
+          {
+            "flags": {
+              "--recursive": {
+                "alias": [
+                  "-R"
+                ]
+              }
+            },
+            "policy": "ask"
+          }
+        ],
+        "guard": [
+          "recursive-root"
+        ]
+      },
+      "chown": {
+        "policy": "ask",
+        "class": "privilege",
+        "matcher": [
+          {
+            "flags": {
+              "--recursive": {
+                "alias": [
+                  "-R"
+                ]
+              }
+            },
+            "policy": "deny"
+          }
+        ],
+        "guard": [
+          "recursive-root"
+        ]
+      },
+      "git": {
+        "policy": "ask",
+        "class": "unmodelled",
+        "matcher": [
+          {
+            "flags": {
+              "-c": {
+                "value_type": "string"
+              }
+            }
+          },
+          {
+            "flags": {
+              "--config-env": true
+            },
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          {
+            "flags": {
+              "-C": {
+                "value_type": "string"
+              }
+            },
+            "policy": "ask"
+          },
+          {
+            "flags": {
+              "--git-dir": {
+                "value_type": "string"
+              }
+            },
+            "policy": "ask"
+          },
+          {
+            "flags": {
+              "--work-tree": {
+                "value_type": "string"
+              }
+            },
+            "policy": "ask"
+          }
+        ],
+        "subcommands": {
+          "status": "approve",
+          "diff": {
+            "policy": "approve",
+            "guard": [
+              "git-reads"
+            ],
+            "flag_paths": {
+              "--output": "write_path"
+            },
+            "matcher": [
+              {
+                "flags": {
+                  "--output": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "deny",
+                "class": "envelope-write"
+              },
+              {
+                "flags": {
+                  "--no-index": {
+                    "abbrev": true
+                  }
+                }
+              }
+            ]
+          },
+          "log": {
+            "policy": "approve",
+            "guard": [
+              "git-reads"
+            ],
+            "flag_paths": {
+              "--output": "write_path"
+            }
+          },
+          "show": {
+            "policy": "approve",
+            "guard": [
+              "git-reads"
+            ],
+            "flag_paths": {
+              "--output": "write_path"
+            }
+          },
+          "rev-parse": "approve",
+          "branch": {
+            "policy": "approve",
+            "matcher": [
+              {
+                "flags": {
+                  "-D": true
+                },
+                "policy": "deny",
+                "class": "vcs-history"
+              },
+              {
+                "flags": {
+                  "--delete": {
+                    "alias": [
+                      "-d"
+                    ],
+                    "abbrev": true
+                  },
+                  "--force": {
+                    "alias": [
+                      "-f"
+                    ],
+                    "abbrev": true
+                  }
+                },
+                "policy": "deny",
+                "class": "vcs-history"
+              },
+              {
+                "flags": {
+                  "-M": true
+                },
+                "policy": "ask",
+                "class": "vcs-history"
+              },
+              {
+                "flags": {
+                  "-C": true
+                },
+                "policy": "ask",
+                "class": "vcs-history"
+              },
+              {
+                "flags": {
+                  "--force": {
+                    "alias": [
+                      "-f"
+                    ],
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "vcs-history"
+              },
+              {
+                "flags": {
+                  "--move": {
+                    "alias": [
+                      "-m"
+                    ],
+                    "abbrev": true
+                  },
+                  "--force": {
+                    "alias": [
+                      "-f"
+                    ],
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "vcs-history"
+              }
+            ]
+          },
+          "add": {
+            "policy": "approve",
+            "matcher": [
+              {
+                "flags": {
+                  "--force": {
+                    "alias": [
+                      "-f"
+                    ],
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "protected-file"
+              }
+            ]
+          },
+          "commit": {
+            "policy": "approve",
+            "matcher": [
+              {
+                "flags": {
+                  "--no-verify": {
+                    "alias": [
+                      "-n"
+                    ],
+                    "abbrev": true
+                  }
+                },
+                "policy": "deny",
+                "class": "control-plane"
+              }
+            ],
+            "flag_paths": {
+              "--file": "read_path",
+              "-F": "read_path",
+              "--template": "read_path",
+              "-t": "read_path"
+            }
+          },
+          "stash": {
+            "policy": "approve",
+            "subcommands": {
+              "drop": {
+                "policy": "deny",
+                "class": "destroy-local"
+              },
+              "clear": {
+                "policy": "deny",
+                "class": "destroy-local"
+              }
+            }
+          },
+          "fetch": {
+            "policy": "approve",
+            "matcher": [
+              {
+                "flags": {
+                  "--upload-pack": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "--receive-pack": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "--exec": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "-u": true
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "glob": [
+                  "*::*"
+                ],
+                "policy": "ask",
+                "class": "exec-unknown"
+              }
+            ]
+          },
+          "pull": {
+            "policy": "ask",
+            "class": "network-egress",
+            "matcher": [
+              {
+                "flags": {
+                  "--upload-pack": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "--receive-pack": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "--exec": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "-u": true
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "glob": [
+                  "*::*"
+                ],
+                "policy": "ask",
+                "class": "exec-unknown"
+              }
+            ]
+          },
+          "checkout": {
+            "policy": "ask",
+            "class": "destroy-local",
+            "--": {
+              "policy": "approve",
+              "arg_rest_type": "write_path"
+            }
+          },
+          "push": {
+            "policy": "ask",
+            "class": "remote-write",
+            "matcher": [
+              {
+                "flags": {
+                  "--force": {
+                    "alias": [
+                      "-f"
+                    ],
+                    "abbrev": true
+                  }
+                },
+                "policy": "deny",
+                "class": "vcs-history"
+              },
+              {
+                "flags": {
+                  "--force-with-lease": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "vcs-history"
+              },
+              {
+                "flags": {
+                  "--no-verify": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "deny",
+                "class": "control-plane"
+              }
+            ]
+          },
+          "reset": {
+            "policy": "ask",
+            "class": "vcs-history",
+            "matcher": [
+              {
+                "flags": {
+                  "--hard": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "deny",
+                "class": "destroy-local"
+              }
+            ]
+          },
+          "clean": {
+            "policy": "ask",
+            "class": "destroy-local",
+            "matcher": [
+              {
+                "flags": {
+                  "-f": true,
+                  "-d": {
+                    "alias": [
+                      "-x"
+                    ]
+                  }
+                },
+                "policy": "deny"
+              }
+            ]
+          },
+          "format-patch": {
+            "policy": "ask",
+            "class": "workspace-write",
+            "flag_paths": {
+              "--output": "write_path",
+              "-o": "write_path"
+            }
+          },
+          "clone": {
+            "policy": "ask",
+            "class": "network-egress",
+            "matcher": [
+              {
+                "flags": {
+                  "--upload-pack": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "--receive-pack": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "--exec": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "-u": true
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "glob": [
+                  "*::*"
+                ],
+                "policy": "ask",
+                "class": "exec-unknown"
+              }
+            ]
+          },
+          "ls-remote": {
+            "policy": "ask",
+            "class": "network-egress",
+            "matcher": [
+              {
+                "flags": {
+                  "--upload-pack": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "--receive-pack": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "--exec": {
+                    "abbrev": true
+                  }
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "flags": {
+                  "-u": true
+                },
+                "policy": "ask",
+                "class": "exec-unknown"
+              },
+              {
+                "glob": [
+                  "*::*"
+                ],
+                "policy": "ask",
+                "class": "exec-unknown"
+              }
+            ]
+          }
+        },
+        "guard": [
+          "git-config"
+        ]
+      },
+      "gh": {
+        "policy": "ask",
+        "class": "unmodelled",
+        "subcommands": {
+          "issue": {
+            "policy": "ask",
+            "class": "remote-write",
+            "subcommands": {
+              "list": "approve",
+              "view": "approve",
+              "status": "approve",
+              "delete": "deny"
+            }
+          },
+          "pr": {
+            "policy": "ask",
+            "class": "remote-write",
+            "subcommands": {
+              "list": "approve",
+              "view": "approve",
+              "diff": "approve",
+              "status": "approve",
+              "checks": "approve",
+              "merge": "deny",
+              "create": "ask"
+            }
+          },
+          "run": {
+            "policy": "ask",
+            "class": "remote-write",
+            "subcommands": {
+              "list": "approve",
+              "view": "approve",
+              "delete": "deny"
+            }
+          },
+          "search": "approve",
+          "label": {
+            "policy": "ask",
+            "class": "remote-write",
+            "subcommands": {
+              "list": "approve"
+            }
+          },
+          "release": {
+            "policy": "ask",
+            "class": "publish",
+            "subcommands": {
+              "list": "approve",
+              "view": "approve",
+              "delete": "deny"
+            }
+          },
+          "secret": {
+            "policy": "deny",
+            "class": "credential"
+          },
+          "auth": {
+            "policy": "deny",
+            "class": "credential"
+          },
+          "gist": {
+            "policy": "deny",
+            "class": "publish"
+          },
+          "repo": {
+            "policy": "ask",
+            "class": "remote-write",
+            "subcommands": {
+              "delete": "deny",
+              "archive": "deny"
+            }
+          }
+        }
+      },
+      "npm": {
+        "policy": "ask",
+        "class": "unmodelled",
+        "subcommands": {
+          "run": {
+            "policy": "ask",
+            "family_args": 1,
+            "class": "exec-unknown"
+          },
+          "install": {
+            "policy": "ask",
+            "class": "package-install",
+            "matcher": [
+              {
+                "flags": {
+                  "--global": {
+                    "alias": [
+                      "-g"
+                    ]
+                  }
+                },
+                "policy": "deny"
+              }
+            ]
+          },
+          "publish": {
+            "policy": "deny",
+            "class": "publish"
+          },
+          "test": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          "exec": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          "start": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          }
+        }
+      },
+      "cargo": {
+        "policy": "ask",
+        "class": "unmodelled",
+        "subcommands": {
+          "test": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          "run": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          "bench": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          "build": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          "check": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          "clippy": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          "publish": {
+            "policy": "deny",
+            "class": "publish"
+          }
+        }
+      },
+      "kubectl": {
+        "policy": "ask",
+        "class": "remote-write",
+        "subcommands": {
+          "get": {
+            "policy": "approve",
+            "flag_paths": {
+              "--filename": "read_path",
+              "-f": "read_path"
+            },
+            "matcher": [
+              {
+                "glob": "*[sS][eE][cC][rR][eE][tT]*",
+                "policy": "deny",
+                "class": "credential"
+              },
+              {
+                "flags": {
+                  "--raw": {
+                    "value_type": "string"
+                  }
+                },
+                "policy": "ask",
+                "class": "unmodelled"
+              },
+              {
+                "flags": {
+                  "--raw": {
+                    "value": "*[sS][eE][cC][rR][eE][tT]*"
+                  }
+                },
+                "policy": "deny",
+                "class": "credential"
+              }
+            ]
+          },
+          "describe": {
+            "policy": "approve",
+            "flag_paths": {
+              "--filename": "read_path",
+              "-f": "read_path"
+            },
+            "matcher": [
+              {
+                "glob": "*[sS][eE][cC][rR][eE][tT]*",
+                "policy": "deny",
+                "class": "credential"
+              },
+              {
+                "flags": {
+                  "--raw": {
+                    "value_type": "string"
+                  }
+                },
+                "policy": "ask",
+                "class": "unmodelled"
+              },
+              {
+                "flags": {
+                  "--raw": {
+                    "value": "*[sS][eE][cC][rR][eE][tT]*"
+                  }
+                },
+                "policy": "deny",
+                "class": "credential"
+              }
+            ]
+          },
+          "logs": "approve",
+          "exec": "ask"
+        }
+      },
+      "docker": {
+        "policy": "ask",
+        "class": "unmodelled",
+        "matcher": [
+          {
+            "flags": {
+              "--host": {
+                "alias": [
+                  "-H"
+                ]
+              }
+            },
+            "policy": "ask",
+            "class": "remote-write"
+          },
+          {
+            "flags": {
+              "--version": {
+                "alias": [
+                  "-v"
+                ]
+              }
+            },
+            "policy": "approve"
+          }
+        ],
+        "subcommands": {
+          "ps": "approve",
+          "logs": "approve",
+          "inspect": "ask",
+          "images": "approve",
+          "run": {
+            "policy": "ask",
+            "class": "exec-unknown",
+            "matcher": [
+              {
+                "flags": {
+                  "--privileged": true
+                },
+                "policy": "deny",
+                "class": "privilege"
+              },
+              {
+                "flags": {
+                  "--pid": {
+                    "value": "host"
+                  }
+                },
+                "policy": "deny",
+                "class": "privilege"
+              },
+              {
+                "flags": {
+                  "--network": {
+                    "alias": [
+                      "--net"
+                    ],
+                    "value": "host"
+                  }
+                },
+                "policy": "deny",
+                "class": "privilege"
+              },
+              {
+                "flags": {
+                  "--volume": {
+                    "alias": [
+                      "-v"
+                    ],
+                    "value": [
+                      "*docker.sock*",
+                      "/:*",
+                      "/etc:*"
+                    ]
+                  }
+                },
+                "policy": "deny",
+                "class": "privilege"
+              },
+              {
+                "flags": {
+                  "--mount": {
+                    "value": "*docker.sock*"
+                  }
+                },
+                "policy": "deny",
+                "class": "privilege"
+              }
+            ]
+          },
+          "exec": {
+            "policy": "ask",
+            "class": "exec-unknown"
+          },
+          "compose": {
+            "policy": "ask",
+            "class": "exec-unknown",
+            "matcher": [
+              {
+                "flags": {
+                  "--privileged": true
+                },
+                "policy": "deny",
+                "class": "privilege"
+              },
+              {
+                "flags": {
+                  "--pid": {
+                    "value": "host"
+                  }
+                },
+                "policy": "deny",
+                "class": "privilege"
+              },
+              {
+                "flags": {
+                  "--network": {
+                    "alias": [
+                      "--net"
+                    ],
+                    "value": "host"
+                  }
+                },
+                "policy": "deny",
+                "class": "privilege"
+              },
+              {
+                "flags": {
+                  "--volume": {
+                    "alias": [
+                      "-v"
+                    ],
+                    "value": [
+                      "*docker.sock*",
+                      "/:*",
+                      "/etc:*"
+                    ]
+                  }
+                },
+                "policy": "deny",
+                "class": "privilege"
+              },
+              {
+                "flags": {
+                  "--mount": {
+                    "value": "*docker.sock*"
+                  }
+                },
+                "policy": "deny",
+                "class": "privilege"
+              }
+            ]
+          }
+        }
+      },
+      "apt": {
+        "policy": "ask",
+        "class": "package-install",
+        "subcommands": {
+          "install": "deny"
+        }
+      },
+      "apt-get": {
+        "policy": "ask",
+        "class": "package-install",
+        "subcommands": {
+          "install": "deny"
+        }
+      },
+      "brew": {
+        "policy": "ask",
+        "class": "package-install",
+        "subcommands": {
+          "install": "deny"
+        }
+      },
+      "yum": {
+        "policy": "ask",
+        "class": "package-install",
+        "subcommands": {
+          "install": "deny"
+        }
+      },
+      "dnf": {
+        "policy": "ask",
+        "class": "package-install",
+        "subcommands": {
+          "install": "deny"
+        }
+      },
+      "pip": {
+        "policy": "ask",
+        "class": "package-install",
+        "subcommands": {
+          "install": "deny"
+        }
+      },
+      "pip3": {
+        "policy": "ask",
+        "class": "package-install",
+        "subcommands": {
+          "install": "deny"
+        }
+      },
+      "gem": {
+        "policy": "ask",
+        "class": "package-install",
+        "subcommands": {
+          "install": "deny"
+        }
+      },
+      "awk": "ask",
+      "cat": {
+        "policy": "approve",
+        "arg_rest_type": "read_path"
+      },
+      "cut": {
+        "policy": "approve",
+        "arg_rest_type": "read_path"
+      },
+      "date": {
+        "policy": "approve",
+        "flag_paths": {
+          "--file": "read_path",
+          "-f": "read_path",
+          "--reference": "read_path",
+          "-r": "read_path"
+        }
+      },
+      "diff": {
+        "policy": "approve",
+        "arg_rest_type": "read_path",
+        "flag_paths": {
+          "--from-file": "read_path",
+          "--to-file": "read_path",
+          "-X": "read_path",
+          "--exclude-from": "read_path"
+        }
+      },
+      "echo": "approve",
+      "false": "approve",
+      "grep": {
+        "policy": "approve",
+        "arg_rest_type": "read_path",
+        "flag_paths": {
+          "--file": "read_path",
+          "-f": "read_path",
+          "--exclude-from": "read_path"
+        }
+      },
+      "head": {
+        "policy": "approve",
+        "arg_rest_type": "read_path"
+      },
+      "ls": {
+        "policy": "approve",
+        "arg_rest_type": "read_path"
+      },
+      "mkdir": {
+        "policy": "approve",
+        "arg_rest_type": "write_path"
+      },
+      "printf": "approve",
+      "pwd": "approve",
+      "sed": {
+        "policy": "approve",
+        "guard": [
+          "sed"
+        ],
+        "matcher": [
+          {
+            "flags": {
+              "--in-place": {
+                "alias": [
+                  "-i"
+                ],
+                "abbrev": true
+              }
+            },
+            "policy": "deny",
+            "class": "workspace-write"
+          },
+          {
+            "flags": {
+              "-e": {
+                "alias": [
+                  "--expression"
+                ],
+                "value_type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "sort": {
+        "policy": "approve",
+        "arg_rest_type": "read_path",
+        "flag_paths": {
+          "--output": "write_path",
+          "-o": "write_path",
+          "--files0-from": "read_path",
+          "--random-source": "read_path"
+        },
+        "matcher": [
+          {
+            "flags": {
+              "--output": {
+                "alias": [
+                  "-o"
+                ],
+                "abbrev": true
+              }
+            },
+            "policy": "deny",
+            "class": "workspace-write"
+          },
+          {
+            "flags": {
+              "--compress-program": {
+                "abbrev": true
+              }
+            },
+            "policy": "ask"
+          }
+        ]
+      },
+      "stat": {
+        "policy": "approve",
+        "arg_rest_type": "read_path"
+      },
+      "tail": {
+        "policy": "approve",
+        "arg_rest_type": "read_path"
+      },
+      "tee": {
+        "policy": "approve",
+        "arg_rest_type": "write_path"
+      },
+      "test": "approve",
+      "touch": {
+        "policy": "approve",
+        "arg_rest_type": "write_path",
+        "flag_paths": {
+          "--reference": "read_path",
+          "-r": "read_path"
+        }
+      },
+      "tr": "approve",
+      "true": "approve",
+      "uniq": {
+        "policy": "approve",
+        "arg_types": [
+          "read_path",
+          "write_path"
+        ],
+        "arg_rest_type": "write_path"
+      },
+      "wc": {
+        "policy": "approve",
+        "arg_rest_type": "read_path",
+        "flag_paths": {
+          "--files0-from": "read_path"
+        }
+      },
+      "which": "approve",
+      "curl": {
+        "policy": "ask",
+        "class": "network-egress"
+      },
+      "wget": {
+        "policy": "ask",
+        "class": "network-egress"
+      },
+      "npx": "ask",
+      "pnpm": {
+        "policy": "ask",
+        "family_args": 1
+      },
+      "yarn": {
+        "policy": "ask",
+        "family_args": 1
+      },
+      "make": {
+        "policy": "ask",
+        "family_args": 1
+      },
+      "harness": {
+        "policy": "ask",
+        "class": "control-plane",
+        "subcommands": {
+          "eval": {
+            "policy": "ask",
+            "matcher": [
+              {
+                "flags": {
+                  "--mode": {
+                    "value_type": "string"
+                  }
+                },
+                "policy": "deny",
+                "matcher": [
+                  {
+                    "flags": {
+                      "--mode": {
+                        "value": "auto"
+                      }
+                    },
+                    "policy": "ask"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "mkfs.ext2": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.ext3": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.btrfs": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.f2fs": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.exfat": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.fat": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.msdos": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mkfs.minix": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "mke2fs": {
+        "policy": "block",
+        "class": "destroy-catastrophic"
+      },
+      "sfdisk": {
+        "policy": "deny",
+        "class": "destroy-catastrophic",
+        "guard": [
+          "disk-write"
+        ]
+      }
+    }
+  }
+}

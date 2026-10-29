@@ -1,0 +1,10 @@
+{
+  "id": "policy-openclaw",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "authorizationPath": { "type": "string" }
+    }
+  }
+}

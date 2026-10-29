@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "offload-tingle",
+  "version": "0.0.1",
+  "description": "Cited project memory. Writer commits; scout searches. SQLite is an optional adapter.",
+  "extensions": {
+    "tools.inhuman": {
+      "bots": ["./behavior/writer.prompt", "./behavior/scout.prompt"],
+      "states": {
+        "project": "./behavior/project.scm",
+        "global": "./behavior/project.scm"
+      },
+      "mcp": [
+        {
+          "name": "memory",
+          "command": "node",
+          "args": ["./dist/memory-mcp.js"],
+          "visibility": "private",
+          "scope": "workspace"
+        }
+      ]
+    }
+  }
+}

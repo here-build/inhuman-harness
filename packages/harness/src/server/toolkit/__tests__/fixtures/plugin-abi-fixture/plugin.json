@@ -1,0 +1,8 @@
+{
+  "name": "plugin-abi-fixture",
+  "extensions": {
+    "tools.inhuman": {
+      "plugins": [{ "importPath": "./plugin.js" }]
+    }
+  }
+}

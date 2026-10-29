@@ -1,0 +1,17 @@
+{
+  "id": "fence/think-close-adjacent-fence-does-not-swallow-tool",
+  "input": "</think>```\ncode\n```\n<tool_call>{\"name\":\"read_file\",\"arguments\":{\"path\":\"a\"}}</tool_call>",
+  "opts": {
+    "dialect": "hermes"
+  },
+  "expect": {
+    "tool_calls": [
+      {
+        "name": "read_file",
+        "arguments": {
+          "path": "a"
+        }
+      }
+    ]
+  }
+}

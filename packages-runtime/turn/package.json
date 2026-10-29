@@ -1,0 +1,107 @@
+{
+  "name": "@inhuman.tools/turn",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Generation holder laws: session commands, context projection, tool catalog, call acceptance, tool admit, and the policy processor. The daemon seats these on a document it already holds.",
+  "type": "module",
+  "exports": {
+    "./context": {
+      "types": "./dist/context/index.d.ts",
+      "import": "./dist/context/index.js",
+      "default": "./dist/context/index.js"
+    },
+    "./catalog": {
+      "types": "./dist/tool-catalog/index.d.ts",
+      "import": "./dist/tool-catalog/index.js",
+      "default": "./dist/tool-catalog/index.js"
+    },
+    "./agent-calls": {
+      "types": "./dist/agent-calls/index.d.ts",
+      "import": "./dist/agent-calls/index.js",
+      "default": "./dist/agent-calls/index.js"
+    },
+    "./session": {
+      "types": "./dist/session/index.d.ts",
+      "import": "./dist/session/index.js",
+      "default": "./dist/session/index.js"
+    },
+    "./policy": {
+      "types": "./dist/policy-processor/index.d.ts",
+      "import": "./dist/policy-processor/index.js",
+      "default": "./dist/policy-processor/index.js"
+    },
+    "./license": {
+      "types": "./dist/policy-processor/license.d.ts",
+      "import": "./dist/policy-processor/license.js",
+      "default": "./dist/policy-processor/license.js"
+    },
+    "./explain": {
+      "types": "./dist/policy-processor/explain.d.ts",
+      "import": "./dist/policy-processor/explain.js",
+      "default": "./dist/policy-processor/explain.js"
+    },
+    "./scope": {
+      "types": "./dist/policy-processor/scope.d.ts",
+      "import": "./dist/policy-processor/scope.js",
+      "default": "./dist/policy-processor/scope.js"
+    },
+    "./peel-cwd": {
+      "types": "./dist/policy-processor/peel-cwd.d.ts",
+      "import": "./dist/policy-processor/peel-cwd.js",
+      "default": "./dist/policy-processor/peel-cwd.js"
+    },
+    "./tool-runtime": {
+      "types": "./dist/tool-runtime/index.d.ts",
+      "import": "./dist/tool-runtime/index.js",
+      "default": "./dist/tool-runtime/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "policy",
+    "src",
+    "!**/__tests__",
+    "!**/__research__"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@here.build/collections": "^0.9.0",
+    "@here.build/plexus": "^0.9.6",
+    "@here.build/arrival": "^0.10.2",
+    "@here.build/arrival-modules": "^0.10.0",
+    "@here.build/arrival-serializer": "^0.10.2",
+    "@inhuman.tools/env-capability-module-prompt": "workspace:^",
+    "@inhuman.tools/error-with-invariant": "workspace:^",
+    "@inhuman.tools/harness-commons": "workspace:^",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/plugin-sdk": "workspace:^",
+    "@inhuman.tools/policy": "workspace:^",
+    "@inhuman.tools/policy-bash-disassembler": "workspace:^",
+    "@inhuman.tools/policy-tirith": "workspace:^",
+    "@inhuman.tools/scheme-program": "workspace:^",
+    "@inhuman.tools/tool-call-normalize": "workspace:^",
+    "mobx": "6.16.1",
+    "tiny-invariant": "^1.3.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages-runtime/turn"
+  }
+}

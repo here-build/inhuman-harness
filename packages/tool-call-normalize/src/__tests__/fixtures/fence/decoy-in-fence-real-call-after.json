@@ -1,0 +1,10 @@
+{
+  "id": "fence/decoy-in-fence-real-call-after",
+  "input": "See:\n```\n<tool_call>{\"name\":\"decoy\",\"arguments\":{}}</tool_call>\n```\n<tool_call>{\"name\":\"real\",\"arguments\":{\"path\":\"a\"}}</tool_call>",
+  "opts": { "dialect": "hermes" },
+  "expect": {
+    "tool_calls": [{ "name": "real", "arguments": { "path": "a" } }],
+    "contentContains": ["decoy"],
+    "contentExcludes": ["real"]
+  }
+}

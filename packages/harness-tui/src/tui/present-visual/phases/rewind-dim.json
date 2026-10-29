@@ -1,0 +1,293 @@
+{
+  "posted": [],
+  "runs": [
+    {
+      "y": 0,
+      "x": 73,
+      "text": "/tmp/p",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 2,
+      "x": 0,
+      "text": "╭──────────────────────────────────────────────────────────────────────────────╮",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 3,
+      "x": 0,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 3,
+      "x": 3,
+      "text": "rotate AUTH_SECRET",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 3,
+      "x": 79,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 4,
+      "x": 0,
+      "text": "├──────────────────────────────────────────────────────────────────────────────┤",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 5,
+      "x": 0,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 5,
+      "x": 3,
+      "text": "ok",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 5,
+      "x": 79,
+      "text": "│",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 6,
+      "x": 0,
+      "text": "╰──────────────────────────────────────────────────────────────────────────────╯",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 8,
+      "x": 0,
+      "text": "╭──────────────────────────────────────────────────────────────────────────────╮",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 9,
+      "x": 0,
+      "text": "│",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 9,
+      "x": 3,
+      "text": "keep the cookie name                                                        │",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 10,
+      "x": 0,
+      "text": "╰──────────────────────────────────────────────────────────────────────────────╯",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 12,
+      "x": 3,
+      "text": "keep the cookie name.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 12,
+      "x": 71,
+      "text": "10:13 PM",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 14,
+      "x": 0,
+      "text": "╭─ ⏎:",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 7,
+      "text": "Rollback here ·",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 23,
+      "text": "Esc:",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 28,
+      "text": "Back ·",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 35,
+      "text": "↑:",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 38,
+      "text": "Previous message ·",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 57,
+      "text": "↓:",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 60,
+      "text": "Next message",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 72,
+      "text": " ─",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 75,
+      "text": "A…",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 77,
+      "text": " ─╮",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 15,
+      "x": 0,
+      "text": "│",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 15,
+      "x": 3,
+      "text": "move lookup to request time                                                 │",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 16,
+      "x": 0,
+      "text": "╰──────────────────────────────────────────────────────────────────────────────╯",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 18,
+      "x": 3,
+      "text": "move lookup to request time.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 18,
+      "x": 71,
+      "text": "10:13 PM",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 20,
+      "x": 0,
+      "text": "╭──────────────────────────────────────────────────────────────────────────────╮",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 21,
+      "x": 0,
+      "text": "│",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 21,
+      "x": 3,
+      "text": "clear session on logout                                                     │",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 22,
+      "x": 0,
+      "text": "╰──────────────────────────────────────────────────────────────────────────────╯",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    }
+  ]
+}

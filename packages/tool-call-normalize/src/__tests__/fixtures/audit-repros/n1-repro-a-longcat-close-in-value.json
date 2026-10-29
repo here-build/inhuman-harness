@@ -1,0 +1,31 @@
+{
+  "id": "audit-repros/n1-repro-a-longcat-close-in-value",
+  "input": "<longcattoolcall>\nwritefile\n<longcatargkey>path</longcatargkey><longcatargvalue>a.ts</longcatargvalue>\n<longcatargkey>content</longcatargkey><longcatargvalue>x </longcattoolcall> y</longcatargvalue>\n</longcattoolcall>",
+  "opts": {
+    "dialect": "longcat",
+    "mode": "strict",
+    "tools": [
+      {
+        "name": "write_file",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "content": { "type": "string" }
+          },
+          "required": ["path", "content"]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "tool_calls": [
+      {
+        "name": "write_file",
+        "arguments": { "path": "a.ts", "content": "x </longcattoolcall> y" }
+      }
+    ],
+    "content": null,
+    "meta": { "partial": [] }
+  }
+}

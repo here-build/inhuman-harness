@@ -1,0 +1,9 @@
+Player _ No,Team_id,Sport,Position,Points_Scored,Salary(USD),Age,Injury Status,Contract _end_date,Drafted Year
+P621,A29185F,Basketball,Third Base,107,$4M,26,Healthy,03-14-2025,2016
+P229,A95014F,Soccer,Catcher,183,$6M,31,Injured,08-11-2025,2020
+P673,A21958F,Basketball,Defender,97,$10M,27,Healthy,10-01-2025,2019
+P736,A69584F,Basketball,SF,93,$8M,30,Healthy,08-14-2026,2019
+P865,A89670F,Basketball,PG,144,$8M,25,Healthy,12-31-2024,2016
+P128,A88838F,Soccer,WR,204,$7M,26,Healthy,10-20-2024,2018
+P433,A70658F,Basketball,Forward,137,$8M,29,Healthy,11-19-2024,2017
+P909,A88850F,Soccer,RB,55,$4M,28,Injured,12-05-2025,2019

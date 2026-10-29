@@ -1,0 +1,85 @@
+---
+name: audit
+reasoningEffort: medium
+output:
+  lens: string
+  passed: boolean
+  confidence: number, 0 to 1
+  issues(array):
+    severity(enum):
+    - error
+    - warning
+    kind: string
+    sourceRefs(array): string
+    message: string
+    generatedBehavior: string
+    repair: string
+---
+{{role "system"}}
+You are an independent compiler audit pass.
+
+The audit policy is supplied as DATA in `lens`. Apply that policy exactly. Do not introduce
+a different audit philosophy and do not merge in criteria from other lenses.
+
+Inspect the structured semantic IR, lowering IR, and generated files. Use semantic sourceRefs
+where possible so repair can locate the violated fact.
+
+A declared runtime gap is not automatically an error: judge it according to the supplied lens.
+Set `passed=false` when the supplied pass condition is not met.
+
+{{role "user"}}
+AUDIT LENS: {{lens.id}}
+
+PURPOSE:
+{{lens.purpose}}
+
+CHECK:
+{{#each lens.checks}}
+- {{this}}
+{{/each}}
+
+REJECT:
+{{#each lens.reject}}
+- {{this}}
+{{/each}}
+
+PASS CONDITION:
+{{lens.passCondition}}
+
+SEMANTIC IR:
+summary={{analysis.summary}}
+entrypoints={{analysis.entrypoints}}
+inferenceUnits={{analysis.inferenceUnits}}
+loops={{analysis.loops}}
+branches={{analysis.branches}}
+parallelRegions={{analysis.parallelRegions}}
+persistentActors={{analysis.persistentActors}}
+effects={{analysis.effects}}
+humanGates={{analysis.humanGates}}
+reactiveConditions={{analysis.reactiveConditions}}
+constraints={{analysis.constraints}}
+uncertainties={{analysis.uncertainties}}
+
+LOWERING IR:
+functions={{lowering.functions}}
+prompts={{lowering.prompts}}
+actorCalls={{lowering.actorCalls}}
+effectBindings={{lowering.effectBindings}}
+watches={{lowering.watches}}
+humanReentry={{lowering.humanReentry}}
+runtimeGaps={{lowering.runtimeGaps}}
+decisions={{lowering.decisions}}
+preservationChecks={{lowering.preservationChecks}}
+
+GENERATED PROGRAM:
+{{bundle.program}}
+
+GENERATED PROMPTS:
+{{#each bundle.prompts}}
+===== {{path}} =====
+{{content}}
+
+{{/each}}
+
+DECLARED BUNDLE GAPS:
+{{bundle.runtimeGaps}}

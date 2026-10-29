@@ -1,0 +1,56 @@
+name: qd prebuild
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apple:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94.0
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/qd-prebuild.mjs --target aarch64-apple-darwin
+      - run: node scripts/qd-prebuild.mjs --target x86_64-apple-darwin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qd-darwin-arm64
+          path: packages/qd-darwin-arm64/qd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qd-darwin-x64
+          path: packages/qd-darwin-x64/qd
+
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94.0
+        with:
+          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
+      - run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/qd-prebuild.mjs --target x86_64-unknown-linux-gnu
+      - run: node scripts/qd-prebuild.mjs --target aarch64-unknown-linux-gnu
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qd-linux-x64
+          path: packages/qd-linux-x64/qd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qd-linux-arm64
+          path: packages/qd-linux-arm64/qd

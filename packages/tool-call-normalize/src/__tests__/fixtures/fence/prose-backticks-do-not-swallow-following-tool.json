@@ -1,0 +1,17 @@
+{
+  "id": "fence/prose-backticks-do-not-swallow-following-tool",
+  "input": "Wrap it in ``` fences.\n<tool_call>{\"name\":\"read_file\",\"arguments\":{\"path\":\"a\"}}</tool_call>\n```code```",
+  "opts": {
+    "dialect": "hermes"
+  },
+  "expect": {
+    "tool_calls": [
+      {
+        "name": "read_file",
+        "arguments": {
+          "path": "a"
+        }
+      }
+    ]
+  }
+}

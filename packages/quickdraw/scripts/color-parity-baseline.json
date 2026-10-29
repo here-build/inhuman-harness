@@ -1,0 +1,170 @@
+[
+  {
+    "file": "packages/quickdraw/src/buffer/index.ts",
+    "hash": "ebcba31f96a2",
+    "pattern": "hex-literal",
+    "line": "* solves the Zed #17313 blend problem by construction (no alpha-blend, no"
+  },
+  {
+    "file": "packages/quickdraw/src/theme/salience.ts",
+    "hash": "4d74f729a3be",
+    "pattern": "hex-literal",
+    "line": "return formatHex({ mode: \"oklch\", l: fitted.l, c: 0, h: 0 }) ?? \"#808080\";"
+  },
+  {
+    "file": "packages/quickdraw/src/theme/salience.ts",
+    "hash": "75f31fedad2c",
+    "pattern": "hex-literal",
+    "line": "* rust `#542400` (h 77 → 51). We never do that."
+  },
+  {
+    "file": "packages/quickdraw/src/theme/selection.ts",
+    "hash": "a5ef44b4c0cb",
+    "pattern": "hex-literal",
+    "line": "*     the anchor tier, **keep chroma** (hue stays exact — Zed #17313). The"
+  },
+  {
+    "file": "packages/quickdraw/src/storybook/stories/theme.ts",
+    "hash": "b1525c58b54c",
+    "pattern": "hex-literal",
+    "line": "// sat on dark chrome → emphasis looked like a black hole (#542400 on 235)."
+  },
+  {
+    "file": "packages/quickdraw/src/storybook/stories/theme.ts",
+    "hash": "e1e3e2d31e85",
+    "pattern": "hex-literal",
+    "line": "* Fixes light-ground emphasis (#542400) painted on dark Panel 235 (invisible)."
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "03197fba419a",
+    "pattern": "bg-literal",
+    "line": "bg: 235,"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "08bf5d6ea5ed",
+    "pattern": "fg-literal",
+    "line": "put(next, 1, 8, \"step: wide-cjk  \", { fg: 244 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "180b6b5752f0",
+    "pattern": "fg-literal",
+    "line": "put(buf, 1, 3, \"│\", { fg: 240, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "345a74596fed",
+    "pattern": "fg-literal",
+    "line": "put(buf, 2, 3, \" row damage · wide glyphs · truecolor \", { fg: 252, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "36aec780f88b",
+    "pattern": "fg-literal",
+    "line": "put(buf, 46, 5, \"│\", { fg: 240, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "3e927d256ef5",
+    "pattern": "fg-literal",
+    "line": "put(next, 1, 8, \"step: dirty-row \", { fg: 244 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "3fccd9628b39",
+    "pattern": "fg-literal",
+    "line": "put(buf, 2, 2, \" quickdraw-buffer terminal-e2e \", { fg: 81, bg: 235, bold: true });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "47efcac019f8",
+    "pattern": "fg-literal",
+    "line": "put(next, 1, 8, \"step: truecolor \", { fg: 244 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "4c7a36adfaca",
+    "pattern": "fg-literal",
+    "line": "put(buf, 1, 5, \"│\", { fg: 240, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "541afc7da0c0",
+    "pattern": "fg-literal",
+    "line": "put(buf, 1, 4, \"│\", { fg: 240, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "57b381a9df64",
+    "pattern": "fg-literal",
+    "line": "put(next, 2, 10, \"寬度測試 日本語 한글 🎉 \", { fg: 81, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "6b93b4c04d72",
+    "pattern": "fg-literal",
+    "line": "put(buf, 1, 8, \"step: initial\", { fg: 244 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "6b96a539d4b2",
+    "pattern": "fg-literal",
+    "line": "put(buf, 46, 2, \"│\", { fg: 240, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "70eb130afefb",
+    "pattern": "fg-literal",
+    "line": "put(buf, 46, 4, \"│\", { fg: 240, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "7885617766ec",
+    "pattern": "fg-literal",
+    "line": "put(buf, 2, 5, \" CJK: 漢字かな \", { fg: 215, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "8573ce74344d",
+    "pattern": "fg-literal",
+    "line": "put(buf, 2, 4, \" middle: ........ waiting ........ \", { fg: 246, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "8b9e599db3ac",
+    "pattern": "fg-literal",
+    "line": "put(buf, 1, 1, \"┌\" + \"─\".repeat(44) + \"┐\", { fg: 240, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "961f13d2611c",
+    "pattern": "fg-literal",
+    "line": "put(buf, 1, 6, \"└\" + \"─\".repeat(44) + \"┘\", { fg: 240, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "bddde610d26e",
+    "pattern": "fg-literal",
+    "line": "fg: 196,"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "c03633d48d49",
+    "pattern": "bg-literal",
+    "line": "put(buf, 0, y, \" \".repeat(buf.width), { bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "ca49d84bb1fa",
+    "pattern": "fg-literal",
+    "line": "put(buf, 46, 3, \"│\", { fg: 240, bg: 235 });"
+  },
+  {
+    "file": "packages/harness-tui/src/e2e/fixtures/buffer-demo.ts",
+    "hash": "ddd3fd5cfc2f",
+    "pattern": "fg-literal",
+    "line": "put(buf, 1, 2, \"│\", { fg: 240, bg: 235 });"
+  }
+]

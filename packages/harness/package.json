@@ -1,0 +1,108 @@
+{
+  "name": "@inhuman.tools/harness",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Harness core: the daemon (kernel and session planes), runtime, providers and the Yjs sync plane. Shells attach over harness-peer or harness-sdk.",
+  "type": "module",
+  "bin": {
+    "harness-daemon": "./dist/server/bin.js",
+    "harness-yjs-server": "./dist/yjs/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
+    },
+    "./testkit": {
+      "types": "./dist/server/testkit/index.d.ts",
+      "import": "./dist/server/testkit/index.js",
+      "default": "./dist/server/testkit/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "compact.scm",
+    "compact.prompt",
+    "src/server/defaults"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node ./scripts/src-alias.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run --project logic --project server",
+    "test:process": "tsc -p tsconfig.json --noEmit && vitest run --project server-process",
+    "research": "vitest run --project research"
+  },
+  "dependencies": {
+    "@ff-labs/fff-node": "0.10.1",
+    "@here.build/arrival": "^0.10.2",
+    "@here.build/arrival-modules": "^0.10.0",
+    "@here.build/arrival-provenance": "^0.10.0",
+    "@here.build/arrival-serializer": "^0.10.2",
+    "@here.build/arrival-sugarcoat": "^0.10.0",
+    "@here.build/collections": "^0.9.0",
+    "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/activity": "workspace:^",
+    "@inhuman.tools/continuation": "workspace:^",
+    "@inhuman.tools/env-capability-module-prompt": "workspace:^",
+    "@inhuman.tools/error-with-invariant": "workspace:^",
+    "@inhuman.tools/harness-commons": "workspace:^",
+    "@inhuman.tools/harness-contract": "workspace:^",
+    "@inhuman.tools/harness-diagnostics": "workspace:^",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/harness-peer": "workspace:^",
+    "@inhuman.tools/harness-provider-sdk": "workspace:^",
+    "@inhuman.tools/harness-scheme": "workspace:^",
+    "@inhuman.tools/harness-sdk": "workspace:^",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/plugin-sdk": "workspace:^",
+    "@inhuman.tools/policy": "workspace:^",
+    "@inhuman.tools/pretty-mcp": "workspace:^",
+    "@inhuman.tools/project-instructions": "workspace:^",
+    "@inhuman.tools/project-skills": "workspace:^",
+    "@inhuman.tools/scheme-program": "workspace:^",
+    "@inhuman.tools/scheme-watch": "workspace:^",
+    "@inhuman.tools/statusline": "workspace:^",
+    "@inhuman.tools/substrate": "workspace:^",
+    "@inhuman.tools/tool-call-normalize": "workspace:^",
+    "@inhuman.tools/turn": "workspace:^",
+    "@modelcontextprotocol/sdk": "1.26.0",
+    "dedent": "1.7.2",
+    "fast-deep-equal": "3.1.3",
+    "fs-extra": "11.4.0",
+    "lib0": "0.2.119",
+    "mobx": "6.16.1",
+    "pngjs": "7.0.0",
+    "tiny-invariant": "^1.3.3",
+    "undici": "^8.10.2",
+    "ws": "8.18.3",
+    "y-protocols": "1.0.7",
+    "y-websocket": "3.1.0",
+    "yaml": "^2.8.0",
+    "yjs": "13.6.33",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@inhuman.tools/harness-client": "workspace:^",
+    "@modelcontextprotocol/server-filesystem": "2026.7.10",
+    "@types/express": "5.0.3",
+    "@types/fs-extra": "11.0.4",
+    "@types/node": "^24.0.0",
+    "@types/pngjs": "6.0.5",
+    "@types/ws": "8.18.1",
+    "eslint": "9.39.2",
+    "express": "5.2.1",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/harness"
+  }
+}

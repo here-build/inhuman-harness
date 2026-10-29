@@ -1,0 +1,22 @@
+node_modules/
+# qd release binaries. Built by scripts/qd-prebuild.mjs, not committed.
+packages/qd-*/qd
+.pnpm-store/
+dist/
+.turbo/
+*.tsbuildinfo
+*.log
+.DS_Store
+# Local harness state minted by cli/introspection runs inside the repo — never tracked
+.harness/
+.harness-logs/
+.idea/
+# Local MCP retrieve/cover dumps — never tracked
+.tmp-mcp-inventory/
+# Accidental tsc emit next to sources — Quickdraw outDir is dist/
+packages/quickdraw/src/**/*.js
+packages/quickdraw/src/**/*.d.ts
+packages/quickdraw/src/**/*.map
+packages/quickdraw/storybook/src/**/*.js
+packages/quickdraw/storybook/src/**/*.d.ts
+packages/quickdraw/storybook/src/**/*.map

@@ -1,0 +1,10 @@
+{
+  "id": "fence/indented-fence-pairs-and-masks",
+  "input": "See:\n   ```\n<tool_call>{\"name\":\"rm\",\"arguments\":{}}</tool_call>\n   ```\nok",
+  "opts": {
+    "dialect": "hermes"
+  },
+  "expect": {
+    "tool_calls": []
+  }
+}

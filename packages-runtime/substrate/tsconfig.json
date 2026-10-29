@@ -1,0 +1,19 @@
+{
+  "extends": [
+    "@-internal-/tsconfig/purpose/lib",
+    "@-internal-/tsconfig/env/node"
+  ],
+  "compilerOptions": {
+    "outDir": "./dist",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

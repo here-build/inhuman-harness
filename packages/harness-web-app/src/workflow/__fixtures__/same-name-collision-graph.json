@@ -1,0 +1,81 @@
+{
+  "roots": [
+    {
+      "kind": "leaf",
+      "id": 10,
+      "label": "spark",
+      "scope": "spark@10",
+      "nodeKind": "prompt",
+      "state": "resolved",
+      "meta": {
+        "kind": "prompt",
+        "path": "spark.prompt",
+        "model": "qwen3.5-9b",
+        "inputs": {
+          "topic": "calm mornings"
+        }
+      },
+      "value": {
+        "idea": "Wake before the house does.",
+        "energy": 0.7
+      }
+    },
+    {
+      "kind": "leaf",
+      "id": 20,
+      "label": "refine",
+      "scope": "refine@20",
+      "nodeKind": "prompt",
+      "state": "resolved",
+      "meta": {
+        "kind": "prompt",
+        "path": "refine.prompt",
+        "model": "qwen3.5-9b",
+        "inputs": {
+          "idea": "Wake before the house does."
+        }
+      },
+      "value": {
+        "idea": "Rise before the household.",
+        "improved": true
+      }
+    },
+    {
+      "kind": "leaf",
+      "id": 30,
+      "label": "digest",
+      "scope": "digest@30",
+      "nodeKind": "prompt",
+      "state": "resolved",
+      "meta": {
+        "kind": "prompt",
+        "path": "digest.prompt",
+        "model": "qwen3.5-9b",
+        "inputs": {
+          "note": "Rise before the household."
+        }
+      },
+      "value": {
+        "summary": "Calm start.",
+        "count": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": 10,
+      "to": 20,
+      "kind": "data",
+      "field": "idea",
+      "fromField": "idea"
+    },
+    {
+      "from": 20,
+      "to": 30,
+      "kind": "data",
+      "field": "note",
+      "fromField": "idea"
+    }
+  ],
+  "warnings": []
+}

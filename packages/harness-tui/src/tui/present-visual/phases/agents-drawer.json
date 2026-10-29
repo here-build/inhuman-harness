@@ -1,0 +1,277 @@
+{
+  "posted": [],
+  "runs": [
+    {
+      "y": 0,
+      "x": 73,
+      "text": "/tmp/p",
+      "role": "foreground",
+      "ink": "secondary",
+      "dim": true
+    },
+    {
+      "y": 1,
+      "x": 1,
+      "text": "Subagents",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 2,
+      "x": 4,
+      "text": "QA",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 2,
+      "x": 8,
+      "text": "active",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 3,
+      "x": 4,
+      "text": "QA",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 3,
+      "x": 8,
+      "text": "awaiting approval",
+      "role": "attention",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 3,
+      "x": 42,
+      "text": "checking a",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 4,
+      "text": "Explore",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 13,
+      "text": "active",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 4,
+      "x": 40,
+      "text": "u",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 4,
+      "x": 53,
+      "text": "ash",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 4,
+      "x": 71,
+      "text": "10:13 PM",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 5,
+      "x": 6,
+      "text": "Quick Search",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 5,
+      "x": 20,
+      "text": "active",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 5,
+      "x": 40,
+      "text": "h",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 5,
+      "x": 42,
+      "text": "haiku",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 5,
+      "x": 53,
+      "text": "gin.",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": true
+    },
+    {
+      "y": 6,
+      "x": 1,
+      "text": "Collaborators",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 7,
+      "x": 4,
+      "text": "Chief",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 8,
+      "x": 1,
+      "text": "Sessions",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 9,
+      "x": 4,
+      "text": "Password rotate",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 9,
+      "x": 21,
+      "text": "this session",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 10,
+      "x": 4,
+      "text": "Auth refactor",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 10,
+      "x": 19,
+      "text": "awaiting approval",
+      "role": "attention",
+      "ink": "secondary",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 4,
+      "text": "Docs pass",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 11,
+      "x": 15,
+      "text": "▸",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 12,
+      "x": 4,
+      "text": "Parked leftover",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 12,
+      "x": 21,
+      "text": "‖",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 13,
+      "x": 4,
+      "text": "Comment watch",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 13,
+      "x": 19,
+      "text": "bot",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": false
+    },
+    {
+      "y": 14,
+      "x": 4,
+      "text": "Quiet conversation",
+      "role": "foreground",
+      "ink": "rising",
+      "dim": false
+    },
+    {
+      "y": 21,
+      "x": 40,
+      "text": "───────────────────────────────────────╮",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    },
+    {
+      "y": 22,
+      "x": 40,
+      "text": "                                       │",
+      "role": "foreground",
+      "ink": "whisper",
+      "dim": true
+    },
+    {
+      "y": 23,
+      "x": 40,
+      "text": "───────────────────────────────────────╯",
+      "role": "foreground",
+      "ink": "ghost",
+      "dim": true
+    }
+  ]
+}

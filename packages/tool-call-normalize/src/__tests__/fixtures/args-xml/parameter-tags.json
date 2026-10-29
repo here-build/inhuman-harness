@@ -1,0 +1,39 @@
+{
+  "id": "args-xml/parameter-tags",
+  "input": {
+    "content": null,
+    "tool_calls": [
+      {
+        "id": "call_xml",
+        "type": "function",
+        "function": {
+          "name": "ls",
+          "arguments": "<parameter=dirPath>src</parameter><parameter=recursive>True</parameter>"
+        }
+      }
+    ]
+  },
+  "opts": {
+    "mode": "repair",
+    "tools": [
+      {
+        "name": "ls",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "dirPath": { "type": "string" },
+            "recursive": { "type": "boolean" }
+          }
+        }
+      }
+    ]
+  },
+  "expect": {
+    "tool_calls": [
+      {
+        "name": "ls",
+        "arguments": { "dirPath": "src", "recursive": true }
+      }
+    ]
+  }
+}

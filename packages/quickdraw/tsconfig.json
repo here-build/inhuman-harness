@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    // Story goldens import the harness terminal driver source. Harness already
+    // depends on quickdraw, so a reverse workspace dependency is a turbo cycle.
+    // The typecheck root covers both trees. tsconfig.build.json narrows it again.
+    "rootDir": "..",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}

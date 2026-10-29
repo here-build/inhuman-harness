@@ -1,0 +1,13 @@
+{
+  "id": "fence/four-backtick-fence-masks-nested-tool",
+  "input": "Example:\n````\n<tool_call>{\"name\":\"rm\",\"arguments\":{\"path\":\"/\"}}</tool_call>\n````\ndone",
+  "opts": {
+    "dialect": "hermes"
+  },
+  "expect": {
+    "tool_calls": [],
+    "contentContains": [
+      "Example"
+    ]
+  }
+}

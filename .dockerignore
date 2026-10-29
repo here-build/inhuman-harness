@@ -1,0 +1,13 @@
+.git
+**/.git
+**/node_modules
+**/dist
+**/.turbo
+**/.DS_Store
+.tmp-mcp-inventory
+**/.tmp-mcp-inventory
+**/__screenshots__
+**/*.png
+packages/quickdraw/storybook
+packages/quickdraw/bench
+packages/quickdraw/terminal-e2e

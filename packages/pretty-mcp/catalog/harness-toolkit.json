@@ -1,0 +1,772 @@
+{
+  "id": "harness-toolkit",
+  "displayName": "Harness dist toolkit",
+  "source": "toolkit",
+  "description": "Always-available filesystem tools plus shell, web_search, web_extract, scheme_repl, and task tools.",
+  "tools": {
+    "edit_file": {
+      "description": "Replace an exact stretch of text in an existing file. Requires the user's confirmation.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path, relative to the project root."
+          },
+          "old_string": {
+            "type": "string",
+            "description": "The exact text to replace."
+          },
+          "new_string": {
+            "type": "string",
+            "description": "The replacement text."
+          },
+          "replace_all": {
+            "type": "boolean",
+            "description": "Replace every occurrence."
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional one-line summary of what this edit does."
+          }
+        },
+        "required": [
+          "path",
+          "old_string",
+          "new_string"
+        ],
+        "additionalProperties": true
+      },
+      "question": "{{#replace_all}}all-{{/replace_all}}edit **{{path}}**?{{#old_string}}\n**{{old_string}}**{{/old_string}}{{#new_string}}\n**{{new_string}}**{{/new_string}}",
+      "effect": "{{#replace_all}}all-{{/replace_all}}edited **{{path}}**{{#old_string}}\n**{{old_string}}**{{/old_string}}{{#new_string}}\n**{{new_string}}**{{/new_string}}",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door or payload string."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "fff_search": {
+      "description": "Fuzzy file search under the project root (typo-resistant, frecency-ranked).",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Filename or path fragments."
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Directory to search, relative to the project root. Defaults to the project root."
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": true
+      },
+      "question": "search **{{query}}**{{#cwd}} in **{{cwd}}**{{/cwd}}?",
+      "effect": "searched **{{query}}**{{#cwd}} in **{{cwd}}**{{/cwd}}",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door or payload string."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "glob": {
+      "description": "Find files under the project root whose paths match a glob pattern.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Glob, e.g. '**/*.ts'."
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Directory to search, relative to the project root. Defaults to the project root."
+          }
+        },
+        "required": [
+          "pattern"
+        ],
+        "additionalProperties": true
+      },
+      "question": "glob `{{pattern}}`{{#cwd}} in **{{cwd}}**{{/cwd}}?",
+      "effect": "glob `{{pattern}}`{{#cwd}} in **{{cwd}}**{{/cwd}}",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door or payload string."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "grep": {
+      "description": "Search file contents under the project root (indexed). mode is plain (literal, default), regex, or fuzzy.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Text, regex, or fuzzy query depending on mode."
+          },
+          "path": {
+            "type": "string",
+            "description": "Directory or file to search. Defaults to the project root."
+          },
+          "glob": {
+            "type": "string",
+            "description": "Only search paths matching this glob."
+          }
+        },
+        "required": [
+          "pattern"
+        ],
+        "additionalProperties": true
+      },
+      "question": "grep **{{pattern}}**{{#path}} in **{{path}}**{{/path}}?{{#glob}}\nglob `{{glob}}`{{/glob}}",
+      "effect": "grep **{{pattern}}**{{#path}} in **{{path}}**{{/path}}{{#glob}}\nglob `{{glob}}`{{/glob}}",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door or payload string."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "list_dir": {
+      "description": "List the entries of a directory under the project root. Directories end with '/'.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory path, relative to the project root. Use '.' for the root."
+          },
+          "depth": {
+            "type": "integer",
+            "description": "How many levels to descend. Defaults to 1."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": true
+      },
+      "question": "list **{{path}}**?{{#depth}}\ndepth `{{depth}}`{{/depth}}",
+      "effect": "listed **{{path}}**{{#depth}}\ndepth `{{depth}}`{{/depth}}",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door or payload string."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "read_file": {
+      "description": "Read a UTF-8 text file under the project root.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path, relative to the project root."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "First line to return, 1-based."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many lines to return from offset."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": true
+      },
+      "question": "Read **{{path}}**?",
+      "effect": "Read **{{path}}**",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door or payload string."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "scheme_repl": {
+      "description": "Evaluate a Scheme expression. Inner tool calls use the normal tool execution and approval flow.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "expr": {
+            "type": "string",
+            "description": "Scheme expression."
+          },
+          "period": {
+            "type": "string",
+            "description": "Repeat interval: \"N minutes\", \"N hours\", or \"N days\". Omit to run once. expr must call (meta-reactivity/done-condition pred [result]) on a reachable path. Each iteration has no inner-call or time limit unless maxInternalCalls or timeoutMs is set; idle time between iterations does not count."
+          },
+          "background": {
+            "type": "boolean",
+            "description": "If true, return without waiting for the program to finish; deliver its result later as a notification."
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "description": "Optional per-tick timeout in milliseconds. Omit for no time limit."
+          },
+          "maxInternalCalls": {
+            "type": "integer",
+            "description": "Optional inner tool-call budget. Omit for no limit."
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional one-line summary of what this expression does."
+          }
+        },
+        "required": [
+          "expr"
+        ],
+        "additionalProperties": true
+      },
+      "question": "eval `{{expr}}`?",
+      "effect": "eval `{{expr}}`",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door text when the call failed."
+            },
+            "value": {
+              "type": "array",
+              "description": "Scheme results from the last evaluation."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{#ok}}{{#value}}{{.}}\n{{/value}}{{/ok}}{{^ok}}{{text}}{{/ok}}"
+      }
+    },
+    "shell": {
+      "description": "Run a command in the project workspace through /bin/sh. Requires confirmation, separately from file writes.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The shell command to run."
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Working directory, relative to the project root."
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "description": "Optional per-call timeout in milliseconds."
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional one-line summary of what this command does."
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "additionalProperties": true
+      },
+      "question": "run `{{command}}`?{{#cwd}}\nin **{{cwd}}**{{/cwd}}",
+      "effect": "ran `{{command}}`{{#cwd}}\nin **{{cwd}}**{{/cwd}}",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door text when the call failed."
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "exitCode": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "stdout": {
+                  "type": "string"
+                },
+                "stderr": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "exitCode",
+                "stdout",
+                "stderr"
+              ]
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{#ok}}exit {{value.exitCode}}{{#value.stdout}}\n{{value.stdout}}{{/value.stdout}}{{#value.stderr}}\nstderr {{value.stderr}}{{/value.stderr}}{{/ok}}{{^ok}}{{text}}{{/ok}}"
+      }
+    },
+    "write_file": {
+      "description": "Create a file under the project root, or replace one entirely. Replacing an existing file requires overwriteExisting. Requires the user's confirmation.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path, relative to the project root."
+          },
+          "content": {
+            "type": "string",
+            "description": "The file's complete new contents."
+          },
+          "overwriteExisting": {
+            "type": "boolean",
+            "description": "Set true to replace an existing file."
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional one-line summary of what this write does."
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "additionalProperties": true
+      },
+      "question": "{{#existed}}update{{/existed}}{{^existed}}create{{/existed}} **{{path}}**?{{#content}}\n**{{content}}**{{/content}}",
+      "effect": "{{#existed}}updated{{/existed}}{{^existed}}created{{/existed}} **{{path}}**{{#content}}\n**{{content}}**{{/content}}",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door or payload string."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "web_search": {
+      "description": "Search the public web. Returns ranked titles, URLs, and snippets.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query."
+          },
+          "numResults": {
+            "type": "integer",
+            "description": "How many hits to return. Defaults to 5."
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": true
+      },
+      "question": "search **{{query}}**?",
+      "effect": "searched **{{query}}**",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door text when the call failed."
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "results": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": { "type": "string" },
+                      "url": { "type": "string" },
+                      "snippet": { "type": "string" }
+                    }
+                  }
+                },
+                "provider": { "type": "string" }
+              }
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{#ok}}{{#value.results}}**{{title}}** {{url}}{{#snippet}}\n{{snippet}}{{/snippet}}\n{{/value.results}}{{/ok}}{{^ok}}{{text}}{{/ok}}"
+      }
+    },
+    "web_extract": {
+      "description": "Fetch a public URL and return readable markdown. Use after web_search when you have a URL.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "HTTP or HTTPS URL to read."
+          },
+          "charLimit": {
+            "type": "integer",
+            "description": "Maximum markdown characters to return. Defaults to 15000."
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": true
+      },
+      "question": "extract **{{url}}**?",
+      "effect": "extracted **{{url}}**",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": { "type": "boolean" },
+            "text": { "type": "string" },
+            "value": {
+              "type": "object",
+              "properties": {
+                "url": { "type": "string" },
+                "title": { "type": "string" },
+                "markdown": { "type": "string" },
+                "provider": { "type": "string" },
+                "truncated": { "type": "boolean" }
+              }
+            }
+          },
+          "required": ["ok"]
+        },
+        "serializer": "{{#ok}}{{#value.title}}**{{value.title}}** {{/value.title}}{{value.url}}{{#value.markdown}}\n{{value.markdown}}{{/value.markdown}}{{/ok}}{{^ok}}{{text}}{{/ok}}"
+      }
+    },
+    "task__create": {
+      "description": "Create a task with pending status and return its taskId. The harness manages status; completion requires task__validate, not a completed argument. The validationProgram is saved at creation and cannot be replaced. It must inspect current project state through files, tests, or a :readonly agent/ask using the task requirements, then call (tasks/write-completion-verdict ok comments). Returning #t or (list #t \"…\") is not a stamp. ;; use one-shot for schema-constrained responses",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "Short task title."
+          },
+          "description": {
+            "type": "string",
+            "description": "Task requirements and scope."
+          },
+          "activeForm": {
+            "type": "string",
+            "description": "Progress label displayed while this task is active."
+          },
+          "activationBrief": {
+            "type": "string",
+            "description": "Instructions to follow when this task becomes active."
+          },
+          "validationProgram": {
+            "type": "string",
+            "description": "Scheme validation program saved at creation and run later by task__validate; it cannot be replaced. Inspect current project state through files, tests, or a :readonly agent/ask using the task requirements, then call (tasks/write-completion-verdict ok comments). Returning #t or (list #t \"…\") is not a stamp. ;; use one-shot for schema-constrained responses"
+          }
+        },
+        "required": [
+          "subject",
+          "description",
+          "validationProgram"
+        ],
+        "additionalProperties": true
+      },
+      "question": "create **{{subject}}**?{{#description}}\n{{description}}{{/description}}{{#activeForm}}\nform **{{activeForm}}**{{/activeForm}}{{#activationBrief}}\nbrief **{{activationBrief}}**{{/activationBrief}}{{#validationProgram}}\nprogram `{{validationProgram}}`{{/validationProgram}}",
+      "effect": "created **{{subject}}**{{#description}}\n{{description}}{{/description}}{{#activeForm}}\nform **{{activeForm}}**{{/activeForm}}{{#activationBrief}}\nbrief **{{activationBrief}}**{{/activationBrief}}{{#validationProgram}}\nprogram `{{validationProgram}}`{{/validationProgram}}",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Minted taskId, or door text."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "task__start": {
+      "description": "Start a task and return its subject and activationBrief. Only one task can be active; any previously active task returns to pending. Starting an already-active task changes nothing.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Task ID returned by task__create."
+          }
+        },
+        "required": [
+          "taskId"
+        ],
+        "additionalProperties": true
+      },
+      "question": "start `{{taskId}}`?",
+      "effect": "started `{{taskId}}`",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door text when the call failed."
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "subject": { "type": "string" },
+                "activationBrief": { "type": "string" }
+              }
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{#ok}}**{{value.subject}}**{{#value.activationBrief}}\n{{value.activationBrief}}{{/value.activationBrief}}{{/ok}}{{^ok}}{{text}}{{/ok}}"
+      }
+    },
+    "task__drop": {
+      "description": "Drop a task and save the reason. Completed tasks cannot be dropped. Dropping an already-dropped task changes nothing. Returns no value.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Task ID returned by task__create."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for dropping this task. Saved with the task."
+          }
+        },
+        "required": [
+          "taskId",
+          "reason"
+        ],
+        "additionalProperties": true
+      },
+      "question": "drop `{{taskId}}`?{{#reason}}\n{{reason}}{{/reason}}",
+      "effect": "dropped `{{taskId}}`{{#reason}}\n{{reason}}{{/reason}}",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door text when the call failed."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "task__after": {
+      "description": "Add a prerequisite: taskId waits until after is completed. Does not start either task. Returns no value.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Task ID returned by task__create. This task waits for the prerequisite."
+          },
+          "after": {
+            "type": "string",
+            "description": "Prerequisite task ID. The dependent task waits until this task is completed."
+          }
+        },
+        "required": [
+          "taskId",
+          "after"
+        ],
+        "additionalProperties": true
+      },
+      "question": "after `{{taskId}}` `{{after}}`?",
+      "effect": "after `{{taskId}}` `{{after}}`",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door text when the call failed."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{text}}"
+      }
+    },
+    "task__validate": {
+      "description": "Validate the active task using the validationProgram saved at creation; no replacement program is accepted. That program must call (tasks/write-completion-verdict ok comments) after checking current project state. The tool returns that pair, or delivers it later as a notification when background is true.",
+      "opts": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Task ID returned by task__create. This task must be active."
+          },
+          "background": {
+            "type": "boolean",
+            "description": "If true, return without waiting and deliver the (boolean, string) validation result later as a notification. Defaults to false: wait and return the result directly."
+          }
+        },
+        "required": [
+          "taskId"
+        ],
+        "additionalProperties": true
+      },
+      "question": "{{#background}}background-{{/background}}validate `{{taskId}}`?",
+      "effect": "{{#background}}background-{{/background}}validated `{{taskId}}`",
+      "result": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "text": {
+              "type": "string",
+              "description": "Door text when the call failed."
+            },
+            "value": {
+              "type": "array",
+              "description": "(bool, string) verdict pair."
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        },
+        "serializer": "{{#ok}}{{#value}}{{.}}\n{{/value}}{{/ok}}{{^ok}}{{text}}{{/ok}}"
+      }
+    }
+  }
+}

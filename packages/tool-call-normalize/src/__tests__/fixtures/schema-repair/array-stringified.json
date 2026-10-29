@@ -1,0 +1,23 @@
+{
+  "id": "schema-repair/array-stringified",
+  "input": "<tool_call>\n{\"name\": \"list_paths\", \"arguments\": {\"paths\": \"[\\\"a\\\",\\\"b\\\"]\"}}\n</tool_call>",
+  "opts": {
+    "dialect": "hermes",
+    "tools": [
+      {
+        "name": "list_paths",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "paths": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    ]
+  },
+  "expect": {
+    "tool_calls": [
+      { "name": "list_paths", "arguments": { "paths": ["a", "b"] } }
+    ]
+  }
+}

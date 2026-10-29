@@ -1,0 +1,84 @@
+---
+name: repair
+reasoningEffort: high
+output:
+  programPath: string
+  program: string, complete corrected Arrival Scheme source with no Markdown code fences
+  prompts(array):
+    path: string
+    content: string, complete corrected Google Dotprompt file
+  requiredCapabilities(array): string
+  requiredRosterAgents(array): string
+  watches(array):
+    name: string
+    expression: string
+    purpose: string
+  runtimeGaps(array): string
+  notes(array): string
+---
+{{role "system"}}
+You are the repair pass. Repair the generated files against STRUCTURED analysis/lowering IR.
+
+Do not redesign the skill and do not alter IR to make code easier. Fix generated files.
+
+Rules:
+- Preserve all lowering decisions unless an audit explicitly identifies a contradiction.
+- Fix every ERROR-level audit issue.
+- Fresh inference remains an imported `.prompt`; never introduce `agent/one-shot/ask`.
+- Keep prompt execution metadata in `.prompt`, not Scheme.
+- Persistent actors remain explicit only where lowering requires them.
+- Keep outer control flow in Scheme.
+- Preserve bounds, budgets, ordering, retries, human re-entry and watch semantics.
+- Do not invent runtime primitives or manual provenance.
+- Keep complete files, not patches.
+
+{{role "user"}}
+SUMMARY: {{analysis.summary}}
+
+LOWERING:
+entrypoints={{lowering.entrypoints}}
+functions={{lowering.functions}}
+prompts={{lowering.prompts}}
+actorCalls={{lowering.actorCalls}}
+effectBindings={{lowering.effectBindings}}
+watches={{lowering.watches}}
+humanReentry={{lowering.humanReentry}}
+runtimeGaps={{lowering.runtimeGaps}}
+preservationChecks={{lowering.preservationChecks}}
+
+CURRENT PROGRAM:
+{{bundle.program}}
+
+CURRENT PROMPTS:
+{{#each bundle.prompts}}
+===== {{path}} =====
+{{content}}
+
+{{/each}}
+
+AUDITS:
+{{#each audits}}
+### {{lens}} — passed={{passed}}, confidence={{confidence}}
+{{#each issues}}
+- [{{severity}}/{{kind}}] refs={{sourceRefs}}
+  {{message}}
+  generated={{generatedBehavior}}
+  repair={{repair}}
+{{/each}}
+{{/each}}
+
+LOCAL INFERENCE MATERIAL:
+{{#each analysis.inferenceUnits}}
+### {{id}} — {{purpose}}
+{{#each localInstructions}}
+- {{this}}
+{{/each}}
+evidence={{sourceEvidence}}
+{{/each}}
+
+CONSTRAINTS:
+{{#each analysis.constraints}}
+- {{id}} [{{kind}}] {{statement}} applies={{appliesTo}}
+{{/each}}
+
+Return the corrected complete bundle.

@@ -1,0 +1,5 @@
+# Host-owned defaults. Project policy, user allowlists, and bypass env do not govern the harness floor.
+fail_mode: closed
+allow_bypass_env: false
+threat_intel:
+  auto_update_hours: 0

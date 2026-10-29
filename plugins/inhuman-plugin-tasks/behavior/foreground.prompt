@@ -1,0 +1,13 @@
+---
+attach: foreground
+mode: instruct
+tools: [read_file, grep, glob, list_dir]
+behavior:
+  program: ./foreground.scm
+  bindings:
+    tasks:
+      plugin: tasks
+      scope: session
+      methods: [incomplete, create, start, drop, after]
+---
+Recite the notebook at round end. Do not stamp completion.

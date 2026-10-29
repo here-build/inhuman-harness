@@ -1,0 +1,10 @@
+{
+  "name": "@inhuman.tools/qd-linux-arm64",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Prebuilt qd present process for linux-arm64. Built on Ubuntu 22.04, glibc 2.35.",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "files": ["qd"],
+  "license": "MIT"
+}

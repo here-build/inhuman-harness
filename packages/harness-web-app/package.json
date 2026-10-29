@@ -1,0 +1,79 @@
+{
+  "name": "@inhuman.tools/harness-web-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Loopback page and browser client for the harness daemon.",
+  "type": "module",
+  "exports": {
+    "./server": {
+      "types": "./dist/server/listen.d.ts",
+      "import": "./dist/server/listen.js",
+      "default": "./dist/server/listen.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "index.html"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.server.json && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "build-storybook": "storybook build -o dist/storybook",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.2.6",
+    "@here.build/arrival": "^0.10.2",
+    "@here.build/arrival-env": "^0.10.2",
+    "@here.build/arrival-provenance": "^0.10.0",
+    "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/harness-peer": "workspace:^",
+    "@inhuman.tools/harness-scheme": "workspace:^",
+    "@inhuman.tools/harness-transcript": "workspace:*",
+    "@inhuman.tools/substrate": "workspace:^",
+    "@pierre/diffs": "^1.5.2",
+    "@tabler/icons-react": "^3.49.0",
+    "@tanstack/react-router": "^1.132.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "diff": "^7.0.0",
+    "elkjs": "0.11.1",
+    "mobx": "6.16.1",
+    "mobx-react-lite": "^4.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "remend": "^1.0.0",
+    "shiki": "^3.0.0",
+    "tailwind-merge": "^3.3.1",
+    "y-websocket": "3.1.0",
+    "yjs": "13.6.33"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@inhuman.tools/harness-commons": "workspace:^",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@storybook/react": "10.6.1",
+    "@storybook/react-vite": "10.6.1",
+    "@tailwindcss/vite": "^4.1.12",
+    "@types/diff": "7.0.2",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "eslint": "9.39.2",
+    "happy-dom": "^20.14.6",
+    "storybook": "10.6.1",
+    "tailwindcss": "^4.1.12",
+    "typescript": "6.0.2",
+    "vite": "^7.1.5",
+    "vitest": "4.1.0"
+  },
+  "license": "MIT"
+}

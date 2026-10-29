@@ -1,0 +1,12 @@
+---
+attach: foreground
+mode: instruct
+behavior:
+  program: ./foreground.scm
+  bindings:
+    goal:
+      plugin: inhuman-plugin-goal
+      scope: session
+      methods: [get, set, tick, block]
+---
+Continue the session goal until it blocks or the loop count is spent.

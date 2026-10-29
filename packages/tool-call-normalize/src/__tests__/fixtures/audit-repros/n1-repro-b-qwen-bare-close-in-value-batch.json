@@ -1,0 +1,31 @@
+{
+  "id": "audit-repros/n1-repro-b-qwen-bare-close-in-value-batch",
+  "input": "<function=write_file><parameter=path>a</parameter><parameter=content>see </function> here</parameter></function>",
+  "opts": {
+    "dialect": "qwen_xml",
+    "mode": "strict",
+    "tools": [
+      {
+        "name": "write_file",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "content": { "type": "string" }
+          },
+          "required": ["path", "content"]
+        }
+      }
+    ]
+  },
+  "expect": {
+    "tool_calls": [
+      {
+        "name": "write_file",
+        "arguments": {}
+      }
+    ],
+    "content": null,
+    "meta": { "partial": [0] }
+  }
+}

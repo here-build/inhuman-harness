@@ -1,0 +1,16 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "tasks",
+  "version": "0.0.1",
+  "description": "Session notebook pages with a frozen exam, and project promotion of an accepted task.",
+  "extensions": {
+    "tools.inhuman": {
+      "abi": "./behavior/tools.scm",
+      "bots": ["./behavior/foreground.prompt"],
+      "states": {
+        "session": "./behavior/session.scm",
+        "project": "./behavior/project.scm"
+      }
+    }
+  }
+}
