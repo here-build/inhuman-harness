@@ -5,7 +5,7 @@
   "description": "Agent harness product — process entities + quickdraw paint substrate. Dual-mode: standalone or fused into here.build monorepo.",
   "scripts": {
     "build": "turbo build",
-    "test": "turbo test",
+    "test": "turbo test --continue",
     "test:process": "pnpm --filter @inhuman.tools/harness-cli test:process && pnpm --filter @inhuman.tools/harness test:process",
     "test:visual": "pnpm --filter @inhuman.tools/harness-tui test:visual",
     "test:boundaries": "node --test scripts/packed-product.test.mjs",

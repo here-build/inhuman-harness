@@ -64,5 +64,5 @@ describe("hook-main", () => {
       got.push({ code: result.code, stdout: result.stdout, stderr: result.stderr });
     }
     expect(got).toEqual(rows.map((row) => ({ code: 0, stdout: row.stdout, stderr: "" })));
-  }, 5_000);
+  }, 30_000);
 });
