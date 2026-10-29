@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/scheme-watch",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Scheme watchdog tool. Re-evaluates one ProgrammaticJob on a period and roots meta-reactivity. Vocabulary still comes from the host.",
   "type": "module",
   "main": "./dist/index.js",
@@ -42,7 +41,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages-runtime/scheme-watch"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

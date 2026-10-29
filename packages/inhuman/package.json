@@ -1,0 +1,34 @@
+{
+  "name": "inhuman",
+  "version": "0.1.0",
+  "description": "npx inhuman: start the inhuman harness daemon if needed and open its web client.",
+  "keywords": ["inhuman", "harness", "agent", "cli"],
+  "homepage": "https://github.com/here-build/inhuman-harness#readme",
+  "bugs": {
+    "url": "https://github.com/here-build/inhuman-harness/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/inhuman"
+  },
+  "license": "MIT",
+  "author": "Merkle Bonsai",
+  "type": "module",
+  "bin": {
+    "inhuman": "./bin/inhuman.mjs"
+  },
+  "files": [
+    "bin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@inhuman.tools/harness-cli": "workspace:^",
+    "@inhuman.tools/harness-web-app": "workspace:^"
+  }
+}

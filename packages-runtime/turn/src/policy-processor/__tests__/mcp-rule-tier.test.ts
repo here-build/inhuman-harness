@@ -15,17 +15,32 @@ import { setup } from "./_helpers/orchestrator.js";
 
 const FLOOR = reasonableDefaultsSource;
 const PROBE = { kind: "mcp", server: "kley", tool: "delete_table" } as const;
-const rules = (tier: string | undefined, describe?: string) => ({
-  rules: [{ match: { mcp: "kley", tool: "delete_table" }, ...(tier === undefined ? {} : { tier }), ...(describe === undefined ? {} : { describe }) }],
+const rules = (tier: string | undefined, describeText?: string) => ({
+  rules: [
+    {
+      match: { mcp: "kley", tool: "delete_table" },
+      ...(tier === undefined ? {} : { tier }),
+      ...(describeText === undefined ? {} : { describe: describeText }),
+    },
+  ],
 });
 
 function kleyTool(name = "delete_table"): SystemToolJob {
-  return new SystemToolJob({ toolCallId: `k-${name}`, name, mcpServer: "kley", argsJson: JSON.stringify({ id: "t1" }) });
+  return new SystemToolJob({
+    toolCallId: `k-${name}`,
+    name,
+    mcpServer: "kley",
+    argsJson: JSON.stringify({ id: "t1" }),
+  });
 }
 
 describe("explain with a rule tier", () => {
   it("soft-deny: the tier moves, the class stays the name-based one, nothing is grantable", async () => {
-    using bag = setup({ policy: "manual", policyProgram: FLOOR, user: rules("soft-deny", "drops a table and its rows") });
+    using bag = setup({
+      policy: "manual",
+      policyProgram: FLOOR,
+      user: rules("soft-deny", "drops a table and its rows"),
+    });
     const out = await explainCall(scopes.get(bag.root), PROBE);
     expect(out).toMatchObject({ tier: "soft-deny", outcome: "prompts-you", grant: null, grantable: [] });
     expect(out.classes[0]?.id).toBe("mcp-action");
@@ -103,7 +118,16 @@ describe("the judge sees the description", () => {
     });
     expect(s.floorJson).not.toContain("\n");
     expect(JSON.parse(s.floorJson)).toMatchObject({ ownerDescription: "drops a table\nand its rows" });
-    const none = buildSoftDenySections({ ...{ classes: [], votes: [], userMessages: [], agentAnswer: "", allowAgentAnswer: false, tool: "t", cluster: "mcp", args: {} } });
+    const none = buildSoftDenySections({
+      classes: [],
+      votes: [],
+      userMessages: [],
+      agentAnswer: "",
+      allowAgentAnswer: false,
+      tool: "t",
+      cluster: "mcp",
+      args: {},
+    });
     expect(JSON.parse(none.floorJson)).not.toHaveProperty("ownerDescription");
   });
 });

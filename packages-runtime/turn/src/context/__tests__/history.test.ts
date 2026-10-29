@@ -24,8 +24,8 @@ import {
 } from "@inhuman.tools/harness-model";
 import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 
-import { BACKGROUND_TOOL, IN_FLIGHT_TOOL, NO_TOOLS_SYSTEM, projectHistory, type HistoryMessage } from "../index.js";
 import { CONTEXT_NEED_REMINDER } from "../../session/side-channel-reminder.js";
+import { BACKGROUND_TOOL, IN_FLIGHT_TOOL, NO_TOOLS_SYSTEM, projectHistory, type HistoryMessage } from "../index.js";
 
 function nativeCalls(...rows: Array<[id: string, name: string, args?: string]>) {
   return rows.map(([id, name, args]) => responseCall(id, name, args ?? "{}"));
@@ -353,7 +353,9 @@ it("the side-channel nag reaches the wire as a system row only, never a user row
   const rows = history("nag-role", [completion("next")], { systemNote: CONTEXT_NEED_REMINDER });
   const carrying = rows.filter((row) => String(row.content).includes("Call context_need"));
   expect(carrying.map((row) => row.role)).toEqual(["system"]);
-  expect(rows.filter((row) => row.role === "user").some((row) => /next stretch|context_need/i.test(String(row.content)))).toBe(false);
+  expect(
+    rows.filter((row) => row.role === "user").some((row) => /next stretch|context_need/i.test(String(row.content))),
+  ).toBe(false);
 });
 
 it("a systemNote is addressed to its own round: neither a buried nor a kept one replays", () => {

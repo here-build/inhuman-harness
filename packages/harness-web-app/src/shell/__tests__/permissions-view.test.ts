@@ -1,9 +1,9 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { resolverWords } from "@inhuman.tools/harness-model/session";
 import { describe, expect, it, vi } from "vitest";
 
 import { ExplainResult, PermissionsBody } from "../permissions-panel.js";
-import { resolverWords } from "@inhuman.tools/harness-model/session";
 import {
   cellText,
   explain,

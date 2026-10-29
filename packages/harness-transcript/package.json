@@ -46,5 +46,6 @@
     "react-native": {
       "optional": true
     }
-  }
+  },
+  "browserslist": ["last 2 chrome versions", "last 2 firefox versions", "last 2 safari versions", "ios_saf >= 16.4", "node >= 22"]
 }

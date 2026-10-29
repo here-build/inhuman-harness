@@ -50,13 +50,24 @@ function matchingBrace(text: string, start: number): number | undefined {
   let depth = 0;
   for (let i = start; i < text.length; i += 1) {
     const ch = text[i];
-    if (ch === "\\") {
-      i += 1;
-    } else if (ch === "{") {
-      depth += 1;
-    } else if (ch === "}") {
-      depth -= 1;
-      if (depth === 0) return i;
+    switch (ch) {
+      case "\\": {
+        i += 1;
+
+        break;
+      }
+      case "{": {
+        depth += 1;
+
+        break;
+      }
+      case "}": {
+        depth -= 1;
+        if (depth === 0) return i;
+
+        break;
+      }
+      // No default
     }
   }
   return undefined;
@@ -69,12 +80,24 @@ function commaItems(body: string): string[] | undefined {
   let from = 0;
   for (let i = 0; i < body.length; i += 1) {
     const ch = body[i];
-    if (ch === "\\") i += 1;
-    else if (ch === "{") depth += 1;
-    else if (ch === "}") depth -= 1;
-    else if (ch === "," && depth === 0) {
-      items.push(body.slice(from, i));
-      from = i + 1;
+    switch (ch) {
+      case "\\": {
+        i += 1;
+        break;
+      }
+      case "{": {
+        depth += 1;
+        break;
+      }
+      case "}": {
+        depth -= 1;
+        break;
+      }
+      default:
+        if (ch === "," && depth === 0) {
+          items.push(body.slice(from, i));
+          from = i + 1;
+        }
     }
   }
   if (items.length === 0) return undefined;
@@ -82,7 +105,7 @@ function commaItems(body: string): string[] | undefined {
   return items;
 }
 
-const RANGE = /^(-?\d+|[A-Za-z])\.\.(-?\d+|[A-Za-z])(?:\.\.(-?\d+))?$/;
+const RANGE = /^(-?\d+|[A-Z])\.\.(-?\d+|[A-Z])(?:\.\.(-?\d+))?$/i;
 const MAX_RANGE = 1024;
 
 function rangeItems(body: string): string[] | undefined {

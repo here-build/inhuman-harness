@@ -24,7 +24,8 @@ export class CompactJob extends Job<string, string> {
   override readonly owner: JobEffectOwner = "session-runtime";
   override readonly intent: string =
     "None for the compact itself. Nested strategy complete() is CompletionJob/PEW and follows that row. CompactJob has no executor.";
-  override readonly checkpoint: string = "reason, keepTurns, kvKeepTurns, card, failed, notice on the session document.";
+  override readonly checkpoint: string =
+    "reason, keepTurns, kvKeepTurns, card, failed, notice on the session document.";
   override readonly dispatch: string =
     "Turn loop runs applyCompact when the chunk is shifted, after tools have settled.";
   override readonly settlement: string =

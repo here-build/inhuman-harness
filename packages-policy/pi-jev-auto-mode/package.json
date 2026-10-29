@@ -49,5 +49,6 @@
     "extensions": [
       "./dist/index.js"
     ]
-  }
+  },
+  "browserslist": ["node >= 22"]
 }

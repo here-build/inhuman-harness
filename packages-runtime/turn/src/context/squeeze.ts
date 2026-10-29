@@ -112,7 +112,12 @@ export type ToolImage = {
   readonly bytes: Uint8Array | null;
 };
 
-type ImageBlock = { readonly type: "image"; readonly data?: unknown; readonly mimeType?: unknown; readonly mime_type?: unknown };
+type ImageBlock = {
+  readonly type: "image";
+  readonly data?: unknown;
+  readonly mimeType?: unknown;
+  readonly mime_type?: unknown;
+};
 
 function isImageBlock(block: unknown): block is ImageBlock {
   return typeof block === "object" && block !== null && (block as { type?: unknown }).type === "image";

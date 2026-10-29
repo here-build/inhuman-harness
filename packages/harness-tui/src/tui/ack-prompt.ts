@@ -56,7 +56,10 @@ export function ackChoices(options: readonly AckOption[], session: { readonly bo
         label: option.label,
         ttl,
         // The session's own life is both scope and expiry: say it once.
-        text: scope === "session" ? `${option.label} · ${SCOPE_PHRASE[scope]}` : `${option.label} · ${SCOPE_PHRASE[scope]} · ${ttl}`,
+        text:
+          scope === "session"
+            ? `${option.label} · ${SCOPE_PHRASE[scope]}`
+            : `${option.label} · ${SCOPE_PHRASE[scope]} · ${ttl}`,
       });
     }
   }

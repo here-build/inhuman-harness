@@ -2,8 +2,8 @@
  * policy/explain asks the same code the real license path asks. For each probe the outcome it reports
  * must equal what a real leaf does in the same session: runs, denied, prompts, or goes to a judge.
  */
-import { reasonableDefaultsSource } from "@inhuman.tools/policy/floor";
 import type { GrantRow } from "@inhuman.tools/harness-model";
+import { reasonableDefaultsSource } from "@inhuman.tools/policy/floor";
 import { when } from "mobx";
 import { describe, expect, it } from "vitest";
 

@@ -81,12 +81,12 @@ export function buildView(
   const pos = new Map<CompletionExpectation, number>();
   const turnOrd = new Map<CompletionExpectation, number>();
   const turns = new Map<SessionTurn | null, number>();
-  order.forEach((c, index) => {
+  for (const [index, c] of order.entries()) {
     pos.set(c, index);
     const turn = owningTurn(c);
     if (!turns.has(turn)) turns.set(turn, turns.size);
     turnOrd.set(c, turns.get(turn) ?? 0);
-  });
+  }
   const posOf = (c: CompletionExpectation): number => pos.get(c) ?? -1;
   const turnOf = (c: CompletionExpectation): number => turnOrd.get(c) ?? 0;
   let clockCompletion: CompletionExpectation | null;

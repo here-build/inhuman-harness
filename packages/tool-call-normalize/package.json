@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/tool-call-normalize",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Model-native tool dialects → OpenAI tool_calls + clean prose. Normalizes streamed and batch LLM output (Hermes, LongCat, Qwen XML, OpenAI-native, …) into one IR.",
   "keywords": [
     "llm",
@@ -9,7 +9,7 @@
     "normalize"
   ],
   "license": "MIT",
-  "author": "here.build",
+  "author": "Merkle Bonsai",
   "type": "module",
   "exports": {
     ".": {
@@ -47,10 +47,19 @@
     "typescript": "6.0.2",
     "vitest": "4.1.0"
   },
-  "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/tool-call-normalize"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

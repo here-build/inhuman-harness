@@ -168,7 +168,9 @@ describe("ack over RPC", () => {
       session.handleRequest("ack/answer", { sessionId: "other", jobId: job.uuid, ackId: job.uuid, accept: true }),
     ).resolves.toEqual({ ok: false, reason: "not-pending" });
     await expect(
-      answer(session, job, { store: { scope: "global", subject: { kind: "command", argv0: "git", spine: [], args: [] } } }),
+      answer(session, job, {
+        store: { scope: "global", subject: { kind: "command", argv0: "git", spine: [], args: [] } },
+      }),
     ).resolves.toEqual({ ok: false, reason: "subject-not-offered" });
     // a class ack is not on offer for a command flag
     await expect(
@@ -224,9 +226,10 @@ describe("ack over RPC", () => {
   it("settings can store an ack (class subjects are for acks only)", async () => {
     const { session } = await open([]);
     const subject = { kind: "class", class: "publish" } as const;
-    await expect(
-      session.handleRequest("grant/add", { scope: "global", subject }),
-    ).resolves.toEqual({ ok: false, reason: "subject-not-allowed" });
+    await expect(session.handleRequest("grant/add", { scope: "global", subject })).resolves.toEqual({
+      ok: false,
+      reason: "subject-not-allowed",
+    });
     const added = (await session.handleRequest("ack/add", { scope: "global", subject })) as {
       ok: true;
       row: { kind: string; expiresAtMs: number | null; source: string };
@@ -243,9 +246,9 @@ describe("ack over RPC", () => {
       outcome: "prompts-you",
       ack: { flags: [{ label: "`git status`" }], satisfiedBy: null },
     });
-    await expect(
-      session.handleRequest("policy/explain", { ...probe, unattended: true }),
-    ).resolves.toMatchObject({ outcome: "denied" });
+    await expect(session.handleRequest("policy/explain", { ...probe, unattended: true })).resolves.toMatchObject({
+      outcome: "denied",
+    });
     await session.handleRequest("ack/add", {
       scope: "session",
       scopeKey: "s1",

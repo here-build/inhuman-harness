@@ -26,16 +26,19 @@ import { expect, onTestFinished, test } from "vitest";
 import { compactDue, MessageChunk, payloadSuffix, Transcript } from "@/context";
 import { applyCompact } from "@/session";
 
-import { useKeepFirstCompact, attachScriptedModel, modelOf, scriptedConnectionId } from "../../../testkit/scripted-model.js";
+import {
+  useKeepFirstCompact,
+  attachScriptedModel,
+  modelOf,
+  scriptedConnectionId,
+} from "../../../testkit/scripted-model.js";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
 import type { SessionDaemon } from "../SessionDaemon.js";
 
 const TIMEOUT = 2_000;
 
-const starterPath = fileURLToPath(
-  new URL("./fixtures/compact-starter/compact.scm", import.meta.url),
-);
+const starterPath = fileURLToPath(new URL("fixtures/compact-starter/compact.scm", import.meta.url));
 
 test("compact cycle: occupancy, overflow insert, cutoff, pair-safety, later turn eats the card", async () => {
   resetLocalIDs();

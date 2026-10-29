@@ -12,8 +12,8 @@ import { parseGrantRows, SessionSystemPrompt, SessionTurn, SystemToolJob } from 
 import { runInAction, when } from "mobx";
 import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 
-import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 import { botPermissionMode } from "../daemon/bots/bot-mode.js";
+import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../daemon/project/ProjectDaemon.js";
 import { readProjectAuthorization } from "../daemon/session/project-authorization.js";
 import type { SessionDaemon } from "../daemon/session/SessionDaemon.js";

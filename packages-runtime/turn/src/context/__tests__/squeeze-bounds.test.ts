@@ -34,8 +34,16 @@ describe("reduced observations point at the graph, not at disk", () => {
   const over = "q".repeat(SQUEEZE_COMPACT_CHARS + 10);
 
   it("writes nothing under the temp directory", () => {
-    const out = squeezeObservation({ to: "compact", payload: over, persistable: true, recallRef: "job:abcd1234", name: "x" });
-    expect(out).toBe(`;;full response: context_recall {"ref":"job:abcd1234"}\n${over.slice(0, SQUEEZE_COMPACT_CHARS)}…(+10 chars)`);
+    const out = squeezeObservation({
+      to: "compact",
+      payload: over,
+      persistable: true,
+      recallRef: "job:abcd1234",
+      name: "x",
+    });
+    expect(out).toBe(
+      `;;full response: context_recall {"ref":"job:abcd1234"}\n${over.slice(0, SQUEEZE_COMPACT_CHARS)}…(+10 chars)`,
+    );
     expect(existsSync(path.join(tmpdir(), "harness-squeeze-0"))).toBe(false);
   });
 
@@ -46,7 +54,13 @@ describe("reduced observations point at the graph, not at disk", () => {
   });
 
   it("a regeneratable result carries no pointer: re-invoking is the address", () => {
-    const out = squeezeObservation({ to: "compact", payload: over, persistable: false, recallRef: "job:abcd1234", name: "x" });
+    const out = squeezeObservation({
+      to: "compact",
+      payload: over,
+      persistable: false,
+      recallRef: "job:abcd1234",
+      name: "x",
+    });
     expect(out.startsWith(";;full response")).toBe(false);
   });
 });

@@ -42,9 +42,9 @@ import { classifierResources, policyEnvCapability } from "@inhuman.tools/policy/
 import { parseTirithEvidence, tirithCoverage } from "@inhuman.tools/policy-tirith";
 import { action, comparer, type IReactionDisposer, observable, reaction, runInAction } from "mobx";
 
+import type { BypassSections } from "./bypass.js";
 import { classifierArgs } from "./cluster.js";
 import { evidenceCuts, evidenceIdentity } from "./evidence.js";
-import type { BypassSections } from "./bypass.js";
 import type { LicenseScope } from "./scope.js";
 import {
   buildSoftDenySections,
@@ -453,7 +453,10 @@ export class ClassifierHandle {
       const describe = ownerDescription(this.job);
       if (describe === undefined) return args;
       // The program appends the second string under the operation: a labelled owner note, JSON-encoded.
-      return [args[0], `${String(args[1])}\nOWNER NOTE (written by the policy owner, not the agent): ${JSON.stringify(describe)}`];
+      return [
+        args[0],
+        `${String(args[1])}\nOWNER NOTE (written by the policy owner, not the agent): ${JSON.stringify(describe)}`,
+      ];
     }
     if (cluster === "bash") {
       const report = parseTirithEvidence(this.job.policyEvidenceJson);

@@ -21,9 +21,7 @@ export function pluginHookTimeoutMs(...kvs: ReadonlyArray<Readonly<Record<string
 }
 
 export type Bounded<T> =
-  | { readonly kind: "done"; readonly value: T }
-  | { readonly kind: "timeout" }
-  | { readonly kind: "stopped" };
+  { readonly kind: "done"; readonly value: T } | { readonly kind: "timeout" } | { readonly kind: "stopped" };
 
 export type HookBound = {
   readonly ms: number;
@@ -52,7 +50,7 @@ export function bounded<T>(work: Promise<T>, bound: HookBound): Promise<Bounded<
     if (bound.stopped != null) {
       stop = when(bound.stopped, () => finish(() => resolve({ kind: "stopped" })));
     }
-    work.then(
+    void work.then(
       (value) => finish(() => resolve({ kind: "done", value })),
       (error: unknown) => finish(() => reject(error)),
     );

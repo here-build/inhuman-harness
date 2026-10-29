@@ -76,7 +76,7 @@ test("read_file ask", () => {
     collapsed: null,
     gutter: null,
     role: null,
-    annotation: "Read **src/tea.ts**",
+    annotation: "Ask · Read **src/tea.ts**",
     ask: [],
     wire: false,
   });
@@ -101,7 +101,7 @@ test("grep ask", () => {
     collapsed: null,
     gutter: null,
     role: null,
-    annotation: "grep **TODO** in **packages/harness/src**",
+    annotation: "Ask · grep **TODO** in **packages/harness/src**",
     ask: [],
     wire: false,
   });

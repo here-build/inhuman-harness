@@ -235,7 +235,19 @@ export function permissionsSurface(view: PermissionsView): UiNode {
   const close = leaf("Close", { kind: "dismiss" });
   const rows = view.revocable.map(
     (row, index) =>
-      new UiNode(`Revoke ${row.label}`, row.detail, [], "ok", "", undefined, [leaf("Revoke", { kind: "revoke", index })], [], [], null, {}),
+      new UiNode(
+        `Revoke ${row.label}`,
+        row.detail,
+        [],
+        "ok",
+        "",
+        undefined,
+        [leaf("Revoke", { kind: "revoke", index })],
+        [],
+        [],
+        null,
+        {},
+      ),
   );
   const closeRow = new UiNode("Close", "", [], "ok", "", undefined, [close], [], [], null, {});
   return new UiNode(

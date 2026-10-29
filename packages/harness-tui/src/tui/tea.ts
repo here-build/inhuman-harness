@@ -68,6 +68,7 @@ import {
   mcpConfirmViewport,
 } from "@inhuman.tools/harness-sdk/text";
 import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { CLASSES } from "@inhuman.tools/policy/floor";
 import { applyDraftOp, type DraftState } from "@inhuman.tools/quickdraw/input";
 import { type ChromeQuotaWindow, type ChromeStatusItem, eventMatchesChord } from "@inhuman.tools/quickdraw/layout";
 import {
@@ -96,10 +97,6 @@ import {
 import { action, comparer, computed, type IReactionDisposer, observable, reaction, runInAction, when } from "mobx";
 import invariant from "tiny-invariant";
 
-import { imageCapability } from "../interpreter/imageCapability.js";
-import { rpcCapability } from "../interpreter/rpcCapability.js";
-import { uiCapability, UiNode } from "../interpreter/uiCapability.js";
-import { agentsPaintFace } from "./agents-drawer.js";
 import {
   ackAnnotation,
   ackPromptModel,
@@ -109,15 +106,9 @@ import {
   type AckPromptModel,
   type AckScope,
 } from "./ack-prompt.js";
+import { agentsPaintFace } from "./agents-drawer.js";
 import { HOTKEY_EVENT } from "./ask-shortcuts.js";
 import { HOST_VERBS, isHostVerb } from "./host-verbs.js";
-import {
-  parseProbe,
-  permissionsSurface,
-  permissionsView,
-  type ExplainOutcome,
-  type PermissionsInput,
-} from "./permissions-view.js";
 import {
   omniboxSeat,
   omniboxStackPanel,
@@ -138,14 +129,22 @@ import {
 } from "./paint-controller.js";
 import type { RootPaintInstance } from "./paint-dom.js";
 import type { PaintDownMessage } from "./paint-transport.js";
-import { CLASSES } from "@inhuman.tools/policy/floor";
-
+import {
+  parseProbe,
+  permissionsSurface,
+  permissionsView,
+  type ExplainOutcome,
+  type PermissionsInput,
+} from "./permissions-view.js";
 import { fileReadWiden, type FileReadWiden } from "./read-widen.js";
 import { rewindNeighborSlots } from "./rewind-chrome.js";
 import { cwdParts } from "./statusline-path.js";
 import { waitPhrase } from "./wait-phrase.js";
 import { askPinFace, askPinWorthPainting } from "./work-cells.js";
 import { ComputedExecBox } from "../interpreter/ComputedExecBox.js";
+import { imageCapability } from "../interpreter/imageCapability.js";
+import { rpcCapability } from "../interpreter/rpcCapability.js";
+import { uiCapability, UiNode } from "../interpreter/uiCapability.js";
 
 const COMMAND_CAPABILITIES = [imageCapability, uiCapability, rpcCapability];
 /** Mash after cancel must not peel into history. Tea-local; the turn must also be idle. */
@@ -1717,9 +1716,12 @@ export class Tea implements Disposable {
         ...(explain === undefined ? {} : { explain }),
       });
       const answer = await this.#parkSurface(permissionsSurface(view));
-      const picked = answer.kind === "revoke" && typeof answer.index === "number" ? view.revocable[answer.index] : undefined;
+      const picked =
+        answer.kind === "revoke" && typeof answer.index === "number" ? view.revocable[answer.index] : undefined;
       if (picked === undefined) return;
-      await this.client.request(picked.revoke.method, picked.revoke.params).catch((error) => fail(picked.revoke.method, error));
+      await this.client
+        .request(picked.revoke.method, picked.revoke.params)
+        .catch((error) => fail(picked.revoke.method, error));
     }
   }
 
@@ -2079,9 +2081,14 @@ export class Tea implements Disposable {
       combinedAckStore = ackStore;
     }
     // A kernel-wide "never this tool" is a kernel RPC; everything on the session is the daemon's answer.
-    if (opts.persist === "always" && comment === "" && !allow) {
-      if (leaf instanceof MCPToolJob && mcpReadFloorDenies(leaf.serverToolName)) this.#persistGlobal(leaf, false);
-    }
+    if (
+      opts.persist === "always" &&
+      comment === "" &&
+      !allow &&
+      leaf instanceof MCPToolJob &&
+      mcpReadFloorDenies(leaf.serverToolName)
+    )
+      this.#persistGlobal(leaf, false);
     const subject = leaf.grantOptions[0]?.subject;
     const store =
       allow && comment === "" && opts.remember !== undefined && subject !== undefined

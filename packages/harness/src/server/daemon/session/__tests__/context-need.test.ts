@@ -27,7 +27,12 @@ import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 
 import { historyBehind } from "@/context";
 
-import { useKeepFirstCompact, attachScriptedModel, modelOf, scriptedConnectionId } from "../../../testkit/scripted-model.js";
+import {
+  useKeepFirstCompact,
+  attachScriptedModel,
+  modelOf,
+  scriptedConnectionId,
+} from "../../../testkit/scripted-model.js";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
 import type { SessionDaemon } from "../SessionDaemon.js";

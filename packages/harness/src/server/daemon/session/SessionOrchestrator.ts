@@ -125,8 +125,9 @@ import {
 import { startAmbientCompact } from "./ambient-compact.js";
 import { isParkAbort, SessionBehavior } from "./behavior-host.js";
 import { loadCompactProgram } from "./compact.js";
-import { pluginHookTimeoutMs } from "./hook-deadline.js";
 import { CompletionFlights } from "./completion-flight.js";
+import { pluginHookTimeoutMs } from "./hook-deadline.js";
+import { PROJECT_LAYER_POLL_MS, readProjectAuthorization } from "./project-authorization.js";
 import {
   internContinueStreak,
   internJudgeWire,
@@ -140,7 +141,6 @@ import { internedComplete } from "../../drivers/interned-complete.js";
 import { pickWebExtractConnection, pickWebSearchConnection } from "../../drivers/web-search/pick.js";
 import { readConnectionSecrets, writeConnectionSecrets } from "../../secrets.js";
 import { KernelToolCatalog, sessionCatalog } from "../../toolkit/tool-table.js";
-import { PROJECT_LAYER_POLL_MS, readProjectAuthorization } from "./project-authorization.js";
 import type { KernelDaemon } from "../kernel/KernelDaemon.js";
 
 const INTENT_NOT_PERSISTED = "intent could not be persisted";
@@ -416,9 +416,9 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
           signal,
           sessionId: this.session.root.sessionId,
           observe: (run) => {
-            const trace = new EvalTrace();
-            trace.withAutoBindings();
-            return run(trace);
+            const evalTrace = new EvalTrace();
+            evalTrace.withAutoBindings();
+            return run(evalTrace);
           },
           readonly: schemeDeskReadonly(
             this.session.root,

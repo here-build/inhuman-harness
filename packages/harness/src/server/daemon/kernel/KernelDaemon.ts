@@ -51,6 +51,7 @@ import { NAMED_AGENT_BOTS } from "@/builtin-tools";
 import { allocateConnectionId, openDriverRegistry, type DriverRegistry } from "@/connections";
 import { KernelStateStore, BehaviorKernel, PackPluginCatalogHost, type PackPluginRow } from "@/extensions";
 import { installPlugin, installedNpmName, packageNameOf, type InstallStreams } from "@/extensions/install";
+import { scopes } from "@/policy-processor/scope";
 import { documentKey, KERNEL_DOCUMENT_KEY, type DocumentKey } from "@/protocol/document";
 import {
   adoptMcp,
@@ -64,8 +65,7 @@ import { DocumentService, AwarenessRoom, attachLens, type PlaneSocket } from "@/
 
 import { internLookedAt, probeCompletionCatalog } from "./completion-catalog.js";
 import { loginConnection, requireConnection, settingsBag, toListRow } from "./connection-rpc.js";
-import { scopes } from "@/policy-processor/scope";
-
+import { healKernelDependencies, KERNEL_SEED_PACKAGES } from "./kernel-package.js";
 import { applyConfigSet, applyPluginSet } from "./settings-config.js";
 import {
   listSkillFiles,
@@ -107,9 +107,7 @@ import { bindVisualStore } from "../session/visual-store.js";
 const KERNEL_PACKAGE = {
   name: "harness-kernel",
   private: true,
-  dependencies: {
-    "@inhuman.tools/plugin-tasks": "workspace:*",
-  },
+  dependencies: {} as Record<string, string>,
 };
 
 /** Shutdown waits this long for parks and pending writes before tearing down anyway. */
@@ -546,13 +544,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     const pkgPath = join(this.root, "package.json");
     const pkg = fs.readJsonSync(pkgPath) as { dependencies?: Record<string, string> };
     const deps = { ...pkg.dependencies };
-    let pkgChanged = false;
-    for (const [name, range] of Object.entries(KERNEL_PACKAGE.dependencies)) {
-      if (deps[name] != null) continue;
-      deps[name] = range;
-      pkgChanged = true;
-    }
-    if (pkgChanged) {
+    if (healKernelDependencies(deps)) {
       fs.writeJsonSync(pkgPath, { ...pkg, dependencies: deps }, { spaces: 2 });
     }
     await createOnly(() =>
@@ -579,7 +571,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       }),
     );
     if (this.#closed) return;
-    for (const npm of Object.keys(KERNEL_PACKAGE.dependencies)) {
+    for (const npm of KERNEL_SEED_PACKAGES) {
       let packageRoot: string | null = null;
       try {
         packageRoot = dirname(createRequire(import.meta.url).resolve(`${npm}/package.json`));

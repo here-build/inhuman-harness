@@ -441,12 +441,7 @@ const SCALE = [
     `text-2xl tracking-[-0.025em] ${HEADING}`,
     "Empty states, first-run heading, a fresh session's place.",
   ],
-  [
-    "xl",
-    "23 / 1.25",
-    `text-xl tracking-[-0.02em] ${HEADING}`,
-    "Display size. The tape does not use it.",
-  ],
+  ["xl", "23 / 1.25", `text-xl tracking-[-0.02em] ${HEADING}`, "Display size. The tape does not use it."],
   ["lg", "19 / 1.3", `text-lg ${HEADING}`, "Answer h1, peek titles, large tiles."],
   ["base", "16 / 1.5", "text-base", "Prose, the composer, rail header."],
   ["sm", "13 / 1.45", "text-sm", "Rows, tool summaries, menus, notes, buttons."],

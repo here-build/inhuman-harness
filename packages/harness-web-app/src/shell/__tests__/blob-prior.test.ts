@@ -1,4 +1,3 @@
-/* eslint-disable compat/compat -- this package declares no browserslist, so the rule flags `Promise` in a test */
 import { Plexus } from "@here.build/plexus";
 import {
   type BlobPeek,

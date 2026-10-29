@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultPolicy } from "../bind.js";
-import { bindPolicy } from "../bind.js";
+import { defaultPolicy, bindPolicy } from "../bind.js";
 import { CLASS_IDS, CLASSES, isClassId } from "../classes.js";
 import { PolicyCompileError } from "../compile.js";
 import { reasonableDefaults } from "../reasonable-defaults.js";

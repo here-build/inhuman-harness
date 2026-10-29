@@ -108,7 +108,7 @@
     "mobx": "6.16.1"
   },
   "license": "MIT",
-  "author": "here.build",
+  "author": "Merkle Bonsai",
   "homepage": "https://github.com/here-build/quickdraw#readme",
   "bugs": {
     "url": "https://github.com/here-build/quickdraw/issues"
@@ -141,5 +141,6 @@
   "types": "./dist/index.d.ts",
   "peerDependencies": {
     "mobx": "6.16.1"
-  }
+  },
+  "browserslist": ["node >= 22"]
 }

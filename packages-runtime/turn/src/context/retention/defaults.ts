@@ -37,7 +37,10 @@ export const DEFAULT_CONTEXT_RETENTION: ContextRetention = {
 };
 
 const LEGACY_KINDS: ContextRetention["kinds"] = Object.fromEntries(
-  Object.keys(DEFAULT_CONTEXT_RETENTION.kinds).map((kind) => [kind, { keep: "compaction", leave: "stub", minChars: 0 }]),
+  Object.keys(DEFAULT_CONTEXT_RETENTION.kinds).map((kind) => [
+    kind,
+    { keep: "compaction", leave: "stub", minChars: 0 },
+  ]),
 );
 
 export const LEGACY_CONTEXT_RETENTION: ContextRetention = {

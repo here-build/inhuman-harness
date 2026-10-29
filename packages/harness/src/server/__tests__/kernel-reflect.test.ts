@@ -1,4 +1,3 @@
-import type { ReActLoopIntentDetectedTrigger } from "@inhuman.tools/harness-model/shared";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -13,6 +12,7 @@ import {
   type KernelRoot,
   MAX_SHELL_TAIL_BYTES,
 } from "@inhuman.tools/harness-model";
+import type { ReActLoopIntentDetectedTrigger } from "@inhuman.tools/harness-model/shared";
 import { mkdtemp, readJson, writeFile, writeJson } from "fs-extra";
 import { describe, expect, it } from "vitest";
 

@@ -235,6 +235,8 @@ pub struct ComposerPicker {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ComposerFace {
     pub draft: String,
+    /// Hint shown in muted ink while the draft is empty.
+    pub placeholder: String,
     pub cursor: i64,
     pub mark: Option<i64>,
     pub interactive: bool,
@@ -261,6 +263,7 @@ impl Default for ComposerFace {
     fn default() -> Self {
         Self {
             draft: String::new(),
+            placeholder: String::new(),
             cursor: 0,
             mark: None,
             interactive: true,
@@ -1804,6 +1807,7 @@ impl Present {
             .and_then(|mark| i64::try_from(scalar_index(&shown.draft, mark)).ok());
         frame.interactive = Some(face.interactive && self.term_focused);
         frame.mod_held = self.mod_held;
+        frame.placeholder = trimmed_nonempty(&face.placeholder);
         frame.annotation = trimmed_nonempty(&face.annotation);
         frame.join_annotation = trimmed_nonempty(&face.join_annotation);
         frame.hotkeys = face.hotkeys.clone();

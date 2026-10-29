@@ -26,7 +26,8 @@ export function refusalReasonOf(leaf: ApprovableJob): string {
   if (leaf.humanApprove === false) return USER_REFUSED;
   if (leaf.licenseDetail.code === "interaction_required") {
     return leaf.ackPending && leaf.baseLicenseDetail.decision === true
-      ? acknowledgementRequiredText(leaf.ackFlags.map((flag) => flag.label)) : INTERACTION_REQUIRED;
+      ? acknowledgementRequiredText(leaf.ackFlags.map((flag) => flag.label))
+      : INTERACTION_REQUIRED;
   }
   if (leaf.classifierResult === "deny") {
     if (leaf.judgeKind === "soft-deny") return NOT_REQUESTED;

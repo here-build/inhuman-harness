@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/statusline",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Git statusline: branch, then checkout state, ahead/behind. Node only.",
   "type": "module",
   "main": "./dist/index.js",
@@ -43,7 +42,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages-statusline/statusline"
+  },
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

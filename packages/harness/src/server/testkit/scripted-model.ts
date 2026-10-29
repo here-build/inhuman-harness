@@ -13,8 +13,8 @@ import { PEWDriver, type ExpectationActor } from "@inhuman.tools/plexus-expectat
 import { normalizeMessage } from "@inhuman.tools/tool-call-normalize";
 import { reaction } from "mobx";
 
-import { responseCallsFromToolCalls, toolCallFromResponse } from "../util/tool-call-json.js";
 import type { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
+import { responseCallsFromToolCalls, toolCallFromResponse } from "../util/tool-call-json.js";
 
 /**
  * Config reflection drops connections that are not in `config.json`.

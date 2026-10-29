@@ -60,7 +60,7 @@ describe("builtin registrations", () => {
         shell: "both",
         update_metadata: "both",
         context_need: "both",
-      context_recall: "both",
+        context_recall: "both",
         scheme_repl: "tool",
         scheme_watch: "tool",
         web_search: "symbol",

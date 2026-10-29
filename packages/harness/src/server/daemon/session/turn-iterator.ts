@@ -49,13 +49,6 @@ import {
 } from "@/session";
 import { catalogOf } from "@/tool-catalog";
 
-import {
-  CONTENT_FILTER_STOP,
-  maxRoundsMessage,
-  refusalText,
-  roundCapReached,
-  roundStop,
-} from "./round-stop.js";
 import { ambientCutoff, ambientModel, type startAmbientCompact } from "./ambient-compact.js";
 import {
   LENGTH_CONTINUE_NOTE,
@@ -66,6 +59,7 @@ import {
   thoughtWithoutAnswerCapped,
   type ReActLoopIntentDetectedTriggerVerdict,
 } from "./re-act-loop-intent-detected-trigger.js";
+import { CONTENT_FILTER_STOP, maxRoundsMessage, refusalText, roundCapReached, roundStop } from "./round-stop.js";
 import type { TurnResolvers } from "./turn-resolvers.js";
 import { toolCallFromResponse } from "../../util/tool-call-json.js";
 
@@ -195,18 +189,18 @@ export async function iterateTurn(turn: SessionTurn, host: TurnIteratorHost, sig
           completion.systemNote = chunk.truncated
             ? LENGTH_CONTINUE_NOTE
             : chunk.intentContinue
-            ? prior != null && thoughtWithoutAnswer(prior)
-              ? THOUGHT_CONTINUE_NOTE
-              : RE_ACT_LOOP_INTENT_DETECTED_TRIGGER_NOTE
-            : awaiting
-              ? callbackRequiredNote(session.agent.spec.voidLegal, callbackRows)
-              : workTools === 0 && pending && pack.note !== ""
-                ? pack.note
-                : titledOnly
-                  ? METADATA_SAME_ROUND_NOTE
-                  : workTools === 0
-                    ? pack.note
-                    : prompt.system``;
+              ? prior != null && thoughtWithoutAnswer(prior)
+                ? THOUGHT_CONTINUE_NOTE
+                : RE_ACT_LOOP_INTENT_DETECTED_TRIGGER_NOTE
+              : awaiting
+                ? callbackRequiredNote(session.agent.spec.voidLegal, callbackRows)
+                : workTools === 0 && pending && pack.note !== ""
+                  ? pack.note
+                  : titledOnly
+                    ? METADATA_SAME_ROUND_NOTE
+                    : workTools === 0
+                      ? pack.note
+                      : prompt.system``;
           if (
             !continuing &&
             !awaiting &&

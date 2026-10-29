@@ -468,7 +468,7 @@ async function abortable(run: () => Promise<unknown>, opts: CompactStrategyOpts)
   const before = new Set(opts.job?.children);
   const pending = run();
   let onAbort = (): void => {};
-  const aborted = new Promise<never>((_, reject) => {
+  const aborted = new Promise<never>((_resolve, reject) => {
     onAbort = () => {
       for (const child of opts.job?.children ?? []) {
         if (before.has(child) || !(child instanceof CompletionJob)) continue;

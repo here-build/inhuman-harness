@@ -84,16 +84,21 @@ test("rewind tiny terminal — neighbors shrink, recap stays in tape", () => {
   expect(ui).toMatchScreenshot("rewind-tiny");
 });
 
-test("rewind last pin — omnibox seats empty, no scroll-down hint", () => {
+test("rewind last pin — recap is the input, no scroll-down hint", () => {
   const { ui } = seatTip();
   up(ui, 0);
-  // The view sits on the head, which is the episode ceiling: the empty
-  // omnibox block seats at the rim and the ahead stack is dropped. The
-  // recap keeps the previous-message hint in the tape.
+  // The view sits on the head, which is the episode ceiling: the ahead stack
+  // is dropped. The omnibox is hidden while history navigation is open
+  // (654481cbf), so the recap block is the input: the prompt as a read-only
+  // draft with the rollback chords and the previous-message hint on its rim.
   expect(ui).toMatchScreenshot("rewind-last");
   expect({
     draft: ui.dump().composer.draft,
     hints: ui.dump().composer.hints,
     interactive: ui.dump().composer.interactive,
-  }).toEqual({ draft: "", hints: [], interactive: true });
+  }).toEqual({
+    draft: "ok",
+    hints: ["Enter: Rollback here", "Esc: Back", "↑: Previous message"],
+    interactive: false,
+  });
 });

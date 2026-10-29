@@ -51,9 +51,12 @@ describe("closeTurn", () => {
     const { turn, pew, tool } = openTurn();
     sessionOf("finish").root.head = turn;
     closeTurn(turn, { kind: "finish" });
-    expect({ exited: turn.reducerExited, pewDone: pew.isDone, toolCompleted: tool.completed, broke: turn.broke }).toEqual(
-      { exited: true, pewDone: false, toolCompleted: false, broke: "" },
-    );
+    expect({
+      exited: turn.reducerExited,
+      pewDone: pew.isDone,
+      toolCompleted: tool.completed,
+      broke: turn.broke,
+    }).toEqual({ exited: true, pewDone: false, toolCompleted: false, broke: "" });
   });
 
   it("a cancel acks with cancelled and moves the steers composed against the turn to the queue lane", () => {

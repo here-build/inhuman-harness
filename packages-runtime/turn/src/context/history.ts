@@ -33,16 +33,10 @@ import invariant from "tiny-invariant";
 
 import { usesGenericSilentProjection } from "./delivery.js";
 import { BACKGROUND_TOOL, IN_FLIGHT_TOOL, NO_TOOLS_SYSTEM } from "./observations.js";
-import { effectiveRule, kindRule } from "./retention/resolve.js";
 import { elideArgs, refOfNode, textRemainder, toolRemainder, visualRef, type StubFacts } from "./retention/render.js";
+import { effectiveRule, kindRule } from "./retention/resolve.js";
 import { parseJobStamp } from "./retention/stamp.js";
-import {
-  buildView,
-  horizonExpired,
-  newestOf,
-  type RetentionView,
-  type ViewOptions,
-} from "./retention/view.js";
+import { buildView, horizonExpired, newestOf, type RetentionView, type ViewOptions } from "./retention/view.js";
 import {
   liftToolImages,
   paintObservation,
@@ -241,7 +235,7 @@ function stubFacts(
   return {
     tool: job instanceof ToolCallJob ? job.name : job.toolName,
     kind,
-    ref: (refOfNode(job) ?? "job:?"),
+    ref: refOfNode(job) ?? "job:?",
     args: job.args,
     full: sealedText(job),
     ok: snap?.ok !== false,
@@ -265,17 +259,16 @@ function toolContent(
   if (stamp !== null && consumer !== null) {
     const rule = effectiveRule(stamp.rule, failed);
     const text = sealedText(job);
-    if (
-      text.length >= rule.minChars &&
-      horizonExpired(rule.keep, ctx.view, { consumer, owner: producer })
-    ) {
+    if (text.length >= rule.minChars && horizonExpired(rule.keep, ctx.view, { consumer, owner: producer })) {
       return toolRemainder(rule.leave, stubFacts(job, stamp.kind, snap), failed);
     }
   }
   if (job instanceof ToolCallJob) {
     const visible = imageVisible(ctx.images, producer, job.toolCallId);
     return squeezeToolCall(job, "compact", (image) =>
-      visible.has(image.index) ? toolImageLine(image, "shown") : toolImageLine(image, "elided", (refOfNode(job) ?? "job:?")),
+      visible.has(image.index)
+        ? toolImageLine(image, "shown")
+        : toolImageLine(image, "elided", refOfNode(job) ?? "job:?"),
     );
   }
   const parts = job.resultParts();
@@ -377,8 +370,7 @@ function planImages(
     const rule = kindRule(view.policyOf(item.completion), item.kind);
     const consumer = item.kind === "image.user" ? item.completion : view.nextOf(item.completion);
     let visible =
-      consumer === null ||
-      !horizonExpired(rule.keep, view, { consumer, owner: item.completion, againstTip: true });
+      consumer === null || !horizonExpired(rule.keep, view, { consumer, owner: item.completion, againstTip: true });
     if (visible && item.kind === "image.user" && readVisual == null) visible = true;
     const cap = newestOf(rule.keep);
     if (visible && cap !== null) {
@@ -429,29 +421,35 @@ function userPictureParts(
       parts.push({ type: "text", text: pictureLine(number, visual, true) });
       continue;
     }
-    parts.push({ type: "text", text: pictureLine(number, visual, false) });
-    parts.push({
-      type: "image",
-      id: visual.id,
-      mime: visual.mime,
-      width: visual.width,
-      height: visual.height,
-      resizedFrom: visual.resizedFrom,
-      sourcePath: visual.sourcePath,
-      bytes,
-    });
+    parts.push(
+      { type: "text", text: pictureLine(number, visual, false) },
+      {
+        type: "image",
+        id: visual.id,
+        mime: visual.mime,
+        width: visual.width,
+        height: visual.height,
+        resizedFrom: visual.resizedFrom,
+        sourcePath: visual.sourcePath,
+        bytes,
+      },
+    );
   }
   return parts;
 }
 
-function toolImageRow(job: ToolCallJob, images: readonly ToolImage[], visible: ReadonlySet<number>): HistoryMessage | null {
+function toolImageRow(
+  job: ToolCallJob,
+  images: readonly ToolImage[],
+  visible: ReadonlySet<number>,
+): HistoryMessage | null {
   const parts: HistoryUserPart[] = [];
   for (const image of images) {
     if (!visible.has(image.index) || image.bytes === null) continue;
-    parts.push({ type: "text", text: `[Image ${image.index} from ${job.name} ${(refOfNode(job) ?? "job:?")}]` });
+    parts.push({ type: "text", text: `[Image ${image.index} from ${job.name} ${refOfNode(job) ?? "job:?"}]` });
     parts.push({
       type: "image",
-      id: `${(refOfNode(job) ?? "job:?")}:${image.index}`,
+      id: `${refOfNode(job) ?? "job:?"}:${image.index}`,
       mime: image.mime,
       width: 0,
       height: 0,
@@ -547,11 +545,14 @@ function historyToolCall(
   const args = call.args ?? {};
   const stamp = job === undefined ? null : parseJobStamp(job.retentionJson);
   const consumer = ctx.view.nextOf(producer);
-  if (job !== undefined && stamp?.args !== undefined && consumer !== null) {
-    if (horizonExpired(stamp.args.keep, ctx.view, { consumer, owner: producer })) {
-      const elided = elideArgs(args, `${(refOfNode(job) ?? "job:?")}#args`, stamp.args.minChars);
-      if (elided.elided) return { ...base, argsJson: elided.json };
-    }
+  if (
+    job !== undefined &&
+    stamp?.args !== undefined &&
+    consumer !== null &&
+    horizonExpired(stamp.args.keep, ctx.view, { consumer, owner: producer })
+  ) {
+    const elided = elideArgs(args, `${refOfNode(job) ?? "job:?"}#args`, stamp.args.minChars);
+    if (elided.elided) return { ...base, argsJson: elided.json };
   }
   return { ...base, argsJson: JSON.stringify(args) };
 }
@@ -605,7 +606,11 @@ function* emitCompletionOnTape(completion: CompletionExpectation, ctx: Projectio
       content: job === undefined ? IN_FLIGHT_TOOL : toolContent(job, round.silent.has(call.id), completion, ctx),
     });
     if (job instanceof ToolCallJob && job.completed) {
-      const row = toolImageRow(job, liftToolImages(job.observationPayload()).images, imageVisible(ctx.images, completion, call.id));
+      const row = toolImageRow(
+        job,
+        liftToolImages(job.observationPayload()).images,
+        imageVisible(ctx.images, completion, call.id),
+      );
       if (row !== null) imageRows.push(row);
       const recalled = recalledVisual(job, ctx);
       if (recalled !== null) imageRows.push(recalled);

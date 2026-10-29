@@ -12,10 +12,15 @@ import { AgentCallNotification } from "./jobs/AgentCallNotification.js";
 import { mcpToolRefKey, type McpPersistScope } from "./mcp-name-floor.js";
 import { projectionsOf } from "./projection-registry.js";
 import { SkillSpec } from "./prompt-parts.js";
+import { readRootOf } from "./read-roots.js";
+import { type SessionUnfinished } from "./unfinished.js";
+import { ActionSpec } from "../shared/ActionSpec.js";
 import { applyKv } from "../shared/KeyValueStorage.js";
 import type { KvProposal } from "../shared/residual.js";
+import { parseGrantRows } from "./authorization/grants.js";
 import { CallJob } from "./jobs/CallJob.js";
 import { CompactJob } from "./jobs/CompactJob.js";
+import { ProgrammaticJob } from "./jobs/ProgrammaticJob.js";
 import { ToolCallJob } from "./jobs/ToolCallJob.js";
 import { SessionAdmission } from "./SessionAdmission.js";
 import { HARNESS_CONSTITUTION, SessionSystemPrompt } from "./SessionSystemPrompt.js";
@@ -30,11 +35,6 @@ import {
   type SessionUnit,
 } from "./turn/index.js";
 import { sessionDisplayTitle } from "./update-metadata.js";
-import { parseGrantRows } from "./authorization/grants.js";
-import { readRootOf } from "./read-roots.js";
-import { ActionSpec } from "../shared/ActionSpec.js";
-import { ProgrammaticJob } from "./jobs/ProgrammaticJob.js";
-import { type SessionUnfinished } from "./unfinished.js";
 
 export { type SessionUnfinished } from "./unfinished.js";
 

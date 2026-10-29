@@ -284,6 +284,7 @@ describe("scheme_repl", () => {
       new SystemToolJob({
         name: "boom",
         toolCallId: "r-coded:inner:1",
+        track: JSON.stringify([0, 0]),
         completed: true,
         humanApprove: false,
         outcomeJson: JSON.stringify({ ok: false, text: "needs a person", code: "interaction_required" }),

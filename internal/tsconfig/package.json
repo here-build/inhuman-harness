@@ -3,7 +3,7 @@
   "description": "Private TypeScript config bases. Not product. Not published.",
   "version": "0.0.0",
   "private": true,
-  "author": "here.build",
+  "author": "Merkle Bonsai",
   "license": "MIT",
   "exports": {
     "./purpose/lib": "./purpose/lib.json",
@@ -30,5 +30,6 @@
     "type": "git",
     "url": "https://github.com/here-build/inhuman-harness.git",
     "directory": "internal/tsconfig"
-  }
+  },
+  "browserslist": ["node >= 22"]
 }

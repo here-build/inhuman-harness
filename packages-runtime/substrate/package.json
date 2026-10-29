@@ -8,11 +8,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages-runtime/substrate"
   },
   "license": "MIT",
-  "author": "here.build",
+  "author": "Merkle Bonsai",
   "publishConfig": {
     "access": "public"
   },
@@ -73,5 +73,12 @@
     "eslint": "9.39.2",
     "typescript": "6.0.2",
     "vitest": "4.1.0"
-  }
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ]
 }

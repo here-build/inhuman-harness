@@ -19,9 +19,6 @@ import { syncing } from "@here.build/plexus";
 import { Job, walkWork, type WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
-import { documentRoot } from "../document-root.js";
-import type { JudgeResult, PermissionMode, PolicyResult } from "../eval-context.js";
-import type { AuthCluster, ClassId } from "../authorization/config.js";
 import {
   type AckOption,
   ackOptionsFor,
@@ -30,10 +27,13 @@ import {
   type MatchedAck,
   parseMatchedAcks,
 } from "../authorization/acks.js";
-import { type GrantCall, type GrantVote, grantOptionsFor, type GrantOption } from "../authorization/grants.js";
+import type { AuthCluster, ClassId } from "../authorization/config.js";
 import { type Escalation, escalationOf } from "../authorization/escalate.js";
+import { type GrantCall, type GrantVote, grantOptionsFor, type GrantOption } from "../authorization/grants.js";
 import { layersOf, type LayerTexts } from "../authorization/layers.js";
 import { type CallSubject, type Layers, type Resolution, resolveCall } from "../authorization/resolve.js";
+import { documentRoot } from "../document-root.js";
+import type { JudgeResult, PermissionMode, PolicyResult } from "../eval-context.js";
 
 type LicenseRoot = {
   permissionMode?: unknown;
@@ -412,6 +412,8 @@ export abstract class ApprovableJob<TValue = unknown, TReason = unknown> extends
       case this.humanApprove === true:
       case this.policyResult === "policyApprove":
         return ALLOW;
+      default:
+        break;
     }
     const res = this.resolution;
     if (res === null) return WAITING;

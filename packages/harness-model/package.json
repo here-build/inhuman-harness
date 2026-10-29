@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/harness-model",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Harness document models, Plexus wrappers, and model schemas. No client transport.",
   "type": "module",
   "main": "./dist/index.js",
@@ -88,12 +87,23 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/harness-model"
   },
   "peerDependencies": {
     "yjs": "13.6.33",
     "mobx": "6.16.1",
     "@here.build/plexus": "^0.9.6"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

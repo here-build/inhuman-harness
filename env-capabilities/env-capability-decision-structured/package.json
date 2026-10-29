@@ -37,5 +37,6 @@
     "type": "git",
     "url": "https://github.com/here-build/inhuman-harness.git",
     "directory": "env-capabilities/env-capability-decision-structured"
-  }
+  },
+  "browserslist": ["node >= 22"]
 }

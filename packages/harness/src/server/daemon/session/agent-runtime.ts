@@ -48,11 +48,11 @@ import { agentCallSupportsNotify, type CatalogRecipe, invokeDenied } from "@/too
 import { isModelOriginContext, pluginCallContextOf } from "@/tool-runtime";
 
 import { recipePin } from "./plugin-bots.js";
-import { botPermissionMode } from "../bots/bot-mode.js";
 import { renderBotCallWorkerPrompt } from "../../system-plugins/named-agents/agent-catalog.js";
 import { botCallToolOf } from "../../toolkit/plugin-registry.js";
 import { buildSourceCut, sourceCutCharLimit } from "../../toolkit/source-cut.js";
 import { sessionCatalog } from "../../toolkit/tool-table.js";
+import { botPermissionMode } from "../bots/bot-mode.js";
 import type { KernelDaemon } from "../kernel/KernelDaemon.js";
 import type { ProjectDaemon } from "../project/ProjectDaemon.js";
 
@@ -335,7 +335,11 @@ function refuseDeep(job: CallJob, depth: number, limit: number, kind: "agent" | 
   const cap = job.depthLimit ?? 0;
   if (cap === 0 || job.depth <= cap) return false;
   const noun = kind === "agent" ? "agent depth (maxDepth)" : "bot depth (maxBotDepth)";
-  sealCall(job, "depth_limit", `${noun} limit of ${cap} reached; this call would be ${job.depth} deep. Do the work yourself or return what you have.`);
+  sealCall(
+    job,
+    "depth_limit",
+    `${noun} limit of ${cap} reached; this call would be ${job.depth} deep. Do the work yourself or return what you have.`,
+  );
   return true;
 }
 

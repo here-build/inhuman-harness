@@ -158,7 +158,7 @@ test("shell ask", async () => {
     kinds: ["speech"],
     disclosure: true,
     ask: [],
-    annotation: "run command",
+    annotation: "Ask · run command",
     command: true,
     tick: false,
   });
@@ -177,7 +177,7 @@ test("shell ask", async () => {
     ls: stacked.includes("ls && echo '=== server ==='"),
     glued: stacked.includes("=== server ===';"),
   }).toEqual({
-    annotation: "run command",
+    annotation: "Ask · run command",
     head: true,
     readme: true,
     redir: true,

@@ -99,7 +99,7 @@ describe("compaction actor", () => {
   });
 
   it("keep-first is only a failsafe: flagged when no real program loads, absent otherwise", () => {
-    const real = "(define (compact t f) (list (message/user \"real\")))";
+    const real = '(define (compact t f) (list (message/user "real")))';
     const resolveOf = (over: Partial<Parameters<typeof loadCompactProgram>[2] & object>) => ({
       resolvePath: (spec: string, root: string) => join(root, spec),
       defaultSource: () => real,
@@ -113,31 +113,39 @@ describe("compaction actor", () => {
       sourcePath: "/pkg/compact.scm",
     });
     // The configured file is lost: the shipped default stands in, still no failsafe.
-    const lost = loadCompactProgram("./gone.scm", "/k", resolveOf({
-      readFile: () => {
-        throw new Error("ENOENT");
-      },
-    }));
+    const lost = loadCompactProgram(
+      "./gone.scm",
+      "/k",
+      resolveOf({
+        readFile: () => {
+          throw new Error("ENOENT");
+        },
+      }),
+    );
     expect(lost.failsafe).toBeUndefined();
     expect(lost.source).toBe(real);
     // Both the configured file and the shipped default are lost: keep-first, and it says why.
-    const broken = loadCompactProgram("./gone.scm", "/k", resolveOf({
-      readFile: () => {
-        throw new Error("ENOENT");
-      },
-      defaultSource: () => {
-        throw new Error("shipped compaction prompt is missing");
-      },
-    }));
+    const broken = loadCompactProgram(
+      "./gone.scm",
+      "/k",
+      resolveOf({
+        readFile: () => {
+          throw new Error("ENOENT");
+        },
+        defaultSource: () => {
+          throw new Error("shipped compaction prompt is missing");
+        },
+      }),
+    );
     expect(broken.source).toContain("(car xs)");
     expect(broken.sourcePath).toBeNull();
     expect(broken.failsafe).toMatch(/gone\.scm.*ENOENT.*shipped default program could not be read.*prompt is missing/);
     // No resolver at all is also a failsafe.
     expect(loadCompactProgram().failsafe).toBe("no strategy resolver");
     // An empty shipped default is a failsafe too.
-    expect(loadCompactProgram(undefined, undefined, resolveOf({ defaultSource: () => ";; just a comment\n" })).failsafe).toMatch(
-      /shipped default program is empty/,
-    );
+    expect(
+      loadCompactProgram(undefined, undefined, resolveOf({ defaultSource: () => ";; just a comment\n" })).failsafe,
+    ).toMatch(/shipped default program is empty/);
   });
 
   it("runCompactJob logs a diagnostic when it runs on the failsafe", async () => {
@@ -176,7 +184,8 @@ describe("compaction actor", () => {
       connectionId: "",
       model: "",
       loadProgram: () => loadCompactProgram(),
-      fail: (label, error) => failures.push([label, error]),    });
+      fail: (label, error) => failures.push([label, error]),
+    });
     expect(failures).toEqual([["compact failsafe", expect.stringContaining("using keep-first")]]);
     // The failsafe still produces a card; it is the diagnostic that marks it as one.
     expect({ completed: job.completed, failed: job.failed, stamped: job.keepTurns }).toEqual({

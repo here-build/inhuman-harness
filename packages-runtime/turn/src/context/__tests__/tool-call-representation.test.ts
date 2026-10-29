@@ -3,12 +3,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import { SessionPlexus, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 
-import {
-  SQUEEZE_COMPACT_CHARS,
-  SQUEEZE_MICRO_MIN_CHARS,
-  squeezeToolCall,
-  toolCallRepresentation,
-} from "../index.js";
+import { SQUEEZE_COMPACT_CHARS, SQUEEZE_MICRO_MIN_CHARS, squeezeToolCall, toolCallRepresentation } from "../index.js";
 
 function tool(text: string, extra?: { regenerateable?: boolean; name?: string }): SystemToolJob {
   return new SystemToolJob({

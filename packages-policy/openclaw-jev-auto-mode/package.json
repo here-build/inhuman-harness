@@ -51,5 +51,6 @@
     "compat": {
       "pluginApi": ">=2026.9.6"
     }
-  }
+  },
+  "browserslist": ["node >= 22"]
 }

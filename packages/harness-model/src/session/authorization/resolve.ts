@@ -10,7 +10,6 @@
  * Strictness: allow < judge < human < deny. Nothing here can produce `block`, and nothing here is
  * consulted for `block` or for an approve.
  */
-import defaults from "./defaults.json" with { type: "json" };
 import {
   type AuthCluster,
   type AuthMode,
@@ -26,6 +25,7 @@ import {
   type SpecificMatch,
   type SpecificRule,
 } from "./config.js";
+import defaults from "./defaults.json" with { type: "json" };
 
 export type JudgeResolver = {
   readonly kind: "judge";

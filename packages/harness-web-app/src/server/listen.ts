@@ -190,6 +190,11 @@ const TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".svg": "image/svg+xml",
   ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".wasm": "application/wasm",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
 };
 
 async function sendStatic(dir: string, request: IncomingMessage, response: ServerResponse): Promise<void> {

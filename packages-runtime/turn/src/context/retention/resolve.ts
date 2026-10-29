@@ -12,7 +12,7 @@
 import { createHash } from "node:crypto";
 
 import { DEFAULT_CONTEXT_RETENTION, LEGACY_CONTEXT_RETENTION } from "./defaults.js";
-import { canonicalKeep, keepRank, narrowKeep, narrowRule, narrows } from "./narrow.js";
+import { canonicalKeep, keepRank, narrowRule, narrows } from "./narrow.js";
 import {
   contextRetentionSchema,
   horizonList,
@@ -196,7 +196,7 @@ export function parsePolicy(json: string): ResolvedPolicy | null {
       out = {
         ...parsed.data,
         narrowTools:
-          narrow != null && typeof narrow === "object" ? parseRetentionLayer({ tools: narrow }).tools ?? {} : {},
+          narrow != null && typeof narrow === "object" ? (parseRetentionLayer({ tools: narrow }).tools ?? {}) : {},
         hash: typeof raw.hash === "string" ? raw.hash : "",
       };
     }
@@ -211,7 +211,12 @@ export function parsePolicy(json: string): ResolvedPolicy | null {
 // --- per-item rule --------------------------------------------------------------------------
 
 function globToRegExp(glob: string): RegExp {
-  return new RegExp(`^${glob.split("*").map((part) => part.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`)).join(".*")}$`);
+  return new RegExp(
+    `^${glob
+      .split("*")
+      .map((part) => part.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`))
+      .join(".*")}$`,
+  );
 }
 
 function lookup<T>(bag: Readonly<Record<string, T>>, names: readonly string[]): T | undefined {
@@ -244,9 +249,9 @@ export type RuleQuery = {
 
 /** The concrete rule for one item of `kind`. Pure over `policy`. */
 export function ruleFor(policy: ResolvedPolicy, query: RuleQuery): ConcreteRule {
-  const kindRule = policy.kinds[query.kind];
+  const baseRule = policy.kinds[query.kind];
   const toolRule = lookup(policy.tools, query.names);
-  let merged: RuleInput = { ...kindRule, ...toolRule };
+  let merged: RuleInput = { ...baseRule, ...toolRule };
   const overlay = lookup(policy.narrowTools, query.names);
   if (overlay !== undefined) merged = narrowRule(merged, overlay, query.kind);
   if (query.hint !== undefined) merged = narrowRule(merged, query.hint, query.kind);
@@ -298,4 +303,4 @@ export function effectiveRule(rule: ConcreteRule, failed: boolean): Pick<Concret
   return rule;
 }
 
-export { narrowKeep };
+export { narrowKeep } from "./narrow.js";

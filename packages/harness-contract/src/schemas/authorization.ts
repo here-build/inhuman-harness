@@ -110,7 +110,9 @@ export const grantAddInput = z
   .strict();
 export const grantAddOutput = z.union([
   z.object({ ok: z.literal(true), row: grantRowSchema }),
-  z.object({ ok: z.literal(false), reason: z.enum(["fenced-path", "invalid-scope", "unknown-session", "subject-not-allowed"]),
+  z.object({
+    ok: z.literal(false),
+    reason: z.enum(["fenced-path", "invalid-scope", "unknown-session", "subject-not-allowed"]),
   }),
 ]);
 

@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/project-skills",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Skill drawers from the working directory up to the git root, then the user home.",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +12,11 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "src", "!**/__tests__"],
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
@@ -34,7 +37,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/project-skills"
+  },
+  "browserslist": [
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

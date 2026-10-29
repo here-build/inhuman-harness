@@ -1,11 +1,18 @@
 {
   "name": "@inhuman.tools/harness-cli",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "The `harness` command: TUI attach, web, eval, daemon, mcp, install and completion over the daemon. The TUI and the web app load on demand from their own packages.",
   "type": "module",
   "bin": {
     "harness": "./bin/harness.mjs"
+  },
+  "exports": {
+    "./run": {
+      "types": "./dist/bin.d.ts",
+      "import": "./dist/bin.js",
+      "default": "./dist/bin.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "bin",
@@ -66,7 +73,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/harness-cli"
+  },
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

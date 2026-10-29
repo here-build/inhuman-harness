@@ -1,10 +1,4 @@
-import {
-  KernelPlexus,
-  KernelRoot,
-  SessionPlexus,
-  layersOf,
-  type GrantRow,
-} from "@inhuman.tools/harness-model";
+import { KernelPlexus, KernelRoot, SessionPlexus, layersOf, type GrantRow } from "@inhuman.tools/harness-model";
 import { Client, ProjectPlexus } from "@inhuman.tools/harness-sdk";
 import type { DecodedKeyEvent } from "@inhuman.tools/quickdraw/runtime";
 import { expect, test, vi } from "vitest";
@@ -44,7 +38,7 @@ test("the view names the mode, a resolver per class with its layer badge, and th
   expect(view.lines[0]).toBe("Mode: auto");
   expect(text).toMatch(/Publishes\s+\S.*\[(dist|user)\] \/ \S.*\[(dist|user)\]/);
   expect(view.lines.filter((line) => /\[(dist|user|project|session)\] \//.test(line))).toHaveLength(20);
-  expect(text).toContain('mcp gmail/send_email [user] — emails leave the company');
+  expect(text).toContain("mcp gmail/send_email [user] — emails leave the company");
   const publish = classResolution(LAYERS, "auto", "publish", "ask");
   expect(publish).toEqual({ resolver: { kind: "human" }, layer: "user" });
   expect(text).toContain("Publishes");
@@ -94,7 +88,10 @@ test("explain parses a probe and shows the outcome with the ack info", () => {
         outcome: "prompts-you",
         reason: "Allowed, but flagged.",
         resolver: null,
-        ack: { flags: [{ label: "gmail · send_email", why: "emails leave the company", layer: "user" }], satisfiedBy: null },
+        ack: {
+          flags: [{ label: "gmail · send_email", why: "emails leave the company", layer: "user" }],
+          satisfiedBy: null,
+        },
       },
     },
   });
@@ -105,9 +102,15 @@ test("explain parses a probe and shows the outcome with the ack info", () => {
     "  Needs acknowledgement: gmail · send_email",
     '  "emails leave the company" [user]',
   ]);
-  expect(explainLines({ tier: "ask", outcome: "runs", reason: "r", resolver: { kind: "allow", layer: "dist" }, ack: null })[0]).toBe(
-    "ask → runs · allow [dist]",
-  );
+  expect(
+    explainLines({
+      tier: "ask",
+      outcome: "runs",
+      reason: "r",
+      resolver: { kind: "allow", layer: "dist" },
+      ack: null,
+    })[0],
+  ).toBe("ask → runs · allow [dist]");
 });
 
 test("/permissions loads the lists and Enter on a stored row revokes it over RPC", async () => {

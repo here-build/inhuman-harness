@@ -82,22 +82,6 @@
       "dim": false
     },
     {
-      "y": 10,
-      "x": 40,
-      "text": " 1",
-      "role": "chrome",
-      "ink": "ghost",
-      "dim": false
-    },
-    {
-      "y": 10,
-      "x": 43,
-      "text": "export function greet() {",
-      "role": "foreground",
-      "ink": "secondary",
-      "dim": false
-    },
-    {
       "y": 11,
       "x": 0,
       "text": "▌",
@@ -162,19 +146,19 @@
       "dim": false
     },
     {
-      "y": 12,
-      "x": 40,
-      "text": " 3",
-      "role": "chrome",
-      "ink": "ghost",
+      "y": 20,
+      "x": 1,
+      "text": "⠋",
+      "role": "foreground",
+      "ink": "primary",
       "dim": false
     },
     {
-      "y": 12,
-      "x": 43,
-      "text": "}",
+      "y": 20,
+      "x": 3,
+      "text": "connecting...",
       "role": "foreground",
-      "ink": "secondary",
+      "ink": "primary",
       "dim": false
     },
     {

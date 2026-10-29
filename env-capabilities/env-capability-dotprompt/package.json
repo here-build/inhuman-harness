@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/env-capability-dotprompt",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Arrival dotprompt/parse: a .prompt file becomes a ParsedPrompt. Hosts define dotprompt/run.",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +12,11 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "src", "!**/__tests__"],
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
@@ -38,7 +41,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "env-capabilities/env-capability-dotprompt"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

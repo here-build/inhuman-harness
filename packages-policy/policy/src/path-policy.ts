@@ -18,9 +18,8 @@ import { minimatch } from "minimatch";
 
 import type { ClassId } from "./classes.js";
 import { expandBraces } from "./glob-expand.js";
-import { lattice } from "./lift.js";
 import type { Disposition, FloorVerdict, WriteRemainderKind } from "./types.js";
-import { APPROVE, cast, join } from "./verdict.js";
+import { cast, join } from "./verdict.js";
 
 type PathRule = {
   readonly id: string;
@@ -277,4 +276,5 @@ export function normalizePath(raw: string): string | undefined {
   }
 }
 
-export { APPROVE, lattice };
+export { lattice } from "./lift.js";
+export { APPROVE } from "./verdict.js";

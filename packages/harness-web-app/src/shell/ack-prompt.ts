@@ -58,7 +58,7 @@ export function ttlText(ttl: string | null): string {
 export function storeChoices(options: readonly AckOptionFace[], opts: { readonly bot: boolean }): StoreChoice[] {
   const scopes = SCOPE_ORDER.filter((scope) => scope !== "bot" || opts.bot);
   const out: StoreChoice[] = [];
-  options.forEach((option, index) => {
+  for (const [index, option] of options.entries()) {
     for (const scope of scopes) {
       const ttl = ttlText(DEFAULT_PROMPT_TTL[scope]);
       out.push({
@@ -66,11 +66,14 @@ export function storeChoices(options: readonly AckOptionFace[], opts: { readonly
         scope,
         subject: option.subject,
         // The session's own life is both scope and expiry: say it once.
-        text: DEFAULT_PROMPT_TTL[scope] === null ? `${option.label} · ${SCOPE_WORD[scope]}` : `${option.label} · ${SCOPE_WORD[scope]} · ${ttl}`,
+        text:
+          DEFAULT_PROMPT_TTL[scope] === null
+            ? `${option.label} · ${SCOPE_WORD[scope]}`
+            : `${option.label} · ${SCOPE_WORD[scope]} · ${ttl}`,
         ttl,
       });
     }
-  });
+  }
   return out;
 }
 

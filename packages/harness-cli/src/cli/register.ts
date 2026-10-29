@@ -22,8 +22,10 @@ import {
   McpLogoutCommand,
   McpRemoveCommand,
 } from "./mcp-commands.js";
+import { OpenCommand } from "./open-command.js";
 import { TuiCommand } from "./tui-command.js";
 import { WebCommand } from "./web-command.js";
+import { WebDoorCommand } from "./web-door-command.js";
 
 const NAMED = new Set([
   "mcp",
@@ -35,6 +37,8 @@ const NAMED = new Set([
   "completion",
   "complete",
   "web",
+  "web-door",
+  "open",
   "-h",
   "--help",
 ]);
@@ -86,6 +90,8 @@ const COMMANDS = [
   Builtins.HelpCommand,
   TuiCommand,
   WebCommand,
+  WebDoorCommand,
+  OpenCommand,
   CompletionCommand,
   CompleteCommand,
   EvalCommand,

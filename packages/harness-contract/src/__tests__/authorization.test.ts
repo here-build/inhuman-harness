@@ -139,14 +139,19 @@ describe("policy v2 wire", () => {
       flags: [{ label: "gmail · send_email", why: "emails leave the company", layer: "user" }],
       verdict: { tier: "allow", classes: [], licensedBy: "floor" },
       storeOptions: [
-        { scope: "project", subject: { kind: "mcp", server: "gmail", tool: "send_email" }, label: "x", defaultTtlMs: 1 },
+        {
+          scope: "project",
+          subject: { kind: "mcp", server: "gmail", tool: "send_email" },
+          label: "x",
+          defaultTtlMs: 1,
+        },
       ],
       createdAtMs: 1,
     };
     expect(ackRequestSchema.safeParse(request).success).toBe(true);
-    expect(ackRequestSchema.safeParse({ ...request, verdict: { ...request.verdict, licensedBy: "client" } }).success).toBe(
-      false,
-    );
+    expect(
+      ackRequestSchema.safeParse({ ...request, verdict: { ...request.verdict, licensedBy: "client" } }).success,
+    ).toBe(false);
   });
 
   it("the ack RPCs are in the contract: ack/pending and ack/answer on the session, ack/list|add|revoke on the kernel", () => {

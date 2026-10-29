@@ -32,10 +32,9 @@ import {
   WebSearchToolJob,
   type UserVisualIdentity,
 } from "@inhuman.tools/harness-model";
-import * as Y from "yjs";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
-
 import { recallContext } from "@inhuman.tools/turn/tool-runtime";
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import * as Y from "yjs";
 
 import {
   historyBehind,
@@ -83,7 +82,10 @@ class Fixture {
     onTestFinished(() => this.plexus.destroy());
   }
 
-  mint(promptText: string, opts: { visuals?: readonly UserVisualIdentity[]; config?: string; kvs?: Record<string, string> } = {}) {
+  mint(
+    promptText: string,
+    opts: { visuals?: readonly UserVisualIdentity[]; config?: string; kvs?: Record<string, string> } = {},
+  ) {
     const tail = this.plexus.root.head ?? new SessionSystemPrompt({ env: { Mode: "act" } });
     const turn = new SessionTurn({
       turnTail: tail,
@@ -119,7 +121,9 @@ class Fixture {
     this.completions.set(label, completion);
     // The model answers; its calls become tool jobs admitted onto the tape.
     completion.responseText = spec.text ?? "";
-    completion.setResponseCalls((spec.calls ?? []).map((call) => responseCall(call.job.toolCallId, call.name, call.args ?? "{}")));
+    completion.setResponseCalls(
+      (spec.calls ?? []).map((call) => responseCall(call.job.toolCallId, call.name, call.args ?? "{}")),
+    );
     completion.warmUntilMs = (spec.now ?? this.clock) + 5 * 60_000;
     turn.take();
     for (const call of spec.calls ?? []) {
@@ -133,7 +137,13 @@ class Fixture {
 }
 
 function sys(id: string, name: string, args: string, outcome: object): SystemToolJob {
-  return new SystemToolJob({ toolCallId: id, name, argsJson: args, outcomeJson: JSON.stringify(outcome), completed: true });
+  return new SystemToolJob({
+    toolCallId: id,
+    name,
+    argsJson: args,
+    outcomeJson: JSON.stringify(outcome),
+    completed: true,
+  });
 }
 
 const KB = (n: number, ch = "x") => ch.repeat(n * 1024);
@@ -226,7 +236,12 @@ function build(): Fixture {
   f.round("T3R1", t3, {
     calls: [{ job: sys("r2", "read_file", '{"path":"src/b.ts"}', { ok: true, text: KB(4, "b") }), name: "read_file" }],
   });
-  const note = new TurnApprovalNoteChunk({ leafId: "leaf", toolName: "edit_file", allowed: true, text: prompt.user`ok` });
+  const note = new TurnApprovalNoteChunk({
+    leafId: "leaf",
+    toolName: "edit_file",
+    allowed: true,
+    text: prompt.user`ok`,
+  });
   f.round("T3R2", t3, {
     before: [note],
     calls: [{ job: sys("a1", "agent__ask", "{}", { ok: true, text: KB(2, "a") }), name: "agent__ask" }],
@@ -337,7 +352,8 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     const f = build();
     const within = f.requests.get("T2R3")!;
     const after = f.requests.get("T3R1")!;
-    const callOf = (rows: readonly HistoryMessage[]) => rows.flatMap((row) => row.toolCalls ?? []).find((call) => call.name === "write_file")!;
+    const callOf = (rows: readonly HistoryMessage[]) =>
+      rows.flatMap((row) => row.toolCalls ?? []).find((call) => call.name === "write_file")!;
     expect(callOf(within).argsJson.length).toBeGreaterThan(6000);
     const stubbed = JSON.parse(callOf(after).argsJson) as Record<string, string>;
     expect(stubbed.path).toBe("src/new.ts");
@@ -390,7 +406,8 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
       const open = new Set<string>();
       for (const row of rows) {
         for (const call of row.toolCalls ?? []) open.add(call.id);
-        if (row.role === "tool") expect(open.has(row.toolCallId ?? ""), `${label}: orphan ${row.toolCallId}`).toBe(true);
+        if (row.role === "tool")
+          expect(open.has(row.toolCallId ?? ""), `${label}: orphan ${row.toolCallId}`).toBe(true);
       }
     }
   });
@@ -400,7 +417,7 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     const r2 = f.requests.get("T2R2")!;
     const r3 = f.requests.get("T2R3")!;
     // T2R2 ends with its own prelude: the system note. Everything before it is stable.
-    const stable = r2.slice(0, r2.length - 1);
+    const stable = r2.slice(0, -1);
     expect(JSON.stringify(r3.slice(0, stable.length))).toBe(JSON.stringify(stable));
   });
 
@@ -411,7 +428,9 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     const stamped = f.turns.map((turn) => turn.retentionJson);
 
     // Config and kv change after the fact: new turns see it, old turns do not.
-    const changed = turnRetentionJson(JSON.stringify({ kinds: { "tool.read": { keep: "round" } } }), { "retention.tool.shell": '"round"' });
+    const changed = turnRetentionJson(JSON.stringify({ kinds: { "tool.read": { keep: "round" } } }), {
+      "retention.tool.shell": '"round"',
+    });
     expect(changed).not.toBe(stamped[0]);
     expect([...f.turns.map((turn) => turn.retentionJson)]).toEqual(stamped);
     expect(JSON.stringify([...projectHistory(tip, { readVisual })])).toBe(before);
@@ -488,26 +507,34 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
 
   it("G15: context_recall reads a sealed result back, paged; unreachable refs are refused", () => {
     const f = build();
-    const read = f.turns[0]!.doneWork.find((cell): cell is ToolCallJob => cell instanceof ToolCallJob && cell.toolCallId === "r1")!;
+    const read = f.turns[0]!.doneWork.find(
+      (cell): cell is ToolCallJob => cell instanceof ToolCallJob && cell.toolCallId === "r1",
+    )!;
     const ref = `job:${read.uuid.slice(0, 8)}`;
     const root = f.plexus.root;
     const page1 = recallContext(root, { ref });
     expect(page1.ok).toBe(true);
-    expect(String(page1.value)).toMatch(/^\[recall job:\w+ read_file: chars 0-5000 of 12288, page 1\/3; next offset 5000\]\n/);
+    expect(String(page1.value)).toMatch(
+      /^\[recall job:\w+ read_file: chars 0-5000 of 12288, page 1\/3; next offset 5000\]\n/,
+    );
     const page3 = recallContext(root, { ref, offset: 10000 });
     expect(String(page3.value)).toContain("chars 10000-12288 of 12288, page 3/3");
     expect(recallContext(root, { ref: "job:deadbeef" })).toMatchObject({ ok: false });
     expect(recallContext(root, { ref: "job:" })).toMatchObject({ ok: false });
     expect(recallContext(root, { ref: "visual:pic-a" })).toMatchObject({ ok: true, json: { visualId: "pic-a" } });
     expect(recallContext(root, { ref: "visual:nope" })).toMatchObject({ ok: false });
-    const write = f.turns[1]!.doneWork.find((cell): cell is ToolCallJob => cell instanceof ToolCallJob && cell.toolCallId === "wf1")!;
+    const write = f.turns[1]!.doneWork.find(
+      (cell): cell is ToolCallJob => cell instanceof ToolCallJob && cell.toolCallId === "wf1",
+    )!;
     expect(String(recallContext(root, { ref: `job:${write.uuid.slice(0, 8)}#args` }).value)).toContain("src/new.ts");
   });
 
   it("G15: a ref on an abandoned branch (rewound head) is unreachable", () => {
     const f = build();
     const t3 = f.turns[2]!;
-    const read = t3.doneWork.find((cell): cell is ToolCallJob => cell instanceof ToolCallJob && cell.toolCallId === "r2")!;
+    const read = t3.doneWork.find(
+      (cell): cell is ToolCallJob => cell instanceof ToolCallJob && cell.toolCallId === "r2",
+    )!;
     f.plexus.root.head = f.turns[1]!;
     expect(recallContext(f.plexus.root, { ref: `job:${read.uuid.slice(0, 8)}` })).toMatchObject({ ok: false });
   });

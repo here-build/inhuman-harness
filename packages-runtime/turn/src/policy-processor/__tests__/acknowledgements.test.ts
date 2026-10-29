@@ -78,7 +78,11 @@ describe("an acknowledgement is forced on allow", () => {
   });
 
   it("an unflagged call is untouched", async () => {
-    using bag = setup({ policy: "manual", policyProgram: FLOOR, user: { acknowledge: [{ match: { command: ["ls"] } }] } });
+    using bag = setup({
+      policy: "manual",
+      policyProgram: FLOOR,
+      user: { acknowledge: [{ match: { command: ["ls"] } }] },
+    });
     const pwd = shell("ls");
     const other = shell("curl x");
     bag.enqueue(pwd);
@@ -88,11 +92,21 @@ describe("an acknowledgement is forced on allow", () => {
   });
 
   it("on a resolver allow and a judge-free ask: the flag is the only thing left", async () => {
-    using bag = setup({ policy: "auto", unattended: false, policyProgram: FLOOR, user: { auto: ALLOW_ALL, acknowledge: [{ match: { command: ["curl"] } }] } });
+    using bag = setup({
+      policy: "auto",
+      unattended: false,
+      policyProgram: FLOOR,
+      user: { auto: ALLOW_ALL, acknowledge: [{ match: { command: ["curl"] } }] },
+    });
     const curl = shell("curl x");
     bag.enqueue(curl);
     await when(() => curl.policyResult !== null, { timeout: TIMEOUT });
-    expect([curl.policyResult, curl.ackState, curl.licenseDecision, curl.needsHuman]).toEqual(["ask", "pending", null, true]);
+    expect([curl.policyResult, curl.ackState, curl.licenseDecision, curl.needsHuman]).toEqual([
+      "ask",
+      "pending",
+      null,
+      true,
+    ]);
   });
 
   it("still prompts in yolo", async () => {
@@ -129,7 +143,11 @@ describe("an acknowledgement is forced on allow", () => {
   });
 
   it("a flag on a class matches calls the floor voted that class", async () => {
-    using bag = setup({ policy: "yolo", policyProgram: FLOOR, user: { acknowledge: [{ match: { class: "exec-unknown" } }] } });
+    using bag = setup({
+      policy: "yolo",
+      policyProgram: FLOOR,
+      user: { acknowledge: [{ match: { class: "exec-unknown" } }] },
+    });
     const curl = shell("curl x");
     bag.enqueue(curl);
     await when(() => curl.policyResult !== null, { timeout: TIMEOUT });
@@ -140,7 +158,9 @@ describe("an acknowledgement is forced on allow", () => {
     using bag = setup({
       policy: "yolo",
       policyProgram: FLOOR,
-      user: { rules: [{ match: { mcp: "gmail", tool: "send_email" }, needsAcknowledgement: true, note: "send = outbound" }] },
+      user: {
+        rules: [{ match: { mcp: "gmail", tool: "send_email" }, needsAcknowledgement: true, note: "send = outbound" }],
+      },
     });
     const mail = email();
     bag.enqueue(mail);
@@ -267,7 +287,11 @@ describe("the project layer can add a flag but never remove one", () => {
 
 describe("block and denials are never lifted or acknowledged", () => {
   it("a block stays a block with no ack state", async () => {
-    using bag = setup({ policy: "yolo", policyProgram: FLOOR, user: { acknowledge: [{ match: { command: ["blocked"] } }] } });
+    using bag = setup({
+      policy: "yolo",
+      policyProgram: FLOOR,
+      user: { acknowledge: [{ match: { command: ["blocked"] } }] },
+    });
     const blocked = shell("blocked now");
     bag.enqueue(blocked);
     await settled(blocked);
@@ -350,7 +374,11 @@ describe("unattended: a missing ack is interaction_required, reported, not count
       policy: "auto",
       unattended: true,
       policyProgram: FLOOR,
-      user: { auto: ALLOW_ALL, acknowledge: [MAIL_FLAG], escalate: { consecutiveDenials: 1, totalDenials: 1, hardStopTotal: 2 } },
+      user: {
+        auto: ALLOW_ALL,
+        acknowledge: [MAIL_FLAG],
+        escalate: { consecutiveDenials: 1, totalDenials: 1, hardStopTotal: 2 },
+      },
     });
     const scope = scopes.get(bag.root);
     scope.onRunNotice = () => {};

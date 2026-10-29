@@ -175,6 +175,7 @@ describe("scheme_watch", () => {
         new SystemToolJob({
           name: "tick",
           toolCallId: `full:inner:${i + 1}`,
+          track: JSON.stringify([0, i]),
           completed: true,
           humanApprove: true,
           outcomeJson: JSON.stringify({ ok: true, value: i + 1 }),

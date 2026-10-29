@@ -56,7 +56,8 @@ function renderArgs(job: ApprovableJob): string {
 function summaryOf(job: ApprovableJob): string {
   if (!(job instanceof ToolCallJob)) return job.constructor.name;
   const command = job.args?.command;
-  if (job.name === "shell" && typeof command === "string") return clip(`shell · ${JSON.stringify(command)}`, SUMMARY_MAX);
+  if (job.name === "shell" && typeof command === "string")
+    return clip(`shell · ${JSON.stringify(command)}`, SUMMARY_MAX);
   const mcp = job.grantMcp;
   if (mcp !== undefined) return clip(`${mcp.server} · ${mcp.tool}`, SUMMARY_MAX);
   return clip(job.name, SUMMARY_MAX);
@@ -80,8 +81,7 @@ export function ackRequestOf(
   job: ApprovableJob,
   env: { readonly bot?: string; readonly promptTtl?: Partial<Record<GrantScope, string | null>>; readonly now: number },
 ): AckRequest {
-  const tier =
-    job.policyResult === "ask" ? "ask" : job.policyResult === "deny" ? "soft-deny" : ("allow" as const);
+  const tier = job.policyResult === "ask" ? "ask" : job.policyResult === "deny" ? "soft-deny" : ("allow" as const);
   return {
     ackId: job.uuid,
     sessionId: root.sessionId,

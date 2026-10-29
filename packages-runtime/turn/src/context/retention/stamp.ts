@@ -17,19 +17,10 @@ import {
   WebExtractToolJob,
   WebSearchToolJob,
 } from "@inhuman.tools/harness-model";
-
-import {
-  ruleFor,
-  type ResolvedPolicy,
-} from "./resolve.js";
-import {
-  horizonSchema,
-  leaveSchema,
-  type ConcreteRule,
-  type RetentionKind,
-  type RuleInput,
-} from "./schema.js";
 import { z } from "zod";
+
+import { ruleFor, type ResolvedPolicy } from "./resolve.js";
+import { horizonSchema, leaveSchema, type ConcreteRule, type RetentionKind, type RuleInput } from "./schema.js";
 
 const SEARCH_TOOLS: ReadonlySet<string> = new Set(["grep", "fff_search"]);
 const READ_TOOLS: ReadonlySet<string> = new Set(["read_file", "list_dir", "glob"]);
@@ -102,7 +93,9 @@ export function stampJobRetention(
     leave: rule.leave,
     minChars: rule.minChars,
     onError: rule.onError,
-    ...(argsRule === undefined ? {} : { args: { keep: argsRule.keep, leave: argsRule.leave, minChars: argsRule.minChars } }),
+    ...(argsRule === undefined
+      ? {}
+      : { args: { keep: argsRule.keep, leave: argsRule.leave, minChars: argsRule.minChars } }),
   });
 }
 

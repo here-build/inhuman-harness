@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  ackOptionsFor,
-  activeAcks,
-  collectAckFlags,
-  matchAckFlags,
-  resolveAcks,
-  type AckCall,
-} from "../acks.js";
+import { ackOptionsFor, activeAcks, collectAckFlags, matchAckFlags, resolveAcks, type AckCall } from "../acks.js";
 import { parseAuthorizationConfig, type AuthorizationConfig } from "../config.js";
 import type { GrantRow } from "../grants.js";
 import { layersOf } from "../layers.js";
@@ -91,13 +84,21 @@ describe("flags across layers", () => {
       }),
     );
     expect(flags.map((flag) => flag.layer)).toEqual(["project"]);
-    expect(collectAckFlags(layers({ user: { acknowledge: [{ match: MAIL }, { match: MAIL, remove: true }] } }))).toHaveLength(1);
+    expect(
+      collectAckFlags(layers({ user: { acknowledge: [{ match: MAIL }, { match: MAIL, remove: true }] } })),
+    ).toHaveLength(1);
   });
 });
 
 describe("matching and stored acks", () => {
   const flags = (...matches: unknown[]) =>
-    collectAckFlags(layersOf({ user: JSON.stringify({ acknowledge: matches.map((match) => ({ match })) }), project: "", session: "" }));
+    collectAckFlags(
+      layersOf({
+        user: JSON.stringify({ acknowledge: matches.map((match) => ({ match })) }),
+        project: "",
+        session: "",
+      }),
+    );
 
   it("matches class, mcp (server, account, tool), tool name and a command family on the shell unit", () => {
     const matched = matchAckFlags(
@@ -124,14 +125,18 @@ describe("matching and stored acks", () => {
     const [plain, scoped] = matchAckFlags(
       collectAckFlags(
         layersOf({
-          user: JSON.stringify({ acknowledge: [{ match: MAIL }, { match: { class: "mcp-action" }, modes: ["manual"] }] }),
+          user: JSON.stringify({
+            acknowledge: [{ match: MAIL }, { match: { class: "mcp-action" }, modes: ["manual"] }],
+          }),
           project: "",
           session: "",
         }),
       ),
       call,
     );
-    expect([activeAcks([plain!, scoped!], "yolo").length, activeAcks([plain!, scoped!], "manual").length]).toEqual([1, 2]);
+    expect([activeAcks([plain!, scoped!], "yolo").length, activeAcks([plain!, scoped!], "manual").length]).toEqual([
+      1, 2,
+    ]);
   });
 
   it("a stored ack satisfies a flag when it covers the call and is no broader than the flag", () => {

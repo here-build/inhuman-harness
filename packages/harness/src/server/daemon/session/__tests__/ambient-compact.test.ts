@@ -82,7 +82,8 @@ test("settles onto the cutoff without the caller waiting first", async () => {
   expect(cutoff.ambientCompactKey).not.toBe("");
   // Finding 12: the run is complete, keeps the result, and no longer holds a copy of the prefix.
   const ambient = turn.children.filter(
-    (child): child is CompletionJob => child instanceof CompletionJob && child.expectation.completionMode === "isolated",
+    (child): child is CompletionJob =>
+      child instanceof CompletionJob && child.expectation.completionMode === "isolated",
   );
   expect(ambient.map((job) => job.completed)).toEqual([true]);
   const stored = ambient[0]!.expectation.promptMessages.map((message) => message.content).join("\n");
@@ -148,7 +149,8 @@ test("a newer prefix wins; the late completion does not overwrite it", async () 
   expect(cutoff.ambientCompactKey).not.toBe("");
   // The superseded run completes too, and neither keeps the prefix text.
   const ambient = turn.children.filter(
-    (child): child is CompletionJob => child instanceof CompletionJob && child.expectation.completionMode === "isolated",
+    (child): child is CompletionJob =>
+      child instanceof CompletionJob && child.expectation.completionMode === "isolated",
   );
   expect(ambient.map((job) => job.completed)).toEqual([true, true]);
   for (const job of ambient) {

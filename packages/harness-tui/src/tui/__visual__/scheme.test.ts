@@ -60,6 +60,31 @@ function findIndentDisclosure(blocks: TranscriptBlock[]): TranscriptBlock | unde
   return undefined;
 }
 
+/**
+ * read_file is a single path line, not a disclosure (53cfb0147). The inner row
+ * is an indented box whose indication carries the gutter.
+ */
+function findIndentLineGutter(blocks: TranscriptBlock[]): unknown {
+  for (const block of blocks) {
+    if (block.type === "box" && block.key?.endsWith(":indent") === true) {
+      const line = findIndication(block);
+      if (line !== undefined) return line.gutter ?? null;
+    }
+    const nested = findIndentLineGutter(block.children ?? []);
+    if (nested !== null) return nested;
+  }
+  return null;
+}
+
+function findIndication(block: TranscriptBlock): TranscriptBlock | undefined {
+  if (block.type === "indication") return block;
+  for (const child of block.children ?? []) {
+    const found = findIndication(child);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
 function dumpKinds(transcript: TranscriptBlock[]): string[] {
   return transcript
     .filter((block) => block.band !== "gap")
@@ -105,14 +130,14 @@ test("scheme_repl tape: prompt → live → seal", () => {
 
   const live = ui.dump();
   const liveOuter = findDisclosure(live.transcript);
-  const liveInner = findIndentDisclosure(live.transcript);
+  const liveInner = findIndentLineGutter(live.transcript);
   expect({
     kinds: dumpKinds(live.transcript),
     outer: { collapsed: liveOuter?.collapsed ?? null, gutter: liveOuter?.gutter ?? null },
-    inner: { gutter: liveInner?.gutter ?? null },
+    inner: { gutter: liveInner },
   }).toEqual({
     kinds: ["speech", "scheme", "tool"],
-    outer: { collapsed: true, gutter: { kind: "top", glyph: "·" } },
+    outer: { collapsed: true, gutter: { kind: "top", glyph: "⒪" } },
     inner: { gutter: { kind: "spinner", profile: "tool", rows: "top" } },
   });
   expect(ui).toMatchScreenshot("scheme-live");
@@ -127,15 +152,15 @@ test("scheme_repl tape: prompt → live → seal", () => {
 
   const ok = ui.dump();
   const okOuter = findDisclosure(ok.transcript);
-  const okInner = findIndentDisclosure(ok.transcript);
+  const okInner = findIndentLineGutter(ok.transcript);
   expect({
     kinds: dumpKinds(ok.transcript),
     outer: { collapsed: okOuter?.collapsed ?? null, gutter: okOuter?.gutter ?? null },
-    inner: { collapsed: okInner?.collapsed ?? null, gutter: okInner?.gutter ?? null },
+    inner: { gutter: okInner },
   }).toEqual({
     kinds: ["speech", "scheme", "tool"],
-    outer: { collapsed: true, gutter: { kind: "top", glyph: "·" } },
-    inner: { collapsed: true, gutter: { kind: "top", glyph: "·" } },
+    outer: { collapsed: true, gutter: { kind: "top", glyph: "⒪" } },
+    inner: { gutter: { kind: "top", glyph: "·" } },
   });
   expect(ui).toMatchScreenshot("scheme-ok");
 
@@ -148,7 +173,7 @@ test("scheme_repl tape: prompt → live → seal", () => {
   }).toEqual({
     kinds: ["speech", "scheme", "tool"],
     outerFolded: false,
-    innerFolded: true,
+    innerFolded: null, // read_file is one line, never a disclosure
     body: true,
   });
   expect(ui).toMatchScreenshot("scheme-ok-expanded");
@@ -207,10 +232,10 @@ test("scheme_repl inner ask", () => {
     annotation: asked.composer.annotation,
   }).toEqual({
     kinds: ["speech", "scheme"],
-    outer: { collapsed: true, gutter: { kind: "top", glyph: "·" } },
+    outer: { collapsed: true, gutter: { kind: "top", glyph: "⒪" } },
     inner: true,
     ask: [],
-    annotation: "Read **src/tea.ts**",
+    annotation: "Ask · Read **src/tea.ts**",
   });
   expect(ui).toMatchScreenshot("scheme-inner-ask");
 });
@@ -285,7 +310,7 @@ test("scheme_repl fail", () => {
     },
   }).toEqual({
     kinds: ["speech", "scheme", "tool"],
-    outer: { collapsed: true, gutter: { kind: "top", glyph: "·" }, role: "error" },
+    outer: { collapsed: true, gutter: { kind: "top", glyph: "⒪" }, role: "error" },
   });
   expect(ui).toMatchScreenshot("scheme-fail");
 });

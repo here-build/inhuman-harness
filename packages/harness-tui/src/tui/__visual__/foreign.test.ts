@@ -212,7 +212,7 @@ test("mcp mail search — ask, options in the composer stack", () => {
     collapsed: null,
     gutter: null,
     role: null,
-    annotation: "Mail **search**",
+    annotation: "Ask · Mail **search**",
     ask: [],
     confirm: { q: true, invoices: true, askWord: false },
   });
@@ -302,7 +302,7 @@ test("mcp Gmail_SendEmail — ask, fat options", () => {
       wire: confirm.includes("mcp__gmail"),
     },
   }).toEqual({
-    annotation: "Gmail **send email**",
+    annotation: "Ask · Gmail **send email**",
     ask: [],
     fat: true,
     confirm: {
