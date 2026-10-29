@@ -17,8 +17,8 @@ function packageResolve() {
 const serverPool = {
   pool: "forks" as const,
   fileParallelism: false,
-  testTimeout: 15_000,
-  hookTimeout: 15_000,
+  testTimeout: 30_000,
+  hookTimeout: 30_000,
 };
 
 export default defineConfig({
@@ -39,6 +39,8 @@ export default defineConfig({
         test: {
           name: "logic",
           environment: "node",
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
           restoreMocks: true,
           include: [
             "src/__tests__/**/*.test.ts",

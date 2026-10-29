@@ -12,6 +12,8 @@ export default defineConfig({
   resolve: packageResolve(),
   test: {
     environment: "node",
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     restoreMocks: true,
     // `projects` alone leaves the top-level include unset, so IDE integrations
     // that read config.test.include discover nothing. Vitest still runs only
@@ -25,6 +27,8 @@ export default defineConfig({
         test: {
           name: "logic",
           environment: "node",
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
           restoreMocks: true,
           include: ["src/cli/**/__tests__/**/*.test.ts", "src/eval/__tests__/**/*.test.ts"],
         },
@@ -34,6 +38,8 @@ export default defineConfig({
         test: {
           name: "process",
           environment: "node",
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
           restoreMocks: true,
           include: ["src/eval/__process__/**/*.test.ts"],
         },

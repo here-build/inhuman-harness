@@ -40,6 +40,13 @@ describe("program replay", () => {
     const catalog = new KernelToolCatalog();
     catalog.replacePack([entry("read_file")]);
     let second = 0;
+    // "a"'s first read settles only after the first "same" read has, and only
+    // "b" can have issued that one. Ordering, not a wall-clock delay, so a loaded
+    // runner cannot let "a" get ahead.
+    let firstSameSettled!: () => void;
+    const bReachedSame = new Promise<void>((resolve) => {
+      firstSameSettled = resolve;
+    });
     const host: SchemeReplHost = {
       catalog,
       root: "/tmp/scheme-replay",
@@ -51,12 +58,14 @@ describe("program replay", () => {
           toolCallId: call.id,
           argsJson: call.function.arguments,
         });
-        const delay = args.path === "a" ? 40 : 0;
-        setTimeout(() => {
+        const settle = () => {
           const value = args.path === "same" ? String(++second) : args.path;
           job.outcomeSnap = { ok: true, value };
           job.markComplete();
-        }, delay);
+          if (args.path === "same") firstSameSettled();
+        };
+        if (args.path === "a") void bReachedSame.then(settle);
+        else setTimeout(settle, 0);
         return job;
       },
     };
