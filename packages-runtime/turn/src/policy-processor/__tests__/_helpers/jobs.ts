@@ -6,7 +6,8 @@ import { CompletionExpectation, CompletionJob, SystemToolJob } from "@inhuman.to
 import type { Job } from "@inhuman.tools/plexus-expectations";
 import { when } from "mobx";
 
-export const TIMEOUT = 5_000;
+/** Guard only: a `when` that never fires. Sized for a loaded 4-core CI runner, below the 30s test timeout. */
+export const TIMEOUT = 25_000;
 
 let n = 0;
 

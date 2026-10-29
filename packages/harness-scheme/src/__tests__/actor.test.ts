@@ -17,7 +17,8 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { interpretSchemeRepl, type SchemeReplHost } from "../index.js";
 
-const TIMEOUT = 8_000;
+// Same as the package testTimeout: 8s was tripped on a loaded 4-core CI runner (cold first test).
+const TIMEOUT = 30_000;
 
 function outcomeOf(chunk: ProgrammaticJob): {
   ok: boolean;

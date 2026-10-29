@@ -162,7 +162,7 @@ describe("remainder routing", () => {
     const denyJob = shell("curl x");
     denyBag.enqueue(denyJob);
     await settled(denyJob);
-    const denyFinal = { classifierResult: denyJob.classifierResult, calls: denySealer.calls };
+    const denyFinal = { classifierResult: denyJob.classifierResult, calls: [...denySealer.calls] };
 
     const identicalSealer = sealWith([{ decision: "allow", risk: 8, authorization: 2, retrieve: "prior-turn" }]);
     using identicalBag = ask({
@@ -176,7 +176,7 @@ describe("remainder routing", () => {
     const identical = {
       classifierResult: identicalJob.classifierResult,
       fail: identicalJob.classifierAbstain,
-      calls: identicalSealer.calls,
+      calls: [...identicalSealer.calls],
     };
 
     const concurrentCalls: string[] = [];
@@ -213,7 +213,7 @@ describe("remainder routing", () => {
     const abstainJob = shell("curl x");
     abstainBag.enqueue(abstainJob);
     await settled(abstainJob);
-    const abstain = { classifierResult: abstainJob.classifierResult, calls: abstainSealer.calls };
+    const abstain = { classifierResult: abstainJob.classifierResult, calls: [...abstainSealer.calls] };
 
     const gHotSealer = sealWith([
       { decision: "allow", risk: 8, authorization: 2, retrieve: "none" },
@@ -226,7 +226,7 @@ describe("remainder routing", () => {
     const gHot = {
       classifierResult: gHotJob.classifierResult,
       fail: gHotJob.classifierAbstain,
-      calls: gHotSealer.calls,
+      calls: [...gHotSealer.calls],
     };
 
     expect({ denyFinal, identical, concurrent, abstain, gHot }).toEqual({
@@ -257,7 +257,7 @@ describe("remainder routing", () => {
         calls: [expect.stringContaining("cheap"), expect.stringContaining("rich")],
       },
     });
-  }, 20_000);
+  });
 
   it("explicit auth / short confirmation / missing proposal / mismatched op / malicious quarantined / g-hot 9×6", async () => {
     async function phase(opts: {
@@ -369,7 +369,7 @@ describe("remainder routing", () => {
         product45: { classifierResult: "allow", fail: null, labeled: [none] },
       },
     });
-  }, 20_000);
+  });
 });
 
 describe("remainder host", () => {
@@ -529,7 +529,7 @@ describe("remainder host", () => {
         classifierResult: "allow",
       },
     });
-  }, 20_000);
+  });
 
   it("every attempt is deadline-bounded: a hung first attempt opens the approval window, a hung retry is cut too", async () => {
     const seen = new Set<CompletionExpectation>();
@@ -552,7 +552,7 @@ describe("remainder host", () => {
     bag.enqueue(curl);
     await when(() => open.get().length === 1, { timeout: TIMEOUT });
     expect(curl.classifierAbstain).toBeNull();
-    await new Promise((resolve) => setTimeout(resolve, 450));
+    await when(() => curl.classifierAbstain !== null, { timeout: TIMEOUT });
     const first = open.get()[0];
     // The attempt abort returns the judge. It does not seal the provider round.
     expect(first?.outcome).toBeNull();
@@ -562,15 +562,15 @@ describe("remainder host", () => {
     const later = open.get()[1];
     if (later == null) throw new Error("expected a background retry");
     expect(later.outcome).toBeNull();
-    await new Promise((resolve) => setTimeout(resolve, 750));
+    // The third round is only minted once the hung retry's own deadline cut it.
+    await when(() => open.get().length === 3, { timeout: TIMEOUT });
     expect(later.outcome).toBeNull();
     expect(curl.classifierAbstain).toMatch(/timed out/);
     expect(curl.classifierResult).toBeNull();
-    await when(() => open.get().length === 3, { timeout: TIMEOUT });
     const third = open.get()[2];
     third.succeed("settled", "", "null", {
       result: { text: JSON.stringify({ decision: "allow", risk: 2, authorization: 8, retrieve: "none" }) },
     });
     await settled(curl);
-  }, 20_000);
+  });
 });

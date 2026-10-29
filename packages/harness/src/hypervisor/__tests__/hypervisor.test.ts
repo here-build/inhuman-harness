@@ -68,13 +68,25 @@ function roster(
   };
 }
 
-async function start(root: string, extra = roster(), readyTimeoutMs = 5_000): Promise<Hypervisor> {
+/**
+ * `readyTimeoutMs` is the window every later restart gets. A short one is what
+ * these tests assert on, but the first boot spawns real node children and must not
+ * race a loaded runner, so `bootTimeoutMs` (a guard only) covers the boot and the
+ * short window applies after it.
+ */
+async function start(
+  root: string,
+  extra = roster(),
+  readyTimeoutMs = 5_000,
+  bootTimeoutMs = readyTimeoutMs,
+): Promise<Hypervisor> {
   const hv = await Hypervisor.start({
     root,
     serverRoster: extra,
     hypervisorId: "hv-test",
-    readyTimeoutMs,
+    readyTimeoutMs: bootTimeoutMs,
   });
+  (hv as unknown as { readyTimeoutMs: number }).readyTimeoutMs = readyTimeoutMs;
   running.push(hv);
   return hv;
 }
@@ -202,7 +214,7 @@ describe("replacement and child locks", () => {
   });
 
   it("does not restart runtime while a required yjs plane is down", async () => {
-    const hv = await start(scratch(), roster([], [], never, always), 400);
+    const hv = await start(scratch(), roster([], [], never, always), 400, 15_000);
     const yjs = hv.snapshot().find((child) => child.id === "yjs");
     process.kill(yjs?.pid ?? 0, "SIGKILL");
     await waitUntil("yjs down", () => hv.snapshot().find((child) => child.id === "yjs")?.exit !== undefined, 5_000);
@@ -242,10 +254,11 @@ describe("restart policy", () => {
         const now = runtimeOf(hv);
         return now?.exit === undefined && now?.pid !== undefined && now.pid !== pid && isExecutionReady(hv.health());
       },
-      8_000,
+      // Guard only: respawning a real node child is slow on a loaded runner.
+      20_000,
     );
 
-  it("a ready restart refills the attempt budget", { timeout: 20_000 }, async () => {
+  it("a ready restart refills the attempt budget", async () => {
     const hv = await start(scratch(), roster([], [], never, { mode: "on-failure", maxAttempts: 1, backoffMs: 20 }));
     const first = runtimeOf(hv)?.pid;
     process.kill(first ?? 0, "SIGKILL");
@@ -255,7 +268,7 @@ describe("restart policy", () => {
     await restartedFrom(hv, second);
   });
 
-  it("a restart that never comes ready is killed and the policy continues", { timeout: 20_000 }, async () => {
+  it("a restart that never comes ready is killed and the policy continues", async () => {
     const root = scratch();
     const ready = [readyOnce, join(root, "spawned")];
     const hv = await start(
@@ -267,6 +280,7 @@ describe("restart policy", () => {
         ],
       },
       400,
+      15_000,
     );
     const first = runtimeOf(hv)?.pid;
     process.kill(first ?? 0, "SIGKILL");
@@ -281,7 +295,7 @@ describe("restart policy", () => {
     expect(await isLifetimeLockHeld(lockPathFor(root, "runtime"))).toBe(false);
   });
 
-  it("a restart waiting on its requires does not spawn after shutdown", { timeout: 20_000 }, async () => {
+  it("a restart waiting on its requires does not spawn after shutdown", async () => {
     const hv = await start(scratch(), roster([], [], never, { mode: "always", maxAttempts: 3, backoffMs: 0 }));
     // Hold the restart inside spawnAndWaitReady's awaits while shutdown runs.
     const gate = hv as unknown as { waitForRequires: () => Promise<void> };

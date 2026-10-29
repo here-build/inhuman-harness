@@ -287,7 +287,7 @@ test("overlay Esc then Enter in one batch does not accept; park restores the sla
   };
   using tea = new Tea(client, () => undefined);
   typeText(tea, "/go");
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + 25_000;
   while (!dumpPaint(tea).composer.picker.rows.some((row) => row.name === "row")) {
     if (Date.now() > deadline) throw new Error("picker");
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -297,9 +297,18 @@ test("overlay Esc then Enter in one batch does not accept; park restores the sla
     if (Date.now() > deadline) throw new Error(`park ${JSON.stringify(calls)}`);
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  await pause();
+  // The form body evaluates asynchronously; Esc before the overlay is parked would hit the composer.
+  while (tea.callbackSurface === null) {
+    if (Date.now() > deadline) throw new Error("overlay");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
   press(tea, "Escape", "Enter");
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  // Wait for the cancel and for the park to unwind (draft restored), not a fixed sleep.
+  while (!calls.some((call) => call.method === "ui/resolve") || tea.callbackSurface !== null) {
+    if (Date.now() > deadline) throw new Error(`resolve ${JSON.stringify(calls)}`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  await pause();
   expect({ calls, draft: tea.draft.draft }).toEqual({
     calls: [
       { method: "connect/drop", params: { id: "work" } },
