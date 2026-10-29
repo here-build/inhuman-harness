@@ -158,13 +158,14 @@ describe("descriptors and readiness", () => {
         root,
         serverRoster: roster(),
         hypervisorId: "hv-a",
-        readyTimeoutMs: 5_000,
+        // Boot-length guard: the winner boots real children; the race under test is the lock.
+        readyTimeoutMs: 15_000,
       }),
       Hypervisor.start({
         root,
         serverRoster: roster(),
         hypervisorId: "hv-b",
-        readyTimeoutMs: 5_000,
+        readyTimeoutMs: 15_000,
       }),
     ]);
     const ok = results.flatMap((row) => (row.status === "fulfilled" ? [row.value] : []));
