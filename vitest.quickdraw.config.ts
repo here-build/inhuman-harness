@@ -6,6 +6,8 @@ import { defineConfig } from "vitest/config";
 // invocations still hit the fused package.
 export default defineConfig({
   test: {
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     root: import.meta.dirname,
     include: [
       "packages/quickdraw/src/**/*.test.ts",

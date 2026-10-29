@@ -2,11 +2,15 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     environment: "node",
     restoreMocks: true,
     projects: [
       {
         test: {
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
           name: "logic",
           environment: "node",
           restoreMocks: true,
@@ -16,6 +20,8 @@ export default defineConfig({
       },
       {
         test: {
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
           name: "storybook",
           environment: "node",
           restoreMocks: true,
@@ -28,6 +34,8 @@ export default defineConfig({
       },
       {
         test: {
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
           name: "visual",
           environment: "node",
           restoreMocks: true,

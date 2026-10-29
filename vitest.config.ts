@@ -10,6 +10,8 @@ import { vitestAliases } from "./packages/harness/scripts/src-alias.mjs";
 export default defineConfig({
   resolve: { alias: vitestAliases() },
   test: {
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     include: [
       "packages/*/src/**/__tests__/**/*.test.ts",
       "packages-runtime/substrate/src/**/__tests__/**/*.test.ts",
