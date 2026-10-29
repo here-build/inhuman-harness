@@ -13,7 +13,7 @@ import {
 import { Orchestrator } from "@inhuman.tools/plexus-expectations/executor";
 import { DoorSession } from "@inhuman.tools/substrate/doors";
 import { KernelToolCatalog, type CatalogEntry } from "@inhuman.tools/turn/catalog";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { interpretSchemeRepl, type SchemeReplHost } from "../index.js";
 
@@ -151,12 +151,35 @@ describe("ProgrammaticJob actor", () => {
         toolCallId: "r-timeout",
         argsJson: JSON.stringify({ description: "test", expr: '(shell "sleep 5")', timeoutMs: 40 }),
       });
-      await interpretSchemeRepl(timed, {
-        catalog,
-        root: "/tmp/scheme-actor",
-        doors: new DoorSession(),
-        admit: () => hanging,
-      });
+      // The 40ms eval timer is a wall-clock deadline: on a slow box it fires before the shell call is
+      // even admitted, so the inner job is never cancelled. Take that one timer's callback and fire it
+      // ourselves once the hanging call is admitted; the real timer is pushed out so it cannot race.
+      let fireTimeout: (() => void) | undefined;
+      const realSetTimeout = globalThis.setTimeout;
+      const timerSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+        fn: (...a: unknown[]) => void,
+        ms?: number,
+        ...rest: unknown[]
+      ) => {
+        if (ms === 40 && fireTimeout === undefined) {
+          fireTimeout = () => fn();
+          return realSetTimeout(() => undefined, 600_000);
+        }
+        return realSetTimeout(fn, ms, ...rest);
+      }) as typeof setTimeout);
+      try {
+        await interpretSchemeRepl(timed, {
+          catalog,
+          root: "/tmp/scheme-actor",
+          doors: new DoorSession(),
+          admit: () => {
+            setImmediate(() => fireTimeout?.());
+            return hanging;
+          },
+        });
+      } finally {
+        timerSpy.mockRestore();
+      }
 
       const watch = new ProgrammaticJob({
         toolName: SCHEME_WATCH_TOOL_NAME,

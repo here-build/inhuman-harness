@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 import { MCPToolJob, McpToolExpectation, type CompletionExpectation } from "@inhuman.tools/harness-model";
 import { observable, runInAction, when } from "mobx";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { classifierRoute } from "../classifier.js";
 import { scopes } from "../scope.js";
@@ -532,6 +532,28 @@ describe("remainder host", () => {
   });
 
   it("every attempt is deadline-bounded: a hung first attempt opens the approval window, a hung retry is cut too", async () => {
+    // The deadlines are real setTimeouts; racing them against a slow box is what made this flaky.
+    // Capture the 300ms/600ms timers (pushing the real ones far out) and fire each ourselves once
+    // its attempt is provably hung.
+    const deadlines: Array<{ ms: number; fire: () => void }> = [];
+    const realSetTimeout = globalThis.setTimeout;
+    const timerSpy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...a: unknown[]) => void,
+      ms?: number,
+      ...rest: unknown[]
+    ) => {
+      if (ms === 300 || ms === 600) {
+        deadlines.push({ ms, fire: () => fn() });
+        return realSetTimeout(() => undefined, 10 * 60_000);
+      }
+      return realSetTimeout(fn, ms, ...rest);
+    }) as typeof setTimeout);
+    using _restore = { [Symbol.dispose]: () => timerSpy.mockRestore() };
+    const fireLatest = (ms: number): void => {
+      const hit = deadlines.findLast((d) => d.ms === ms);
+      if (hit == null) throw new Error(`no ${ms}ms deadline armed`);
+      hit.fire();
+    };
     const seen = new Set<CompletionExpectation>();
     const open = observable.box<CompletionExpectation[]>([]);
     using bag = ask({
@@ -552,6 +574,7 @@ describe("remainder host", () => {
     bag.enqueue(curl);
     await when(() => open.get().length === 1, { timeout: TIMEOUT });
     expect(curl.classifierAbstain).toBeNull();
+    fireLatest(300);
     await when(() => curl.classifierAbstain !== null, { timeout: TIMEOUT });
     const first = open.get()[0];
     // The attempt abort returns the judge. It does not seal the provider round.
@@ -562,6 +585,7 @@ describe("remainder host", () => {
     const later = open.get()[1];
     if (later == null) throw new Error("expected a background retry");
     expect(later.outcome).toBeNull();
+    fireLatest(600);
     // The third round is only minted once the hung retry's own deadline cut it.
     await when(() => open.get().length === 3, { timeout: TIMEOUT });
     expect(later.outcome).toBeNull();

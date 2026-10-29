@@ -29,10 +29,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildManifoldEnv } from "../bind.js";
 import { createManifoldTool } from "../manifold-tool.js";
 
-// A single 500k-step burn costs roughly 35s of real interpreter time, and every NEGATIVE case
-// arms one in beforeEach. The law needs the production cap — a small cap would pass without
-// exercising the real burn — so the price is the timeout, not the size.
-vi.setConfig({ testTimeout: 300_000, hookTimeout: 300_000 });
+// The cap is a STEP count, not a clock: the interpreter cost is linear in it (500k steps ~35s here,
+// minutes on a 4-vCPU CI box, and every NEGATIVE case arms one in beforeEach). The law is about the
+// cap's LIFETIME, not its size, so a small cap proves the same thing. 2_000 sits above one tiny program
+// (~300-600 steps) yet far below RUNAWAY, and 12 tiny programs sum past it (the session-lifetime check).
+const CAP = 2_000;
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 /** A tool wired exactly as `server.ts` wires it: ONE tap, shared across every call of the session.
  *  The small cap keeps the arithmetic legible — the law is about the cap's LIFETIME, not its size. */
@@ -68,13 +70,13 @@ const RUNAWAY = String.raw`(define (find-all-rt-urls s)
 
 describe("POSITIVE — the guard still guards", () => {
   it("a genuine runaway loop IS stopped", async () => {
-    const run = await session(500_000);
+    const run = await session(CAP);
     await run(PAGE);
     expect(await run(RUNAWAY)).toContain("was stopped");
   });
 
   it("the door teaches an action the model can actually take", async () => {
-    const run = await session(500_000);
+    const run = await session(CAP);
     await run(PAGE);
     const err = await run(RUNAWAY);
     // It must NOT name ARRIVAL_TRACE_MAX: that is a host env var, unreachable from an MCP tool call.
@@ -92,7 +94,7 @@ describe("NEGATIVE — the guard cannot outlive the program it stopped", () => {
   let run: (expr: string) => Promise<string>;
 
   beforeEach(async () => {
-    run = await session(500_000);
+    run = await session(CAP);
     await run(PAGE);
     expect(await run(RUNAWAY)).toContain("was stopped"); // arm the failure, exactly as the model did
   });
@@ -111,7 +113,7 @@ describe("NEGATIVE — the guard cannot outlive the program it stopped", () => {
   });
 
   it("bindings made BEFORE the runaway survive it", async () => {
-    const fresh = await session(500_000);
+    const fresh = await session(CAP);
     await fresh(PAGE);
     await fresh('(define kept "the-data-i-fetched")');
     expect(await fresh(RUNAWAY)).toContain("was stopped");

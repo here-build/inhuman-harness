@@ -117,7 +117,10 @@ export function setup(opts: {
     });
   }
   if (opts.backoffMs !== undefined) scope.backoffMs = opts.backoffMs;
-  if (opts.judgeDeadlineMs !== undefined) scope.judgeDeadlineMs = opts.judgeDeadlineMs;
+  // The product default (12s first attempt) is a wall-clock deadline a slow CI box can exceed
+  // mid-eval, which cuts the judge and mints an unscripted retry. Tests that are not about the
+  // deadline get one that cannot fire; the deadline test drives its own.
+  scope.judgeDeadlineMs = opts.judgeDeadlineMs ?? (() => 10 * 60_000);
   const host = new TestLicenseOrchestrator(kernel, session);
   host.registerExecutor(
     ToolCallJob,
