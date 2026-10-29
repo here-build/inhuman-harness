@@ -5,7 +5,10 @@
   "description": "The session transcript: the tape, without a composer or a model picker.",
   "type": "module",
   "exports": {
-    ".": "./src/tape.tsx"
+    ".": {
+      "react-native": "./src/tape.native.tsx",
+      "default": "./src/tape.tsx"
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -30,9 +33,18 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "eslint": "9.39.2",
+    "react-native": "0.87.1",
     "storybook": "10.6.1",
     "typescript": "6.0.2",
     "vitest": "4.1.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "peerDependencies": {
+    "react-native": "*"
+  },
+  "peerDependenciesMeta": {
+    "react-native": {
+      "optional": true
+    }
+  }
 }

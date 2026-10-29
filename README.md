@@ -51,6 +51,7 @@ It covers build, typecheck, lint, logic tests, process tests, and TUI visual tes
 | [`packages/harness-cli`](packages/harness-cli) | `@inhuman.tools/harness-cli` | The `harness` command: `ensure()` the daemon, then attach a shell; `daemon`, `eval`, `mcp`, `install`, completion. The TUI and the web app are optional peers loaded on demand |
 | [`packages/harness-tui`](packages/harness-tui) | `@inhuman.tools/harness-tui` | Terminal shell (`attachTui`): interpreter, frames. Mac real-terminal screenshot driver in `src/e2e` (not a CI gate) |
 | [`packages/harness-web-app`](packages/harness-web-app) | `@inhuman.tools/harness-web-app` | Browser shell and the loopback door (`./server`) |
+| [`packages/harness-ios-app`](packages/harness-ios-app) | `@inhuman.tools/harness-ios-app` | iPhone shell (work in progress): native chrome over the session page |
 | [`packages/harness-transcript`](packages/harness-transcript) | `@inhuman.tools/harness-transcript` | The session transcript (the tape), rendered by the browser shell |
 | [`packages/harness-sdk`](packages/harness-sdk) | `@inhuman.tools/harness-sdk` | Node client: `Client` over the unix socket, daemon paths, launch helpers, plain-text work projections |
 | [`packages/harness-peer`](packages/harness-peer) | `@inhuman.tools/harness-peer` | Browser-safe dial: Yjs rooms, frames, awareness, JSON-RPC port |

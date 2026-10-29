@@ -1,0 +1,227 @@
+--- a/ios/RNSScreenStackHeaderConfig.mm
++++ b/ios/RNSScreenStackHeaderConfig.mm
+@@ -1,5 +1,7 @@
+ #import "RNSScreenStackHeaderConfig.h"
++#import <QuartzCore/CATransaction.h>
+ #import <React/RCTConversions.h>
++#import <objc/runtime.h>
+ #import <React/RCTFabricComponentsPlugins.h>
+ #import <React/RCTFont.h>
+ #import <React/RCTImageComponentView.h>
+@@ -44,6 +46,27 @@
+ }
+ 
+ @end
++
++static BOOL RNSStringsEqual(NSString *lhs, NSString *rhs)
++{
++  return lhs == rhs || [lhs isEqualToString:rhs];
++}
++
++// iOS 26 keeps the glass platter and zooms the chevron and title, as one content
++// view, from its center whenever a bar button's title or items are replaced.
++static void RNSPerformWithoutBarButtonZoom(void (^actions)(void))
++{
++#if !TARGET_OS_TV
++  if (@available(iOS 26.0, *)) {
++    [CATransaction begin];
++    [CATransaction setDisableActions:YES];
++    [UIView performWithoutAnimation:actions];
++    [CATransaction commit];
++    return;
++  }
++#endif
++  actions();
++}
+ 
+ @interface RNSScreenStackHeaderConfig () <RCTMountingTransactionObserving>
+ @end
+@@ -556,11 +579,14 @@
+ #if !TARGET_OS_TV
+   [config configureBackItem:prevItem withPrevVC:prevVC];
+ 
+-  if (config.largeTitle) {
++  if (config.largeTitle && !navctr.navigationBar.prefersLargeTitles) {
+     navctr.navigationBar.prefersLargeTitles = YES;
+   }
+-  navitem.largeTitleDisplayMode =
++  UINavigationItemLargeTitleDisplayMode largeTitleMode =
+       config.largeTitle ? UINavigationItemLargeTitleDisplayModeAlways : UINavigationItemLargeTitleDisplayModeNever;
++  if (navitem.largeTitleDisplayMode != largeTitleMode) {
++    navitem.largeTitleDisplayMode = largeTitleMode;
++  }
+ 
+ #if RNS_IPHONE_OS_VERSION_AVAILABLE(27_0)
+   if (@available(iOS 27.0, *)) {
+@@ -574,8 +600,6 @@
+ #endif
+ 
+   UINavigationBarAppearance *appearance = [self buildAppearance:vc withConfig:config];
+-  navitem.standardAppearance = appearance;
+-  navitem.compactAppearance = appearance;
+ 
+ // appearance does not apply to the tvOS so we need to use lagacy customization
+ #if TARGET_OS_TV
+@@ -601,14 +625,40 @@
+   if (config.largeTitleHideShadow) {
+     scrollEdgeAppearance.shadowColor = nil;
+   }
+-  navitem.scrollEdgeAppearance = scrollEdgeAppearance;
+-#if !TARGET_OS_TV
+-  navitem.hidesBackButton = config.hideBackButton;
+-  navitem.leftItemsSupplementBackButton = config.backButtonInCustomView;
++  // Reassigning the appearance after the push refreshes every bar button. On iOS 26
++  // that zoom is the content inside the glass, not the platter. Right-item updates
++  // (a badge, an enabled flag) must not do it again.
++  static char appearanceStampKey;
++  NSString *appearanceStamp = [NSString stringWithFormat:@"%@|%ld|%d|%@|%@|%@|%d|%d|%d",
++                                                        config.backgroundColor.description,
++                                                        (long)config.blurEffect,
++                                                        config.hideShadow,
++                                                        config.titleColor.description,
++                                                        config.largeTitleColor.description,
++                                                        config.largeTitleBackgroundColor.description,
++                                                        config.largeTitle,
++                                                        config.largeTitleHideShadow,
++                                                        config.translucent];
++  NSString *appliedStamp = objc_getAssociatedObject(config, &appearanceStampKey);
++  if (![appliedStamp isEqualToString:appearanceStamp]) {
++    RNSPerformWithoutBarButtonZoom(^{
++      navitem.standardAppearance = appearance;
++      navitem.compactAppearance = appearance;
++      navitem.scrollEdgeAppearance = scrollEdgeAppearance;
++    });
++    objc_setAssociatedObject(config, &appearanceStampKey, appearanceStamp, OBJC_ASSOCIATION_COPY_NONATOMIC);
++  }
++#if !TARGET_OS_TV
++  if (navitem.hidesBackButton != config.hideBackButton) {
++    navitem.hidesBackButton = config.hideBackButton;
++  }
++  if (navitem.leftItemsSupplementBackButton != config.backButtonInCustomView) {
++    navitem.leftItemsSupplementBackButton = config.backButtonInCustomView;
++  }
+ #endif
+-  navitem.titleView = nil;
+-  navitem.leftBarButtonItems = nil;
+-  navitem.rightBarButtonItems = nil;
++  NSMutableArray<UIBarButtonItem *> *leftItems = [NSMutableArray new];
++  NSMutableArray<UIBarButtonItem *> *rightItems = [NSMutableArray new];
++  UIView *nextTitleView = nil;
+ 
+ #if !TARGET_OS_TV
+   // We want to set navitem.searchController to nil only if we are sure
+@@ -621,22 +671,16 @@
+     // `- [RNSScreenStackHeaderConfig replaceNavigationBarViewsWithSnapshotOfSubview:]` method.
+     switch (subview.type) {
+       case RNSScreenStackHeaderSubviewTypeLeft: {
+-        NSArray<UIBarButtonItem *> *currentItems = navitem.leftBarButtonItems ?: @[];
+-        NSMutableArray<UIBarButtonItem *> *mutableItems = [currentItems mutableCopy];
+-        [mutableItems addObject:[subview getUIBarButtonItem]];
+-        navitem.leftBarButtonItems = mutableItems;
++        [leftItems addObject:[subview getUIBarButtonItem]];
+         break;
+       }
+       case RNSScreenStackHeaderSubviewTypeRight: {
+-        NSArray<UIBarButtonItem *> *currentItems = navitem.rightBarButtonItems ?: @[];
+-        NSMutableArray<UIBarButtonItem *> *mutableItems = [currentItems mutableCopy];
+-        [mutableItems addObject:[subview getUIBarButtonItem]];
+-        navitem.rightBarButtonItems = mutableItems;
++        [rightItems addObject:[subview getUIBarButtonItem]];
+         break;
+       }
+       case RNSScreenStackHeaderSubviewTypeCenter:
+       case RNSScreenStackHeaderSubviewTypeTitle: {
+-        navitem.titleView = subview;
++        nextTitleView = subview;
+         break;
+       }
+       case RNSScreenStackHeaderSubviewTypeSearchBar: {
+@@ -695,11 +739,46 @@
+ 
+   // This assignment should be done after `navitem.titleView = ...` assignment (iOS 16.0 bug).
+   // See: https://github.com/software-mansion/react-native-screens/issues/1570 (comments)
+-  navitem.title = config.title;
+-  navitem.leftBarButtonItems = [config barButtonItemsFromConfigs:config.headerLeftBarButtonItems
+-                                                withCurrentItems:navitem.leftBarButtonItems];
+-  navitem.rightBarButtonItems = [config barButtonItemsFromConfigs:config.headerRightBarButtonItems
+-                                                 withCurrentItems:navitem.rightBarButtonItems];
++  if (navitem.titleView != nextTitleView) {
++    navitem.titleView = nextTitleView;
++  }
++  if (!RNSStringsEqual(navitem.title, config.title)) {
++    NSString *title = config.title;
++    if (vc.transitionCoordinator == nil) {
++      RNSPerformWithoutBarButtonZoom(^{
++        navitem.title = title;
++      });
++    } else {
++      navitem.title = title;
++    }
++  }
++#if !TARGET_OS_TV
++  // `backButtonTitle` is what the next push shows. Set it while this screen is
++  // still current: assigning it after the back button is on screen is the zoom.
++  if (config.title.length > 0 && !RNSStringsEqual(navitem.backButtonTitle, config.title)) {
++    NSString *backTitle = config.title;
++    RNSPerformWithoutBarButtonZoom(^{
++      navitem.backButtonTitle = backTitle;
++    });
++  }
++#endif
++  NSArray<UIBarButtonItem *> *resolvedLeft =
++      [config barButtonItemsFromConfigs:config.headerLeftBarButtonItems withCurrentItems:leftItems];
++  NSArray<UIBarButtonItem *> *resolvedRight =
++      [config barButtonItemsFromConfigs:config.headerRightBarButtonItems withCurrentItems:rightItems];
++  void (^applyItems)(void) = ^{
++    // Clearing left items rebuilds the system back button. Skip the write when
++    // this screen has none of its own.
++    if (resolvedLeft.count > 0 || navitem.leftBarButtonItems.count > 0) {
++      navitem.leftBarButtonItems = resolvedLeft;
++    }
++    navitem.rightBarButtonItems = resolvedRight;
++  };
++  if (vc.transitionCoordinator == nil) {
++    RNSPerformWithoutBarButtonZoom(applyItems);
++  } else {
++    applyItems();
++  }
+ 
+   // Setting navigation bar visibility is split to mitigate iOS 26 bug with bar button items
+   // (setting nav bar visibility should be done after `navitem.*BarButtonItems`).
+@@ -758,10 +837,21 @@
+     resolvedBackTitle = prevScreen.screenView.findHeaderConfig.title;
+   }
+ 
+-  prevItem.backButtonTitle = resolvedBackTitle;
++  // Same string still counts as a content change on iOS 26, and the platter does not move.
++  if (!RNSStringsEqual(prevItem.backButtonTitle, resolvedBackTitle)) {
++    NSString *title = resolvedBackTitle;
++    RNSPerformWithoutBarButtonZoom(^{
++      prevItem.backButtonTitle = title;
++    });
++  }
+   // This has any effect only in case the `backBarButtonItem` is not set.
+   // We apply it before we configure the back item, because it might get overriden.
+-  prevItem.backButtonDisplayMode = config.backButtonDisplayMode;
++  if (prevItem.backButtonDisplayMode != config.backButtonDisplayMode) {
++    UINavigationItemBackButtonDisplayMode mode = config.backButtonDisplayMode;
++    RNSPerformWithoutBarButtonZoom(^{
++      prevItem.backButtonDisplayMode = mode;
++    });
++  }
+ 
+   if (config.isBackTitleVisible) {
+     RNSBackBarButtonItem *backBarButtonItem = [[RNSBackBarButtonItem alloc] initWithTitle:resolvedBackTitle
+@@ -805,7 +895,11 @@
+   } else {
+     // back button title should be not visible next to back button,
+     // but it should still appear in back menu
+-    prevItem.backButtonDisplayMode = UINavigationItemBackButtonDisplayModeMinimal;
++    if (prevItem.backButtonDisplayMode != UINavigationItemBackButtonDisplayModeMinimal) {
++      RNSPerformWithoutBarButtonZoom(^{
++        prevItem.backButtonDisplayMode = UINavigationItemBackButtonDisplayModeMinimal;
++      });
++    }
+   }
+ #endif
+ }
