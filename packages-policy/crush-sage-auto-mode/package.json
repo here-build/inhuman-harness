@@ -44,5 +44,6 @@
   },
   "bin": {
     "policy-crush-sage": "./dist/hook-main.js"
-  }
+  },
+  "browserslist": ["node >= 22"]
 }

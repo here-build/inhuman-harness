@@ -12,8 +12,8 @@ import { describe, expect, it } from "vitest";
 
 import { bindSessionCatalog, KernelToolCatalog } from "@/tool-catalog";
 
-import { OpenAiCompatActor, OpenAiCompatDriverConnection } from "../index.js";
 import { retryAfterMs } from "../actor.js";
+import { OpenAiCompatActor, OpenAiCompatDriverConnection } from "../index.js";
 
 type Handler = (n: number, res: ServerResponse) => void;
 
@@ -147,7 +147,10 @@ describe("retry budget", () => {
 describe("stop reasons on the wire", () => {
   it("records the provider's stop reason on the completion", async () => {
     const { round } = await run((_n, res) =>
-      sse(res, [{ choices: [{ delta: { content: "partial" } }] }, { choices: [{ delta: {}, finish_reason: "length" }] }]),
+      sse(res, [
+        { choices: [{ delta: { content: "partial" } }] },
+        { choices: [{ delta: {}, finish_reason: "length" }] },
+      ]),
     );
     expect({ finish: round.finishReason, text: round.responseText }).toEqual({ finish: "length", text: "partial" });
   });
@@ -165,12 +168,18 @@ describe("stop reasons on the wire", () => {
           choices: [
             {
               delta: {
-                tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "write_file", arguments: "" } }],
+                tool_calls: [
+                  { index: 0, id: "call_1", type: "function", function: { name: "write_file", arguments: "" } },
+                ],
               },
             },
           ],
         },
-        { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '{"path":"a.ts","content":"hel' } }] } }] },
+        {
+          choices: [
+            { delta: { tool_calls: [{ index: 0, function: { arguments: '{"path":"a.ts","content":"hel' } }] } },
+          ],
+        },
         { choices: [{ delta: {}, finish_reason: "length" }] },
       ]),
     );
@@ -188,7 +197,12 @@ describe("stop reasons on the wire", () => {
             {
               delta: {
                 tool_calls: [
-                  { index: 0, id: "call_1", type: "function", function: { name: "write_file", arguments: '{"path":"a"}' } },
+                  {
+                    index: 0,
+                    id: "call_1",
+                    type: "function",
+                    function: { name: "write_file", arguments: '{"path":"a"}' },
+                  },
                 ],
               },
             },

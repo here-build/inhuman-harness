@@ -33,6 +33,7 @@ export function useWorkflowGraph(sessionId: string, program: ProgrammaticJob): R
     void replayScheme(program, next, abort.signal).then(
       () => {
         if (!abort.signal.aborted) setSettled(true);
+        return undefined;
       },
       () => {
         if (!abort.signal.aborted) setSettled(true);

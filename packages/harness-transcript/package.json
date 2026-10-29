@@ -34,5 +34,6 @@
     "typescript": "6.0.2",
     "vitest": "4.1.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "browserslist": ["last 2 chrome versions", "last 2 firefox versions", "last 2 safari versions", "ios_saf >= 16.4", "node >= 22"]
 }

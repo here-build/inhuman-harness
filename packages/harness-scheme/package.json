@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/harness-scheme",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Scheme faces of a session: catalog description, keywords, the scheme_repl interpreter host, and provenance replay. `./keywords` and `./replay` are browser-safe and the web app bundles them; the root entry reaches node:fs through scheme-program/fs and is for the daemon.",
   "type": "module",
   "main": "./dist/index.js",
@@ -33,7 +32,7 @@
     "last 2 chrome versions",
     "last 2 firefox versions",
     "last 2 safari versions",
-    "ios_saf >= 16",
+    "ios_saf >= 16.4",
     "node >= 22"
   ],
   "scripts": {
@@ -74,7 +73,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/harness-scheme"
+  },
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

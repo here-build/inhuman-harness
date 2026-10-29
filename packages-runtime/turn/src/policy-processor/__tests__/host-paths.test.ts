@@ -11,10 +11,10 @@ import { bindPolicy, reasonableDefaultsSource } from "@inhuman.tools/policy/floo
 import { when } from "mobx";
 import { describe, expect, it } from "vitest";
 
-import { read, TIMEOUT, write } from "./_helpers/jobs.js";
-import { setup } from "./_helpers/orchestrator.js";
 import { resolvedWorkspacePath } from "../real-path.js";
 import { selfProtectedRoots, withSelfProtection } from "../self-protect.js";
+import { read, TIMEOUT, write } from "./_helpers/jobs.js";
+import { setup } from "./_helpers/orchestrator.js";
 
 async function stamped(job: { policyResult: unknown }): Promise<void> {
   await when(() => job.policyResult !== null, { timeout: TIMEOUT });

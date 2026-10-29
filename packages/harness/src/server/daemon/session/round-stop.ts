@@ -16,9 +16,7 @@ import { splitThink } from "@inhuman.tools/tool-call-normalize";
 export const CONTENT_FILTER_STOP = "content_filter";
 export const LENGTH_STOP = "length";
 
-export type RoundStop =
-  | { readonly kind: "continue" }
-  | { readonly kind: "stop"; readonly message: string };
+export type RoundStop = { readonly kind: "continue" } | { readonly kind: "stop"; readonly message: string };
 
 /** Consecutive actor rounds, newest last, that ended on the output limit with no work tool between them. */
 export function lengthStreak(turn: SessionTurn): number {
@@ -76,9 +74,7 @@ export function refusalText(dropReason: string, filtered: boolean): string {
   if (dropReason !== "") {
     return "Your tool call's arguments could not be parsed, so it was not run. Re-issue it with valid arguments.";
   }
-  return filtered
-    ? "Not run: the provider's content filter stopped this response."
-    : "Not run.";
+  return filtered ? "Not run: the provider's content filter stopped this response." : "Not run.";
 }
 
 export function maxRoundsMessage(limit: number): string {

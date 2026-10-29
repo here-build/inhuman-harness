@@ -1,8 +1,7 @@
 {
   "name": "@inhuman.tools/harness-web-app",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Loopback page and browser client for the harness daemon.",
+  "version": "0.1.0",
+  "description": "Loopback server and prebuilt browser client for the harness daemon. The client is bundled; nothing else is installed with it.",
   "type": "module",
   "exports": {
     "./server": {
@@ -14,8 +13,7 @@
   },
   "files": [
     "dist",
-    "src",
-    "index.html"
+    "!dist/storybook"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.server.json && vite build",
@@ -26,24 +24,36 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
     "@fontsource/jetbrains-mono": "^5.2.6",
     "@here.build/arrival": "^0.10.2",
     "@here.build/arrival-env": "^0.10.2",
     "@here.build/arrival-provenance": "^0.10.0",
     "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/harness-model": "workspace:^",
     "@inhuman.tools/harness-peer": "workspace:^",
     "@inhuman.tools/harness-scheme": "workspace:^",
     "@inhuman.tools/harness-transcript": "workspace:*",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
     "@inhuman.tools/substrate": "workspace:^",
     "@pierre/diffs": "^1.5.2",
+    "@storybook/react": "10.6.1",
+    "@storybook/react-vite": "10.6.1",
     "@tabler/icons-react": "^3.49.0",
+    "@tailwindcss/vite": "^4.1.12",
     "@tanstack/react-router": "^1.132.0",
+    "@types/diff": "7.0.2",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "diff": "^7.0.0",
     "elkjs": "0.11.1",
+    "eslint": "9.39.2",
+    "happy-dom": "^20.14.6",
     "mobx": "6.16.1",
     "mobx-react-lite": "^4.1.0",
     "react": "^19.1.0",
@@ -52,28 +62,29 @@
     "remark-gfm": "^4.0.1",
     "remend": "^1.0.0",
     "shiki": "^3.0.0",
-    "tailwind-merge": "^3.3.1",
-    "y-websocket": "3.1.0",
-    "yjs": "13.6.33"
-  },
-  "devDependencies": {
-    "@-internal-/eslint-configs": "workspace:*",
-    "@inhuman.tools/harness-commons": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^",
-    "@storybook/react": "10.6.1",
-    "@storybook/react-vite": "10.6.1",
-    "@tailwindcss/vite": "^4.1.12",
-    "@types/diff": "7.0.2",
-    "@types/node": "^24.0.0",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.0",
-    "eslint": "9.39.2",
-    "happy-dom": "^20.14.6",
     "storybook": "10.6.1",
+    "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.12",
     "typescript": "6.0.2",
     "vite": "^7.1.5",
-    "vitest": "4.1.0"
+    "vitest": "4.1.0",
+    "y-websocket": "3.1.0",
+    "yjs": "13.6.33"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4"
+  ],
+  "author": "Merkle Bonsai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/harness-web-app"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

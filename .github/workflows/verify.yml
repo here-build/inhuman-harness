@@ -20,5 +20,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      # The visual and process suites spawn the qd release binary
+      # (packages/quickdraw/rust/qd/target/release/qd, see harness-tui present-visual/dump.ts).
+      # It is not committed, so build it from the pinned toolchain.
+      - uses: dtolnay/rust-toolchain@1.94.0
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/quickdraw/rust/qd/target
+          key: qd-${{ runner.os }}-${{ hashFiles('packages/quickdraw/rust/qd/Cargo.lock') }}
+      - run: cargo build --release --manifest-path packages/quickdraw/rust/qd/Cargo.toml
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify

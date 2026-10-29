@@ -1,4 +1,3 @@
-/* eslint-disable compat/compat -- this package declares no browserslist, so the rule flags `Promise` in a test */
 import { autorun } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 

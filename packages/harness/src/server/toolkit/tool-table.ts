@@ -38,8 +38,6 @@ const PRODUCT_TOOLS_ADDENDUM: SystemPrompt = prompt.system`
   After the tools you need have answered, reply to the user in prose.
   An open worker call does not close with prose. Close it with the agent__respond JSON tool — not as assistant text.`;
 
-export { workerToolAllowed };
-
 export class KernelToolCatalog extends CatalogTable {
   @observable.ref
   accessor pluginInstall: PluginInstallState = mergePluginInstallState([namedAgentsInstall]);
@@ -213,3 +211,5 @@ function workerToolHostFor(kernel: CatalogTable): WorkerToolHost {
     },
   };
 }
+
+export { workerToolAllowed } from "@/tool-runtime";

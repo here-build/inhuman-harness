@@ -11,7 +11,6 @@
  * and a hard stop at `hardStopTotal` (default 60, null = off). All thresholds are configurable.
  */
 import type { Escalation, ToolCallJob } from "@inhuman.tools/harness-model";
-
 import { CLASSES, isClassId } from "@inhuman.tools/policy/floor";
 
 export type CallOutcome = "ran" | "floor-block" | "resolver-deny" | "judge-deny" | "interaction-required";

@@ -63,7 +63,7 @@ function mount(
   turn.enqueue(job);
   turn.doneWork.push(turn.queue.shift()!);
   plexus.root.head = turn;
-  for (const id of extra?.open ?? []) plexus.root.agentCallbacks[id] = "caller";
+  for (const callId of extra?.open ?? []) plexus.root.agentCallbacks[callId] = "caller";
   if (extra?.catalog != null) bindSessionCatalog(plexus.root, extra.catalog);
   return pew;
 }
@@ -120,7 +120,8 @@ describe("selectCompletionTools", () => {
       expect(none).toHaveLength(1);
       expect(JSON.stringify(one)).toBe(JSON.stringify(none));
       expect(JSON.stringify(two)).toBe(JSON.stringify(none));
-      expect(JSON.stringify(none)).not.toMatch(/"enum"|\ba\b.*\bb\b/);
+      expect(JSON.stringify(none)).not.toContain('"enum"');
+      expect(JSON.stringify(none)).not.toMatch(/\ba\b.+\bb\b/);
     });
 
     it("is absent from a session that has never taken a call", () => {

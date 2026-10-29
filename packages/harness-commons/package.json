@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/harness-commons",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Shared prompt brands and the disposed-entity guard. Sole home of prompt and DisposableClass.",
   "type": "module",
   "main": "./dist/index.js",
@@ -39,7 +38,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/harness-commons"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

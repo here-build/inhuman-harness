@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/activity",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Session state reporting (update_metadata): title, description, and the no-extra-round rule. Pure TS.",
   "type": "module",
   "main": "./dist/index.js",
@@ -37,7 +36,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages-activity/activity"
+  },
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

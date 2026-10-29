@@ -23,6 +23,7 @@ import { when } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { toolsFor, viewWire } from "@/providers/openai-compat";
+
 import { attachScriptedModel, modelOf, scriptedConnectionId } from "../../../testkit/scripted-model.js";
 import { sessionCatalog } from "../../../toolkit/tool-table.js";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
@@ -103,7 +104,8 @@ describe("prompt prefix stability", () => {
     git(workspace, "checkout", "-b", "feature");
     root.mode = "plan";
     const catalog = sessionCatalog(root);
-    if (catalog != null) catalog.TOOLS_SYSTEM_ADDENDUM = prompt.system`${catalog.TOOLS_SYSTEM_ADDENDUM}\nA new paragraph.`;
+    if (catalog != null)
+      catalog.TOOLS_SYSTEM_ADDENDUM = prompt.system`${catalog.TOOLS_SYSTEM_ADDENDUM}\nA new paragraph.`;
 
     model.reply({ calls: [responseCall("m1", "update_metadata", JSON.stringify({ current_turn_title: "t" }))] });
     await when(() => completionsOf(turn1).length === 2, { timeout: TIMEOUT });

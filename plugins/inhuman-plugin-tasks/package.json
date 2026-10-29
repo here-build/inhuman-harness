@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/plugin-tasks",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Session notebook behavior: pages, a host-sealed exam, and project promotion.",
   "files": [
     "plugin.json",
@@ -11,7 +10,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "plugins/inhuman-plugin-tasks"
+  },
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

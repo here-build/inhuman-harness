@@ -76,7 +76,9 @@ describe("breakpoint placement", () => {
 
   it("1h ttl rides the stable head only", () => {
     const out = withCacheBreakpoints(round2, "CARD", "1h");
-    const ttls = marked(out).map((i) => (out[i]!.content as unknown as Array<{ cache_control: { ttl?: string } }>).at(-1)!.cache_control.ttl);
+    const ttls = marked(out).map(
+      (i) => (out[i]!.content as unknown as Array<{ cache_control: { ttl?: string } }>).at(-1)!.cache_control.ttl,
+    );
     expect(ttls).toEqual(["1h", "1h", undefined, undefined]);
   });
 });
@@ -84,7 +86,11 @@ describe("breakpoint placement", () => {
 describe("request body", () => {
   async function post(settings: Record<string, unknown>): Promise<Array<{ role: string; content: unknown }>> {
     const compat = await listenCompat({ reply: () => "ok" });
-    const connection = new OpenAiCompatDriverConnection("row-ac", { baseUrl: compat.baseUrl, model: "m1", ...settings });
+    const connection = new OpenAiCompatDriverConnection("row-ac", {
+      baseUrl: compat.baseUrl,
+      model: "m1",
+      ...settings,
+    });
     const plexus = SessionPlexus.create("ac-session", "/ws");
     bindSessionCatalog(plexus.root, new KernelToolCatalog());
     try {

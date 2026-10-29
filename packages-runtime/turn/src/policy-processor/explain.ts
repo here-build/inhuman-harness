@@ -2,6 +2,8 @@
  * "What would happen to this call right now?" The same floor, grant and resolution code as a real
  * call, with no judge and no effect, so the answer cannot drift from the real path.
  */
+import nodePath from "node:path";
+
 import {
   activeAcks,
   clusterOf,
@@ -22,8 +24,6 @@ import {
 } from "@inhuman.tools/harness-model";
 import { CLASSES, classesOf, join, cast, type ClassId, type FloorVerdict } from "@inhuman.tools/policy/floor";
 import { tirithClass, tirithDisposition, tirithFailure } from "@inhuman.tools/policy-tirith";
-
-import nodePath from "node:path";
 
 import { floorVerdict, withRealRoots, type LicenseScope } from "./scope.js";
 
@@ -185,9 +185,7 @@ export async function explainCall(
             layer: flag.layer,
           })),
           satisfiedBy:
-            acks.state === "satisfied"
-              ? (scope.visibleAcks().find((row) => row.id === acks.ackedBy[0]) ?? null)
-              : null,
+            acks.state === "satisfied" ? (scope.visibleAcks().find((row) => row.id === acks.ackedBy[0]) ?? null) : null,
         };
   return withAck(
     finish(verdict, resolution, grant, grantable, undefined, options.unattended ?? false),

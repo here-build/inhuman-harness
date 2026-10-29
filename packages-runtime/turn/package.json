@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/turn",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Generation holder laws: session commands, context projection, tool catalog, call acceptance, tool admit, and the policy processor. The daemon seats these on a document it already holds.",
   "type": "module",
   "exports": {
@@ -101,7 +100,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages-runtime/turn"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

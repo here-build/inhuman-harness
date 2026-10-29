@@ -5,7 +5,8 @@ import { layersOf } from "../layers.js";
 import { ruleStampFor } from "../rule-tier.js";
 
 const KLEY = { mcp: { server: "kley", account: "kley", tool: "delete_table" }, tool: "delete_table" };
-const rule = (over: Record<string, unknown>) => JSON.stringify({ rules: [{ match: { mcp: "kley", tool: "delete_table" }, ...over }] });
+const rule = (over: Record<string, unknown>) =>
+  JSON.stringify({ rules: [{ match: { mcp: "kley", tool: "delete_table" }, ...over }] });
 const layers = (t: { user?: string; project?: string; session?: string }) =>
   layersOf({ user: t.user ?? "", project: t.project ?? "", session: t.session ?? "" });
 
@@ -15,7 +16,9 @@ describe("rule tier and describe", () => {
     expect(parseAuthorizationConfig(rule({ tier: "deny" })).ok).toBe(false);
     expect(parseAuthorizationConfig(rule({ describe: "x".repeat(501) })).ok).toBe(false);
     expect(parseAuthorizationConfig({ rules: [{ match: { command: ["rm"] }, tier: "block" }] }).ok).toBe(false);
-    expect(parseAuthorizationConfig({ rules: [{ match: { path: "a", cluster: "write" }, describe: "x" }] }).ok).toBe(false);
+    expect(parseAuthorizationConfig({ rules: [{ match: { path: "a", cluster: "write" }, describe: "x" }] }).ok).toBe(
+      false,
+    );
   });
 
   it("a rule keyed by {mcp, tool} gives its tier and description; other tools get nothing", () => {
@@ -33,8 +36,12 @@ describe("rule tier and describe", () => {
 
   it("a project layer can tighten but never loosen", () => {
     expect(ruleStampFor(layers({ project: rule({ tier: "allow" }) }), KLEY)).toEqual({});
-    expect(ruleStampFor(layers({ user: rule({ tier: "soft-deny" }), project: rule({ tier: "allow" }) }), KLEY).tier).toBe("soft-deny");
-    expect(ruleStampFor(layers({ user: rule({ tier: "allow" }), project: rule({ tier: "block" }) }), KLEY).tier).toBe("block");
+    expect(
+      ruleStampFor(layers({ user: rule({ tier: "soft-deny" }), project: rule({ tier: "allow" }) }), KLEY).tier,
+    ).toBe("soft-deny");
+    expect(ruleStampFor(layers({ user: rule({ tier: "allow" }), project: rule({ tier: "block" }) }), KLEY).tier).toBe(
+      "block",
+    );
     expect(ruleStampFor(layers({ project: rule({ tier: "soft-deny" }) }), KLEY).tier).toBe("soft-deny");
   });
 

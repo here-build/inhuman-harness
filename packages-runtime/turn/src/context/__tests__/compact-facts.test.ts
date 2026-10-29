@@ -14,9 +14,9 @@ import {
 } from "@inhuman.tools/harness-model";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { applyCompact } from "../../session/index.js";
 import { stampCompactInputs } from "../compact-floors.js";
 import { historyBehind, textOfCell, Transcript } from "../index.js";
-import { applyCompact } from "../../session/index.js";
 
 beforeEach(() => resetLocalIDs());
 

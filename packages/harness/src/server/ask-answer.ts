@@ -120,10 +120,14 @@ export function applyAskAnswer(
   if (widening && !desk.addReadRoot(answer.widen!)) return { ok: false, reason: "folder-not-allowed" };
   runInAction(() => {
     if (comment !== "") leaf.approvalComment = comment;
-    if (!answer.allow && answer.persist != null && comment === "" && leaf instanceof MCPToolJob) {
-      if (mcpReadFloorDenies(leaf.serverToolName))
-        desk.blockTool(leaf.connectionKey, leaf.serverToolName, answer.persist);
-    }
+    if (
+      !answer.allow &&
+      answer.persist != null &&
+      comment === "" &&
+      leaf instanceof MCPToolJob &&
+      mcpReadFloorDenies(leaf.serverToolName)
+    )
+      desk.blockTool(leaf.connectionKey, leaf.serverToolName, answer.persist);
     if (grant !== undefined) save(desk, grant, env);
     if (ack !== undefined) save(desk, ack, env);
     // The person who allowed a combined prompt saw the acknowledgement on it: one prompt, not two.
@@ -180,9 +184,7 @@ function makeRow(
   if (store.scope !== "session" && env.persist === undefined) return { ok: false, reason: "scope-unavailable" };
   if (store.scope === "bot" && env.bot === undefined) return { ok: false, reason: "scope-unavailable" };
   const ttl =
-    store.ttlMs === undefined
-      ? parseTtl(env.promptTtl?.[store.scope] ?? DEFAULT_PROMPT_TTL[store.scope])
-      : store.ttlMs;
+    store.ttlMs === undefined ? parseTtl(env.promptTtl?.[store.scope] ?? DEFAULT_PROMPT_TTL[store.scope]) : store.ttlMs;
   const now = env.now();
   return {
     ok: true,

@@ -68,7 +68,10 @@ describe("Turn lifecycle", () => {
     const reply = await session.handleRequest("turn", { prompt: "after stop" });
     expect(reply).toMatchObject({ ok: true });
     // Not a steer nobody will claim: a row of the queue lane, minted once the turn exits.
-    expect({ steers: root.steerQueue.length, wasQueued: root.promptQueue.length + (root.head === turn ? 0 : 1) }).toEqual({
+    expect({
+      steers: root.steerQueue.length,
+      wasQueued: root.promptQueue.length + (root.head === turn ? 0 : 1),
+    }).toEqual({
       steers: 0,
       wasQueued: 1,
     });
@@ -114,11 +117,13 @@ describe("Turn lifecycle", () => {
     const interrupted = completionsOf(turn)[0]!;
     await session.park();
     // Park writes no ending on the round.
-    expect({ outcome: interrupted.outcome, cancelRequested: turn.cancelRequested, exited: turn.reducerExited }).toEqual({
-      outcome: null,
-      cancelRequested: false,
-      exited: false,
-    });
+    expect({ outcome: interrupted.outcome, cancelRequested: turn.cancelRequested, exited: turn.reducerExited }).toEqual(
+      {
+        outcome: null,
+        cancelRequested: false,
+        exited: false,
+      },
+    );
 
     const again = await project.session("s1");
     onTestFinished(() => void again.park());

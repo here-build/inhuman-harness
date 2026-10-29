@@ -48,12 +48,14 @@ import { schemeReplDescription, liveModelsOf, type CompletionFace } from "@inhum
 import { discoverProjectSkills, expandSkillPrompt } from "@inhuman.tools/project-skills";
 import { isGitShellCommand, runStatusline } from "@inhuman.tools/statusline";
 import { DoorSession } from "@inhuman.tools/substrate/doors";
-import { turnRetentionJson } from "@inhuman.tools/turn/context";
 import { inspectAgentCall, listAgentCalls, namedWorkerIds, settleCancelledTurn } from "@inhuman.tools/turn/agent-calls";
+import { turnRetentionJson } from "@inhuman.tools/turn/context";
 import { writeBlob } from "@inhuman.tools/turn/tool-runtime";
 import { observable, type IReactionDisposer, reaction, runInAction } from "mobx";
 
 import { pluginStateSnapshotFromHead, restoreSessionPluginState, Refusal, toJS } from "@/extensions";
+import { explainCall } from "@/policy-processor/explain";
+import { scopes } from "@/policy-processor/scope";
 import { documentImageSegments } from "@/protocol/document";
 import { isMcpDriver } from "@/providers/mcp";
 import { bindCompletionFace, OpenAiCompatActor } from "@/providers/openai-compat";
@@ -89,8 +91,6 @@ import { applyAckAnswer, applyAskAnswer, promptTtlOf } from "../../ask-answer.js
 import { utf8TextOf } from "../../blobs/media.js";
 import { readBlobSync } from "../../blobs/store.js";
 import { vacuumSession, type VacuumCounts } from "../../blobs/vacuum.js";
-import { explainCall } from "@/policy-processor/explain";
-import { scopes } from "@/policy-processor/scope";
 import { captureEnv } from "../../capture-env.js";
 import { DaemonRpcMethod, parseRpcInput, RequestHost, RpcInvalidParams } from "../../contract.js";
 import { SHELL_TOOL_NAME } from "../../toolkit/catalog.js";

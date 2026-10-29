@@ -99,6 +99,11 @@ export type EnsureOptions = {
   readonly restart?: boolean;
 };
 
+/** True when the kernel's daemon socket answers right now. Never spawns and never clears a stale socket. */
+export async function daemonRunning(root?: string): Promise<boolean> {
+  return socketAnswers(daemonSocketPath(await resolveRoot(root)));
+}
+
 export async function ensure(root?: string, options?: EnsureOptions): Promise<void> {
   const resolved = await resolveRoot(root);
   if (options?.restart === true) {

@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/pretty-mcp",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Mustache + markdown identity for MCP and toolkit tool calls. Per-server catalog, residual coverage.",
   "type": "module",
   "main": "./dist/index.js",
@@ -47,7 +46,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/pretty-mcp"
+  },
+  "browserslist": [
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

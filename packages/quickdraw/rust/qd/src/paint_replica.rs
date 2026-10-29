@@ -52,7 +52,7 @@ use crate::layout_chrome::{
     Rect as ChromeRect,
 };
 use crate::layout_engine::{
-    measure_tree, BoxStyle, Gutter, Node, SpinnerProfile, SpinnerRows, INDICATION_CONTENT_INSET,
+    measure_tree, BoxStyle, Gutter, LivePaint, Node, SpinnerProfile, SpinnerRows, INDICATION_CONTENT_INSET,
 };
 use crate::layout_flex::{
     AlignItems, FlexDirection, FlexFactor, FlexStyle, JustifyContent, Length, Padding,
@@ -75,6 +75,8 @@ const USER_MARK_GAP: i64 = 1;
 /// Draft column: `│` + mark + gap. The trailing `│` is the right pad.
 const STATUSLINE_PAD_L: i64 = 3;
 const STATUSLINE_PAD_R: i64 = 1;
+/// Left of the overview row. The arrow is the empty-prompt chord.
+const AGENTS_OVERVIEW_LABEL: &str = "←: overview";
 
 /// Indication inset, then the user floor's right pad, so both clocks share a column.
 fn reply_rail_width(column_w: i64) -> i64 {
@@ -346,6 +348,10 @@ impl PaintReplica {
         if let Some(id) = self.child_kind(root, Kind::Statusline) {
             let node_ref = self.arena.node_ref(id).ok_or_else(|| fail("statusline"))?;
             children.push(self.prepare(node_ref, width)?.root.clone());
+            // The closed agents meter is the overview row under the status line.
+            if let Some(meter) = self.agents_meter(root, width)? {
+                children.push(meter);
+            }
             children.push(gap_row("statusline:gap", width));
         }
         let root_ref = self
@@ -411,8 +417,10 @@ impl PaintReplica {
         let interactive = composer.interactive && !composer.read_only;
         let annotation = composer.annotation.clone();
         let tail = &node.tail;
+        let placeholder = composer.placeholder.clone();
         Some(crate::present::ComposerFace {
             draft,
+            placeholder,
             cursor,
             mark,
             interactive,
@@ -1379,23 +1387,22 @@ impl PaintReplica {
         } else {
             identity_line(&name, &object, &status)
         };
-        let identity = indication(
-            format!("{key}:id"),
-            gutter,
+        let mut line_node = text_node(
+            format!("{key}:text"),
+            &line,
+            if failed {
+                WhiteSpace::PreWrap
+            } else {
+                WhiteSpace::Nowrap
+            },
             voice.clone(),
-            vec![text_node(
-                format!("{key}:text"),
-                &line,
-                if failed {
-                    WhiteSpace::PreWrap
-                } else {
-                    WhiteSpace::Nowrap
-                },
-                voice,
-                if failed { None } else { Some(true) },
-                if failed { None } else { Some(1) },
-            )],
+            if failed { None } else { Some(true) },
+            if failed { None } else { Some(1) },
         );
+        if !failed && self.arena.kind_of(id)? == Kind::Wait {
+            self.wait_live(id, &line, &mut line_node);
+        }
+        let identity = indication(format!("{key}:id"), gutter, voice, vec![line_node]);
         if name == "read_file" {
             return Ok(box_w(key, width, vec![identity]));
         }
@@ -1573,18 +1580,25 @@ impl PaintReplica {
             Some((left, right)) => (left.to_string(), right.to_string()),
             None => (String::new(), String::new()),
         };
-        Ok(box_w(
-            format!("agents:{id}"),
-            width,
-            vec![text_node(
-                format!("agents:{id}:meter"),
-                &format!("{left} {right}"),
-                WhiteSpace::Nowrap,
-                fg("foreground", FgP::SECONDARY),
-                Some(true),
-                Some(1),
-            )],
-        ))
+        Ok(agents_meter_row(id, width, &left, &right))
+    }
+
+    /// Overview row for the root's closed agents widget, when it has names.
+    fn agents_meter(&mut self, root: u32, width: i64) -> Result<Option<Node>, PaintError> {
+        let Some(id) = self.child_kind(root, Kind::Agents) else {
+            return Ok(None);
+        };
+        if self.tail_bool(id, "open", false) {
+            return Ok(None);
+        }
+        let (left, right) = match self.arena.data(id)?.widget.agents() {
+            Some((left, right)) => (left.to_string(), right.to_string()),
+            None => return Ok(None),
+        };
+        if left.is_empty() && right.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(agents_meter_row(id, width, &left, &right)))
     }
 
     /// Pins the host sent. `atTip` hides the future stack. It is not a caption.
@@ -1784,6 +1798,42 @@ impl PaintReplica {
         match self.tail_json(id, key) {
             Some(Json::Bool(value)) => value,
             _ => default,
+        }
+    }
+
+    fn tail_f64(&self, id: u32, key: &str) -> Option<f64> {
+        match self.tail_json(id, key) {
+            Some(Json::Number(number)) if number.is_finite() => Some(number),
+            _ => None,
+        }
+    }
+
+    /// Wait pin clock. A retry deadline counts down; otherwise a started pin
+    /// shows `{status} · elapsed`. The content is the widest face so the
+    /// row does not reflow as the clock ticks.
+    fn wait_live(&self, id: u32, line: &str, node: &mut Node) {
+        let (new_content, new_live) = if let Some(until_ms) = self.tail_f64(id, "retryUntilMs") {
+            (
+                RETRY_COUNTDOWN_MEASURE.to_string(),
+                LivePaint::Countdown { hz: 2, until_ms },
+            )
+        } else if let (Some(started_at), false) = (self.tail_f64(id, "startedAt"), line.is_empty())
+        {
+            (
+                format!("{line} · 99m 99s"),
+                LivePaint::Elapsed {
+                    hz: 2,
+                    started_at,
+                    label: Some(line.to_string()),
+                    prefix: None,
+                },
+            )
+        } else {
+            return;
+        };
+        if let Node::Text { content, live, .. } = node {
+            *content = new_content;
+            *live = Some(new_live);
         }
     }
 
@@ -2910,16 +2960,23 @@ fn chrome_box(key: &str, width: i64, parts: &ChromeParts) -> Node {
     }
     let geom = measure_chrome_frame(&frame, outer, UNBOUNDED_H);
     let paint = chrome_frame_paint_ops(&frame, ChromeRect::new(0, 0, geom.outer_w, geom.total_h));
+    let showing_placeholder = parts.draft.is_empty() && !parts.placeholder.is_empty();
     let shown = if parts.draft.is_empty() {
         parts.placeholder.clone()
     } else {
         parts.draft.clone()
     };
+    // A placeholder is a hint, not draft text: muted ghost ink.
+    let body_ink = if showing_placeholder {
+        fg("muted", FgP::GHOST)
+    } else {
+        fg("foreground", FgP::PRIMARY)
+    };
     let body = text_node(
         format!("{key}:draft"),
         &shown,
         WhiteSpace::PreWrap,
-        fg("foreground", FgP::PRIMARY),
+        body_ink,
         None,
         None,
     );
@@ -3392,6 +3449,66 @@ fn statusline_row(id: u32, width: i64, left: &str, note: &str, cwd: &str, cwd_ro
     }
 }
 
+/// `←: overview` on the left, the running agents' names on the right.
+fn agents_meter_row(id: u32, width: i64, left: &str, right: &str) -> Node {
+    let names = [left, right]
+        .iter()
+        .filter(|part| !part.is_empty())
+        .copied()
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut children = vec![
+        text_node(
+            format!("agents:{id}:meter:label"),
+            AGENTS_OVERVIEW_LABEL,
+            WhiteSpace::Nowrap,
+            fg("foreground", FgP::SECONDARY),
+            None,
+            None,
+        ),
+        Node::Box {
+            style: BoxStyle {
+                flex: Some(FlexFactor::Sugar(1.0)),
+                ..BoxStyle::default()
+            },
+            children: Vec::new(),
+            key: Some(format!("agents:{id}:meter:gap")),
+            id: None,
+            measured: None,
+            region_prominence: None,
+        },
+    ];
+    if !names.is_empty() {
+        children.push(text_node(
+            format!("agents:{id}:meter:names"),
+            &names,
+            WhiteSpace::Nowrap,
+            fg("foreground", FgP::RISING),
+            Some(true),
+            None,
+        ));
+    }
+    Node::Flex {
+        style: FlexStyle {
+            direction: FlexDirection::Row,
+            gap: 1,
+            padding: Some(Padding::Edges {
+                t: Some(0),
+                r: Some(STATUSLINE_PAD_R),
+                b: Some(0),
+                l: Some(STATUSLINE_PAD_L),
+            }),
+            width: Some(Length::Cells(width.max(0))),
+            height: Some(Length::Cells(1)),
+            ..FlexStyle::default()
+        },
+        children,
+        key: Some(format!("agents:{id}:meter")),
+        measured: None,
+        region_prominence: None,
+    }
+}
+
 fn cwd_spans(cwd: &str, cwd_root: &str) -> (String, String) {
     if !cwd_root.is_empty() && cwd == cwd_root {
         return (cwd_root.to_string(), String::new());
@@ -3469,6 +3586,8 @@ fn elide_path_left(path: &str, width: i64) -> String {
     let tail: String = path.chars().skip(count - (width - 1)).collect();
     format!("…{tail}")
 }
+
+const RETRY_COUNTDOWN_MEASURE: &str = "Failed to request; retrying in 999 seconds";
 
 fn char_len(text: &str) -> i64 {
     i64::try_from(text.chars().count()).unwrap_or(i64::MAX)

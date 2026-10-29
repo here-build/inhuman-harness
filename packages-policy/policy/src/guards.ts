@@ -355,10 +355,10 @@ const ROOT_LIKE = new Set([
 
 /** `/`, `/*`, `~`, `~/`, `$HOME` and their `//`, `/.` spellings. Not `/tmp/x`, not `./`. */
 function isRootLike(word: string): boolean {
-  const squeezed = word.replace(/\/{2,}/g, "/");
+  const squeezed = word.replaceAll(/\/{2,}/g, "/");
   if (ROOT_LIKE.has(squeezed)) return true;
   // `/.`, `/./`, `~/.`: no-op segments after the head.
-  const plain = squeezed.replace(/(?<=.)\/\.(?=\/|$)/g, "");
+  const plain = squeezed.replaceAll(/(?<=.)\/\.(?=\/|$)/g, "");
   return plain !== squeezed && ROOT_LIKE.has(plain);
 }
 
@@ -368,9 +368,7 @@ function operands(toks: readonly string[], flags: Flags): string[] {
 
 /** `-R`, `--recursive`, or a short cluster that carries `r`/`R` (`-rf`, `-fR`). */
 function isRecursive(flags: Flags): boolean {
-  return Object.keys(flags).some(
-    (key) => isOption(key, "--recursive") || (/^-[A-Za-z]+$/.test(key) && /[rR]/.test(key)),
-  );
+  return Object.keys(flags).some((key) => isOption(key, "--recursive") || (/^-[A-Z]+$/i.test(key) && /r/i.test(key)));
 }
 
 function hasOption(flags: Flags, full: string): boolean {

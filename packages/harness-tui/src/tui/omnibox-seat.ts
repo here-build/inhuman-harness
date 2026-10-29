@@ -47,7 +47,11 @@ export type OmniboxAsk = {
   /** Suggested extra-root folder: "Treat <folder> as part of this session?" Persist-mod Enter says yes. */
   readonly widen?: string;
   /** The call is also flagged `needsAcknowledgement`: the shape of that prompt and the remember option picked. */
-  readonly ack?: { readonly variant: "ack" | "ask+ack" | "soft-deny+ack"; readonly choice?: string; readonly cycle?: boolean };
+  readonly ack?: {
+    readonly variant: "ack" | "ask+ack" | "soft-deny+ack";
+    readonly choice?: string;
+    readonly cycle?: boolean;
+  };
   readonly annotation?: string;
   readonly stackedBody?: string;
   readonly stackedViewport?: number;

@@ -33,11 +33,7 @@ export type CacheControlSettings = {
 };
 
 /** Whether this connection/model gets `cache_control` breakpoints. */
-export function emitsCacheControl(
-  settings: CacheControlSettings,
-  flavor: string,
-  model: string,
-): boolean {
+export function emitsCacheControl(settings: CacheControlSettings, flavor: string, model: string): boolean {
   const mode = settings.cacheControl ?? "auto";
   if (mode === "off") return false;
   if (mode === "on") return true;
@@ -84,7 +80,7 @@ export function breakpointIndices(messages: readonly ChatMessage[], cardText: st
     const at = messages.findLastIndex(
       (message) => message.role === "user" && typeof message.content === "string" && message.content.trim() === card,
     );
-    if (at >= 0) picks.push(at);
+    if (at !== -1) picks.push(at);
   }
   // 3. the previous request's end.
   const lastAssistant = messages.findLastIndex((message) => message.role === "assistant");

@@ -164,7 +164,8 @@ export type CloseTurnOptions = {
 export function closeTurn(turn: SessionTurn, ending: TurnEnding, options: CloseTurnOptions = {}): void {
   runInAction(() => {
     const first = !turn.reducerExited;
-    if (ending.kind === "broke" && turn.broke === "") turn.broke = ending.detail === "" ? "turn stopped" : ending.detail;
+    if (ending.kind === "broke" && turn.broke === "")
+      turn.broke = ending.detail === "" ? "turn stopped" : ending.detail;
     // A normal finish leaves what is open (background jobs, their attempts) to outlive the turn.
     for (const node of ending.kind === "finish" ? [] : walkWork(turn)) {
       if (node instanceof WorkExpectation) {

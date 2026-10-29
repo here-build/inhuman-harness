@@ -1,4 +1,3 @@
-/* eslint-disable compat/compat -- web companion targets current browsers; node browserslist still includes Opera Mini */
 import { useEffect, useMemo, useRef } from "react";
 import { FileDiff, type FileDiffMetadata, type ThemedDiffResult } from "@pierre/diffs";
 import { WorkerPoolManager, type WorkerStats } from "@pierre/diffs/worker";

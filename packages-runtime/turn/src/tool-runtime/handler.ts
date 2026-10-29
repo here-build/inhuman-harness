@@ -51,11 +51,11 @@ import {
 import { parseJsonRecord } from "@inhuman.tools/harness-model/json-record";
 import type { ToolCall } from "@inhuman.tools/tool-call-normalize";
 
-import { policyOfTurn, stampJobRetention } from "../context/retention/index.js";
 import { externalizePrior } from "./blob-port.js";
 import { peelAgentCallArgs, requestIdOf } from "./peel.js";
 import { workerToolAllowed } from "./worker-tools.js";
 import { lineStartOfSpan, writeFileAdmitSnap } from "./write-admit.js";
+import { policyOfTurn, stampJobRetention } from "../context/retention/index.js";
 import { peelShellCwd } from "../policy-processor/peel-cwd.js";
 import { agentCallSupportsNotify, type CatalogEntry, type KernelToolCatalog } from "../tool-catalog/index.js";
 

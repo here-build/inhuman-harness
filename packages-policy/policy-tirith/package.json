@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/policy-tirith",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Host-side Tirith inspection: statement units, the package policy, and the floor map.",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +12,12 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "src", "tirith-policy", "!**/__tests__"],
+  "files": [
+    "dist",
+    "src",
+    "tirith-policy",
+    "!**/__tests__"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
@@ -36,7 +40,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages-policy/policy-tirith"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

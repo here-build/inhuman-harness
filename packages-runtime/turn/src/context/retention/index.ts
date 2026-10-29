@@ -1,3 +1,5 @@
+import { resolveRetention, serializePolicy, sessionRetentionLayer } from "./resolve.js";
+
 export { DEFAULT_CONTEXT_RETENTION, LEGACY_CONTEXT_RETENTION } from "./defaults.js";
 export { canonicalKeep, narrowRule } from "./narrow.js";
 export {
@@ -29,8 +31,6 @@ export {
 export { decideRetentionStep, stampRetentionClock, type StepFacts } from "./step.js";
 export { kindOfJob, parseJobStamp, stampJobRetention, type JobStamp } from "./stamp.js";
 export { buildView, parseClock, policyOfTurn, type RetentionClock, type RetentionView } from "./view.js";
-
-import { resolveRetention, serializePolicy, sessionRetentionLayer } from "./resolve.js";
 
 /**
  * R1: the policy JSON a turn is stamped with at mint. `userConfigJson` is

@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/harness-peer",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Browser- and React-Native-safe dial onto the harness daemon: Yjs room frames, awareness binding, and the JSON-RPC port. No node:, no ws.",
   "type": "module",
   "main": "./dist/index.js",
@@ -33,7 +32,7 @@
     "last 2 chrome versions",
     "last 2 firefox versions",
     "last 2 safari versions",
-    "ios_saf >= 16",
+    "ios_saf >= 16.4",
     "node >= 22"
   ],
   "scripts": {
@@ -64,7 +63,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/harness-peer"
+  },
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -1,6 +1,7 @@
 import { ReACTChunk, ResponseCall, responseCall, TurnNotificationChunk } from "@inhuman.tools/harness-model";
-import { historyBehind } from "@/context";
 import { describe, expect, it } from "vitest";
+
+import { historyBehind } from "@/context";
 
 import { LENGTH_CONTINUE_NOTE } from "../re-act-loop-intent-detected-trigger.js";
 import { maxRoundsMessage } from "../round-stop.js";
@@ -219,7 +220,9 @@ describe("call order on the jobs", () => {
       (c) => void (c.responseText = "Done."),
     );
     await f.run();
-    const jobs = f.host.admit.mock.results.map((r) => r.value as { toolCallId: string; after: Array<{ toolCallId: string }> });
+    const jobs = f.host.admit.mock.results.map(
+      (r) => r.value as { toolCallId: string; after: Array<{ toolCallId: string }> },
+    );
     const afters = Object.fromEntries(jobs.map((j) => [j.toolCallId, j.after.map((x) => x.toolCallId)]));
     expect(afters).toEqual({ a: [], b: ["a"], c: [], d: ["a", "b"], e: ["b"] });
   });

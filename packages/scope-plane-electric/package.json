@@ -37,5 +37,6 @@
     "type": "git",
     "url": "https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/scope-plane-electric"
-  }
+  },
+  "browserslist": ["node >= 22"]
 }

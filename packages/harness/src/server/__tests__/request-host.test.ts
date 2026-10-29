@@ -229,10 +229,14 @@ class ProbeHost extends RequestHost {
       // @ts-expect-error just quite vague type - input is basically string | undefind
       return { label: args.label, one: first.input, two: second.input };
     }),
-    DaemonRpcMethod.define("both", { input: z.object({}), output: z.object({ answers: z.array(z.unknown()) }) }, async () => {
-      const answers = await Promise.all([this.ui('(harness/input :name "a")'), this.ui('(harness/input :name "b")')]);
-      return { answers: answers.map((answer) => (answer as { input?: unknown }).input) };
-    }),
+    DaemonRpcMethod.define(
+      "both",
+      { input: z.object({}), output: z.object({ answers: z.array(z.unknown()) }) },
+      async () => {
+        const answers = await Promise.all([this.ui('(harness/input :name "a")'), this.ui('(harness/input :name "b")')]);
+        return { answers: answers.map((answer) => (answer as { input?: unknown }).input) };
+      },
+    ),
     DaemonRpcMethod.define("ping", { input: pingInput, output: pingOutput }, () => ({ pong: true as const })),
     DaemonRpcMethod.define(
       "reenter",

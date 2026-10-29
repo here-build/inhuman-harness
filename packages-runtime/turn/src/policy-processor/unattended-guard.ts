@@ -64,7 +64,7 @@ export async function noteLicense(scope: LicenseScope, job: ToolCallJob, allowed
   try {
     if (!job.unattended) return;
     const turn = owningTurn(job);
-    if (turn === null || turn.evalSpec == null) return;
+    if (turn?.evalSpec == null) return;
     const ledger = ledgerFor(scope, turn);
     if (ledger.stopped) return;
     if (allowed) {

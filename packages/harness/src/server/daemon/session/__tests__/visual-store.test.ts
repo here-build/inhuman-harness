@@ -108,12 +108,12 @@ describe("visual store", () => {
     const root = tempRoot();
     const payload = Uint8Array.from([9, 8, 7]);
     writeVisual("sess-1", "pic-1", payload);
-    expect(Array.from(readVisual("sess-1", "pic-1") ?? [])).toEqual([9, 8, 7]);
+    expect([...(readVisual("sess-1", "pic-1") ?? [])]).toEqual([9, 8, 7]);
     expect(statSync(join(root, "visuals", "sess-1", "pic-1")).mode & 0o777).toBe(0o600);
     expect(() => writeVisual("../etc", "passwd", payload)).toThrow(/rejected/);
     expect(readVisual("../etc", "passwd")).toBeNull();
     expect(readVisual("sess-1", "missing")).toBeNull();
-    expect(Array.from(decodeVisualBytes(Buffer.from("hi").toString("base64")) ?? [])).toEqual([104, 105]);
+    expect([...(decodeVisualBytes(Buffer.from("hi").toString("base64")) ?? [])]).toEqual([104, 105]);
     expect(decodeVisualBytes("not base64!!!!")).toBeNull();
     expect(decodeVisualBytes("data:image/png;base64,aaaa")).toBeNull();
   });

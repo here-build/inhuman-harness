@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/policy-bash-disassembler",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Unbash walk: a shell command becomes prepared questions, plus a leading cwd-only cd peel.",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +12,11 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "src", "!**/__tests__"],
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
@@ -34,7 +37,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages-policy/policy-bash-disassembler"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

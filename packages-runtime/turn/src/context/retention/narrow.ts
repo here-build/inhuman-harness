@@ -31,20 +31,35 @@ export function canonicalKeep(keep: readonly Horizon[]): Horizon[] {
   let compaction = false;
   let forever = false;
   for (const h of keep) {
-    if (h === "round") rounds = Math.min(rounds, 1);
-    else if (h === "turn") turns = Math.min(turns, 1);
-    else if (h === "compaction") compaction = true;
-    else if (h === "forever") forever = true;
-    else if ("rounds" in h) rounds = Math.min(rounds, h.rounds);
-    else if ("turns" in h) turns = Math.min(turns, h.turns);
-    else newest = Math.min(newest, h.newest);
+    switch (h) {
+      case "round": {
+        rounds = Math.min(rounds, 1);
+        break;
+      }
+      case "turn": {
+        turns = Math.min(turns, 1);
+        break;
+      }
+      case "compaction": {
+        compaction = true;
+        break;
+      }
+      case "forever": {
+        forever = true;
+        break;
+      }
+      default:
+        if ("rounds" in h) rounds = Math.min(rounds, h.rounds);
+        else if ("turns" in h) turns = Math.min(turns, h.turns);
+        else newest = Math.min(newest, h.newest);
+    }
   }
   const out: Horizon[] = [];
   if (Number.isFinite(turns)) out.push(turns === 1 ? "turn" : { turns });
   if (Number.isFinite(rounds)) out.push(rounds === 1 ? "round" : { rounds });
   if (Number.isFinite(newest)) out.push({ newest });
   // `compaction` and `forever` only matter when nothing else bounds the item.
-  if (out.length === 0 || out.every((h) => typeof h === "object" && "newest" in h)) {
+  if (out.every((h): boolean => typeof h === "object" && "newest" in h)) {
     if (compaction) out.push("compaction");
     else if (forever) out.push("forever");
   }

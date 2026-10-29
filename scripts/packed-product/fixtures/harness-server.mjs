@@ -2,7 +2,7 @@ export const packageName = "@inhuman.tools/harness";
 export const binName = "harness-daemon";
 export const binPath = "./dist/server/bin.js";
 export const exportPaths = [".", "./testkit"];
-export const files = ["dist", "compact.scm", "compact.prompt", "src/server/defaults"];
+export const files = ["dist", "compact.scm", "compact.prompt", "src/server/defaults", "!**/__tests__"];
 export const packedIncludes = [
   "src/server/defaults/compact.scm",
   "src/server/defaults/commands/connect.scm",

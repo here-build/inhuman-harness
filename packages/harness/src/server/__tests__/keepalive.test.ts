@@ -2,8 +2,13 @@ import { PlexusAwareness, encodeAwarenessUpdate } from "@here.build/plexus";
 import { describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 
-import { MESSAGE_AWARENESS, MESSAGE_QUERY_AWARENESS,
-  MESSAGE_SYNC, encodeAwarenessFrame, peekMessageType } from "@/protocol/document";
+import {
+  MESSAGE_AWARENESS,
+  MESSAGE_QUERY_AWARENESS,
+  MESSAGE_SYNC,
+  encodeAwarenessFrame,
+  peekMessageType,
+} from "@/protocol/document";
 import { keepPlaneAlive, PLANE_PING_MS, AwarenessRoom, attachLens, type PlaneSocket } from "@/yjs";
 
 function fakeSocket(): {

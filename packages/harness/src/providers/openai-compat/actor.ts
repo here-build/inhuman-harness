@@ -57,8 +57,8 @@ import {
   type HistoryMessage,
 } from "@/context";
 
-import { ARG_ALIASES, type OpenAiTool } from "./arg-aliases.js";
 import { emitsCacheControl, withCacheBreakpoints } from "./anthropic-cache.js";
+import { ARG_ALIASES, type OpenAiTool } from "./arg-aliases.js";
 import { usesExplicitPromptCache } from "./cache-affinity.js";
 import { cacheDumpKind, preferCacheResponse, redactCacheHeaders, writeCacheDump } from "./cache-dump.js";
 import { completionCatalogOf, liveToolDescriptionOf } from "./completion-face.js";
@@ -885,7 +885,8 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
   #retryExhausted(attempts: number, startedAt: number): string {
     const { retryMaxAttempts: maxAttempts, retryMaxMs: maxMs } = this.expectation;
     if (maxAttempts > 0 && attempts >= maxAttempts) return `gave up after ${attempts} attempts`;
-    if (maxMs > 0 && Date.now() - startedAt >= maxMs) return `gave up after ${Math.round((Date.now() - startedAt) / 1000)}s of retrying`;
+    if (maxMs > 0 && Date.now() - startedAt >= maxMs)
+      return `gave up after ${Math.round((Date.now() - startedAt) / 1000)}s of retrying`;
     return "";
   }
 

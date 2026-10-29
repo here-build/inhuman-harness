@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/project-instructions",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Instruction files from the user home and from the git root down to the working directory.",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +12,11 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "src", "!**/__tests__"],
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
@@ -31,7 +34,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/project-instructions"
+  },
+  "browserslist": [
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

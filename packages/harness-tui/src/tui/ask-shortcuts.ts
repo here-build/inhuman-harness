@@ -62,7 +62,11 @@ export function askCoverShortcuts(input: {
    * remembers it. `soft-deny+ack`: nothing of the soft-deny is remembered, the flag may be.
    * `choice` is the selected remember option as the chord shows it; `cycle` says there is more than one.
    */
-  readonly ack?: { readonly variant: "ack" | "ask+ack" | "soft-deny+ack"; readonly choice?: string; readonly cycle?: boolean };
+  readonly ack?: {
+    readonly variant: "ack" | "ask+ack" | "soft-deny+ack";
+    readonly choice?: string;
+    readonly cycle?: boolean;
+  };
   readonly superKey?: SuperKey;
 }): ChromeHotkey[] {
   const superKey = parseSuperKey(input.superKey);
@@ -77,7 +81,7 @@ export function askCoverShortcuts(input: {
   }
   const grantRemember = input.remember !== undefined && input.remember !== "";
   const ackChords: ChromeHotkey[] =
-    input.ack !== undefined && input.ack.choice !== undefined && input.ack.choice !== "" && !(grantRemember && !ackOnly)
+    input.ack?.choice !== undefined && input.ack.choice !== "" && !(grantRemember && !ackOnly)
       ? [
           hk(superChord("Enter", superKey), `Remember ${input.ack.choice}`, HOTKEY_EVENT.ackRemember),
           ...(input.ack.cycle === true

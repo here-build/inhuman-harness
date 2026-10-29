@@ -7,8 +7,8 @@
 import { CompletionExpectation, latestCompactCutoff, owningTurn } from "@inhuman.tools/harness-model";
 
 import { projectHistory } from "../history.js";
-import { parseClock, policyOfTurn, type ClockReason, type RetentionClock } from "./view.js";
 import type { StepConfig } from "./schema.js";
+import { parseClock, policyOfTurn, type ClockReason, type RetentionClock } from "./view.js";
 
 export type StepFacts = {
   readonly self: string;
@@ -47,7 +47,8 @@ export function decideRetentionStep(f: StepFacts): RetentionClock {
 
 function tokensOf(rows: Iterable<unknown>): number {
   let chars = 0;
-  for (const row of rows) chars += JSON.stringify(row, (_key, value) => (value instanceof Uint8Array ? value.length : value)).length;
+  for (const row of rows)
+    chars += JSON.stringify(row, (_key, value) => (value instanceof Uint8Array ? value.length : value)).length;
   return Math.ceil(chars / 4);
 }
 

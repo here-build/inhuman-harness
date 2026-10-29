@@ -194,7 +194,7 @@ export function identityTokens(input: {
   readonly serverToolName?: string;
 }): string[] {
   const out = new Set<string>();
-  const base = (path: string) => path.split("/").filter(Boolean).at(-1) ?? path;
+  const base = (path: string) => path.split("/").findLast(Boolean) ?? path;
   switch (input.cluster) {
     case "bash": {
       for (const vote of input.votes) {

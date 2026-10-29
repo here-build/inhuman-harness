@@ -15,7 +15,9 @@ export function classifierArgs(name: string, args: Readonly<Record<string, unkno
     case "bash": {
       if (typeof args?.command !== "string" || args.command === "") return undefined;
       const cwd = typeof args.cwd === "string" && args.cwd !== "" && args.cwd !== "." ? args.cwd : undefined;
-      return cwd === undefined ? [JSON.stringify(args.command)] : [JSON.stringify(args.command), `cwd ${JSON.stringify(cwd)}`];
+      return cwd === undefined
+        ? [JSON.stringify(args.command)]
+        : [JSON.stringify(args.command), `cwd ${JSON.stringify(cwd)}`];
     }
     case "read":
       return [JSON.stringify(fileQuestion(name, args) ?? ".")];

@@ -67,9 +67,9 @@ import { action, comparer, computed, type IReactionDisposer, observable, reactio
 import type { RunLedger } from "./bypass.js";
 import { FIRST_ATTEMPT_MS, ClassifierHandle, RETRY_ATTEMPT_MS } from "./classifier.js";
 import { evidencePayloadKey } from "./evidence.js";
-import type { RunStop } from "./unattended-guard.js";
 import { realpathDeepest, resolvedWorkspacePath } from "./real-path.js";
 import { withReadRoots, withSelfProtection } from "./self-protect.js";
+import type { RunStop } from "./unattended-guard.js";
 
 /**
  * Lexical verdict joined with the verdict for where the path really leads (symlinks), stricter wins:
@@ -170,7 +170,8 @@ export async function floorVerdict(
   if (verdict !== undefined) return verdict;
   if (clusterOf(name) !== "mcp") return cast("ask", "unmodelled", "host:no-question");
   return (
-    ruleVerdict(rule, mcpName) ?? cast("ask", hostClass(mcpName), `host:mcp-name:${classifyMcpToolName(mcpName).verdict}`)
+    ruleVerdict(rule, mcpName) ??
+    cast("ask", hostClass(mcpName), `host:mcp-name:${classifyMcpToolName(mcpName).verdict}`)
   );
 }
 
@@ -271,14 +272,7 @@ class FloorHandle {
       }
       if (!current()) return;
       const args = this.job.args;
-      let verdict = await floorVerdict(
-        policy,
-        input.name,
-        args,
-        input.rootPath,
-        mcpNameOf(this.job),
-        input.rule,
-      );
+      let verdict = await floorVerdict(policy, input.name, args, input.rootPath, mcpNameOf(this.job), input.rule);
       let tirith: TirithReport | undefined;
       if (this.scope.mcpPersistDenies?.(this.job) === true) {
         verdict = cast(

@@ -74,6 +74,22 @@
       "dim": false
     },
     {
+      "y": 20,
+      "x": 1,
+      "text": "⠋",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
+      "y": 20,
+      "x": 3,
+      "text": "connecting...",
+      "role": "foreground",
+      "ink": "primary",
+      "dim": false
+    },
+    {
       "y": 21,
       "x": 0,
       "text": "╭──────────────────────────────────────────────────────────────────────────────╮",

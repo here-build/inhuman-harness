@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/harness",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Harness core: the daemon (kernel and session planes), runtime, providers and the Yjs sync plane. Shells attach over harness-peer or harness-sdk.",
   "type": "module",
   "bin": {
@@ -25,7 +24,8 @@
     "dist",
     "compact.scm",
     "compact.prompt",
-    "src/server/defaults"
+    "src/server/defaults",
+    "!**/__tests__"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node ./scripts/src-alias.mjs",
@@ -59,6 +59,7 @@
     "@inhuman.tools/harness-sdk": "workspace:^",
     "@inhuman.tools/plexus-expectations": "workspace:^",
     "@inhuman.tools/plugin-sdk": "workspace:^",
+    "@inhuman.tools/plugin-tasks": "workspace:^",
     "@inhuman.tools/policy": "workspace:^",
     "@inhuman.tools/pretty-mcp": "workspace:^",
     "@inhuman.tools/project-instructions": "workspace:^",
@@ -102,7 +103,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/harness"
+  },
+  "browserslist": [
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

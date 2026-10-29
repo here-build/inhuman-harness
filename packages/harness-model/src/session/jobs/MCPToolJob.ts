@@ -9,9 +9,9 @@ import { syncing } from "@here.build/plexus";
 import { type JobEffectOwner, type UnknownOutcomeRecovery, WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
+import { ToolCallJob, type ToolCallJobProps } from "./ToolCallJob.js";
 import type { CallSubject } from "../authorization/resolve.js";
 import { McpToolExpectation } from "../expectations/McpToolExpectation.js";
-import { ToolCallJob, type ToolCallJobProps } from "./ToolCallJob.js";
 
 @syncing("harness:job:mcp-tool")
 export class MCPToolJob extends ToolCallJob {

@@ -6,17 +6,10 @@
  * the live head (`turnTail` chain); an abandoned branch or another session
  * cannot be read.
  */
-import {
-  ProgrammaticJob,
-  reactChunks,
-  SessionRoot,
-  SessionTurn,
-  ToolCallJob,
-} from "@inhuman.tools/harness-model";
+import { ProgrammaticJob, reactChunks, SessionRoot, SessionTurn, ToolCallJob } from "@inhuman.tools/harness-model";
 import type { ToolOutcomeSnap } from "@inhuman.tools/harness-model/schemas";
 
-import { SQUEEZE_COMPACT_CHARS } from "../context/squeeze.js";
-import { liftToolImages, paintObservation } from "../context/squeeze.js";
+import { SQUEEZE_COMPACT_CHARS, liftToolImages, paintObservation } from "../context/squeeze.js";
 
 export const CONTEXT_RECALL_TOOL_NAME = "context_recall";
 
@@ -36,8 +29,7 @@ function reachableJobs(root: SessionRoot): Array<ToolCallJob | ProgrammaticJob> 
     for (const cell of reactChunks(turn)) {
       if (cell instanceof ToolCallJob) out.push(cell);
       else if (cell instanceof ProgrammaticJob) {
-        out.push(cell);
-        out.push(...cell.toolCalls);
+        out.push(cell, ...cell.toolCalls);
       }
     }
   }
@@ -103,7 +95,8 @@ export function recallContext(
     const total = text.length;
     const pages = Math.max(1, Math.ceil(total / length));
     const end = Math.min(total, offset + length);
-    const note = !wantArgs && job instanceof ToolCallJob && job.regenerateable ? "; as observed, re-read for current" : "";
+    const note =
+      !wantArgs && job instanceof ToolCallJob && job.regenerateable ? "; as observed, re-read for current" : "";
     const header = `[recall ${ref} ${nameOf(job)}${wantArgs ? " args" : ""}: chars ${offset}-${end} of ${total}, page ${Math.floor(offset / length) + 1}/${pages}${end < total ? `; next offset ${end}` : ""}${note}]`;
     return { ok: true, value: `${header}\n${text.slice(offset, end)}` };
   }

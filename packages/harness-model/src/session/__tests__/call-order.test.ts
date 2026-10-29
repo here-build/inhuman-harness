@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
 import { resetLocalIDs } from "@here.build/plexus";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { ResponseCallOrder, type CallOrderFacts } from "../call-order.js";
 import { McpToolExpectation } from "../expectations/McpToolExpectation.js";
@@ -102,7 +102,11 @@ describe("response call order", () => {
     const shell = system("shell");
     const read = system("read_file");
     const grep = system("grep");
-    const search = new WebSearchToolJob({ toolCallId: "w", name: "web_search", expectation: new WebSearchExpectation({ connectionId: "web_search" }) });
+    const search = new WebSearchToolJob({
+      toolCallId: "w",
+      name: "web_search",
+      expectation: new WebSearchExpectation({ connectionId: "web_search" }),
+    });
     const agent = new AgentCallJob({ toolCallId: "a", name: "agent__ask" });
     expect(orderOf(shell, read, grep, search, agent)).toEqual([[], [], [], [], []]);
   });

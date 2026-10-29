@@ -11,7 +11,7 @@
  * Pure. The daemon computes which rows cover a call at floor time (it needs a clock) and stamps the
  * result on the job (`ackState`).
  */
-import type { AckFlagInput, AckMatch, AuthMode, AuthorizationConfig, ClassId } from "./config.js";
+import type { AckMatch, AuthMode, AuthorizationConfig, ClassId } from "./config.js";
 import { type GrantRow, type GrantSubject, grantLabel, rowKind, sameSubject } from "./grants.js";
 import type { LayerName, Layers } from "./resolve.js";
 
@@ -247,11 +247,7 @@ export type AckResolution = {
  * Where a call stands: no active flag (`none`), every active flag covered by a stored ack (`satisfied`),
  * or `pending`. `rows` are the acks visible to the session (live and in scope); other kinds are ignored.
  */
-export function resolveAcks(
-  active: readonly MatchedAck[],
-  rows: readonly GrantRow[],
-  call: AckCall,
-): AckResolution {
+export function resolveAcks(active: readonly MatchedAck[], rows: readonly GrantRow[], call: AckCall): AckResolution {
   if (active.length === 0) return { state: "none", ackedBy: [] };
   const acks = rows.filter((row) => rowKind(row) === "ack");
   const used: string[] = [];
@@ -309,5 +305,3 @@ export function parseMatchedAcks(json: string | null | undefined): MatchedAck[] 
     return [];
   }
 }
-
-export type { AckFlagInput };

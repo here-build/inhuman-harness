@@ -20,3 +20,4 @@ packages/quickdraw/src/**/*.map
 packages/quickdraw/storybook/src/**/*.js
 packages/quickdraw/storybook/src/**/*.d.ts
 packages/quickdraw/storybook/src/**/*.map
+.claude/

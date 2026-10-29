@@ -1,4 +1,3 @@
-/* eslint-disable compat/compat -- this package declares no browserslist, so the rule flags `Promise` in a test */
 // @vitest-environment happy-dom
 
 import { act, createElement } from "react";

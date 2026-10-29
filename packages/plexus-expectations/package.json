@@ -1,10 +1,9 @@
 {
   "name": "@inhuman.tools/plexus-expectations",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Work graph: WorkExpectation (PEW), Job + honoring executor.",
   "license": "MIT",
-  "author": "here.build",
+  "author": "Merkle Bonsai",
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -63,11 +62,21 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/plexus-expectations"
   },
   "peerDependencies": {
     "mobx": "6.16.1",
     "@here.build/plexus": "^0.9.6"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

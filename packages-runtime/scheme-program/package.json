@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/scheme-program",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Scheme program tool. Evaluates one ProgrammaticJob. The host passes the EnvCapabilities; this package does not know the catalog or the tool bodies.",
   "type": "module",
   "main": "./dist/index.js",
@@ -54,7 +53,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages-runtime/scheme-program"
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
   }
 }

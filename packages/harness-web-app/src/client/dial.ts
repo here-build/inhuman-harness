@@ -484,7 +484,7 @@ export class Dial {
             cache.drop(key);
             return;
           }
-        restart = true;
+          restart = true;
           destroy();
           rejectAbort(new Error("Cache is stale."));
         },

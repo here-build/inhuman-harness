@@ -71,6 +71,7 @@ const CATALOG_ROWS = [
   "/agentic",
   "/background",
   "/rewind",
+  "/permissions",
 ];
 
 function pickerNames(frame: FrameDump): string[] {
@@ -189,7 +190,7 @@ test("failed wire — connection annotation", () => {
       .dump()
       .wait.flatMap((block) => block.texts)
       .join(""),
-  ).toContain("openai-compat completion failed: 403");
+  ).toContain("The key was refused. Reconnect.");
   expect(ui).toMatchScreenshot("failed-wire");
 });
 
@@ -232,11 +233,12 @@ test("status rail — local-endpoint name; model/provider", () => {
   ]);
   expect(ui.dump().composer.statusItems).toEqual(["llama3", "Ollama"]);
 
-  press(ui.tea, "Tab", { shift: true });
-  expect(ui.dump().composer.statusItems).toEqual(["llama3", "Ollama", "auto ask-denies"]);
-  press(ui.tea, "Tab", { shift: true });
+  // The daemon writes the mode; the chip follows the replica. Manual is blank.
+  ui.client.sessionRoot.permissionMode = "auto";
+  expect(ui.dump().composer.statusItems).toEqual(["llama3", "Ollama", "auto"]);
+  ui.client.sessionRoot.permissionMode = "yolo";
   expect(ui.dump().composer.statusItems).toEqual(["llama3", "Ollama", "always approve"]);
-  press(ui.tea, "Tab", { shift: true });
+  ui.client.sessionRoot.permissionMode = "manual";
   expect(ui.dump().composer.statusItems).toEqual(["llama3", "Ollama"]);
 });
 
@@ -288,7 +290,7 @@ test("slash catalog — paint, Tab/arrows, wrap, Esc arm, /compact", async () =>
   press(ui.tea, "/");
   await waitDump(ui.dump, (frame) => frame.composer.picker.rows.some((row) => row.name === "/model"));
   press(ui.tea, "ArrowUp");
-  expect(pickerSelected(ui.dump())).toBe("/rewind");
+  expect(pickerSelected(ui.dump())).toBe("/permissions");
   press(ui.tea, "ArrowDown");
   expect(pickerSelected(ui.dump())).toBe("/connect");
 
@@ -315,6 +317,7 @@ test("slash catalog — paint, Tab/arrows, wrap, Esc arm, /compact", async () =>
     "/agentic",
     "/background",
     "/rewind",
+    "/permissions",
   ]);
 });
 
@@ -582,14 +585,20 @@ test("empty Esc — idle rewind hint, live cancel does not traverse", () => {
   expect(idle.dump().composer.hints).toEqual(["Esc: Rewind history"]);
   press(idle.tea, "Escape");
   // LATEST_PLACE: the peel lands on the head, which is also the tip. The
-  // omnibox seats at the rim with an empty input — the rollback hint moves
-  // off the box and onto the in-tape recap (no scroll-down hint: nothing is
-  // newer than the head).
-  expect({
+  // omnibox is hidden while history navigation is open (654481cbf): the
+  // in-tape recap is the input, so the first chrome frame is the recap with
+  // the prompt as its draft and the rollback chords on its rim. No
+  // scroll-down hint: nothing is newer than the head.
+  const recap = {
     draft: idle.dump().composer.draft,
     hints: idle.dump().composer.hints,
     recap: recapHints(idle.tea),
-  }).toEqual({ draft: "", hints: [], recap: ["Enter: Rollback here"] });
+  };
+  expect(recap.draft).toContain("The login form still posts the previous password hash");
+  expect({ hints: recap.hints, recap: recap.recap }).toEqual({
+    hints: ["Enter: Rollback here", "Esc: Back"],
+    recap: ["Enter: Rollback here", "Esc: Back"],
+  });
 
   const client = localClient();
   liveTalkingHead(client);
@@ -608,7 +617,9 @@ test("empty Esc — idle rewind hint, live cancel does not traverse", () => {
     cancelRequested: live.client.sessionRoot.head?.cancelRequested === true,
   }).toEqual({
     hints: [],
-    cancelRequested: true,
+    // Tea paints the cancel from local state; only turn/cancel writes the
+    // replica flag (652f1c9ec), and this client has no daemon.
+    cancelRequested: false,
   });
 });
 
@@ -922,7 +933,7 @@ test("ask queue: tape stops at the pointer; pin holds the Diff", () => {
       cursor: pin.includes("▌"),
     },
   }).toEqual({
-    annotation: "edit **src/session.ts**",
+    annotation: "Ask · edit **src/session.ts**",
     hints: hotkeyLabels(askCoverShortcuts({ comment: false })),
     tape: {
       auth: true,
@@ -959,7 +970,7 @@ test("ask cover shadows a frozen draft and swaps Enter/Esc hints", () => {
   }).toEqual({
     placeholder: "",
     interactive: true,
-    annotation: "edit **a.ts**",
+    annotation: "Ask · edit **a.ts**",
     hints: hotkeyLabels(askCoverShortcuts({ comment: false })),
     askWire: false,
     askHunk: true,
@@ -986,7 +997,7 @@ test("ask cover affix-clips an ultra-long filename", () => {
   client.kernelRoot.approvalAskThrottleMs = 0;
   using ui = openTea(client);
   ui.client.sessionRoot.head = askCoverTurn("edit_file", LONG_COVER_FILE).turn;
-  expect(ui.dump().composer.annotation).toBe(`edit **${LONG_COVER_FILE}**`);
+  expect(ui.dump().composer.annotation).toBe(`Ask · edit **${LONG_COVER_FILE}**`);
   expect(ui).toMatchScreenshot("ask-cover-long-edit");
   typeText(ui.tea, COVER_COMMENT);
   expect(ui.dump().composer.hints).toEqual(hotkeyLabels(askCoverShortcuts({ comment: true })));
@@ -1130,7 +1141,7 @@ test("session title — idle then ask wins", async () => {
     (frame) => frame.composer.draft === "" && !frame.composer.picker.rows.some((row) => row.name === "/connect"),
   );
   ui.client.sessionRoot.head = askTurn().turn;
-  expect(ui.dump().composer.annotation).toBe("edit **a.ts**");
+  expect(ui.dump().composer.annotation).toBe("Ask · edit **a.ts**");
   expect(ui).toMatchScreenshot("session-title-ask");
 });
 

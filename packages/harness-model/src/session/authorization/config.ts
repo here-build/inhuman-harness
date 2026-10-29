@@ -130,12 +130,17 @@ const specificRule = z
     note: z.string().max(200).optional(),
   })
   .strict()
-  .refine((rule) => (rule.tier === undefined && rule.describe === undefined) || !("command" in rule.match || "path" in rule.match), {
-    message: "tier and describe apply to MCP and tool entries, not to command or path entries",
-    path: ["tier"],
-  })
+  .refine(
+    (rule) =>
+      (rule.tier === undefined && rule.describe === undefined) || !("command" in rule.match || "path" in rule.match),
+    {
+      message: "tier and describe apply to MCP and tool entries, not to command or path entries",
+      path: ["tier"],
+    },
+  )
   .refine((rule) => rule.needsAcknowledgement !== true || !("path" in rule.match), {
-    message: "needsAcknowledgement cannot be set on a path rule (acknowledgements match classes, MCP tools, tools and commands)",
+    message:
+      "needsAcknowledgement cannot be set on a path rule (acknowledgements match classes, MCP tools, tools and commands)",
     path: ["needsAcknowledgement"],
   });
 export type SpecificRule = z.infer<typeof specificRule>;

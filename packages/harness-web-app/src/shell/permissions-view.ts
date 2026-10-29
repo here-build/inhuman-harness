@@ -83,7 +83,12 @@ export function classRows(layers: Layers, mode: AuthMode): ClassRow[] {
       classes: [id],
       unattended: false,
     });
-    return { kind: found.resolver.kind, layer: found.layer, text: cellText(found.resolver), title: resolverWords(found.resolver).full };
+    return {
+      kind: found.resolver.kind,
+      layer: found.layer,
+      text: cellText(found.resolver),
+      title: resolverWords(found.resolver).full,
+    };
   };
   return CLASS_IDS.map((id) => ({ id, cluster: clusterOf(id), ask: cell(id, "ask"), softDeny: cell(id, "deny") }));
 }

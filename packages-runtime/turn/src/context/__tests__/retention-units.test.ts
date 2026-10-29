@@ -36,7 +36,7 @@ describe("G10: narrowing algebra", () => {
     const layer = { kinds: { steer: { keep: "round" } } } as const;
     const project = resolveRetention({ project: layer });
     expect(project.policy.kinds.steer).toEqual(DEFAULT_CONTEXT_RETENTION.kinds.steer);
-    expect(project.ignored.join()).toContain("steer is user-authored");
+    expect(project.ignored.join(",")).toContain("steer is user-authored");
     const session = resolveRetention({ session: layer });
     expect(session.policy.kinds.steer?.keep).toEqual("round");
   });
@@ -44,7 +44,7 @@ describe("G10: narrowing algebra", () => {
   it("a project layer cannot loosen; the user layer can", () => {
     const tighter = resolveRetention({ project: { kinds: { "tool.search": { keep: "forever" } } } });
     expect(tighter.policy.kinds["tool.search"]).toEqual(DEFAULT_CONTEXT_RETENTION.kinds["tool.search"]);
-    expect(tighter.ignored.join()).toContain("does not shorten");
+    expect(tighter.ignored.join(",")).toContain("does not shorten");
     const looser = resolveRetention({ user: { kinds: { "tool.search": { keep: "forever" } } } });
     expect(looser.policy.kinds["tool.search"]?.keep).toEqual("forever");
   });
@@ -55,13 +55,18 @@ describe("G10: narrowing algebra", () => {
       tools: { "mcp:x/y": { keep: ["turn"] } },
     });
     const { policy } = resolveRetention({});
-    expect(ruleFor(policy, { kind: "tool.mcp", names: ["mcp:x/y"], hint: { keep: "round" } }).keep).toEqual(["turn", "round"]);
+    expect(ruleFor(policy, { kind: "tool.mcp", names: ["mcp:x/y"], hint: { keep: "round" } }).keep).toEqual([
+      "turn",
+      "round",
+    ]);
     expect(ruleFor(policy, { kind: "tool.mcp", names: ["mcp:x/y"], hint: { keep: "forever" } }).keep).toEqual(["turn"]);
   });
 
   it("per-tool overrides win over the kind, with longest glob first", () => {
     const { policy } = resolveRetention({
-      user: { tools: { "mcp:github/*": { keep: { turns: 2 } }, "mcp:*": { keep: "round" }, read_file: { keep: "turn" } } },
+      user: {
+        tools: { "mcp:github/*": { keep: { turns: 2 } }, "mcp:*": { keep: "round" }, read_file: { keep: "turn" } },
+      },
     });
     expect(ruleFor(policy, { kind: "tool.mcp", names: ["mcp:github/search", "x"] }).keep).toEqual([{ turns: 2 }]);
     expect(ruleFor(policy, { kind: "tool.mcp", names: ["mcp:other/t", "x"] }).keep).toEqual(["round"]);
@@ -97,7 +102,11 @@ describe("G5-G7: the retention clock", () => {
     expect(decideRetentionStep(facts({ turnFirstRound: true })).reason).toBe("turn");
     expect(decideRetentionStep(facts({ now: 2_500 }))).toEqual({ at: "c5", reason: "cold", coldByMs: 500 });
     expect(decideRetentionStep(facts({ roundsSinceAt: 4 })).reason).toBe("every");
-    expect(decideRetentionStep(facts({ freedTokens: () => 9000 }))).toEqual({ at: "c5", reason: "freed", freedTokens: 9000 });
+    expect(decideRetentionStep(facts({ freedTokens: () => 9000 }))).toEqual({
+      at: "c5",
+      reason: "freed",
+      freedTokens: 9000,
+    });
     expect(decideRetentionStep(facts())).toEqual({ at: "c1", reason: "hold" });
   });
 
@@ -112,13 +121,29 @@ describe("G5-G7: the retention clock", () => {
           roundsSinceAt: round - Number(at.slice(1)),
           // 3 KB shell results free roughly 750 tokens per round since the last step.
           freedTokens: () => (round - Number(at.slice(1))) * 3000,
-          step: { turnBoundary: true, everyRounds: null, minFreedTokens: 8000, whenCacheCold: false, atCompaction: true },
+          step: {
+            turnBoundary: true,
+            everyRounds: null,
+            minFreedTokens: 8000,
+            whenCacheCold: false,
+            atCompaction: true,
+          },
         }),
       );
       sequence.push(`${round}:${clock.reason}`);
       at = clock.at;
     }
-    expect(sequence).toEqual(["1:hold", "2:hold", "3:freed", "4:hold", "5:hold", "6:freed", "7:hold", "8:hold", "9:freed"]);
+    expect(sequence).toEqual([
+      "1:hold",
+      "2:hold",
+      "3:freed",
+      "4:hold",
+      "5:hold",
+      "6:freed",
+      "7:hold",
+      "8:hold",
+      "9:freed",
+    ]);
   });
 
   it("an unknown warm deadline is not cold", () => {
@@ -143,9 +168,13 @@ describe("remainders are deterministic", () => {
     expect(toolRemainder("stub", stub(), false)).toBe(
       "[read_file elided: src/a.ts, 412 lines, 2.0 KB — re-read or recall job:abcd1234]",
     );
-    expect(toolRemainder("summary", stub({ tool: "grep", kind: "tool.search", ok: false, code: "E", full: "boom\nmore" }), true)).toBe(
-      "[grep failed (E): boom — recall job:abcd1234]",
-    );
+    expect(
+      toolRemainder(
+        "summary",
+        stub({ tool: "grep", kind: "tool.search", ok: false, code: "E", full: "boom\nmore" }),
+        true,
+      ),
+    ).toBe("[grep failed (E): boom — recall job:abcd1234]");
     expect(toolRemainder({ head: 4 }, stub({ full: "abcdefgh" }), false)).toMatch(/^abcd\n\[read_file elided: /);
     expect(textRemainder("none", "steer", "x")).toBeNull();
     expect(textRemainder("stub", "steer", "hello")).toBe("[steer elided: 5 chars]");
