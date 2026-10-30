@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/plexus-expectations",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work graph: WorkExpectation (PEW), Job + honoring executor.",
   "license": "MIT",
   "author": "Merkle Bonsai",

@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-provider-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Driver-provider registration and capability contracts on top of PEW. No vendors, no plugin manifests.",
   "type": "module",
   "main": "./dist/index.js",

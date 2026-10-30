@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-web-app",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Loopback server and prebuilt browser client for the harness daemon. The client is bundled; nothing else is installed with it.",
   "type": "module",
   "exports": {

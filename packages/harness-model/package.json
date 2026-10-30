@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-model",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Harness document models, Plexus wrappers, and model schemas. No client transport.",
   "type": "module",
   "main": "./dist/index.js",

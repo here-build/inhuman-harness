@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-tui",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Terminal shell for the harness daemon: the Tea state machine, the paint pipeline over quickdraw, the host and worker, the client-side Scheme sandbox, and the Mac terminal screenshot driver.",
   "type": "module",
   "main": "./dist/index.js",

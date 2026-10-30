@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/tool-call-normalize",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Model-native tool dialects → OpenAI tool_calls + clean prose. Normalizes streamed and batch LLM output (Hermes, LongCat, Qwen XML, OpenAI-native, …) into one IR.",
   "keywords": [
     "llm",

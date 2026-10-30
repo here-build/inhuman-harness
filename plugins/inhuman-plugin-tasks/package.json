@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/plugin-tasks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Session notebook behavior: pages, a host-sealed exam, and project promotion.",
   "files": [
     "plugin.json",

@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/policy-bash-disassembler",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Unbash walk: a shell command becomes prepared questions, plus a leading cwd-only cd peel.",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-diagnostics",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Process log and debug gate shared by the daemon, the node client, the launcher, and the TUI. Node only; no workspace dependencies.",
   "type": "module",
   "main": "./dist/index.js",

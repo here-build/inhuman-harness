@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/pretty-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Mustache + markdown identity for MCP and toolkit tool calls. Per-server catalog, residual coverage.",
   "type": "module",
   "main": "./dist/index.js",

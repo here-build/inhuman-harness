@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Node client for the harness daemon: Client over the unix socket, daemon paths, launch helpers (model flags, terminal continue), and the plain-text projections of work cells shared by the TUI and the headless eval client.",
   "type": "module",
   "main": "./dist/index.js",

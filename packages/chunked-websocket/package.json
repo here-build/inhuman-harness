@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/chunked-websocket",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Transparent WebSocket message chunking: splits binary and text messages over 1 MiB into reassemblable chunks so workerd accepts them. Adapted from @here.build/chunked-websocket, itself adapted from partykit's y-partykit chunking.",
   "type": "module",
   "main": "./dist/index.js",

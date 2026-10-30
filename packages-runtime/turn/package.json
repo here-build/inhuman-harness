@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/turn",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generation holder laws: session commands, context projection, tool catalog, call acceptance, tool admit, and the policy processor. The daemon seats these on a document it already holds.",
   "type": "module",
   "exports": {

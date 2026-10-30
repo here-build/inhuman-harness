@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/scheme-watch",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scheme watchdog tool. Re-evaluates one ProgrammaticJob on a period and roots meta-reactivity. Vocabulary still comes from the host.",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/env-capability-module-prompt",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Arrival ext/prompt: (require \"x.prompt\") pretreats to a scheme lambda; a ProgrammaticJob parents an omitted-spec agent ask.",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/scheme-program",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scheme program tool. Evaluates one ProgrammaticJob. The host passes the EnvCapabilities; this package does not know the catalog or the tool bodies.",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/env-capability-meta-reactivity",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Arrival EnvCapability: identity list diff (added/removed/changed) and watch baseline (done-condition flag + optional bag result). Not the bag clock.",
   "type": "module",
   "main": "./dist/index.js",

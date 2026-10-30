@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-peer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Browser- and React-Native-safe dial onto the harness daemon: Yjs room frames, awareness binding, and the JSON-RPC port. No node:, no ws.",
   "type": "module",
   "main": "./dist/index.js",

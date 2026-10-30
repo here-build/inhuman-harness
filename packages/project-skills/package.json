@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/project-skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Skill drawers from the working directory up to the git root, then the user home.",
   "type": "module",
   "main": "./dist/index.js",

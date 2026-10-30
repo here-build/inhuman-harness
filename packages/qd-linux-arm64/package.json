@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/qd-linux-arm64",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Prebuilt qd present process for linux-arm64. Built on Ubuntu 22.04, glibc 2.35.",
   "os": [
     "linux"

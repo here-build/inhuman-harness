@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-contract",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The daemon's RPC contract: zod schemas and the oRPC contract router, the single source of truth for the wire.",
   "type": "module",
   "main": "./dist/index.js",

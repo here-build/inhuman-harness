@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/policy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "JSON floor and the authorization program. The caller supplies the decide capability.",
   "type": "module",
   "main": "./dist/index.js",

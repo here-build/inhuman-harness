@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/quickdraw",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Terminal paint substrate: startRender host + TEA widgets.",
   "type": "module",
   "exports": {

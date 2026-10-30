@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/activity",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Session state reporting (update_metadata): title, description, and the no-extra-round rule. Pure TS.",
   "type": "module",
   "main": "./dist/index.js",

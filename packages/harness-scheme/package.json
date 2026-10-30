@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-scheme",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Scheme faces of a session: catalog description, keywords, the scheme_repl interpreter host, and provenance replay. `./keywords` and `./replay` are browser-safe and the web app bundles them; the root entry reaches node:fs through scheme-program/fs and is for the daemon.",
   "type": "module",
   "main": "./dist/index.js",

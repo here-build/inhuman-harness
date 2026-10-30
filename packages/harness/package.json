@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Harness core: the daemon (kernel and session planes), runtime, providers and the Yjs sync plane. Shells attach over harness-peer or harness-sdk.",
   "type": "module",
   "bin": {
