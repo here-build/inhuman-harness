@@ -1,0 +1,9 @@
+# Copy to .dev.vars (gitignored). Never put these in wrangler.jsonc vars.
+WORKOS_API_KEY=sk_test_replace_me
+WORKOS_COOKIE_PASSWORD=replace-with-at-least-32-random-characters
+# Overrides for the wrangler.jsonc vars while developing:
+# WORKOS_CLIENT_ID=client_replace_me
+# ALLOWED_EMAILS=you@example.com
+# Local e2e only: enables `Authorization: Bearer dev.<token>.<sub>.<email>`
+# and /auth/login?dev_token=<token>&sub=<sub>&email=<email>.
+# DEV_AUTH_TOKEN=local-dev-secret

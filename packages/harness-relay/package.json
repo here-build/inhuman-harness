@@ -1,0 +1,29 @@
+{
+  "name": "@inhuman.tools/harness-relay",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cloudflare Worker at harness.inhuman.tools: WorkOS auth, machine registry, and per-machine Durable Objects relaying browsers to harness daemons.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "types": "wrangler types --strict-vars=false --env-file .dev.vars.example",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run"
+  },
+  "dependencies": {
+    "jose": "^6.1.0"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@cloudflare/vitest-plugin": "^1.4.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0",
+    "wrangler": "^4.100.0"
+  },
+  "license": "MIT",
+  "author": "Merkle Bonsai"
+}

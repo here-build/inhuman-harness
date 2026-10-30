@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "harness-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "durable_objects": {
+    "bindings": [
+      { "name": "USER_DO", "class_name": "UserDO" },
+      { "name": "MACHINE_DO", "class_name": "MachineDO" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UserDO", "MachineDO"] }],
+  "vars": {
+    // WorkOS client id (client_...). Public; the same client serves browsers and the daemon device flow.
+    "WORKOS_CLIENT_ID": "",
+    // Comma-separated emails allowed to use the relay. Empty means nobody.
+    "ALLOWED_EMAILS": ""
+  },
+  // Secrets (wrangler secret put, or .dev.vars locally):
+  //   WORKOS_API_KEY          WorkOS secret key: code exchange, refresh, user lookup
+  //   WORKOS_COOKIE_PASSWORD  32+ chars: seals the session cookie
+  // Local only, never a var: DEV_AUTH_TOKEN (enables the dev auth gate).
+  // (No `secrets.required` block: it makes `wrangler dev` ignore every other .dev.vars key.)
+  "env": {
+    "production": {
+      "name": "harness-relay",
+      "routes": [{ "pattern": "harness.inhuman.tools", "custom_domain": true }],
+      "durable_objects": {
+        "bindings": [
+          { "name": "USER_DO", "class_name": "UserDO" },
+          { "name": "MACHINE_DO", "class_name": "MachineDO" }
+        ]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UserDO", "MachineDO"] }],
+      "vars": {
+        "WORKOS_CLIENT_ID": "",
+        "ALLOWED_EMAILS": ""
+      }
+    }
+  }
+}
