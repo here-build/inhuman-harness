@@ -37,7 +37,7 @@
     "mobx": "6.16.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.19.2",
-    "eslint": "9.39.2",
+    "eslint": "10.13.0",
     "typescript": "6.0.3",
     "vitest": "4.1.12"
   },

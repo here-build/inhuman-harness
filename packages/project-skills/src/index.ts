@@ -295,7 +295,5 @@ function frontmatterRecord(text: string): Record<string, unknown> | null {
     return null;
   }
   if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-  const bag: Record<string, unknown> = {};
-  for (const [key, item] of Object.entries(parsed)) bag[key] = item;
-  return bag;
+  return Object.fromEntries(Object.entries(parsed));
 }

@@ -47,7 +47,7 @@
     "@-internal-/eslint-configs": "workspace:*",
     "@types/node": "^24.19.2",
     "@types/ws": "8.18.2",
-    "eslint": "9.39.2",
+    "eslint": "10.13.0",
     "lib0": "0.2.119",
     "typescript": "6.0.3",
     "vitest": "4.1.12",

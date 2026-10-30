@@ -9,6 +9,7 @@ export default [
         "warn",
         {
           cases: { camelCase: true, kebabCase: true, pascalCase: true },
+          checkDirectories: false,
         },
       ],
     },

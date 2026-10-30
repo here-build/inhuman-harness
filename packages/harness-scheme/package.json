@@ -65,7 +65,7 @@
     "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/harness-commons": "workspace:^",
     "@types/node": "^24.19.2",
-    "eslint": "9.39.2",
+    "eslint": "10.13.0",
     "typescript": "6.0.3",
     "vitest": "4.1.12",
     "yjs": "13.6.33"

@@ -15,6 +15,7 @@ export default [
         {
           cases: { camelCase: true, kebabCase: true, pascalCase: true },
           ignore: ["PEWDriver.ts"],
+          checkDirectories: false,
         },
       ],
       // WorkExpectation is awaitable by design (`await E`).

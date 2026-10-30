@@ -54,14 +54,11 @@ try {
         return async (): Promise<ShutdownCutoff["flush"]> => {
           closing = true;
           let flush: ShutdownCutoff["flush"] = "ok";
-          const loaded = server.documents.loaded();
-          if (loaded.length > 0) {
-            for (const ref of loaded) {
-              const result = await server.documents.flush(ref.key);
-              if (!result.ok) {
-                flush = result.reason === "disconnected" ? "pending" : "failed";
-                break;
-              }
+          for (const ref of server.documents.loaded()) {
+            const result = await server.documents.flush(ref.key);
+            if (!result.ok) {
+              flush = result.reason === "disconnected" ? "pending" : "failed";
+              break;
             }
           }
           server[Symbol.dispose]();

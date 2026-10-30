@@ -13,11 +13,14 @@ import unicorn from "eslint-plugin-unicorn";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+import { unicornPendingRules } from "./unicorn-pending.js";
+
 const baseConfig = [
   { ignores: ["**/dist/**", "**/node_modules/**", "**/build/**", "**/.next/**", "eslint.config.*"] },
   eslint.configs.recommended,
   tseslint.configs.recommended,
-  unicorn.configs["flat/recommended"],
+  unicorn.configs.recommended,
+  { rules: unicornPendingRules },
   compat.configs["flat/recommended"],
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
@@ -106,6 +109,9 @@ const baseConfig = [
       "object-shorthand": "warn",
       "prefer-template": "warn",
       "no-console": "warn", // Should be removed before production
+      // New in eslint 10's recommended set; warnings until the existing reports are fixed.
+      "no-useless-assignment": "warn",
+      "preserve-caught-error": "warn",
 
       // Import organization
       "import-x/order": [
@@ -162,14 +168,14 @@ const baseConfig = [
       "import-x/namespace": "off", // acts weirdly
       "regexp/strict": "off",
       "unicorn/no-array-callback-reference": "off",
-      "unicorn/no-array-for-each": "warn",
+      "unicorn/no-for-each": "warn",
       "unicorn/no-array-reduce": "off",
       "unicorn/switch-case-braces": "off",
       "unicorn/no-useless-fallback-in-spread": "off",
       "unicorn/prefer-global-this": "off",
       "@typescript-eslint/no-misused-promises": "off", //heavy ESLint performance impact
       "unicorn/no-useless-undefined": "off",
-      "unicorn/prevent-abbreviations": "off",
+      "unicorn/name-replacements": "off",
       // Named `node:path` / `node:fs` imports are the house style. Default-import is not.
       "unicorn/import-style": "off",
       // Daemons, CLIs, and storybook hosts call `process.exit`.
@@ -178,7 +184,8 @@ const baseConfig = [
       // spelling; `\u001B` reads as Unicode, not a control sequence.
       "no-control-regex": "off",
       "unicorn/escape-case": "off",
-      "unicorn/no-hex-escape": "off",
+      "unicorn/prefer-unicode-code-point-escapes": "off",
+      "unicorn/prefer-literal-ascii": "off",
       "unicorn/prefer-string-raw": "off",
       // Protocol numbers (CSI 2026, 256 colors, 80 cols, timeouts) are
       // identifiers, not quantities. Do not force `1_000`.
@@ -235,6 +242,8 @@ const baseConfig = [
             camelCase: true,
             kebabCase: true,
           },
+          // unicorn 79 started checking directories; `__tests__` and the like are the house layout.
+          checkDirectories: false,
         },
       ],
     },
@@ -250,6 +259,7 @@ const baseConfig = [
             kebabCase: true,
             pascalCase: true,
           },
+          checkDirectories: false,
         },
       ],
     },

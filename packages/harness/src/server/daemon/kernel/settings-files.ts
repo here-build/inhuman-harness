@@ -186,9 +186,7 @@ export function removeBotFile(dir: string, name: string): void {
 }
 
 function recordOf(value: object): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value)) out[key] = entry;
-  return out;
+  return Object.fromEntries(Object.entries(value));
 }
 
 function skillFolder(name: string): string {

@@ -158,9 +158,7 @@ function draftsFrom(value: unknown): McpGrantDraft[] {
 }
 
 function recordOf(value: object): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value)) out[key] = entry;
-  return out;
+  return Object.fromEntries(Object.entries(value));
 }
 
 function configText(configuration: { readonly [key: string]: unknown } | undefined, key: string): string {

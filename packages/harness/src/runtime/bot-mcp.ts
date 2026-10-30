@@ -100,9 +100,7 @@ function grantMatches(grant: BotMcpGrant, face: McpServerFace, tool: string): bo
 
 function record(value: unknown): Record<string, unknown> | null {
   if (value == null || typeof value !== "object" || Array.isArray(value)) return null;
-  const out: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value)) out[key] = entry;
-  return out;
+  return Object.fromEntries(Object.entries(value));
 }
 
 function fieldText(bag: Record<string, unknown> | null, key: string): string {
