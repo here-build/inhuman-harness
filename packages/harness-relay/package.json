@@ -9,9 +9,10 @@
     "build": "wrangler deploy --dry-run --outdir dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p e2e/tsconfig.json --noEmit",
     "types": "wrangler types --strict-vars=false --env-file .dev.vars.example",
-    "test": "tsc -p tsconfig.json --noEmit && vitest run"
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "test:e2e": "tsc -p e2e/tsconfig.json --noEmit && vitest run -c vitest.e2e.config.ts"
   },
   "dependencies": {
     "@inhuman.tools/chunked-websocket": "workspace:*",
@@ -23,10 +24,16 @@
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
     "@cloudflare/vitest-plugin": "^1.4.0",
+    "@inhuman.tools/harness": "workspace:*",
+    "@inhuman.tools/harness-contract": "workspace:*",
+    "@inhuman.tools/harness-peer": "workspace:*",
+    "@inhuman.tools/harness-web-app": "workspace:*",
+    "@types/node": "^24.0.0",
     "eslint": "9.39.2",
     "typescript": "6.0.2",
     "vitest": "4.1.0",
-    "wrangler": "^4.100.0"
+    "wrangler": "^4.100.0",
+    "y-websocket": "3.1.0"
   },
   "license": "MIT",
   "author": "Merkle Bonsai"

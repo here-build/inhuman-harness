@@ -1818,6 +1818,21 @@ importers:
       '@cloudflare/vitest-plugin':
         specifier: ^1.4.0
         version: 1.4.7(@types/node@24.0.0)(vitest@4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.0.0)(happy-dom@20.14.6)(vite@7.3.6(@types/node@24.0.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.51.2)(tsx@4.23.4)(yaml@2.9.0)))
+      '@inhuman.tools/harness':
+        specifier: workspace:*
+        version: link:../harness
+      '@inhuman.tools/harness-contract':
+        specifier: workspace:*
+        version: link:../harness-contract
+      '@inhuman.tools/harness-peer':
+        specifier: workspace:*
+        version: link:../harness-peer
+      '@inhuman.tools/harness-web-app':
+        specifier: workspace:*
+        version: link:../harness-web-app
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.0.0
       eslint:
         specifier: 9.39.2
         version: 9.39.2(jiti@2.7.0)
@@ -1830,6 +1845,9 @@ importers:
       wrangler:
         specifier: ^4.100.0
         version: 4.152.0(@types/node@24.0.0)
+      y-websocket:
+        specifier: 3.1.0
+        version: 3.1.0(yjs@13.6.33)
 
   packages/harness-scheme:
     dependencies:

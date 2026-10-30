@@ -200,3 +200,18 @@ describe("Node global WebSocket", () => {
     expect(await seen).toBe("Bearer tok");
   });
 });
+
+describe("close event", () => {
+  it("carries the code and reason where the runtime has no CloseEvent (Node 22)", async () => {
+    const wss = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    cleanups.push(() => new Promise<void>((resolve) => wss.close(() => resolve())));
+    await new Promise<void>((resolve) => wss.on("listening", () => resolve()));
+    const port = (wss.address() as { port: number }).port;
+    wss.on("connection", (raw) => raw.close(4503, "offline"));
+
+    const client = new ChunkedWebSocket(`ws://127.0.0.1:${port}`);
+    cleanups.push(() => client.close());
+    const closed = await new Promise<Event>((resolve) => client.addEventListener("close", resolve));
+    expect(closed).toMatchObject({ code: 4503, reason: "offline" });
+  });
+});

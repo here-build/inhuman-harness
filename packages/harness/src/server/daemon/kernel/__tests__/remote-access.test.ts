@@ -5,6 +5,7 @@ import { memoryCredentialsStore } from "@/connections/credentials";
 import {
   REMOTE_MACHINE_ID,
   REMOTE_TOKENS_ID,
+  remoteLoggedIn,
   RemoteAccess,
   WORKOS_DEVICE_CODE_URL,
   WORKOS_TOKEN_URL,
@@ -236,5 +237,25 @@ describe("RemoteAccess accessToken", () => {
     const status = t.remote.status();
     expect(status.loggedIn).toBe(false);
     expect(status.lastError).toMatch(/harness login/);
+  });
+});
+
+describe("RemoteAccess dev token (HARNESS_REMOTE_DEV_TOKEN)", () => {
+  const dev = "dev.secret.user_9.me@example.com";
+
+  it("is the bearer and the login, with no WorkOS call", async () => {
+    const t = setup([], { HARNESS_REMOTE_DEV_TOKEN: dev });
+    expect(await t.remote.accessToken(Date.now() + 3_600_000, true)).toBe(dev);
+    expect(t.remote.status()).toMatchObject({ loggedIn: true, email: "me@example.com" });
+    expect(t.workos.calls).toHaveLength(0);
+    expect(remoteLoggedIn("/nonexistent", { HARNESS_REMOTE_DEV_TOKEN: dev })).toBe(true);
+  });
+
+  it("falls back to a placeholder email, and is inert when unset or blank", async () => {
+    expect(setup([], { HARNESS_REMOTE_DEV_TOKEN: "dev.x" }).remote.status().email).toBe("dev@local");
+    const t = setup([], { HARNESS_REMOTE_DEV_TOKEN: "  " });
+    expect(await t.remote.accessToken()).toBeUndefined();
+    expect(t.remote.status().loggedIn).toBe(false);
+    expect(remoteLoggedIn("/nonexistent", {})).toBe(false);
   });
 });

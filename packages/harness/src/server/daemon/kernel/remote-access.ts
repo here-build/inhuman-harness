@@ -25,6 +25,8 @@ import {
 export const DEFAULT_RELAY_URL = "https://harness.inhuman.tools";
 export const WORKOS_CLIENT_ID_ENV = "HARNESS_REMOTE_WORKOS_CLIENT_ID";
 export const RELAY_URL_ENV = "HARNESS_REMOTE_URL";
+/** DEV ONLY (local e2e against `wrangler dev`): a ready-made relay bearer, `dev.<secret>.<sub>.<email>`. Unset in every real run. */
+export const DEV_TOKEN_ENV = "HARNESS_REMOTE_DEV_TOKEN";
 
 const WORKOS_API = "https://api.workos.com/user_management";
 export const WORKOS_DEVICE_CODE_URL = `${WORKOS_API}/authorize/device`;
@@ -59,8 +61,20 @@ export type RemoteAccessOptions = {
 export type RemoteLoginUi = (body: string) => Promise<unknown>;
 
 /** Cheap boot-time check, before any kernel exists. */
-export function remoteLoggedIn(root: string): boolean {
+export function remoteLoggedIn(root: string, env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  if (devToken(env) !== undefined) return true;
   return readConnectionSecrets(root, REMOTE_TOKENS_ID).refreshToken !== undefined;
+}
+
+function devToken(env: Readonly<Record<string, string | undefined>>): string | undefined {
+  const token = env[DEV_TOKEN_ENV]?.trim();
+  return token === undefined || token === "" ? undefined : token;
+}
+
+/** The email in a dev bearer (everything after `dev.<secret>.<sub>.`), or a placeholder. */
+function devEmail(token: string): string {
+  const email = token.split(".").slice(3).join(".");
+  return email === "" ? "dev@local" : email;
 }
 
 function quote(text: string): string {
@@ -100,11 +114,13 @@ export class RemoteAccess {
 
   /** `connected` is the connector's control socket; this class only knows the login. */
   status(connected = false): RemoteStatus {
+    const dev = devToken(this.#env);
     const tokens = this.#credentials.read(REMOTE_TOKENS_ID);
-    const loggedIn = tokens.refreshToken !== undefined;
+    const loggedIn = dev !== undefined || tokens.refreshToken !== undefined;
+    const email = dev === undefined ? tokens.email : devEmail(dev);
     return {
       loggedIn,
-      ...(loggedIn && tokens.email !== undefined ? { email: tokens.email } : {}),
+      ...(loggedIn && email !== undefined ? { email } : {}),
       ...this.machine(),
       relayUrl: this.relayUrl,
       connected,
@@ -158,6 +174,8 @@ export class RemoteAccess {
    * which matters because WorkOS rotates refresh tokens.
    */
   accessToken(now = Date.now(), force = false): Promise<string | undefined> {
+    const dev = devToken(this.#env);
+    if (dev !== undefined) return Promise.resolve(dev);
     const tokens = this.#credentials.read(REMOTE_TOKENS_ID);
     if (tokens.apiKey === undefined || tokens.refreshToken === undefined) return Promise.resolve(undefined);
     if (!force && !accessTokenExpiring(tokens.expiresAt, now)) return Promise.resolve(tokens.apiKey);
