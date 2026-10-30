@@ -1,5 +1,5 @@
 /**
- * `harness login | logout | remote status`: remote access through the relay.
+ * `inhuman login | logout | remote status`: remote access through the relay.
  * The daemon does the work (`remote/login`, `remote/logout`, `remote/status`); this renders the parked
  * open-url form and the status. The daemon reads HARNESS_REMOTE_URL (and the optional
  * HARNESS_REMOTE_WORKOS_CLIENT_ID override) from its own environment, inherited from the process that spawned it.
@@ -13,7 +13,7 @@ import { openKernelRpc } from "./kernel-client.js";
 
 const ENV_HELP = `
       The daemon reads two optional variables from its own environment, so set them before it starts (run
-      \`harness daemon restart\` if it is already running):
+      \`inhuman daemon restart\` if it is already running):
 
         HARNESS_REMOTE_URL               relay origin (default https://harness.inhuman.tools)
         HARNESS_REMOTE_WORKOS_CLIENT_ID  WorkOS client id (default: the one the relay publishes)
@@ -35,7 +35,7 @@ export class LoginCommand extends KernelCommand {
   browser = Option.Boolean("--browser", true, { description: "open the approval page in a browser" });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness login");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman login");
     if (blocked !== undefined) return blocked;
     return (
       await runRemote(
@@ -54,7 +54,7 @@ export class LogoutCommand extends KernelCommand {
   });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness logout");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman logout");
     if (blocked !== undefined) return blocked;
     return (await runRemote({ verb: "logout", kernel: this.kernelPath() }, this.context)).code;
   }
@@ -68,7 +68,7 @@ export class RemoteCommand extends KernelCommand {
   });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness remote");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman remote");
     if (blocked !== undefined) return blocked;
     this.context.stderr.write("Specify a remote command: status\n");
     return 2;
@@ -86,7 +86,7 @@ export class RemoteStatusCommand extends KernelCommand {
   json = Option.Boolean("--json", false, { description: "print JSON" });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness remote status");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman remote status");
     if (blocked !== undefined) return blocked;
     return (await runRemote({ verb: "status", kernel: this.kernelPath(), json: this.json }, this.context)).code;
   }
@@ -202,6 +202,6 @@ async function runStatus(rpc: KernelRpc, streams: Streams, json: boolean): Promi
   ];
   const width = Math.max(...rows.map(([label]) => label.length));
   streams.stdout.write(`${rows.map(([label, value]) => `${label.padEnd(width)}  ${value}`).join("\n")}\n`);
-  if (!status.loggedIn) streams.stdout.write("run `harness login` to sign in\n");
+  if (!status.loggedIn) streams.stdout.write("run `inhuman login` to sign in\n");
   return { code: 0 };
 }

@@ -3,7 +3,7 @@ import { run } from "@inhuman.tools/harness-cli/run";
 
 const OPEN_VALUE_FLAGS = new Set(["--kernel", "--port"]);
 
-/** True for no arguments, or only the flags `harness open` takes: `inhuman --kernel /k --no-browser`. */
+/** True for no arguments, or only the flags `inhuman open` takes: `inhuman --kernel /k --no-browser`. */
 function isBareOpen(args) {
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];

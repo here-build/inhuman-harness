@@ -11,7 +11,7 @@ export class DaemonCommand extends KernelCommand {
   });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness daemon");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman daemon");
     if (blocked !== undefined) return blocked;
     this.context.stderr.write("Specify a daemon command: start, stop, restart\n");
     return 2;
@@ -26,7 +26,7 @@ export class DaemonStartCommand extends KernelCommand {
   });
 
   async execute(): Promise<number> {
-    return runDaemon(this, "harness daemon start", () => ensure(this.kernelPath()));
+    return runDaemon(this, "inhuman daemon start", () => ensure(this.kernelPath()));
   }
 }
 
@@ -38,7 +38,7 @@ export class DaemonStopCommand extends KernelCommand {
   });
 
   async execute(): Promise<number> {
-    return runDaemon(this, "harness daemon stop", () => stop(this.kernelPath()));
+    return runDaemon(this, "inhuman daemon stop", () => stop(this.kernelPath()));
   }
 }
 
@@ -50,7 +50,7 @@ export class DaemonRestartCommand extends KernelCommand {
   });
 
   async execute(): Promise<number> {
-    return runDaemon(this, "harness daemon restart", () => ensure(this.kernelPath(), { restart: true }));
+    return runDaemon(this, "inhuman daemon restart", () => ensure(this.kernelPath(), { restart: true }));
   }
 }
 

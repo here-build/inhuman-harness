@@ -124,8 +124,8 @@ const COMMANDS = [
 
 export function makeCli(): Cli<ShellContext> {
   return Cli.from(COMMANDS, {
-    binaryLabel: "Harness",
-    binaryName: "harness",
+    binaryLabel: "Inhuman",
+    binaryName: "inhuman",
     enableCapture: false,
   });
 }

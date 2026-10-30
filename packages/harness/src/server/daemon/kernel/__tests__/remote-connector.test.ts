@@ -259,7 +259,7 @@ describe("login loss", () => {
     await until(() => !r.connector.running, "connector stop");
     const status = r.remote.status(r.connector.connected);
     expect(status.loggedIn).toBe(false);
-    expect(status.lastError).toMatch(/harness login/);
+    expect(status.lastError).toMatch(/inhuman login/);
     expect(r.relay.attempts).toEqual([]);
   });
 

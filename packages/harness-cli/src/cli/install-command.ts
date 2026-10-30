@@ -14,7 +14,7 @@ export class InstallCommand extends KernelCommand {
   pkg = Option.String({ name: "package" });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness install");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman install");
     if (blocked !== undefined) return blocked;
     try {
       return await installPlugin(this.context, this.kernelPath(), this.pkg);

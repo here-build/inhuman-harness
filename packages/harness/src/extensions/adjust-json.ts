@@ -1,7 +1,7 @@
 /**
  * JSON file RMW. A throw from `transformer` leaves the file untouched.
  * The transformer always returns the value that is written.
- * The daemon and `harness install` share this one writer.
+ * The daemon and `inhuman install` share this one writer.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 

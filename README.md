@@ -70,7 +70,7 @@ The terminal client is not on npm yet; run it from a source checkout (below).
 
 ```
  browser ──http/ws──▶ web server ──unix socket──▶ daemon ──▶ model providers
- (127.0.0.1)          (harness web-door)          (kernel)    MCP servers, tools, plugins
+ (127.0.0.1)          (inhuman web-door)          (kernel)    MCP servers, tools, plugins
                                                      ▲
  terminal client ─────────────unix socket───────────┘
 ```

@@ -1,5 +1,5 @@
 /**
- * `harness blobs vacuum`: move a stored session's large text into the kernel's blob bucket.
+ * `inhuman blobs vacuum`: move a stored session's large text into the kernel's blob bucket.
  *
  * A session written before large bodies left the document keeps a file's prior text and an isolated
  * completion's prompt in its stored image, and the daemon never rewrites an image to convert it. This attaches
@@ -20,7 +20,7 @@ export class BlobsCommand extends KernelCommand {
   });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness blobs");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman blobs");
     if (blocked !== undefined) return blocked;
     this.context.stderr.write("Specify a blobs command: vacuum\n");
     return 2;
@@ -50,7 +50,7 @@ export class BlobsVacuumCommand extends KernelCommand {
   dryRun = Option.Boolean("--dry-run", false, { description: "count what would move; write nothing" });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness blobs vacuum");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman blobs vacuum");
     if (blocked !== undefined) return blocked;
     const { code } = await runBlobsVacuum(
       { kernel: this.kernelPath(), session: this.session, dryRun: this.dryRun },

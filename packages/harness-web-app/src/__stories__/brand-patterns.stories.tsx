@@ -121,7 +121,7 @@ export const StatusLanguage: Story = {
             <p className="link-notice" role="status">
               <span className="link-glyph" data-needs="" aria-hidden />
               <span className="link-text">
-                Can’t reach the harness daemon. Start it with <code>harness daemon start</code>, then retry.
+                Can’t reach the harness daemon. Start it with <code>inhuman daemon start</code>, then retry.
               </span>
               <Button variant="secondary">Retry</Button>
             </p>

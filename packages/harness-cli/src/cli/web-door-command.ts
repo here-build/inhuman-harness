@@ -13,7 +13,7 @@ import { importShell } from "./shell-import.js";
 import { clearDoorRecord, DOOR_MISSES_TO_LEAVE, DOOR_PROBE_MS, writeDoorRecord } from "./web-door.js";
 
 /**
- * Internal: the detached process `harness open` starts. Serves the built client until the daemon is gone.
+ * Internal: the detached process `inhuman open` starts. Serves the built client until the daemon is gone.
  * It has no `usage`, so help does not list it.
  */
 export class WebDoorCommand extends KernelCommand {

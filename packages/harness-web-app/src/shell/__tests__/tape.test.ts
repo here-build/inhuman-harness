@@ -513,7 +513,7 @@ describe("Tape", () => {
     expect(html).not.toContain("connecting-lines");
     expect(html).toContain('<p class="link-notice" role="status">');
     expect(html).toContain("Can’t reach the harness daemon.");
-    expect(html).toContain("<code>harness daemon start</code>");
+    expect(html).toContain("<code>inhuman daemon start</code>");
     expect(html).toMatch(/<button[^>]*>Retry<\/button>/);
   });
 });

@@ -118,8 +118,8 @@ describe("importShell", () => {
     expect({ results, stderr: out.stderr }).toEqual({
       results: [undefined, undefined],
       stderr:
-        "harness: the TUI shell is not installed — add @inhuman.tools/harness-ghost-tui\n" +
-        "harness: the web shell is not installed — add @inhuman.tools/harness-ghost-web\n",
+        "inhuman: the TUI shell is not installed — add @inhuman.tools/harness-ghost-tui\n" +
+        "inhuman: the web shell is not installed — add @inhuman.tools/harness-ghost-web\n",
     });
   });
 

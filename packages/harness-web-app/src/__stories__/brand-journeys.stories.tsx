@@ -84,7 +84,7 @@ const JOURNEYS: readonly Journey[] = [
     goal: "Open the web UI and know where everything is.",
     entry: (
       <>
-        <Mono>harness web</Mono> opens <Mono>127.0.0.1:8787</Mono>; the browser dials the daemon.
+        <Mono>inhuman web</Mono> opens <Mono>127.0.0.1:8787</Mono>; the browser dials the daemon.
       </>
     ),
     steps: [

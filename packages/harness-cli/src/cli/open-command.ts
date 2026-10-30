@@ -61,7 +61,7 @@ export class OpenCommand extends KernelCommand {
   noBrowser = Option.Boolean("--no-browser", false, { description: "print the URL without opening a browser" });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness open");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman open");
     if (blocked !== undefined) return blocked;
     const port = Number(this.port);
     if (!Number.isInteger(port) || port < 0) {

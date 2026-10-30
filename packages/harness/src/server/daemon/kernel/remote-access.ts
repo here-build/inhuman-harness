@@ -196,7 +196,7 @@ export class RemoteAccess {
       refreshed = await refreshOidcToken(this.#profile(clientId), refreshToken);
     } catch (error) {
       if (!(error instanceof OidcGrantError) || error.code !== "invalid_grant") throw error;
-      this.revoke("The remote-access login expired or was revoked. Run `harness login` again.");
+      this.revoke("The remote-access login expired or was revoked. Run `inhuman login` again.");
       return undefined;
     }
     const previous = this.#credentials.read(REMOTE_TOKENS_ID);

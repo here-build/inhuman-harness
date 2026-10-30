@@ -213,6 +213,6 @@ it("complete without a daemon is empty; completion zsh prints a hook", async () 
     zsh: { code: zsh.code, stdout: zshCap.stdout },
   }).toEqual({
     complete: { code: 0, stdout: "", dir: false },
-    zsh: { code: 0, stdout: expect.stringMatching(/#compdef harness[\s\S]*harness complete/) },
+    zsh: { code: 0, stdout: expect.stringMatching(/#compdef inhuman[\s\S]*inhuman complete/) },
   });
 });

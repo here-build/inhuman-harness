@@ -80,7 +80,7 @@ function needs(
       return {
         text: (
           <>
-            Can’t reach the harness daemon. Start it with <code>harness daemon start</code>, then retry.
+            Can’t reach the harness daemon. Start it with <code>inhuman daemon start</code>, then retry.
           </>
         ),
         action: "Retry",

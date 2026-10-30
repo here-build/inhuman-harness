@@ -21,7 +21,7 @@ li{display:flex;gap:1rem;align-items:baseline;padding:.4rem 0}
 .on{color:#1a7f37}.off{color:#888}time{margin-left:auto;font-size:.8rem;opacity:.7}
 </style></head><body>
 <h1>Machines</h1>
-${machines.length === 0 ? "<p>No machines yet. Run <code>harness login</code> on one.</p>" : `<ul style="list-style:none;padding:0">${rows}</ul>`}
+${machines.length === 0 ? "<p>No machines yet. Run <code>inhuman login</code> on one.</p>" : `<ul style="list-style:none;padding:0">${rows}</ul>`}
 <form method="post" action="/auth/logout">${email ? `<small>${esc(email)}</small> ` : ""}<button>Sign out</button></form>
 </body></html>`;
 }

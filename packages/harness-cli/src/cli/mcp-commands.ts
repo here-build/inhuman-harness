@@ -11,7 +11,7 @@ export class McpCommand extends KernelCommand {
   });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness mcp");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman mcp");
     if (blocked !== undefined) return blocked;
     this.context.stderr.write("Specify an mcp command: add, list, get, remove, login, logout, enable, disable\n");
     return 2;
@@ -153,7 +153,7 @@ export class McpDisableCommand extends KernelCommand {
 }
 
 async function mcp(cmd: KernelCommand, verb: McpVerb, args: Omit<McpArgv, "kernel" | "mcpVerb">): Promise<number> {
-  const blocked = cmd.rejectUnsupportedAgentFlags(`harness mcp ${verb}`);
+  const blocked = cmd.rejectUnsupportedAgentFlags(`inhuman mcp ${verb}`);
   if (blocked !== undefined) return blocked;
   const result = await runMcp(
     {

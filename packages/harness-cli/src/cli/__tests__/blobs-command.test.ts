@@ -1,5 +1,5 @@
 /**
- * `harness blobs vacuum --session <id> [--kernel <path>] [--dry-run]`: routing, usage failures, and the printout.
+ * `inhuman blobs vacuum --session <id> [--kernel <path>] [--dry-run]`: routing, usage failures, and the printout.
  * The daemon is a fake that answers `blob/vacuum`; the real round trip is the vacuum RPC test in the core.
  */
 import { Readable, Writable } from "node:stream";

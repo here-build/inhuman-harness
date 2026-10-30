@@ -1,5 +1,5 @@
 /**
- * The kernel folder is itself an npm project: `harness install` runs `npm install --save` in it. npm rejects
+ * The kernel folder is itself an npm project: `inhuman install` runs `npm install --save` in it. npm rejects
  * `workspace:` specs, so the seeded dependency ranges must be real semver ranges.
  */
 import { createRequire } from "node:module";

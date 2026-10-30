@@ -8,14 +8,14 @@ Known gaps: the workflow-graph SSE (`/sessions/:id/workflows/:job`) has no serve
 
 ## Goal
 
-A user runs `harness login` on their machine. From then on they can open `https://harness.inhuman.tools`, sign in with the same WorkOS account, pick the machine, and use the regular harness web app against that machine's daemon from anywhere.
+A user runs `inhuman login` on their machine. From then on they can open `https://harness.inhuman.tools`, sign in with the same WorkOS account, pick the machine, and use the regular inhuman web app against that machine's daemon from anywhere.
 
 Constraints:
 
 - The daemon never opens an inbound port. It dials out to Cloudflare.
 - Idle costs nothing: hibernatable WebSockets, edge-answered PING/PONG.
 - No persistence in the cloud. The Durable Object holds documents in memory only, as a speed-up and to decouple browser and machine connectivity. The daemon stays the source of truth.
-- Security posture for a sandbox: the owner only (JWT `sub`), explicit opt-in on the machine (`harness login`), an email allowlist for testers. No E2E, no roles, no method allowlist.
+- Security posture for a sandbox: the owner only (JWT `sub`), explicit opt-in on the machine (`inhuman login`), an email allowlist for testers. No E2E, no roles, no method allowlist.
 
 ## Topology
 
@@ -70,7 +70,7 @@ A copy of `@here.build/chunked-websocket` 0.10.0 (`~/WebstormProjects/here.build
 
 ### CLI and web app
 
-- `harness login`, `harness logout`, `harness remote status`.
+- `inhuman login`, `inhuman logout`, `inhuman remote status`.
 - Web app: a base URL (origin + `/m/<machine>`) for `dialOrigin` and `/file`; remote mode uses `ChunkedWebSocket` as `WebSocketPolyfill` over `wss`; offline and reconnecting states.
 
 ## Phases
@@ -83,7 +83,7 @@ A copy of `@here.build/chunked-websocket` 0.10.0 (`~/WebstormProjects/here.build
 | 2c | tunnel HTTP inside `MachineDO` | app and `/file` stream through a fake node |
 | 3a | WorkOS device login, contract methods, token storage and refresh, `machineId` | `remote/login` parks with open-url and stores tokens (unit tests with a fake WorkOS) |
 | 3b | connector + extracted HTTP serving | daemon bridges rooms and `req` against `wrangler dev` |
-| 4 | CLI commands | `harness login` drives 3a |
+| 4 | CLI commands | `inhuman login` drives 3a |
 | 5 | web app base URL + remote mode | app works under `/m/<machine>/app/` |
 | 6 | e2e against `wrangler dev` with a dev-only token gate | scenarios: open session, stream, two tabs RPC, >1 MiB blob, `/file`, daemon restart, expired token, logout |
 | 7 | deploy workflow, README | needs the owner: CF zone, WorkOS production env, secrets |

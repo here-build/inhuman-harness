@@ -155,5 +155,5 @@ it.each([
 });
 
 it("unsupported verbs name the command", () => {
-  expect(unsupportedAgentFlagsError("harness mcp add")).toMatch(/harness mcp add[\s\S]*does not select a model/);
+  expect(unsupportedAgentFlagsError("inhuman mcp add")).toMatch(/inhuman mcp add[\s\S]*does not select a model/);
 });

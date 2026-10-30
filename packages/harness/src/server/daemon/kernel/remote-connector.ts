@@ -152,7 +152,7 @@ export class RemoteConnector {
       this.#closeCalls();
       if (result.openedFor === 0 && (await this.#refused(token)) === 401) {
         if (forced) {
-          this.#access.revoke("The relay rejected the remote-access login. Run `harness login` again.");
+          this.#access.revoke("The relay rejected the remote-access login. Run `inhuman login` again.");
           this.#running = false;
           return;
         }

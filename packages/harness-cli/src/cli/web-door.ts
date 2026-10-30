@@ -1,8 +1,8 @@
 /**
- * The web door: a detached `harness web-door` process that serves the built client on loopback and
- * proxies rooms to the daemon socket. `harness open` starts one when none is live and leaves it running.
+ * The web door: a detached `inhuman web-door` process that serves the built client on loopback and
+ * proxies rooms to the daemon socket. `inhuman open` starts one when none is live and leaves it running.
  * The door records itself in `<kernel>/web.json`, logs to `<kernel>/web.log`, and leaves when the
- * daemon has been gone for a few probes, so nothing is left behind after `harness daemon stop`.
+ * daemon has been gone for a few probes, so nothing is left behind after `inhuman daemon stop`.
  */
 import { spawn } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
@@ -90,7 +90,7 @@ export async function liveDoor(kernel: string, probe: DoorProbe = realProbe): Pr
 
 const START_TIMEOUT_MS = 15_000;
 
-/** Spawn `harness web-door` detached and wait until it has recorded itself and answers. */
+/** Spawn `inhuman web-door` detached and wait until it has recorded itself and answers. */
 export async function startDoor(kernel: string, port: number): Promise<DoorRecord> {
   const entry = fileURLToPath(new URL("../bin.js", import.meta.url));
   const log = openSync(doorLogPath(kernel), "a");

@@ -1,6 +1,6 @@
 /**
  * The TUI and the web app are optional peers of this package. A command loads its shell when it runs,
- * so `harness daemon stop` and `harness mcp list` never pay for either. A shell that is not installed
+ * so `inhuman daemon stop` and `inhuman mcp list` never pay for either. A shell that is not installed
  * becomes an install hint; any other failure to load, a dependency of an installed shell included,
  * keeps its stack: that is a broken install, not a missing shell.
  */
@@ -42,7 +42,7 @@ export async function importShell<T>(
     return await load();
   } catch (error) {
     if (!isShellMissing(error, shell.specifier)) throw error;
-    context.writeErr(`harness: the ${shell.label} is not installed — add ${packageNameOf(shell.specifier)}`);
+    context.writeErr(`inhuman: the ${shell.label} is not installed — add ${packageNameOf(shell.specifier)}`);
     return undefined;
   }
 }

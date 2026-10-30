@@ -1,5 +1,5 @@
 /**
- * `harness login | logout | remote status`: routing, the parked open-url form, and the printouts.
+ * `inhuman login | logout | remote status`: routing, the parked open-url form, and the printouts.
  * The daemon is a fake RPC; the real login round trip is the kernel's remote-access test.
  */
 import { Readable, Writable } from "node:stream";
@@ -143,7 +143,7 @@ it("status prints a table, the last error, and --json verbatim", async () => {
     machineName: "box",
     relayUrl: "https://harness.inhuman.tools",
     connected: false,
-    lastError: "The remote-access login expired or was revoked. Run `harness login` again.",
+    lastError: "The remote-access login expired or was revoked. Run `inhuman login` again.",
   };
   const { rpc } = fakeRpc(() => status);
   const table = capture();
@@ -151,7 +151,7 @@ it("status prints a table, the last error, and --json verbatim", async () => {
   expect(table.stdout).toContain("signed out");
   expect(table.stdout).toContain("box (m1)");
   expect(table.stdout).toContain("last error");
-  expect(table.stdout).toContain("run `harness login` to sign in");
+  expect(table.stdout).toContain("run `inhuman login` to sign in");
 
   const json = capture();
   await runRemote({ verb: "status", kernel: "/k", json: true }, new ShellContext(json.streams), { rpc });

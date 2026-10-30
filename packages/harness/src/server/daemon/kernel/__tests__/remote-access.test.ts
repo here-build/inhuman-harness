@@ -271,7 +271,7 @@ describe("RemoteAccess accessToken", () => {
     await expect(t.remote.accessToken(Date.now() + 3_600_000)).resolves.toBeUndefined();
     const status = t.remote.status();
     expect(status.loggedIn).toBe(false);
-    expect(status.lastError).toMatch(/harness login/);
+    expect(status.lastError).toMatch(/inhuman login/);
   });
 });
 

@@ -22,7 +22,7 @@ export class WebCommand extends KernelCommand {
   port = Option.String("--port", "8787", { description: "loopback port" });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness web");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman web");
     if (blocked !== undefined) return blocked;
     const port = Number(this.port);
     if (!Number.isInteger(port) || port < 0) {

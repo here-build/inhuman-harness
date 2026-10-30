@@ -1,5 +1,5 @@
 /**
- * `harness open`: the daemon/door/browser decisions against fakes, the door record file, and routing.
+ * `inhuman open`: the daemon/door/browser decisions against fakes, the door record file, and routing.
  * The detached process and the real daemon are covered end to end by the packed-install check.
  */
 import { createServer } from "node:http";

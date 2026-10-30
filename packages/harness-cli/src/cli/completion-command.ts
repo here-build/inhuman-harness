@@ -29,11 +29,11 @@ export class CompletionCommand extends Command<ShellContext> {
   static usage = Command.Usage({
     description: "print a shell completion script",
     details:
-      'Eval from the shell rc: `eval "$(harness completion zsh)"`. Completing `--resume` does not start the daemon.',
+      'Eval from the shell rc: `eval "$(inhuman completion zsh)"`. Completing `--resume` does not start the daemon.',
     examples: [
-      ["zsh", 'eval "$(harness completion zsh)"'],
-      ["bash", 'eval "$(harness completion bash)"'],
-      ["fish", "harness completion fish | source"],
+      ["zsh", 'eval "$(inhuman completion zsh)"'],
+      ["bash", 'eval "$(inhuman completion bash)"'],
+      ["fish", "inhuman completion fish | source"],
     ],
   });
 
@@ -54,7 +54,7 @@ export class CompleteCommand extends KernelCommand {
   query = Option.String({ required: false, name: "query" });
 
   async execute(): Promise<number> {
-    const blocked = this.rejectUnsupportedAgentFlags("harness complete");
+    const blocked = this.rejectUnsupportedAgentFlags("inhuman complete");
     if (blocked !== undefined) return blocked;
     const kernel = this.kernelPath();
     const socket = join(kernel, "daemon.sock");
@@ -85,58 +85,58 @@ export class CompleteCommand extends KernelCommand {
 
 function scriptFor(shell: "zsh" | "bash" | "fish"): string {
   if (shell === "zsh") {
-    return `#compdef harness
-_harness_sessions() {
+    return `#compdef inhuman
+_inhuman_sessions() {
   local -a sessions
   local id desc
   while IFS=$'\\t' read -r id desc; do
     [[ -n $id ]] || continue
     sessions+=("\${id}:\${desc}")
-  done < <(harness complete -- "\${words[CURRENT]}" 2>/dev/null)
+  done < <(inhuman complete -- "\${words[CURRENT]}" 2>/dev/null)
   _describe -t sessions 'session' sessions
 }
-_harness() {
+_inhuman() {
   if [[ \${words[CURRENT-1]} == --resume || \${words[CURRENT-1]} == --session ]]; then
-    _harness_sessions
+    _inhuman_sessions
     return
   fi
   _arguments \\
     '--kernel[system folder]:path:_directories' \\
-    '--resume[session id]:session:_harness_sessions' \\
-    '--session[session id]:session:_harness_sessions' \\
+    '--resume[session id]:session:_inhuman_sessions' \\
+    '--session[session id]:session:_inhuman_sessions' \\
     '--connection[completion connection id]:connection:' \\
     '--model[model id]:model:' \\
     '(--continue -c)'{--continue,-c}'[restore this tab last session]' \\
     '--restart-daemon[stop a live daemon before attach]' \\
-    '1:command:(mcp daemon eval completion complete help)'
+    '1:command:(open web login logout remote mcp daemon blobs install eval completion complete help)'
 }
-compdef _harness harness
+compdef _inhuman inhuman
 `;
   }
   if (shell === "bash") {
-    return `_harness() {
+    return `_inhuman() {
   local cur prev
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
   if [[ $prev == --resume || $prev == --session ]]; then
     local ids
-    ids=$(harness complete -- "$cur" 2>/dev/null | cut -f1)
+    ids=$(inhuman complete -- "$cur" 2>/dev/null | cut -f1)
     COMPREPLY=($(compgen -W "$ids" -- "$cur"))
     return
   fi
-  COMPREPLY=($(compgen -W "mcp daemon eval completion complete help --resume --session --continue --connection --model --kernel --restart-daemon" -- "$cur"))
+  COMPREPLY=($(compgen -W "open web login logout remote mcp daemon blobs install eval completion complete help --resume --session --continue --connection --model --kernel --restart-daemon" -- "$cur"))
 }
-complete -F _harness harness
+complete -F _inhuman inhuman
 `;
   }
-  return `complete -c harness -l resume -r -f -a '(harness complete -- (commandline -ct) 2>/dev/null)'
-complete -c harness -l session -r -f -a '(harness complete -- (commandline -ct) 2>/dev/null)'
-complete -c harness -l continue -s c
-complete -c harness -l connection -r
-complete -c harness -l model -r
-complete -c harness -l kernel -r
-complete -c harness -l restart-daemon
-complete -c harness -n '__fish_use_subcommand' -a 'mcp daemon eval completion complete help'
+  return `complete -c inhuman -l resume -r -f -a '(inhuman complete -- (commandline -ct) 2>/dev/null)'
+complete -c inhuman -l session -r -f -a '(inhuman complete -- (commandline -ct) 2>/dev/null)'
+complete -c inhuman -l continue -s c
+complete -c inhuman -l connection -r
+complete -c inhuman -l model -r
+complete -c inhuman -l kernel -r
+complete -c inhuman -l restart-daemon
+complete -c inhuman -n '__fish_use_subcommand' -a 'open web login logout remote mcp daemon blobs install eval completion complete help'
 `;
 }

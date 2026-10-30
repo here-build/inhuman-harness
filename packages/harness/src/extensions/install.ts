@@ -1,5 +1,5 @@
 /**
- * `harness install <pkg>`: stream `npm install --save --ignore-scripts` into the
+ * `inhuman install <pkg>`: stream `npm install --save --ignore-scripts` into the
  * kernel folder, then record the installed plugin.json name as enabled.
  * Omit is already enabled; a prior `{ enabled: false }` is deleted.
  */
@@ -38,7 +38,7 @@ export async function installPlugin(
 ): Promise<number> {
   const spec = pkg.trim();
   if (spec === "") {
-    streams.writeErr("harness install requires a package");
+    streams.writeErr("inhuman install requires a package");
     return 2;
   }
   mkdirSync(kernel, { recursive: true });
