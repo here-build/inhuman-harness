@@ -6,7 +6,7 @@
   "scripts": {
     "build": "turbo build",
     "test": "turbo test --continue",
-    "test:process": "pnpm --filter @inhuman.tools/harness-cli test:process && pnpm --filter @inhuman.tools/harness test:process",
+    "test:process": "pnpm --filter inhuman test:process && pnpm --filter @inhuman.tools/harness test:process",
     "test:visual": "pnpm --filter @inhuman.tools/harness-tui test:visual",
     "test:boundaries": "node --test scripts/packed-product.test.mjs",
     "verify": "pnpm test:boundaries && pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm test:process && pnpm test:visual",

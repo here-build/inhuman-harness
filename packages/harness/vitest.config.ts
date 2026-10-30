@@ -30,7 +30,7 @@ export default defineConfig({
     // that read config.test.include discover nothing. Vitest still runs only
     // the named projects.
     // Whitelist. __process__ is Large. The TUI's projects live in
-    // packages/harness-tui/vitest.config.ts, the CLI's in packages/harness-cli/vitest.config.ts.
+    // packages/harness-tui/vitest.config.ts, the CLI's in packages/inhuman/vitest.config.ts.
     // A new src/<area>/__tests__ directory stays out of logic until it is listed.
     include: ["src/**/__tests__/**/*.test.ts", "src/**/__process__/**/*.test.ts"],
     projects: [

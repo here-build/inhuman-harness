@@ -1,7 +1,7 @@
 {
   "name": "inhuman",
   "version": "0.1.0",
-  "description": "npx inhuman: start the inhuman harness daemon if needed and open its web client.",
+  "description": "inhuman: the agent harness CLI — TUI, web client, daemon, remote access.",
   "keywords": ["inhuman", "harness", "agent", "cli"],
   "homepage": "https://github.com/here-build/inhuman-harness#readme",
   "bugs": {
@@ -19,8 +19,22 @@
     "inhuman": "./bin/inhuman.mjs"
   },
   "files": [
-    "bin"
+    "bin",
+    "dist"
   ],
+  "browserslist": [
+    "node >= 22"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json && env DEBUG='*' node dist/bin.js --restart-daemon",
+    "dev:no-restart": "tsc -p tsconfig.build.json && env DEBUG='*' node dist/bin.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run --project logic",
+    "test:process": "vitest run --project process"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -28,7 +42,30 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@inhuman.tools/harness-cli": "workspace:^",
-    "@inhuman.tools/harness-web-app": "workspace:^"
+    "@here.build/arrival-serializer": "^0.10.2",
+    "@inhuman.tools/harness": "workspace:^",
+    "@inhuman.tools/harness-contract": "workspace:^",
+    "@inhuman.tools/harness-diagnostics": "workspace:^",
+    "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/harness-sdk": "workspace:^",
+    "@inhuman.tools/harness-tui": "workspace:^",
+    "@inhuman.tools/harness-web-app": "workspace:^",
+    "clipanion": "4.0.0-rc.4",
+    "mobx": "6.16.1",
+    "typanion": "3.14.0"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@here.build/arrival": "^0.10.2",
+    "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/harness-commons": "workspace:^",
+    "@inhuman.tools/harness-peer": "workspace:^",
+    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.2",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0",
+    "y-websocket": "3.1.0",
+    "yjs": "13.6.33"
   }
 }

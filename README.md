@@ -95,8 +95,8 @@ corepack enable
 pnpm install --frozen-lockfile
 pnpm build
 cargo build --release --manifest-path packages/quickdraw/rust/qd/Cargo.toml
-pnpm --filter @inhuman.tools/harness-cli dev      # terminal client
-node packages/inhuman/bin/inhuman.mjs             # web client, as npx inhuman
+pnpm --filter inhuman dev                         # terminal client
+node packages/inhuman/bin/inhuman.mjs web         # web client, as npx inhuman web
 ```
 
 The full local gate, as CI runs it:
@@ -112,9 +112,8 @@ and terminal visual tests.
 
 | Path | Package | Role |
 |------|---------|------|
-| [`packages/inhuman`](packages/inhuman) | `inhuman` | `npx inhuman`: daemon, background web server, browser; other arguments go to `harness` |
+| [`packages/inhuman`](packages/inhuman) | `inhuman` | The `inhuman` command (`npx inhuman`): terminal client, `start`, `web`, `login`, `daemon`, `eval`, `mcp`, `install`, completion |
 | [`packages/harness`](packages/harness) | `@inhuman.tools/harness` | Core: the daemon (kernel and session planes), runtime, providers, Yjs sync. Ships `compact.scm`, `compact.prompt`, `src/server/defaults` |
-| [`packages/harness-cli`](packages/harness-cli) | `@inhuman.tools/harness-cli` | The `harness` command: `open`, `web`, `daemon`, `eval`, `mcp`, `install`, completion. The terminal and web clients load on demand |
 | [`packages/harness-tui`](packages/harness-tui) | `@inhuman.tools/harness-tui` | Terminal client: interpreter, frames, visual tests |
 | [`packages/harness-web-app`](packages/harness-web-app) | `@inhuman.tools/harness-web-app` | Browser client and its loopback server (`./server`) |
 | [`packages/harness-transcript`](packages/harness-transcript) | `@inhuman.tools/harness-transcript` | The session transcript, rendered by the browser client |

@@ -5,7 +5,7 @@ export const compositionPackages = [
   "@inhuman.tools/harness-server",
   "@inhuman.tools/harness",
   "@inhuman.tools/harness-tui",
-  "@inhuman.tools/harness-cli",
+  "inhuman",
 ];
 
 export const modelPackage = "@inhuman.tools/harness-model";
@@ -16,12 +16,12 @@ export const connectionsIntern = "packages/harness/src/connections/intern.ts";
 export const connectionsImport = /from "@inhuman\.tools\/plexus-expectations\/executor"/;
 
 export const cli = {
-  packageName: "@inhuman.tools/harness-cli",
-  binName: "harness",
-  binPath: "./bin/harness.mjs",
+  packageName: "inhuman",
+  binName: "inhuman",
+  binPath: "./bin/inhuman.mjs",
   filesInclude: ["bin", "dist"],
-  packedIncludes: ["bin/harness.mjs"],
-  packMissing: "CLI pack missing bin/harness.mjs",
+  packedIncludes: ["bin/inhuman.mjs"],
+  packMissing: "CLI pack missing bin/inhuman.mjs",
 };
 
 export const hypervisor = {
