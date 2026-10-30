@@ -129,7 +129,8 @@ describe("ChunkedWebSocket round-trip — raw bytes", () => {
 
     const received = await serverReceived;
     expect(received.byteLength).toBe(payload.byteLength);
-    expect(new Uint8Array(received)).toEqual(payload);
+    // Buffer.equals: a deep toEqual over 5 M elements takes seconds and times out under load.
+    expect(Buffer.from(received).equals(payload)).toBe(true);
   });
 
   it("delivers a 5 MB binary message server → client intact", async () => {
@@ -169,7 +170,8 @@ describe("ChunkedWebSocket round-trip — raw bytes", () => {
 
     const received = await clientReceived;
     expect(received.byteLength).toBe(payload.byteLength);
-    expect(new Uint8Array(received)).toEqual(payload);
+    // Buffer.equals: a deep toEqual over 5 M elements takes seconds and times out under load.
+    expect(Buffer.from(received).equals(payload)).toBe(true);
   });
 
   it("passes small messages through without chunking overhead", async () => {
@@ -201,7 +203,8 @@ describe("ChunkedWebSocket round-trip — raw bytes", () => {
     client.send(payload.buffer);
 
     const received = await serverReceived;
-    expect(new Uint8Array(received)).toEqual(payload);
+    // Buffer.equals: a deep toEqual over 5 M elements takes seconds and times out under load.
+    expect(Buffer.from(received).equals(payload)).toBe(true);
     // Single binary frame, no chunking overhead — passthrough.
     expect(frameCount).toBe(1);
   });
