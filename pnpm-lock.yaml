@@ -1163,6 +1163,42 @@ importers:
         specifier: 4.1.0
         version: 4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.0.0)(happy-dom@20.14.6)(vite@7.3.6(@types/node@24.0.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.51.2)(tsx@4.23.4)(yaml@2.9.0))
 
+  packages/chunked-websocket:
+    devDependencies:
+      '@-internal-/eslint-configs':
+        specifier: workspace:*
+        version: link:../../internal/eslint-config
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.0.0
+      '@types/ws':
+        specifier: 8.18.1
+        version: 8.18.1
+      eslint:
+        specifier: 9.39.2
+        version: 9.39.2(jiti@2.7.0)
+      lib0:
+        specifier: 0.2.119
+        version: 0.2.119
+      typescript:
+        specifier: 6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: 4.1.0
+        version: 4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.0.0)(happy-dom@20.14.6)(vite@7.3.6(@types/node@24.0.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.51.2)(tsx@4.23.4)(yaml@2.9.0))
+      ws:
+        specifier: ^8.18.3
+        version: 8.18.3
+      y-protocols:
+        specifier: 1.0.7
+        version: 1.0.7(yjs@13.6.33)
+      y-websocket:
+        specifier: 3.1.0
+        version: 3.1.0(yjs@13.6.33)
+      yjs:
+        specifier: 13.6.33
+        version: 13.6.33
+
   packages/env-capability-module-prompt:
     dependencies:
       '@here.build/arrival':

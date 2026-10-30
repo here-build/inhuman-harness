@@ -1,0 +1,69 @@
+{
+  "name": "@inhuman.tools/chunked-websocket",
+  "version": "0.1.0",
+  "description": "Transparent WebSocket message chunking: splits binary and text messages over 1 MiB into reassemblable chunks so workerd accepts them. Adapted from @here.build/chunked-websocket, itself adapted from partykit's y-partykit chunking.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/ChunkedWebSocket.d.ts",
+      "import": "./dist/ChunkedWebSocket.js",
+      "default": "./dist/ChunkedWebSocket.js"
+    },
+    "./server": {
+      "types": "./dist/ChunkedDOTransport.d.ts",
+      "import": "./dist/ChunkedDOTransport.js",
+      "default": "./dist/ChunkedDOTransport.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "THIRD-PARTY-NOTICES.md",
+    "!**/__tests__"
+  ],
+  "sideEffects": false,
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 safari versions",
+    "ios_saf >= 16.4",
+    "node >= 22"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@types/ws": "8.18.1",
+    "eslint": "9.39.2",
+    "lib0": "0.2.119",
+    "typescript": "6.0.2",
+    "vitest": "4.1.0",
+    "ws": "^8.18.3",
+    "y-protocols": "1.0.7",
+    "y-websocket": "3.1.0",
+    "yjs": "13.6.33"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/chunked-websocket"
+  },
+  "author": "Merkle Bonsai",
+  "publishConfig": {
+    "access": "public"
+  }
+}
