@@ -1,0 +1,66 @@
+name: Release
+
+# Publishes every public workspace package to npm. Versions already on the registry are skipped.
+# Run with dry_run first.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Dry run (do not publish)
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  qd:
+    uses: ./.github/workflows/qd-prebuild.yml
+
+  publish:
+    needs: qd
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qd-*
+          path: qd-artifacts
+      - name: Place qd binaries
+        run: |
+          for platform in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do
+            src="qd-artifacts/qd-$platform/qd"
+            if [ ! -f "$src" ]; then
+              echo "::error::missing qd binary for $platform ($src)"
+              exit 1
+            fi
+            cp "$src" "packages/qd-$platform/qd"
+            chmod +x "packages/qd-$platform/qd"
+          done
+          ls -l packages/qd-*/qd
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm release:check
+      - name: Publish
+        run: |
+          args="--access public --no-git-checks --provenance"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then args="$args --dry-run"; fi
+          pnpm -r publish $args
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
