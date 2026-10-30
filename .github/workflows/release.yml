@@ -61,6 +61,7 @@ jobs:
         run: |
           args="--access public --no-git-checks --provenance"
           if [ "${{ inputs.dry_run }}" = "true" ]; then args="$args --dry-run"; fi
-          pnpm -r publish $args
+          # arrival-manifold is versioned and released separately.
+          pnpm -r --filter '!@inhuman.tools/arrival-manifold' publish $args
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
