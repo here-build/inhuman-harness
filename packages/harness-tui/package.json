@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/harness-tui",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Terminal shell for the harness daemon: the Tea state machine, the paint pipeline over quickdraw, the host and worker, the client-side Scheme sandbox, and the Mac terminal screenshot driver.",
   "type": "module",
   "main": "./dist/index.js",
@@ -74,7 +73,15 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/harness-tui"
+  },
+  "author": "Merkle Bonsai",
+  "homepage": "https://github.com/here-build/inhuman-harness#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
