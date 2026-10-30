@@ -1,6 +1,6 @@
 /**
  * The web door: a detached `inhuman web-door` process that serves the built client on loopback and
- * proxies rooms to the daemon socket. `inhuman open` starts one when none is live and leaves it running.
+ * proxies rooms to the daemon socket. `inhuman start` and `inhuman web` start one when none is live and leaves it running.
  * The door records itself in `<kernel>/web.json`, logs to `<kernel>/web.log`, and leaves when the
  * daemon has been gone for a few probes, so nothing is left behind after `inhuman daemon stop`.
  */

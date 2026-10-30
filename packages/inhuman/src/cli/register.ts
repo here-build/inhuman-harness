@@ -22,11 +22,10 @@ import {
   McpLogoutCommand,
   McpRemoveCommand,
 } from "./mcp-commands.js";
-import { OpenCommand } from "./open-command.js";
 import { LoginCommand, LogoutCommand, RemoteCommand, RemoteStatusCommand } from "./remote-commands.js";
 import { TuiCommand } from "./tui-command.js";
 import { exportWebStaticDir } from "./web-static.js";
-import { WebCommand } from "./web-command.js";
+import { StartCommand, WebCommand } from "./web-commands.js";
 import { WebDoorCommand } from "./web-door-command.js";
 
 const NAMED = new Set([
@@ -38,9 +37,9 @@ const NAMED = new Set([
   "install",
   "completion",
   "complete",
+  "start",
   "web",
   "web-door",
-  "open",
   "login",
   "logout",
   "remote",
@@ -94,9 +93,9 @@ export function isEvalArgv(argv: readonly string[]): boolean {
 const COMMANDS = [
   Builtins.HelpCommand,
   TuiCommand,
+  StartCommand,
   WebCommand,
   WebDoorCommand,
-  OpenCommand,
   CompletionCommand,
   CompleteCommand,
   EvalCommand,

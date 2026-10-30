@@ -108,7 +108,7 @@ _inhuman() {
     '--model[model id]:model:' \\
     '(--continue -c)'{--continue,-c}'[restore this tab last session]' \\
     '--restart-daemon[stop a live daemon before attach]' \\
-    '1:command:(open web login logout remote mcp daemon blobs install eval completion complete help)'
+    '1:command:(start web login logout remote mcp daemon blobs install eval completion complete help)'
 }
 compdef _inhuman inhuman
 `;
@@ -125,7 +125,7 @@ compdef _inhuman inhuman
     COMPREPLY=($(compgen -W "$ids" -- "$cur"))
     return
   fi
-  COMPREPLY=($(compgen -W "open web login logout remote mcp daemon blobs install eval completion complete help --resume --session --continue --connection --model --kernel --restart-daemon" -- "$cur"))
+  COMPREPLY=($(compgen -W "start web login logout remote mcp daemon blobs install eval completion complete help --resume --session --continue --connection --model --kernel --restart-daemon" -- "$cur"))
 }
 complete -F _inhuman inhuman
 `;
@@ -137,6 +137,6 @@ complete -c inhuman -l connection -r
 complete -c inhuman -l model -r
 complete -c inhuman -l kernel -r
 complete -c inhuman -l restart-daemon
-complete -c inhuman -n '__fish_use_subcommand' -a 'open web login logout remote mcp daemon blobs install eval completion complete help'
+complete -c inhuman -n '__fish_use_subcommand' -a 'start web login logout remote mcp daemon blobs install eval completion complete help'
 `;
 }

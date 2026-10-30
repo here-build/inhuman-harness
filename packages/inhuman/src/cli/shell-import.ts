@@ -1,5 +1,5 @@
 /**
- * The TUI and the web app are optional peers of this package. A command loads its shell when it runs,
+ * The TUI and the web app are dependencies loaded on demand. A command loads its shell when it runs,
  * so `inhuman daemon stop` and `inhuman mcp list` never pay for either. A shell that is not installed
  * becomes an install hint; any other failure to load, a dependency of an installed shell included,
  * keeps its stack: that is a broken install, not a missing shell.

@@ -10,6 +10,7 @@ import { Command, Option } from "clipanion";
 
 import { KernelCommand, type ShellContext, type Streams } from "./context.js";
 import { openKernelRpc } from "./kernel-client.js";
+import { ensureServing, parsePort, realServeDeps, serveOutput, webShellInstalled } from "./web-commands.js";
 
 const ENV_HELP = `
       The daemon reads two optional variables from its own environment, so set them before it starts (run
@@ -23,9 +24,9 @@ export class LoginCommand extends KernelCommand {
   static paths = [["login"]];
   static usage = Command.Usage({
     category: "Remote",
-    description: "sign this machine in for remote access",
+    description: "start the daemon and web server if needed, then sign this machine in for remote access",
     details: `
-      Starts a WorkOS device login. Open the printed address, check the code, and approve. The daemon then keeps
+      Runs \`inhuman start\` first, so the daemon and the web server are up. Starts a WorkOS device login. Open the printed address, check the code, and approve. The daemon then keeps
       a connection to the relay open and this machine shows up on the remote picker.
       ${ENV_HELP}`,
     examples: [["Name the machine", "$0 login --name laptop"]],
@@ -33,15 +34,25 @@ export class LoginCommand extends KernelCommand {
 
   name = Option.String("--name", { description: "machine name on the remote picker (default: hostname)" });
   browser = Option.Boolean("--browser", true, { description: "open the approval page in a browser" });
+  port = Option.String("--port", "8787", { description: "preferred loopback port for the web server" });
 
   async execute(): Promise<number> {
     const blocked = this.rejectUnsupportedAgentFlags("inhuman login");
     if (blocked !== undefined) return blocked;
+    const port = parsePort(this.port);
+    if (port === undefined) {
+      this.context.writeErr("login: --port must be a whole number");
+      return 1;
+    }
+    if (!(await webShellInstalled(this.context))) return 1;
+    const kernel = this.kernelPath();
     return (
-      await runRemote(
-        { verb: "login", kernel: this.kernelPath(), name: this.name, browser: this.browser },
-        this.context,
-      )
+      await runRemote({ verb: "login", kernel, name: this.name, browser: this.browser }, this.context, {
+        prepare: async () => {
+          const door = await ensureServing(realServeDeps, { kernel, port }, serveOutput(this.context));
+          this.context.stderr.write(`web: ${door.url}\n`);
+        },
+      })
     ).code;
   }
 }
@@ -100,6 +111,8 @@ export type RemoteArgv =
 export type RemoteDeps = {
   readonly rpc?: KernelRpc;
   readonly openBrowser?: (url: string) => void;
+  /** Runs before the daemon is asked to log in: `login` brings the daemon and web server up here. */
+  readonly prepare?: () => Promise<void>;
 };
 
 export async function runRemote(
@@ -109,6 +122,7 @@ export async function runRemote(
 ): Promise<{ code: number }> {
   const owned = deps.rpc === undefined;
   try {
+    if (args.verb === "login") await deps.prepare?.();
     const rpc = deps.rpc ?? (await openKernelRpc(args.kernel));
     try {
       switch (args.verb) {

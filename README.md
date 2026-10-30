@@ -11,7 +11,7 @@ which wait for you.
 Requirements: Node.js 22 or newer, macOS or Linux.
 
 ```sh
-npx inhuman
+npx inhuman web
 ```
 
 What happens:
@@ -19,11 +19,12 @@ What happens:
 1. If the daemon is not running, it starts in the background.
 2. A small local web server starts next to it, also in the background, on
    `http://127.0.0.1:8787/` (or a free port when 8787 is taken).
-3. The URL is printed. If the daemon was just started, your browser opens on it.
+3. The URL is printed and your browser opens on it.
 4. The command exits. Daemon and web server keep running.
 
-Run `npx inhuman` again at any time: it finds the running daemon and web
-server, prints the same URL, and does not open another browser window.
+Run `npx inhuman web` again at any time: it finds the running daemon and web
+server and opens the same URL. `npx inhuman start` does the same without
+opening a browser. `npx inhuman` with no arguments attaches the terminal client.
 
 ### First session
 
@@ -46,12 +47,15 @@ Each session runs in one of three modes, switchable from the client:
 
 ### Everyday commands
 
-`inhuman` with no arguments opens the client. With arguments it is the
-`harness` command line:
-
 ```sh
-npx inhuman --no-browser          # start everything, print the URL only
-npx inhuman --port 9000           # preferred web port
+npx inhuman                       # terminal client
+npx inhuman start                 # daemon and web server in the background, print the URL
+npx inhuman web                   # same, then open the browser
+npx inhuman web --no-browser      # print the URL only
+npx inhuman web --port 9000       # preferred web port
+npx inhuman login                 # start the above if needed, then sign in for remote access
+npx inhuman logout
+npx inhuman remote status
 npx inhuman daemon stop           # stop the daemon; the web server exits by itself
 npx inhuman daemon restart
 npx inhuman eval -e '(+ 1 2)'     # run a program once and print the result

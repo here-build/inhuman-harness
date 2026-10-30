@@ -66,6 +66,7 @@ it("routes commands and scopes flags", () => {
     },
     { argv: ["mcp", "login", "sentry", "--no-browser"], className: "McpLoginCommand", browser: false },
     { argv: ["daemon", "stop"], className: "DaemonStopCommand" },
+    { argv: ["start"], className: "StartCommand", port: "8787" },
     { argv: ["web"], className: "WebCommand", port: "8787" },
     { argv: ["web", "--port", "9"], className: "WebCommand", port: "9" },
     { argv: ["install", "@inhuman.tools/plugin-goal"], className: "InstallCommand", pkg: "@inhuman.tools/plugin-goal" },
