@@ -1,10 +1,10 @@
 # Remote access through harness.inhuman.tools
 
-Status: phases 1–6 done on branch `remote-access`; phase 7 (deploy) waits on the owner-only steps below. Experimental sandbox, not a commercial production service.
+Status: deployed. The relay has been live at https://harness.inhuman.tools since 2026-10-30. Experimental sandbox, not a commercial production service.
 
 Run the whole chain locally: `pnpm turbo run build --filter=inhuman... --filter=@inhuman.tools/harness-relay...`, then `pnpm --filter @inhuman.tools/harness-relay test:e2e`. The wire contract between the connector and the relay is `packages/harness-relay/PROTOCOL.md`.
 
-Known gaps: the workflow-graph SSE (`/sessions/:id/workflows/:job`) has no server in local mode either, so it is not tunneled; raw `<a href>` links in the rail ignore the `/m/<id>/app` base on middle-click; logout does not revoke the token at WorkOS; real AuthKit login, device login against WorkOS and Durable Object hibernation are untested until deploy.
+Known gaps: the workflow-graph SSE (`/sessions/:id/workflows/:job`) has no server in local mode either, so it is not tunneled; raw `<a href>` links in the rail ignore the `/m/<id>/app` base on middle-click; logout does not revoke the token at WorkOS; real AuthKit login, device login against WorkOS and Durable Object hibernation have not been exercised by the automated tests, only by hand.
 
 ## Goal
 
@@ -86,15 +86,16 @@ A copy of `@here.build/chunked-websocket` 0.10.0 (`~/WebstormProjects/here.build
 | 4 | CLI commands | `inhuman login` drives 3a |
 | 5 | web app base URL + remote mode | app works under `/m/<machine>/app/` |
 | 6 | e2e against `wrangler dev` with a dev-only token gate | scenarios: open session, stream, two tabs RPC, >1 MiB blob, `/file`, daemon restart, expired token, logout |
-| 7 | deploy workflow, README | needs the owner: CF zone, WorkOS production env, secrets |
+| 7 | deploy, README | done: relay deployed, README documents `inhuman login` |
 
-## Owner-only steps (not automated)
+## Operations
 
-- Cloudflare zone `inhuman.tools`, custom domain `harness.inhuman.tools`.
-- WorkOS production environment with CLI Auth enabled and redirect `https://harness.inhuman.tools/auth/callback`.
-- Secrets: `WORKOS_API_KEY`, `WORKOS_COOKIE_PASSWORD`, `CLOUDFLARE_API_TOKEN`.
+- Deploys run through Cloudflare Workers Builds from `main`: root directory `packages/harness-relay`, build command `pnpm turbo run build --filter=@inhuman.tools/chunked-websocket`, deploy command `npx wrangler deploy --env production`.
+- Secrets `WORKOS_API_KEY`, `WORKOS_COOKIE_PASSWORD` and `ALLOWED_EMAILS` (the tester allowlist) live as Worker secrets.
+- The WorkOS client id is public and lives in `wrangler.jsonc`. The daemon reads it from the relay's `/api/config`; `HARNESS_REMOTE_WORKOS_CLIENT_ID` only overrides it.
+- Custom domain `harness.inhuman.tools` on the `inhuman.tools` zone; WorkOS production environment has CLI Auth enabled and redirect `https://harness.inhuman.tools/auth/callback`.
 
-## Open questions
+## Decisions
 
-- Remote access as a PEW connection or as a kernel service: decided in phase 3a by how naturally adopt and lifecycle fit.
-- Copied code from private here.build packages (`reverse-tunnel`) is relicensed MIT by the owner.
+- Remote access is a kernel service (`packages/harness/src/server/daemon/kernel/remote-access.ts`), not a PEW connection.
+- Code copied from private here.build packages (`reverse-tunnel`) is relicensed MIT by the owner.

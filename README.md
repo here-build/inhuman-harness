@@ -68,7 +68,25 @@ State lives in the kernel directory, `~/.harness` by default. Pass
 `--kernel PATH` to any command to use another one. The web server records itself
 in `<kernel>/web.json` and logs to `<kernel>/web.log`.
 
-The terminal client is not on npm yet; run it from a source checkout (below).
+## Remote access
+
+```sh
+npx inhuman login
+```
+
+Sign in with your WorkOS account in the browser window that opens, then visit
+<https://harness.inhuman.tools>, pick your machine and use the regular web app
+against this machine's daemon from anywhere.
+
+How it works: the daemon dials out to a Cloudflare relay, so no inbound port is
+opened. The relay keeps documents in memory only, as a speed-up; your machine
+stays the source of truth. Idle connections cost nothing.
+
+Security: this is an experimental sandbox. Anyone signed in as you can drive
+this machine's harness, including tools that run commands. Access is limited to
+an email allowlist. `npx inhuman logout` turns it off, and
+`npx inhuman remote status` shows the current state. See
+[docs/proposals/remote-access.md](docs/proposals/remote-access.md).
 
 ## How it fits together
 
@@ -139,8 +157,25 @@ and terminal visual tests.
 | [`packages-policy/*-auto-mode`](packages-policy) | `@inhuman.tools/policy-*` | The same auto mode for other coding agents: aider, Continue, Crush, OpenClaw, OpenCode, pi |
 | [`packages-statusline`](packages-statusline), [`packages-activity`](packages-activity), [`packages-continuation`](packages-continuation) | `@inhuman.tools/statusline`, `activity`, `continuation` | Git statusline, session titles, and the continue-vote, with adapters for other agents |
 | [`extras/arrival-manifold`](extras/arrival-manifold) | `@inhuman.tools/arrival-manifold` | Collapse many MCP servers into one Scheme REPL tool |
+| [`packages/harness-relay`](packages/harness-relay) | `@inhuman.tools/harness-relay` | The Cloudflare Worker behind harness.inhuman.tools (private, deployed from `main`) |
+| [`packages/qd-*`](packages) | `@inhuman.tools/qd-<os>-<arch>` | Prebuilt `qd` binaries, one package per platform, built by CI at release |
 | [`plugins/`](plugins/) | `@inhuman.tools/plugin-*` | Shipped plugins |
 | [`internal/`](internal/) | `@-internal-/*` | Shared eslint and tsconfig presets (not published) |
+
+### Releasing
+
+Publishing is done by the **Release** GitHub Actions workflow
+([`.github/workflows/release.yml`](.github/workflows/release.yml)). It builds the
+four `qd` binaries, runs `pnpm release:check` (everything `inhuman` needs at
+runtime must be public) and runs `pnpm -r publish`, which skips versions already
+on npm.
+
+1. Bump the `version` of every package that changed (and anything that depends
+   on it, `inhuman` included).
+2. Once: add a repository secret `NPM_TOKEN`, an npm granular access token with
+   publish rights on the `inhuman` package and the `@inhuman.tools` scope.
+3. Run the Release workflow from the Actions tab with `dry_run` on, check the
+   package list, then run it again with `dry_run` off.
 
 ## Security
 
