@@ -4,8 +4,6 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 
-import invariant from "tiny-invariant";
-
 import { postForm, wrapFetchFailure } from "./fetch.js";
 import { asExpiresIn, asNonEmpty, asPositiveInt, asRecord, parseJsonUnknown } from "./json.js";
 
@@ -228,13 +226,33 @@ function expiresAtOf(expiresIn: unknown, accessToken: string): string {
   return new Date(Date.now() + asExpiresIn(expiresIn) * 1000).toISOString();
 }
 
+/** A token endpoint refusal. `code` is the OAuth `error` field when the body had one. */
+export class OidcGrantError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | undefined,
+  ) {
+    super(message);
+    this.name = "OidcGrantError";
+  }
+}
+
 async function tokenGrant(
   profile: OidcProfile,
   body: Record<string, string>,
   fallbackRefresh = "",
 ): Promise<OidcTokens> {
   const response = await postForm(profile.tokenUrl, body, `${profile.driver} token`, profile.fetch);
-  invariant(response.ok, `${profile.driver} token exchange failed (${response.status})`);
+  if (!response.ok) {
+    let code: string | undefined;
+    try {
+      code = asNonEmpty(asRecord(await response.json())?.error);
+    } catch {
+      /* no JSON body */
+    }
+    throw new OidcGrantError(`${profile.driver} token exchange failed (${response.status})`, response.status, code);
+  }
   return tokensFromGrantBody(asRecord(await response.json()), profile.driver, fallbackRefresh);
 }
 

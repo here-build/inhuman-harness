@@ -7600,6 +7600,9 @@
                     },
                     "connected": {
                       "type": "boolean"
+                    },
+                    "lastError": {
+                      "type": "string"
                     }
                   },
                   "required": [

@@ -9,8 +9,10 @@ import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 
 import type { CredentialsStore } from "@/connections/credentials";
+import { readConnectionSecrets } from "../../secrets.js";
 import {
   accessTokenExpiring,
+  OidcGrantError,
   pollDeviceToken,
   refreshOidcToken,
   requestDeviceCode,
@@ -41,6 +43,8 @@ export type RemoteStatus = {
   readonly machineName: string;
   readonly relayUrl: string;
   readonly connected: boolean;
+  /** Why remote access is down: set when the relay or WorkOS refused the stored login. */
+  readonly lastError?: string;
 };
 
 export type RemoteAccessOptions = {
@@ -54,6 +58,11 @@ export type RemoteAccessOptions = {
 /** Parks the open-url form; resolves when the human continues, rejects when they cancel. */
 export type RemoteLoginUi = (body: string) => Promise<unknown>;
 
+/** Cheap boot-time check, before any kernel exists. */
+export function remoteLoggedIn(root: string): boolean {
+  return readConnectionSecrets(root, REMOTE_TOKENS_ID).refreshToken !== undefined;
+}
+
 function quote(text: string): string {
   return `"${text.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`)}"`;
 }
@@ -65,6 +74,7 @@ export class RemoteAccess {
   readonly #hostname: () => string;
   readonly #clock: DevicePollClock | undefined;
   #refreshing: Promise<string | undefined> | null = null;
+  #lastError: string | undefined;
 
   constructor(options: RemoteAccessOptions) {
     this.#credentials = options.credentials;
@@ -88,7 +98,8 @@ export class RemoteAccess {
     return { machineId, machineName };
   }
 
-  status(): RemoteStatus {
+  /** `connected` is the connector's control socket; this class only knows the login. */
+  status(connected = false): RemoteStatus {
     const tokens = this.#credentials.read(REMOTE_TOKENS_ID);
     const loggedIn = tokens.refreshToken !== undefined;
     return {
@@ -96,7 +107,8 @@ export class RemoteAccess {
       ...(loggedIn && tokens.email !== undefined ? { email: tokens.email } : {}),
       ...this.machine(),
       relayUrl: this.relayUrl,
-      connected: false,
+      connected,
+      ...(this.#lastError === undefined ? {} : { lastError: this.#lastError }),
     };
   }
 
@@ -112,6 +124,7 @@ export class RemoteAccess {
     );
     const tokens = await pollDeviceToken(client, device, this.#clock, options.signal);
     this.#credentials.write(REMOTE_TOKENS_ID, secretsFromTokens(tokens));
+    this.#lastError = undefined;
     if (options.name !== undefined) {
       const bag = this.#credentials.read(REMOTE_MACHINE_ID);
       this.#credentials.write(REMOTE_MACHINE_ID, { ...bag, machineName: options.name });
@@ -122,26 +135,47 @@ export class RemoteAccess {
   logout(): { readonly wasLoggedIn: boolean } {
     const wasLoggedIn = this.#credentials.read(REMOTE_TOKENS_ID).refreshToken !== undefined;
     this.#credentials.write(REMOTE_TOKENS_ID, {});
+    this.#lastError = undefined;
     return { wasLoggedIn };
+  }
+
+  /** A transient reason shown in `remote/status`; `undefined` clears it. */
+  noteError(message: string | undefined): void {
+    this.#lastError = message;
+  }
+
+  /** The stored login is dead (revoked grant, relay 401 on a fresh token): drop it and say why. */
+  revoke(reason: string): void {
+    this.#credentials.write(REMOTE_TOKENS_ID, {});
+    this.#lastError = reason;
   }
 
   /**
    * A bearer token for the relay, refreshed first when it expires within the
-   * skew. `undefined` when logged out. Concurrent callers share one refresh,
+   * skew. `undefined` when logged out, including when WorkOS answers
+   * `invalid_grant` (the tokens are then dropped). Other refresh failures
+   * reject and keep the tokens. Concurrent callers share one refresh,
    * which matters because WorkOS rotates refresh tokens.
    */
-  accessToken(now = Date.now()): Promise<string | undefined> {
+  accessToken(now = Date.now(), force = false): Promise<string | undefined> {
     const tokens = this.#credentials.read(REMOTE_TOKENS_ID);
     if (tokens.apiKey === undefined || tokens.refreshToken === undefined) return Promise.resolve(undefined);
-    if (!accessTokenExpiring(tokens.expiresAt, now)) return Promise.resolve(tokens.apiKey);
+    if (!force && !accessTokenExpiring(tokens.expiresAt, now)) return Promise.resolve(tokens.apiKey);
     this.#refreshing ??= this.#refresh(tokens.refreshToken).finally(() => {
       this.#refreshing = null;
     });
     return this.#refreshing;
   }
 
-  async #refresh(refreshToken: string): Promise<string> {
-    const refreshed = await refreshOidcToken(this.#profile(), refreshToken);
+  async #refresh(refreshToken: string): Promise<string | undefined> {
+    let refreshed;
+    try {
+      refreshed = await refreshOidcToken(this.#profile(), refreshToken);
+    } catch (error) {
+      if (!(error instanceof OidcGrantError) || error.code !== "invalid_grant") throw error;
+      this.revoke("The remote-access login expired or was revoked. Run `harness login` again.");
+      return undefined;
+    }
     const previous = this.#credentials.read(REMOTE_TOKENS_ID);
     // A refresh body may omit the user; keep who we were.
     this.#credentials.write(REMOTE_TOKENS_ID, { ...previous, ...secretsFromTokens(refreshed) });

@@ -21,6 +21,7 @@ export {
   mergeOidcIdentity as mergeOidcIdentity,
   mintOidcPkce as mintOidcPkce,
   oidcFromVerifier as oidcFromVerifier,
+  OidcGrantError as OidcGrantError,
   OIDC_REFRESH_BACKOFF_MS as OIDC_REFRESH_BACKOFF_MS,
   OIDC_REFRESH_MS as OIDC_REFRESH_MS,
   OIDC_REFRESH_SKEW_MS as OIDC_REFRESH_SKEW_MS,

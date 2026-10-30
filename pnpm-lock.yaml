@@ -1295,6 +1295,9 @@ importers:
       '@inhuman.tools/activity':
         specifier: workspace:^
         version: link:../../packages-activity/activity
+      '@inhuman.tools/chunked-websocket':
+        specifier: workspace:^
+        version: link:../chunked-websocket
       '@inhuman.tools/continuation':
         specifier: workspace:^
         version: link:../../packages-continuation/continuation

@@ -1,9 +1,11 @@
 import { realpathSync } from "node:fs";
 
+import { fail } from "@inhuman.tools/harness-diagnostics";
 import { observable } from "mobx";
 
 import { HTTPServer } from "./HTTPServer.js";
 import { KernelDaemon } from "../kernel/KernelDaemon.js";
+import { remoteLoggedIn } from "../kernel/remote-access.js";
 import { ProjectDaemon } from "../project/ProjectDaemon.js";
 import type { SessionDaemon } from "../session/SessionDaemon.js";
 
@@ -14,8 +16,12 @@ export class HarnessDaemon implements AsyncDisposable {
 
   constructor(readonly root: string) {}
 
-  listen(): Promise<void> {
-    return this.server.listen();
+  async listen(): Promise<void> {
+    await this.server.listen();
+    // The remote connector lives in the kernel, which otherwise boots on the first client.
+    if (remoteLoggedIn(this.root)) {
+      this.kernel().catch((error: unknown) => fail("remote boot", error));
+    }
   }
 
   /** A rejected boot or load is evicted, so the next call tries again. */

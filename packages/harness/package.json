@@ -46,6 +46,7 @@
     "@here.build/collections": "^0.9.0",
     "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/activity": "workspace:^",
+    "@inhuman.tools/chunked-websocket": "workspace:^",
     "@inhuman.tools/continuation": "workspace:^",
     "@inhuman.tools/env-capability-module-prompt": "workspace:^",
     "@inhuman.tools/error-with-invariant": "workspace:^",

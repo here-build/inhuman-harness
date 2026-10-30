@@ -23,7 +23,9 @@ import {
   McpRemoveCommand,
 } from "./mcp-commands.js";
 import { OpenCommand } from "./open-command.js";
+import { LoginCommand, LogoutCommand, RemoteCommand, RemoteStatusCommand } from "./remote-commands.js";
 import { TuiCommand } from "./tui-command.js";
+import { exportWebStaticDir } from "./web-static.js";
 import { WebCommand } from "./web-command.js";
 import { WebDoorCommand } from "./web-door-command.js";
 
@@ -39,6 +41,9 @@ const NAMED = new Set([
   "web",
   "web-door",
   "open",
+  "login",
+  "logout",
+  "remote",
   "-h",
   "--help",
 ]);
@@ -111,6 +116,10 @@ const COMMANDS = [
   McpDisableCommand,
   BlobsCommand,
   BlobsVacuumCommand,
+  LoginCommand,
+  LogoutCommand,
+  RemoteCommand,
+  RemoteStatusCommand,
 ];
 
 export function makeCli(): Cli<ShellContext> {
@@ -122,6 +131,7 @@ export function makeCli(): Cli<ShellContext> {
 }
 
 export async function runCli(argv: readonly string[], streams: Streams): Promise<number> {
+  exportWebStaticDir();
   const cli = makeCli();
   const context = new ShellContext(streams);
   let command;

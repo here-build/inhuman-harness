@@ -221,10 +221,20 @@ describe("RemoteAccess accessToken", () => {
     expect(t.workos.calls.filter((c) => c.form.grant_type === "refresh_token")).toHaveLength(1);
   });
 
-  it("rejects when refresh fails and leaves the stored tokens alone", async () => {
+  it("rejects when refresh fails transiently and leaves the stored tokens alone", async () => {
+    const t = setup([success(), failure("server_error", 500)]);
+    await t.remote.login(t.ui);
+    await expect(t.remote.accessToken(Date.now() + 3_600_000)).rejects.toThrow(/token exchange failed \(500\)/);
+    expect(t.credentials.read(REMOTE_TOKENS_ID).refreshToken).toBe("refresh-1");
+    expect(t.remote.status().lastError).toBeUndefined();
+  });
+
+  it("drops the tokens and reports lastError on invalid_grant", async () => {
     const t = setup([success(), failure("invalid_grant")]);
     await t.remote.login(t.ui);
-    await expect(t.remote.accessToken(Date.now() + 3_600_000)).rejects.toThrow(/token exchange failed \(400\)/);
-    expect(t.credentials.read(REMOTE_TOKENS_ID).refreshToken).toBe("refresh-1");
+    await expect(t.remote.accessToken(Date.now() + 3_600_000)).resolves.toBeUndefined();
+    const status = t.remote.status();
+    expect(status.loggedIn).toBe(false);
+    expect(status.lastError).toMatch(/harness login/);
   });
 });

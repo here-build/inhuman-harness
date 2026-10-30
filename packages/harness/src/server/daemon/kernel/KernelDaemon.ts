@@ -17,6 +17,7 @@ import { DefaultedMap } from "@here.build/collections";
 import { asUserPrompt } from "@inhuman.tools/harness-commons";
 import { contract } from "@inhuman.tools/harness-contract";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
+import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import {
   AskAgentSpec,
   type AgentNature,
@@ -65,7 +66,9 @@ import { DocumentService, AwarenessRoom, attachLens, type PlaneSocket } from "@/
 
 import { internLookedAt, probeCompletionCatalog } from "./completion-catalog.js";
 import { loginConnection, requireConnection, settingsBag, toListRow } from "./connection-rpc.js";
-import { RemoteAccess } from "./remote-access.js";
+import { RemoteAccess, remoteLoggedIn } from "./remote-access.js";
+import { RemoteConnector } from "./remote-connector.js";
+import { WEB_STATIC_DIR_ENV } from "./remote-http.js";
 import { healKernelDependencies, KERNEL_SEED_PACKAGES } from "./kernel-package.js";
 import { applyConfigSet, applyPluginSet } from "./settings-config.js";
 import {
@@ -176,6 +179,12 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       write: (id, secrets) => writeConnectionSecrets(this.root, id, { ...secrets }),
     },
   });
+  /**
+   * Dials the relay while logged in. The static directory is the CLI's to
+   * name (the daemon does not depend on the web app); file roots are the
+   * projects this kernel knows.
+   */
+  readonly #connector: RemoteConnector;
   readonly ready: Promise<void>;
   readonly #daemons = new Map<string, SessionDaemon>();
   readonly #acquiring = new Map<string, Promise<SessionPlexus | undefined>>();
@@ -496,6 +505,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           signal,
           ...(name === undefined ? {} : { name }),
         });
+        this.#connector.start();
         return { ok: true as const, ...done };
       } catch (error) {
         if (isUiCancelled(error) || isAbortError(error)) return { ok: false as const };
@@ -503,10 +513,12 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         RpcInvalidParams.invariant(false, error instanceof Error ? error.message : "remote/login failed");
       }
     }),
-    DaemonRpcMethod.fromContract(contract.kernel.remote.status, () => this.#remote.status()),
-    DaemonRpcMethod.fromContract(contract.kernel.remote.logout, () => {
+    DaemonRpcMethod.fromContract(contract.kernel.remote.status, () => this.#remote.status(this.#connector.connected)),
+    DaemonRpcMethod.fromContract(contract.kernel.remote.logout, async () => {
       step("remote/logout");
-      return { ok: true as const, ...this.#remote.logout() };
+      const done = this.#remote.logout();
+      await this.#connector.stop();
+      return { ok: true as const, ...done };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.bot.write, (args) => {
       const dir = this.#botDir(args.scope, args.project);
@@ -539,6 +551,14 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     registry: DriverRegistry = openDriverRegistry(PRODUCT_PROVIDERS),
   ) {
     super();
+    this.#connector = new RemoteConnector({
+      access: this.#remote,
+      sockPath: daemonSocketPath(realpathOrSelf(root)),
+      http: {
+        staticDir: process.env[WEB_STATIC_DIR_ENV],
+        fileRoots: () => Object.keys(this.plexus.root.projects),
+      },
+    });
     bindVisualStore(this.root);
     bindBlobStore(this.root);
     this.runtime = new ProductionRuntime({
@@ -693,6 +713,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       this[Symbol.dispose]();
     } else {
       this.#activate();
+      if (remoteLoggedIn(this.root)) this.#connector.start();
     }
   }
 
@@ -1430,6 +1451,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   [Symbol.dispose](): void {
     this.#closed = true;
+    void this.#connector.stop();
     this.#eligibilityWatch?.();
     this.#eligibilityWatch = null;
     this.#room?.close(1001, "kernel disposed");
@@ -1601,4 +1623,12 @@ function withoutDependency(raw: unknown, npmName: string): Record<string, unknow
   delete dependencies[npmName];
   pkg.dependencies = dependencies;
   return pkg;
+}
+
+function realpathOrSelf(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
 }

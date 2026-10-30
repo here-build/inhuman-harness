@@ -393,8 +393,10 @@ export const remoteStatusOutput = z.object({
   machineId: z.string(),
   machineName: z.string(),
   relayUrl: z.string(),
-  /** Always false until the connector exists. */
+  /** The connector's control socket to the relay is open. */
   connected: z.boolean(),
+  /** Set when the stored login was refused (revoked grant, relay 401) and dropped. */
+  lastError: z.string().optional(),
 });
 export const remoteLogoutInput = z.object({});
 export const remoteLogoutOutput = z.object({ ok: z.literal(true), wasLoggedIn: z.boolean() });
