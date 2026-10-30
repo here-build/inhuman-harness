@@ -82,7 +82,7 @@ describe("browser routes", () => {
     const b = uniqueSub();
     await userStub(env, a).registerMachine("m-a", "a");
     expect((await handle(get("/m/m-a/app/", { cookie: devCookie(b) }), env)).status).toBe(404);
-    expect((await handle(get("/m/m-a/app/", { cookie: devCookie(a) }), env)).status).toBe(501);
+    expect((await handle(get("/m/m-a/app/", { cookie: devCookie(a) }), env)).status).toBe(503);
     expect((await handle(get("/m/bad.id/app/", { cookie: devCookie(a) }), env)).status).toBe(400);
     expect((await handle(get("/m/m-a/other", { cookie: devCookie(a) }), env)).status).toBe(404);
   });
@@ -235,9 +235,11 @@ describe("daemon routes", () => {
     await vi.waitFor(async () => expect((await stub.listMachines())[0]!.online).toBe(false));
   });
 
-  it("room upgrades reach the MachineDO stub (501 until phase 2b)", async () => {
+  it("room upgrades reach the MachineDO", async () => {
     const env = testEnv();
-    const res = await handle(ws("/d/m1/room/r1", { authorization: devBearer(uniqueSub()) }), env);
-    expect(res.status).toBe(501);
+    const res = await handle(ws("/d/m1/room/kernel", { authorization: devBearer(uniqueSub()) }), env);
+    expect(res.status).toBe(101);
+    res.webSocket!.accept();
+    res.webSocket!.close();
   });
 });

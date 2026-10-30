@@ -11,6 +11,9 @@ export default defineConfig({
         bindings: {
           WORKOS_API_KEY: "sk_test",
           WORKOS_COOKIE_PASSWORD: "test-cookie-password-0123456789abcdef",
+          // Short graces so tests can watch the alarm close idle room sockets.
+          ROOM_GRACE_MS: "300",
+          CONTROL_GRACE_MS: "300",
         },
       },
     }),
