@@ -1,10 +1,31 @@
 {
   "name": "@inhuman.tools/qd-darwin-arm64",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Prebuilt qd present process for darwin-arm64.",
-  "os": ["darwin"],
-  "cpu": ["arm64"],
-  "files": ["qd"],
-  "license": "MIT"
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "qd"
+  ],
+  "license": "MIT",
+  "author": "Merkle Bonsai",
+  "homepage": "https://github.com/here-build/inhuman-harness#readme",
+  "bugs": {
+    "url": "https://github.com/here-build/inhuman-harness/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/qd-darwin-arm64"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }

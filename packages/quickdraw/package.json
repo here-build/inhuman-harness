@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/quickdraw",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "Terminal paint substrate: startRender host + TEA widgets.",
   "type": "module",
   "exports": {
@@ -109,13 +108,13 @@
   },
   "license": "MIT",
   "author": "Merkle Bonsai",
-  "homepage": "https://github.com/here-build/quickdraw#readme",
+  "homepage": "https://github.com/here-build/inhuman-harness#readme",
   "bugs": {
-    "url": "https://github.com/here-build/quickdraw/issues"
+    "url": "https://github.com/here-build/inhuman-harness/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/here-build/inhuman-harness.git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/quickdraw"
   },
   "keywords": [
@@ -128,7 +127,7 @@
   },
   "files": [
     "dist",
-    "src",
+    "fonts",
     "*.vert",
     "LICENSE.md",
     "README.md",
@@ -142,5 +141,10 @@
   "peerDependencies": {
     "mobx": "6.16.1"
   },
-  "browserslist": ["node >= 22"]
+  "browserslist": [
+    "node >= 22"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
 }

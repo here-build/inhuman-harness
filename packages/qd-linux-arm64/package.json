@@ -1,10 +1,31 @@
 {
   "name": "@inhuman.tools/qd-linux-arm64",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Prebuilt qd present process for linux-arm64. Built on Ubuntu 22.04, glibc 2.35.",
-  "os": ["linux"],
-  "cpu": ["arm64"],
-  "files": ["qd"],
-  "license": "MIT"
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "qd"
+  ],
+  "license": "MIT",
+  "author": "Merkle Bonsai",
+  "homepage": "https://github.com/here-build/inhuman-harness#readme",
+  "bugs": {
+    "url": "https://github.com/here-build/inhuman-harness/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/qd-linux-arm64"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }
