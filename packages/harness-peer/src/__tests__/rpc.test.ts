@@ -2,7 +2,7 @@ import { isRpcContractError, RpcClientError } from "@inhuman.tools/harness-contr
 import { describe, expect, it } from "vitest";
 import type { WebsocketProvider } from "y-websocket";
 
-import { bindJsonRpc } from "../rpc.js";
+import { bindJsonRpc, bindTextFrames } from "../rpc.js";
 
 type FakeWs = {
   readyState: number;
@@ -119,5 +119,18 @@ describe("bindJsonRpc", () => {
       contract: isRpcContractError(new RpcClientError(-32_602, "x")),
       transport: isRpcContractError(new Error("rpc: socket closed")),
     }).toEqual({ kind: true, code: -32_602, contract: true, transport: false });
+  });
+});
+
+describe("bindTextFrames", () => {
+  it("counts a pong as traffic but never hands it on", () => {
+    const { provider, deliver } = fakeProvider();
+    const seen: string[] = [];
+    bindTextFrames(provider, (text) => seen.push(text));
+    deliver(" pong");
+    expect(provider.wsLastMessageReceived).toBeGreaterThan(0);
+    expect(seen).toEqual([]);
+    deliver('{"id":1}');
+    expect(seen).toEqual(['{"id":1}']);
   });
 });

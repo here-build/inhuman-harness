@@ -2,6 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Assets are relative so one build serves any base. Deep links need the base pinned first.
+      // Same test as client/location.ts.
+      var m = /^\/m\/[\w-]{1,64}\/app\//.exec(location.pathname);
+      document.write('<base href="' + (m ? m[0] : "/") + '" />');
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>inhuman</title>
   </head>

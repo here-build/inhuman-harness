@@ -16,8 +16,11 @@ import { SessionRail } from "./rail-sessions.js";
 import { SettingsDialog } from "./settings.js";
 import { Splash } from "./splash.js";
 import { useDial } from "../client/context.js";
+import { appLocation } from "../client/location.js";
 import { Button } from "../components/ui/button.js";
 import { glyph } from "../components/ui/glyph.js";
+
+const remote = appLocation(globalThis.location).remote;
 
 export const Frame = observer(function Shell() {
   const dial = useDial();
@@ -98,6 +101,11 @@ export const Frame = observer(function Shell() {
             className={`rail w-full shrink-0 flex-col overflow-y-auto bg-wash max-[63.999rem]:max-h-[70dvh] min-[64rem]:w-72 min-[64rem]:max-h-none min-[64rem]:overflow-hidden min-[64rem]:border-r min-[64rem]:border-line ${railOpen ? "flex max-[63.999rem]:border-b max-[63.999rem]:border-line" : "hidden min-[64rem]:flex"}`}
           >
             <h1 className="rail-brand">Inhuman</h1>
+            {remote ? (
+              <a className="rail-machines" href="/">
+                All machines
+              </a>
+            ) : null}
             <div className="flex flex-col min-[64rem]:min-h-0 min-[64rem]:flex-1">
               <SessionRail go={go} pane={pane} selectedSessionId={sessionId} onMint={openStage} />
             </div>

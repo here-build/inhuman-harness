@@ -7,6 +7,8 @@ import { defineConfig } from "vite";
 const here = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  // Relative assets; index.html pins <base> so deep links resolve them too.
+  base: "./",
   resolve: {
     dedupe: ["yjs", "@here.build/plexus", "react", "react-dom", "mobx-react-lite"],
   },

@@ -95,6 +95,10 @@ async function browserRoute(req: Request, url: URL, env: Env, sub: string, email
   if (!m) return text(404, "not found");
   const machine = m[1]!;
   if (!isMachineId(machine)) return text(400, "bad machine id");
+  // The app's asset URLs are relative; they need the trailing slash.
+  if (pathname === `/m/${machine}/app` && (req.method === "GET" || req.method === "HEAD")) {
+    return new Response(null, { status: 308, headers: { location: `${pathname}/${url.search}` } });
+  }
   const origin = req.headers.get("origin");
   if (req.headers.get("upgrade") && origin && origin !== url.origin) return text(403, "bad origin");
   // Only machines the user's daemon registered; no DO is created for arbitrary ids.

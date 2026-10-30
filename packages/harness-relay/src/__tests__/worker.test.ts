@@ -87,6 +87,15 @@ describe("browser routes", () => {
     expect((await handle(get("/m/m-a/other", { cookie: devCookie(a) }), env)).status).toBe(404);
   });
 
+  it("redirects /m/<id>/app to the trailing slash, keeping the query", async () => {
+    const env = testEnv();
+    const sub = uniqueSub();
+    await userStub(env, sub).registerMachine("m-a", "a");
+    const res = await handle(get("/m/m-a/app?x=1", { cookie: devCookie(sub) }), env);
+    expect(res.status).toBe(308);
+    expect(res.headers.get("location")).toBe("/m/m-a/app/?x=1");
+  });
+
   it("rejects cross-origin socket upgrades", async () => {
     const env = testEnv();
     const sub = uniqueSub();

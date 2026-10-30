@@ -267,6 +267,19 @@ pre,
   background: var(--color-wash);
 }
 
+.rail-machines {
+  flex: none;
+  padding: --spacing(2) --spacing(4);
+  border-block-end: 1px solid var(--color-line);
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  text-decoration: none;
+}
+
+.rail-machines:hover {
+  text-decoration: underline;
+}
+
 .rail-brand {
   display: flex;
   flex: none;
@@ -3990,7 +4003,7 @@ html:has(.composer-pill[data-drop]) {
   padding-inline: --spacing(1.5);
   border: 1px solid var(--color-edge);
   border-radius: var(--radius-sm);
-  color: var(--color-muted, inherit);
+  color: var(--color-muted);
   font-size: var(--text-xs, 0.75rem);
 }
 

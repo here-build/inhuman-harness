@@ -27,5 +27,5 @@ export {
   type BlobRequest,
 } from "./blobs.js";
 export { awarenessBytes, bindProviderAwareness } from "./plane.js";
-export { bindJsonRpc, destroyProvider, detachProtocolAwareness, waitForSync } from "./rpc.js";
+export { bindJsonRpc, bindTextFrames, destroyProvider, detachProtocolAwareness, waitForSync } from "./rpc.js";
 export type { JsonRpcPort } from "./rpc.js";

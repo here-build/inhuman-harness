@@ -3,7 +3,8 @@ import { Tape } from "@inhuman.tools/harness-transcript";
 import { createRootRouteWithContext, createRoute, createRouter, Outlet, RouterProvider } from "@tanstack/react-router";
 
 import { DialProvider } from "./client/context.js";
-import { Dial, dialOrigin } from "./client/dial.js";
+import { Dial } from "./client/dial.js";
+import { appLocation } from "./client/location.js";
 import { Frame } from "./shell/frame.js";
 
 const rootRoute = createRootRouteWithContext<{ dial: Dial }>()({
@@ -73,9 +74,10 @@ export const routeTree = rootRoute.addChildren([
   looseRoute,
 ]);
 
-export function createAppRouter(dial: Dial) {
+export function createAppRouter(dial: Dial, basepath?: string) {
   return createRouter({
     routeTree,
+    basepath,
     context: { dial },
     // Attachments are live resources, not cached query results. Returning via
     // Back must activate the room again even if the route match is cached.
@@ -87,6 +89,9 @@ export function createAppRouter(dial: Dial) {
 }
 
 export function App() {
-  const [router] = useState(() => createAppRouter(new Dial(dialOrigin(globalThis.location))));
+  const [router] = useState(() => {
+    const where = appLocation(globalThis.location);
+    return createAppRouter(new Dial(where.roomOrigin, { where }), where.basepath);
+  });
   return <RouterProvider router={router} />;
 }

@@ -1,4 +1,5 @@
 import type { RegionGraph } from "@here.build/arrival-provenance";
+import { ChunkedWebSocket } from "@inhuman.tools/chunked-websocket/client";
 import type { WorkflowFrame } from "@inhuman.tools/harness-model/session";
 import {
   bindJsonRpc,
@@ -18,6 +19,8 @@ import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 
 import { cacheKey, CACHE_ORIGIN, guardProvider, writeBehind, type DocCache, type Writer } from "./doc-cache.js";
+import { appLocation, type AppLocation } from "./location.js";
+import { bindRelayFrames, isRefusal, linkForClose, startPing } from "./remote.js";
 import type { RouteTarget } from "../shell/path.js";
 import { type Feed, foldFrame } from "../workflow/feed.js";
 
@@ -29,6 +32,8 @@ type Held = {
   rpc?: JsonRpcPort;
   /** The cache's write side; released with the room. */
   cache?: Writer;
+  /** Remote keepalive; stops with the room. */
+  stopPing?: () => void;
 };
 
 /**
@@ -46,7 +51,11 @@ export type Link =
   /** The session lives in another project; it opens there. */
   | { readonly kind: "elsewhere"; readonly sessionId: string; readonly path: string }
   /** Attached, then a room dropped; the socket is redialing on its own. */
-  | { readonly kind: "reconnecting" };
+  | { readonly kind: "reconnecting" }
+  /** The relay has no connection to the machine. Redialing says whether anything is still trying. */
+  | { readonly kind: "offline"; readonly redialing: boolean }
+  /** The machine refused the room. Redialing will not help. */
+  | { readonly kind: "unavailable"; readonly reason: string };
 
 class LinkError extends Error {
   constructor(readonly link: Link) {
@@ -92,12 +101,25 @@ export class Dial {
   readonly #rooms = new Map<string, Held>();
   readonly #projects = new Map<string, ProjectPlexus>();
   readonly #sessions = new Map<string, Session>();
+  /** The last relay close code each room's socket saw, cleared when it connects. */
+  readonly #closeCodes = new WeakMap<WebsocketProvider, number>();
+  readonly where: AppLocation;
 
-  /** `cache` keeps each room's document on the device so a redial fetches only the delta. */
+  /**
+   * `cache` keeps each room's document on the device so a redial fetches only the delta.
+   * `where` says whether rooms are reached through the relay; the default is a local daemon at `origin`.
+   */
   constructor(
     readonly origin: string,
-    options: { readonly cache?: DocCache } = {},
+    options: { readonly cache?: DocCache; readonly where?: AppLocation } = {},
   ) {
+    this.where = options.where ?? {
+      remote: false,
+      roomOrigin: origin,
+      httpBase: origin.replace(/^ws/, "http"),
+      basepath: undefined,
+      fileUrl: (path) => `/file?path=${encodeURIComponent(path)}`,
+    };
     this.#cache = options.cache ?? null;
     makeObservable(this, {
       kernel: observable.ref,
@@ -176,7 +198,7 @@ export class Dial {
     onGraph: (graph: RegionGraph | null, done: boolean) => void,
     signal: AbortSignal,
   ): void {
-    const url = `${this.origin.replace(/^ws/, "http")}/sessions/${encodeURIComponent(sessionId)}/workflows/${encodeURIComponent(jobId)}`;
+    const url = `${this.where.httpBase}/sessions/${encodeURIComponent(sessionId)}/workflows/${encodeURIComponent(jobId)}`;
     let feed: Feed | null = null;
     let source: EventSource | null = null;
     const close = (): void => source?.close();
@@ -450,14 +472,35 @@ export class Dial {
       }
     }
     // The default redial: before sync a failure destroys the provider; after it, a drop reconnects.
-    const provider = new WebsocketProvider(this.origin, roomName, doc, { params, disableBc: true });
+    const remote = this.where.remote;
+    const provider = new WebsocketProvider(this.origin, roomName, doc, {
+      params,
+      disableBc: true,
+      ...(remote ? { WebSocketPolyfill: ChunkedWebSocket as unknown as typeof WebSocket, shouldReconnect } : {}),
+    });
     provider.disconnectBc = () => undefined;
     detachProtocolAwareness(provider);
+    let stopPing: (() => void) | undefined;
+    const seen: { closed: { code: number; reason: string } | null } = { closed: null };
+    if (remote) {
+      bindRelayFrames(provider);
+      stopPing = startPing(provider);
+      provider.on("connection-close", (event) => {
+        if (event == null) return;
+        seen.closed = { code: event.code, reason: event.reason };
+        this.#closeCodes.set(provider, event.code);
+        this.#relink();
+      });
+      provider.on("status", (event: { status: string }) => {
+        if (event.status === "connected") seen.closed = null;
+      });
+    }
     const writer = cache == null ? undefined : writeBehind(cache, key, doc, loaded, provider);
     let destroyed = false;
     const destroy = (): void => {
       if (destroyed) return;
       destroyed = true;
+      stopPing?.();
       writer?.abandon();
       destroyProvider(provider);
       doc.destroy();
@@ -497,7 +540,10 @@ export class Dial {
     } catch (error) {
       destroy();
       if (restart) return "restart";
-      throw error;
+      // The relay said why the socket never synced.
+      const said = seen.closed;
+      const link = said == null ? null : linkForClose(said.code, said.reason, false);
+      throw link == null ? error : new LinkError(link);
     } finally {
       signal?.removeEventListener("abort", cancel);
     }
@@ -508,27 +554,32 @@ export class Dial {
     writer?.synced();
     provider.on("status", () => this.#relink());
     // A permanent close ends the redial; the room is gone until a retry attaches again.
-    provider.on("closed", () => {
+    provider.on("closed", (event) => {
       if ([...this.#rooms.values()].some((room) => room.provider === provider)) {
+        const link = remote ? linkForClose(event.code, event.reason, false) : null;
         runInAction(() => {
-          this.link = { kind: "unreachable" };
+          this.link = link ?? { kind: "unreachable" };
         });
       }
     });
-    return { provider, doc, stop: () => undefined, cache: writer };
+    return { provider, doc, stop: () => undefined, cache: writer, stopPing };
   }
 
   /** Any held room that wants its socket and lacks it: the line is down and redialing. */
   #relink(): void {
-    const down = [...this.#rooms.values()].some((room) => room.provider.shouldConnect && !room.provider.wsconnected);
+    const down = [...this.#rooms.values()].filter((room) => room.provider.shouldConnect && !room.provider.wsconnected);
+    const offline = down.some((room) => this.#closeCodes.get(room.provider) === 4503);
+    const here = this.link?.kind;
     runInAction(() => {
-      if (down && this.link == null) this.link = { kind: "reconnecting" };
-      else if (!down && this.link?.kind === "reconnecting") this.link = null;
+      if (down.length > 0 && (here == null || here === "reconnecting" || here === "offline")) {
+        this.link = offline ? { kind: "offline", redialing: true } : { kind: "reconnecting" };
+      } else if (down.length === 0 && (here === "reconnecting" || here === "offline")) this.link = null;
     });
   }
 
   #destroyRoom(room: Held): void {
     room.rpc?.rejectAll(new Error("room closed"));
+    room.stopPing?.();
     room.stop();
     room.cache?.release(true);
     destroyProvider(room.provider);
@@ -595,8 +646,11 @@ export class Dial {
   }
 }
 
+/** Remote mode redials unless the machine refused the room (the default would also stop on 4401 to 4499). */
+function shouldReconnect(event: CloseEvent): boolean {
+  return !isRefusal(event.code);
+}
+
 export function dialOrigin(location: Location): string {
-  const dial = new URLSearchParams(location.search).get("dial");
-  if (dial != null && dial !== "") return dial;
-  return `ws://${location.host}`;
+  return appLocation(location).roomOrigin;
 }

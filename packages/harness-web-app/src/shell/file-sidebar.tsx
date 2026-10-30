@@ -4,7 +4,10 @@ import { CodeView } from "./code-view.js";
 import { langFromPath } from "./lang.js";
 import { Markdown } from "./markdown.js";
 import { fileFace, looksBinary, type FileFace } from "./read-line.js";
+import { appLocation } from "../client/location.js";
 import { Button } from "../components/ui/button.js";
+
+const fileUrl = (path: string): string => appLocation(globalThis.location).fileUrl(path);
 
 export type OpenFile = {
   readonly path: string;
@@ -89,7 +92,7 @@ export function FileSidebar({
     const controller = new AbortController();
     let live = true;
     setLoad({ path: file.path, kind: "pending" });
-    void fetch(`/file?path=${encodeURIComponent(absolute)}`, { signal: controller.signal })
+    void fetch(fileUrl(absolute), { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error(response.status === 404 ? "File not found." : "Could not open this file.");
         if (response.headers.get("x-harness-file") !== "1") {
@@ -114,7 +117,7 @@ export function FileSidebar({
     };
   }, [absolute, face, file.path, file.text]);
   const current = load.path === file.path ? load : { path: file.path, kind: "pending" as const };
-  const src = `/file?path=${encodeURIComponent(absolute)}`;
+  const src = fileUrl(absolute);
   return (
     <aside className="file-sidebar" aria-label="File">
       <header className="file-sidebar-head">

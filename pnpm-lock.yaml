@@ -2168,6 +2168,9 @@ importers:
       '@here.build/plexus':
         specifier: ^0.9.6
         version: 0.9.6(lib0@0.2.119)(mobx@6.16.1)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)
+      '@inhuman.tools/chunked-websocket':
+        specifier: workspace:^
+        version: link:../chunked-websocket
       '@inhuman.tools/harness-commons':
         specifier: workspace:^
         version: link:../harness-commons

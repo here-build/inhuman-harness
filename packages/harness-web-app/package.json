@@ -31,6 +31,7 @@
     "@here.build/arrival-env": "^0.10.2",
     "@here.build/arrival-provenance": "^0.10.0",
     "@here.build/plexus": "^0.9.6",
+    "@inhuman.tools/chunked-websocket": "workspace:^",
     "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/harness-model": "workspace:^",
     "@inhuman.tools/harness-peer": "workspace:^",

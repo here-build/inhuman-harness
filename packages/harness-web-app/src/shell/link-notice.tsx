@@ -37,6 +37,13 @@ export const LinkNotice = observer(function LinkNoticeView() {
       </Waiting>
     );
   }
+  if (link.kind === "offline" && link.redialing) {
+    return (
+      <Waiting>
+        This machine is offline.<span className="link-later"> Waiting for it to come back.</span>
+      </Waiting>
+    );
+  }
   const go = (href: string) => () => void router.navigate({ href });
   const retry = () => void dial.follow(dial.requestedTarget);
   const { text, action, onAction } = needs(link, dial, go, retry);
@@ -63,7 +70,7 @@ function Waiting({ children }: { readonly children: ReactNode }) {
 type Need = { readonly text: ReactNode; readonly action: string; readonly onAction: () => void };
 
 function needs(
-  link: Exclude<Link, { kind: "reconnecting" }>,
+  link: Exclude<Link, { kind: "reconnecting" } | { kind: "offline"; redialing: true }>,
   dial: ReturnType<typeof useDial>,
   go: (href: string) => () => void,
   retry: () => void,
@@ -76,6 +83,14 @@ function needs(
             Can’t reach the harness daemon. Start it with <code>harness daemon start</code>, then retry.
           </>
         ),
+        action: "Retry",
+        onAction: retry,
+      };
+    case "offline":
+      return { text: "This machine is offline.", action: "Retry", onAction: retry };
+    case "unavailable":
+      return {
+        text: link.reason === "" ? "The machine can’t open this." : `The machine can’t open this: ${link.reason}.`,
         action: "Retry",
         onAction: retry,
       };

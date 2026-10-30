@@ -76,6 +76,8 @@ export function bindTextFrames(provider: WebsocketProvider, onText: (text: strin
     ws.addEventListener("message", (event) => {
       if (typeof event.data !== "string") return;
       provider.wsLastMessageReceived = Date.now();
+      // The relay's keepalive answer: traffic for the watchdog, nothing for the caller.
+      if (event.data === " pong") return;
       onText(event.data);
     });
     // y-websocket still owns onmessage; a string payload is `new Uint8Array(string)` → empty buffer.
