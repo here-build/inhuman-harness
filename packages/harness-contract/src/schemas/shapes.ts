@@ -377,3 +377,24 @@ export const agentCallsCancelInput = z.object({
   requestId: z.string().trim().min(1),
 });
 export const agentCallsCancelOutput = z.object({ ok: z.boolean() });
+
+export const remoteLoginInput = z.object({
+  /** Machine name shown in the remote picker; defaults to the hostname. */
+  name: z.string().trim().min(1).optional(),
+});
+export const remoteLoginOutput = z.union([
+  z.object({ ok: z.literal(true), email: z.string(), machineId: z.string() }),
+  z.object({ ok: z.literal(false) }),
+]);
+export const remoteStatusInput = z.object({});
+export const remoteStatusOutput = z.object({
+  loggedIn: z.boolean(),
+  email: z.string().optional(),
+  machineId: z.string(),
+  machineName: z.string(),
+  relayUrl: z.string(),
+  /** Always false until the connector exists. */
+  connected: z.boolean(),
+});
+export const remoteLogoutInput = z.object({});
+export const remoteLogoutOutput = z.object({ ok: z.literal(true), wasLoggedIn: z.boolean() });

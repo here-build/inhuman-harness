@@ -22,6 +22,8 @@ export type DeviceClient = {
   readonly label?: string;
   /** Floor for poll interval. RFC 8628 default is 5. */
   readonly minIntervalSec?: number;
+  /** Injected transport; defaults to global `fetch`. */
+  readonly fetch?: typeof fetch;
 };
 
 export type DeviceAuthorization = {
@@ -52,10 +54,11 @@ export async function requestDeviceCode(client: DeviceClient): Promise<DeviceAut
     client.deviceCodeUrl,
     {
       client_id: client.clientId,
-      scope: client.scope,
+      ...(client.scope === "" ? {} : { scope: client.scope }),
       ...client.extraDevice,
     },
     `${labelOf(client)} device code`,
+    client.fetch,
   );
   const label = labelOf(client);
   invariant(response.ok, `${label} device code failed (${response.status})`);
@@ -131,6 +134,7 @@ async function tryDeviceToken(client: DeviceClient, deviceCode: string): Promise
       client_id: client.clientId,
     },
     `${label} device token`,
+    client.fetch,
   );
   const rec = asRecord(await response.json().catch(() => null));
   if (response.ok) {

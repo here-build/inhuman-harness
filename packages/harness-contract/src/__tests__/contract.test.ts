@@ -39,6 +39,7 @@ describe("contract", () => {
       "kernel:connect/drop",
       "kernel:connect/login",
       "kernel:mcp-server/adopt",
+      "kernel:remote/login",
       "session:connect/adopt",
     ]);
   });

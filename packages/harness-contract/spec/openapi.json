@@ -1,7 +1,7 @@
 {
   "info": {
     "title": "inhuman-harness daemon RPC",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "HTTP projection of the daemon contract, generated from @inhuman.tools/harness-contract. The daemon's only transport today is JSON-RPC 2.0 over WebSocket (see openrpc.json); each operation here names its wire method in `x-rpc-method`."
   },
   "openapi": "3.1.1",
@@ -7457,6 +7457,210 @@
           }
         },
         "x-rpc-method": "skill/read",
+        "x-host": "kernel"
+      }
+    },
+    "/kernel/remote/login": {
+      "post": {
+        "operationId": "kernel.remote.login",
+        "summary": "Sign in for remote access",
+        "description": "WorkOS device login. Parks on an open-url form until the human approves in the browser; cancelling answers `{ok: false}`. Fails when `HARNESS_REMOTE_WORKOS_CLIENT_ID` is unset.",
+        "tags": [
+          "kernel.remote"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "const": true
+                            },
+                            "email": {
+                              "type": "string"
+                            },
+                            "machineId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "email",
+                            "machineId"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "const": false
+                            }
+                          },
+                          "required": [
+                            "ok"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "form": {
+                          "const": "ui"
+                        },
+                        "body": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "pending": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "form",
+                        "body",
+                        "pending"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "x-rpc-method": "remote/login",
+        "x-host": "kernel",
+        "x-may-park": true
+      }
+    },
+    "/kernel/remote/status": {
+      "post": {
+        "operationId": "kernel.remote.status",
+        "summary": "Remote access state of this machine",
+        "tags": [
+          "kernel.remote"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "loggedIn": {
+                      "type": "boolean"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "machineId": {
+                      "type": "string"
+                    },
+                    "machineName": {
+                      "type": "string"
+                    },
+                    "relayUrl": {
+                      "type": "string"
+                    },
+                    "connected": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "loggedIn",
+                    "machineId",
+                    "machineName",
+                    "relayUrl",
+                    "connected"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "x-rpc-method": "remote/status",
+        "x-host": "kernel"
+      }
+    },
+    "/kernel/remote/logout": {
+      "post": {
+        "operationId": "kernel.remote.logout",
+        "summary": "Drop remote access tokens",
+        "description": "Keeps the machine id, so signing in again reuses the same machine.",
+        "tags": [
+          "kernel.remote"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "const": true
+                    },
+                    "wasLoggedIn": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "wasLoggedIn"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "x-rpc-method": "remote/logout",
         "x-host": "kernel"
       }
     },

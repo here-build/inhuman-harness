@@ -7,7 +7,7 @@ import { createHash, randomBytes } from "node:crypto";
 import invariant from "tiny-invariant";
 
 import { postForm, wrapFetchFailure } from "./fetch.js";
-import { asExpiresIn, asNonEmpty, asRecord, parseJsonUnknown } from "./json.js";
+import { asExpiresIn, asNonEmpty, asPositiveInt, asRecord, parseJsonUnknown } from "./json.js";
 
 export const OIDC_REFRESH_SKEW_MS = 5 * 60 * 1000;
 export const OIDC_REFRESH_MS = 60_000;
@@ -24,6 +24,8 @@ export type OidcProfile = {
   readonly extraAuthorize: Readonly<Record<string, string>>;
   readonly loginHint: string;
   readonly baseUrl: string;
+  /** Injected transport; defaults to global `fetch`. */
+  readonly fetch?: typeof fetch;
 };
 
 export type OidcPkce = {
@@ -200,15 +202,30 @@ export function tokensFromGrantBody(
   const refreshToken = asNonEmpty(rec?.refresh_token) ?? asNonEmpty(fallbackRefresh);
   if (apiKey === undefined) throw new Error(`${driver} token exchange returned no access token`);
   if (refreshToken === undefined) throw new Error(`${driver} token exchange returned no refresh token`);
-  const expiresIn = asExpiresIn(rec?.expires_in);
   const idToken = asNonEmpty(rec?.id_token);
+  const user = asRecord(rec?.user);
+  const userId = asNonEmpty(user?.id);
   return {
     apiKey,
     refreshToken,
-    expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    expiresAt: expiresAtOf(rec?.expires_in, apiKey),
     ...(idToken === undefined ? {} : { idToken }),
-    ...identityFromClaims(jwtPayload(idToken) ?? jwtPayload(apiKey)),
+    ...mergeOidcIdentity(
+      identityFromClaims(jwtPayload(idToken) ?? jwtPayload(apiKey)),
+      // Non-standard `user` object (WorkOS): `{id, email, first_name, ...}`.
+      identityFromClaims(user),
+      userId === undefined ? {} : { accountId: userId },
+    ),
   };
+}
+
+/** `expires_in` when sent, else the access token's JWT `exp`, else one hour. */
+function expiresAtOf(expiresIn: unknown, accessToken: string): string {
+  if (asPositiveInt(expiresIn) === undefined) {
+    const exp = jwtPayload(accessToken)?.exp;
+    if (typeof exp === "number" && Number.isFinite(exp) && exp > 0) return new Date(exp * 1000).toISOString();
+  }
+  return new Date(Date.now() + asExpiresIn(expiresIn) * 1000).toISOString();
 }
 
 async function tokenGrant(
@@ -216,7 +233,7 @@ async function tokenGrant(
   body: Record<string, string>,
   fallbackRefresh = "",
 ): Promise<OidcTokens> {
-  const response = await postForm(profile.tokenUrl, body, `${profile.driver} token`);
+  const response = await postForm(profile.tokenUrl, body, `${profile.driver} token`, profile.fetch);
   invariant(response.ok, `${profile.driver} token exchange failed (${response.status})`);
   return tokensFromGrantBody(asRecord(await response.json()), profile.driver, fallbackRefresh);
 }

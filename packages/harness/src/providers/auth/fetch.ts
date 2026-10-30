@@ -56,9 +56,14 @@ export function wrapFetchFailure(error: unknown, opts: FetchFailureOpts): Error 
   return new Error(text, { cause: error });
 }
 
-export async function postForm(url: string, body: Record<string, string>, why: string): Promise<Response> {
+export async function postForm(
+  url: string,
+  body: Record<string, string>,
+  why: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Response> {
   try {
-    return await fetch(url, {
+    return await fetchImpl(url, {
       method: "POST",
       headers: FORM_HEADERS,
       body: new URLSearchParams(body),

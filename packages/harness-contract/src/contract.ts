@@ -355,6 +355,25 @@ const kernel = {
       .input(shapes.skillReadInput)
       .output(shapes.skillReadOutput),
   },
+  remote: {
+    login: rpc("kernel", "remote/login", {
+      summary: "Sign in for remote access",
+      description:
+        "WorkOS device login. Parks on an open-url form until the human approves in the browser; cancelling answers `{ok: false}`. Fails when `HARNESS_REMOTE_WORKOS_CLIENT_ID` is unset.",
+      mayPark: true,
+    })
+      .input(shapes.remoteLoginInput)
+      .output(parks(shapes.remoteLoginOutput)),
+    status: rpc("kernel", "remote/status", { summary: "Remote access state of this machine" })
+      .input(shapes.remoteStatusInput)
+      .output(shapes.remoteStatusOutput),
+    logout: rpc("kernel", "remote/logout", {
+      summary: "Drop remote access tokens",
+      description: "Keeps the machine id, so signing in again reuses the same machine.",
+    })
+      .input(shapes.remoteLogoutInput)
+      .output(shapes.remoteLogoutOutput),
+  },
   bot: {
     write: rpc("kernel", "bot/write", {
       summary: "Write a bot definition",

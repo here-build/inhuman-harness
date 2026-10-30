@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "inhuman-harness daemon RPC",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "JSON-RPC 2.0 over WebSocket text frames on `<root>/daemon.sock`. Generated from @inhuman.tools/harness-contract."
   },
   "methods": [
@@ -6974,6 +6974,168 @@
             "invoke",
             "scope",
             "body"
+          ]
+        }
+      },
+      "x-host": "kernel"
+    },
+    {
+      "name": "remote/login",
+      "summary": "Sign in for remote access",
+      "description": "WorkOS device login. Parks on an open-url form until the human approves in the browser; cancelling answers `{ok: false}`. Fails when `HARNESS_REMOTE_WORKOS_CLIENT_ID` is unset.",
+      "tags": [
+        {
+          "name": "kernel.remote"
+        }
+      ],
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "name",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "const": true
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "machineId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "email",
+                    "machineId"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "form": {
+                  "const": "ui"
+                },
+                "body": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "pending": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "form",
+                "body",
+                "pending"
+              ],
+              "additionalProperties": {}
+            }
+          ]
+        }
+      },
+      "x-host": "kernel",
+      "x-may-park": true
+    },
+    {
+      "name": "remote/status",
+      "summary": "Remote access state of this machine",
+      "tags": [
+        {
+          "name": "kernel.remote"
+        }
+      ],
+      "paramStructure": "by-name",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "loggedIn": {
+              "type": "boolean"
+            },
+            "email": {
+              "type": "string"
+            },
+            "machineId": {
+              "type": "string"
+            },
+            "machineName": {
+              "type": "string"
+            },
+            "relayUrl": {
+              "type": "string"
+            },
+            "connected": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "loggedIn",
+            "machineId",
+            "machineName",
+            "relayUrl",
+            "connected"
+          ]
+        }
+      },
+      "x-host": "kernel"
+    },
+    {
+      "name": "remote/logout",
+      "summary": "Drop remote access tokens",
+      "description": "Keeps the machine id, so signing in again reuses the same machine.",
+      "tags": [
+        {
+          "name": "kernel.remote"
+        }
+      ],
+      "paramStructure": "by-name",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "const": true
+            },
+            "wasLoggedIn": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ok",
+            "wasLoggedIn"
           ]
         }
       },

@@ -65,6 +65,7 @@ import { DocumentService, AwarenessRoom, attachLens, type PlaneSocket } from "@/
 
 import { internLookedAt, probeCompletionCatalog } from "./completion-catalog.js";
 import { loginConnection, requireConnection, settingsBag, toListRow } from "./connection-rpc.js";
+import { RemoteAccess } from "./remote-access.js";
 import { healKernelDependencies, KERNEL_SEED_PACKAGES } from "./kernel-package.js";
 import { applyConfigSet, applyPluginSet } from "./settings-config.js";
 import {
@@ -167,6 +168,13 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       () => this.root,
       (sessionId) => this.runtime.replica(sessionId)?.root,
     ),
+  });
+  /** Remote-access login and tokens; durable in the kernel's `secrets.json`. */
+  readonly #remote = new RemoteAccess({
+    credentials: {
+      read: (id) => readConnectionSecrets(this.root, id),
+      write: (id, secrets) => writeConnectionSecrets(this.root, id, { ...secrets }),
+    },
   });
   readonly ready: Promise<void>;
   readonly #daemons = new Map<string, SessionDaemon>();
@@ -479,6 +487,26 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       const row = listed.find((skill) => skill.name === args.name && skill.scope === args.scope);
       RpcInvalidParams.invariant(row != null, `skill/read: unknown skill ${args.name}`);
       return { ...row, body: skillBody(row.location) };
+    }),
+    DaemonRpcMethod.fromContract(contract.kernel.remote.login, async ({ name }) => {
+      step("remote/login");
+      const signal = this.requestSignal();
+      try {
+        const done = await this.#remote.login((body) => this.ui(body), {
+          signal,
+          ...(name === undefined ? {} : { name }),
+        });
+        return { ok: true as const, ...done };
+      } catch (error) {
+        if (isUiCancelled(error) || isAbortError(error)) return { ok: false as const };
+        fail("remote/login", error);
+        RpcInvalidParams.invariant(false, error instanceof Error ? error.message : "remote/login failed");
+      }
+    }),
+    DaemonRpcMethod.fromContract(contract.kernel.remote.status, () => this.#remote.status()),
+    DaemonRpcMethod.fromContract(contract.kernel.remote.logout, () => {
+      step("remote/logout");
+      return { ok: true as const, ...this.#remote.logout() };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.bot.write, (args) => {
       const dir = this.#botDir(args.scope, args.project);

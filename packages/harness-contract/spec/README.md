@@ -161,6 +161,9 @@ host's own auth. Not built yet; the JSON-RPC transport remains the only server t
 | `skill/write` | `kernel.skill.write` |  | Write a skill file |
 | `skill/remove` | `kernel.skill.remove` |  | Remove a skill file |
 | `skill/read` | `kernel.skill.read` |  | Read a skill file with its body |
+| `remote/login` | `kernel.remote.login` | yes | Sign in for remote access |
+| `remote/status` | `kernel.remote.status` |  | Remote access state of this machine |
+| `remote/logout` | `kernel.remote.logout` |  | Drop remote access tokens |
 | `bot/write` | `kernel.bot.write` |  | Write a bot definition |
 | `bot/remove` | `kernel.bot.remove` |  | Remove a bot definition |
 
