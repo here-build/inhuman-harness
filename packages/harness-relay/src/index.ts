@@ -53,6 +53,9 @@ export async function handle(req: Request, env: Env, deps: AuthDeps = {}): Promi
   if (pathname === "/auth/login" && req.method === "GET") return login(url, env);
   if (pathname === "/auth/callback" && req.method === "GET") return callback(req, url, env, deps);
   if (pathname === "/auth/logout" && req.method === "POST") return redirect("/", logoutCookies(url));
+  // Public: the daemon learns which WorkOS client to run the device flow against.
+  if (pathname === "/api/config" && req.method === "GET")
+    return Response.json({ workosClientId: env.WORKOS_CLIENT_ID });
 
   const daemon = /^\/d\/([^/]+)\/(control|room\/.+)$/.exec(pathname);
   if (daemon) {

@@ -1,8 +1,8 @@
 /**
  * `harness login | logout | remote status`: remote access through the relay.
  * The daemon does the work (`remote/login`, `remote/logout`, `remote/status`); this renders the parked
- * open-url form and the status. The daemon reads HARNESS_REMOTE_WORKOS_CLIENT_ID and HARNESS_REMOTE_URL from
- * its own environment, which it inherits from the process that spawned it.
+ * open-url form and the status. The daemon reads HARNESS_REMOTE_URL (and the optional
+ * HARNESS_REMOTE_WORKOS_CLIENT_ID override) from its own environment, inherited from the process that spawned it.
  */
 import { isUiForm } from "@inhuman.tools/harness-contract";
 import { type KernelRpc, openExternalUrl } from "@inhuman.tools/harness-sdk";
@@ -12,11 +12,11 @@ import { KernelCommand, type ShellContext, type Streams } from "./context.js";
 import { openKernelRpc } from "./kernel-client.js";
 
 const ENV_HELP = `
-      The daemon reads two variables from its own environment, so set them before it starts (run
+      The daemon reads two optional variables from its own environment, so set them before it starts (run
       \`harness daemon restart\` if it is already running):
 
-        HARNESS_REMOTE_WORKOS_CLIENT_ID  WorkOS client id (required to log in)
         HARNESS_REMOTE_URL               relay origin (default https://harness.inhuman.tools)
+        HARNESS_REMOTE_WORKOS_CLIENT_ID  WorkOS client id (default: the one the relay publishes)
 `;
 
 export class LoginCommand extends KernelCommand {

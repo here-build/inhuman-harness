@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { memoryCredentialsStore } from "@/connections/credentials";
 
 import {
+  DEFAULT_RELAY_URL,
   REMOTE_MACHINE_ID,
   REMOTE_TOKENS_ID,
   remoteLoggedIn,
@@ -16,12 +17,19 @@ const jwt = (claims: Record<string, unknown>): string =>
 
 type Call = { url: string; form: Record<string, string> };
 
-/** A fake WorkOS: the token endpoint answers from a script, one entry per call. */
-function fakeWorkos(script: Array<{ status: number; body: unknown }>) {
+const RELAY = DEFAULT_RELAY_URL;
+
+/** A fake WorkOS: the token endpoint answers from a script, one entry per call. The relay publishes `published`. */
+function fakeWorkos(script: Array<{ status: number; body: unknown }>, published: unknown = "client_relay") {
   const calls: Call[] = [];
+  const configCalls: string[] = [];
   const queue = [...script];
   const fetchImpl: typeof fetch = (input, init) => {
     const url = String(input);
+    if (url === `${RELAY}/api/config`) {
+      configCalls.push(url);
+      return Promise.resolve(Response.json({ workosClientId: published }));
+    }
     calls.push({ url, form: Object.fromEntries(new URLSearchParams(String(init?.body))) });
     if (url === WORKOS_DEVICE_CODE_URL) {
       return Promise.resolve(
@@ -39,7 +47,7 @@ function fakeWorkos(script: Array<{ status: number; body: unknown }>) {
     if (next === undefined) throw new Error("fake WorkOS: script exhausted");
     return Promise.resolve(Response.json(next.body, { status: next.status }));
   };
-  return { fetchImpl, calls };
+  return { fetchImpl, calls, configCalls };
 }
 
 const success = (extra: Record<string, unknown> = {}) => ({
@@ -69,9 +77,13 @@ function fakeClock() {
   };
 }
 
-function setup(script: Array<{ status: number; body: unknown }>, env: Record<string, string> = {}) {
+function setup(
+  script: Array<{ status: number; body: unknown }>,
+  env: Record<string, string> = {},
+  published: unknown = "client_relay",
+) {
   const credentials = memoryCredentialsStore();
-  const workos = fakeWorkos(script);
+  const workos = fakeWorkos(script, published);
   const time = fakeClock();
   const remote = new RemoteAccess({
     credentials: { read: credentials.read, write: credentials.write! },
@@ -148,8 +160,31 @@ describe("RemoteAccess login", () => {
     expect(t.remote.status().loggedIn).toBe(false);
   });
 
-  it("fails with a clear message and no request when the client id is missing", async () => {
-    const t = setup([], { HARNESS_REMOTE_WORKOS_CLIENT_ID: "" });
+  it("without an override, logs in with the client the relay publishes and refreshes with the same one", async () => {
+    const t = setup([success()], { HARNESS_REMOTE_WORKOS_CLIENT_ID: "" });
+    await t.remote.login(t.ui);
+    expect(t.workos.calls[0]).toEqual({ url: WORKOS_DEVICE_CODE_URL, form: { client_id: "client_relay" } });
+    expect(t.credentials.read(REMOTE_TOKENS_ID).clientId).toBe("client_relay");
+    expect(t.workos.configCalls).toHaveLength(1);
+  });
+
+  it("refreshes with the client stored at login, even after the override changes", async () => {
+    const t = setup([success({ access_token: jwt({ exp: 1 }) })]);
+    await t.remote.login(t.ui);
+    const bag = t.credentials.read(REMOTE_TOKENS_ID);
+    expect(bag.clientId).toBe("client_test");
+    const workos = fakeWorkos([success({ refresh_token: "refresh-2" })]);
+    const again = new RemoteAccess({
+      credentials: { read: t.credentials.read, write: t.credentials.write! },
+      env: { HARNESS_REMOTE_WORKOS_CLIENT_ID: "client_other" },
+      fetch: workos.fetchImpl,
+    });
+    await again.accessToken(Date.now(), true);
+    expect(workos.calls[0]?.form.client_id).toBe("client_test");
+  });
+
+  it("fails with a clear message and no WorkOS request when the relay publishes no client id", async () => {
+    const t = setup([], { HARNESS_REMOTE_WORKOS_CLIENT_ID: "" }, "");
     await expect(t.remote.login(t.ui)).rejects.toThrow(/HARNESS_REMOTE_WORKOS_CLIENT_ID/);
     expect(t.workos.calls).toHaveLength(0);
     expect(t.forms).toEqual([]);
@@ -171,7 +206,7 @@ describe("RemoteAccess machine and logout", () => {
   it("mints the machine id once, url-safe, and keeps it across logout", async () => {
     const t = setup([success()]);
     const first = t.remote.status().machineId;
-    expect(first).toMatch(/^[\w-]{16,}$/i);
+    expect(first).toMatch(/^[\w-]{16,}$/);
     await t.remote.login(t.ui);
     expect(t.remote.logout()).toEqual({ wasLoggedIn: true });
     expect(t.remote.status()).toMatchObject({ loggedIn: false, machineId: first });

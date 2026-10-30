@@ -11,7 +11,8 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UserDO", "MachineDO"] }],
   "vars": {
-    // WorkOS client id (client_...). Public; the same client serves browsers and the daemon device flow.
+    // WorkOS client id (client_...). Public; the same client serves browsers and the daemon device flow,
+    // and daemons read it from GET /api/config.
     "WORKOS_CLIENT_ID": "",
     // Comma-separated emails allowed to use the relay. Empty means nobody.
     "ALLOWED_EMAILS": ""
@@ -24,6 +25,8 @@
   "env": {
     "production": {
       "name": "harness-relay",
+      // Only the custom domain: AuthKit redirects to it, a workers.dev copy would only confuse logins.
+      "workers_dev": false,
       "routes": [{ "pattern": "harness.inhuman.tools", "custom_domain": true }],
       "durable_objects": {
         "bindings": [

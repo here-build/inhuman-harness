@@ -55,8 +55,9 @@ describe("remote/* over the kernel", () => {
     expect(second.machineId).toBe(first.machineId);
   });
 
-  it("login without a client id fails with a clear message", async () => {
+  it("login fails with a clear message when the relay publishes no client id", async () => {
     vi.stubEnv("HARNESS_REMOTE_WORKOS_CLIENT_ID", "");
+    vi.stubGlobal("fetch", () => Promise.resolve(Response.json({ workosClientId: "" })));
     const { kernel } = await open();
     await expect(kernel.handleRequest("remote/login", {})).rejects.toThrow(/HARNESS_REMOTE_WORKOS_CLIENT_ID/);
   });

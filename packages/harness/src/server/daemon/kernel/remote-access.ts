@@ -9,7 +9,6 @@ import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 
 import type { CredentialsStore } from "@/connections/credentials";
-import { readConnectionSecrets } from "../../secrets.js";
 import {
   accessTokenExpiring,
   OidcGrantError,
@@ -21,6 +20,8 @@ import {
   type DevicePollClock,
   type OidcProfile,
 } from "@/providers/auth";
+
+import { readConnectionSecrets } from "../../secrets.js";
 
 export const DEFAULT_RELAY_URL = "https://harness.inhuman.tools";
 export const WORKOS_CLIENT_ID_ENV = "HARNESS_REMOTE_WORKOS_CLIENT_ID";
@@ -133,13 +134,15 @@ export class RemoteAccess {
    * the human continues. A UI cancel rejects `ui`, and nothing is stored.
    */
   async login(ui: RemoteLoginUi, options: { name?: string; signal?: AbortSignal } = {}) {
-    const client = this.#deviceClient();
+    const clientId = await this.#configuredClientId();
+    const client = this.#deviceClient(clientId);
     const device = await requestDeviceCode(client);
     await ui(
       `(harness/open-url :url ${quote(device.verificationUriComplete)} :description ${quote(REMOTE_LOGIN_HINT)})`,
     );
     const tokens = await pollDeviceToken(client, device, this.#clock, options.signal);
-    this.#credentials.write(REMOTE_TOKENS_ID, secretsFromTokens(tokens));
+    // The refresh token is bound to the client that minted it.
+    this.#credentials.write(REMOTE_TOKENS_ID, { ...secretsFromTokens(tokens), clientId });
     this.#lastError = undefined;
     if (options.name !== undefined) {
       const bag = this.#credentials.read(REMOTE_MACHINE_ID);
@@ -179,16 +182,18 @@ export class RemoteAccess {
     const tokens = this.#credentials.read(REMOTE_TOKENS_ID);
     if (tokens.apiKey === undefined || tokens.refreshToken === undefined) return Promise.resolve(undefined);
     if (!force && !accessTokenExpiring(tokens.expiresAt, now)) return Promise.resolve(tokens.apiKey);
-    this.#refreshing ??= this.#refresh(tokens.refreshToken).finally(() => {
+    const { refreshToken, clientId } = tokens;
+    this.#refreshing ??= this.#refresh(refreshToken, clientId).finally(() => {
       this.#refreshing = null;
     });
     return this.#refreshing;
   }
 
-  async #refresh(refreshToken: string): Promise<string | undefined> {
+  async #refresh(refreshToken: string, storedClientId: string | undefined): Promise<string | undefined> {
     let refreshed;
     try {
-      refreshed = await refreshOidcToken(this.#profile(), refreshToken);
+      const clientId = storedClientId ?? (await this.#configuredClientId());
+      refreshed = await refreshOidcToken(this.#profile(clientId), refreshToken);
     } catch (error) {
       if (!(error instanceof OidcGrantError) || error.code !== "invalid_grant") throw error;
       this.revoke("The remote-access login expired or was revoked. Run `harness login` again.");
@@ -200,19 +205,32 @@ export class RemoteAccess {
     return refreshed.apiKey;
   }
 
-  #clientId(): string {
-    const id = this.#env[WORKOS_CLIENT_ID_ENV]?.trim();
-    if (id === undefined || id === "") {
-      throw new Error(`Remote access is not configured: set ${WORKOS_CLIENT_ID_ENV} to the WorkOS client id`);
+  /** The env override, else the client the relay publishes at `/api/config`. */
+  async #configuredClientId(): Promise<string> {
+    const override = this.#env[WORKOS_CLIENT_ID_ENV]?.trim();
+    if (override !== undefined && override !== "") return override;
+    const url = `${this.relayUrl}/api/config`;
+    let published: unknown;
+    try {
+      const res = await (this.#fetch ?? fetch)(url, { signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      published = ((await res.json()) as { workosClientId?: unknown }).workosClientId;
+    } catch (error) {
+      throw new Error(`Could not reach the relay at ${url}: ${error instanceof Error ? error.message : String(error)}`);
     }
-    return id;
+    if (typeof published !== "string" || published.trim() === "") {
+      throw new Error(
+        `Remote access is not configured: the relay at ${this.relayUrl} publishes no WorkOS client id; set ${WORKOS_CLIENT_ID_ENV} to override`,
+      );
+    }
+    return published.trim();
   }
 
-  #deviceClient(): DeviceClient {
+  #deviceClient(clientId: string): DeviceClient {
     return {
       driver: "remote",
       label: "WorkOS",
-      clientId: this.#clientId(),
+      clientId,
       deviceCodeUrl: WORKOS_DEVICE_CODE_URL,
       tokenUrl: WORKOS_TOKEN_URL,
       scope: "",
@@ -221,10 +239,10 @@ export class RemoteAccess {
     };
   }
 
-  #profile(): OidcProfile {
+  #profile(clientId: string): OidcProfile {
     return {
       driver: "remote",
-      clientId: this.#clientId(),
+      clientId,
       authorizeUrl: "",
       tokenUrl: WORKOS_TOKEN_URL,
       userinfoUrl: "",

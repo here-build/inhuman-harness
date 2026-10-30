@@ -36,6 +36,14 @@ describe("forward", () => {
   });
 });
 
+describe("public config", () => {
+  it("publishes the WorkOS client id without auth", async () => {
+    const res = await handle(get("/api/config"), testEnv({ WORKOS_CLIENT_ID: "client_pub" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ workosClientId: "client_pub" });
+  });
+});
+
 describe("browser routes", () => {
   it("redirects / to login without a session; APIs answer 401", async () => {
     const env = testEnv();
