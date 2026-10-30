@@ -25,9 +25,9 @@
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "eslint": "9.39.2",
-    "typescript": "6.0.2"
+    "typescript": "6.0.3"
   },
   "license": "MIT",
   "repository": {

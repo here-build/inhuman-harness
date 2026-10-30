@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "harness-relay",
   "main": "src/index.ts",
-  "compatibility_date": "2026-08-01",
+  "compatibility_date": "2026-10-19",
   "durable_objects": {
     "bindings": [
       { "name": "USER_DO", "class_name": "UserDO" },

@@ -69,17 +69,17 @@
     "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/plexus-expectations": "workspace:^",
     "@inhuman.tools/statusline": "workspace:^",
-    "nanoid": "5.1.5",
+    "nanoid": "5.1.16",
     "tiny-invariant": "^1.3.3",
-    "type-fest": "5.4.4",
-    "zod": "^4.4.3"
+    "type-fest": "5.10.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "eslint": "9.39.2",
-    "typescript": "6.0.2",
-    "vitest": "4.1.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12",
     "yjs": "13.6.33",
     "mobx": "6.16.1",
     "@here.build/plexus": "^0.9.6"

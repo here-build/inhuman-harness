@@ -25,7 +25,7 @@
   "dependencies": {
     "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/plugin-sdk": "workspace:^",
-    "@modelcontextprotocol/sdk": "1.26.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "better-sqlite3": "^11.10.0",
     "zod": "^3.25.76"
   },
@@ -36,10 +36,10 @@
     "@inhuman.tools/plexus-expectations": "workspace:^",
     "mobx": "6.16.1",
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "eslint": "9.39.2",
-    "typescript": "6.0.2",
-    "vitest": "4.1.0"
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
   },
   "engines": {
     "node": ">=22"

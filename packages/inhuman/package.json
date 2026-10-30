@@ -61,10 +61,10 @@
     "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/harness-peer": "workspace:^",
     "@inhuman.tools/plexus-expectations": "workspace:^",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "eslint": "9.39.2",
-    "typescript": "6.0.2",
-    "vitest": "4.1.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12",
     "y-websocket": "3.1.0",
     "yjs": "13.6.33"
   }

@@ -23,11 +23,11 @@
     "qd:prebuild": "node scripts/qd-prebuild.mjs"
   },
   "devDependencies": {
-    "turbo": "2.5.6",
-    "typescript": "6.0.2",
-    "vitest": "4.1.0"
+    "turbo": "2.11.10",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
   },
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@10.34.8+sha512.f627a8e971343afe49dfd0f63d028234201dfa831d5cb588733e1e5f8db26bf16989a32161ab5c1b4db3b1fdbc373160606b5b89e002df6dd19a85adf91fc5a8",
   "engines": {
     "node": ">=22"
   },
@@ -35,7 +35,7 @@
     "overrides": {
       "@here.build/arrival-syntax": "^0.10.0",
       "mobx": "6.16.1",
-      "zod": "^4.4.3"
+      "zod": "^4.6.7"
     },
     "patchedDependencies": {
       "@here.build/arrival-provenance@0.10.0": "patches/@here.build__arrival-provenance@0.10.0.patch"

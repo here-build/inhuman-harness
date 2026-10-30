@@ -148,6 +148,10 @@ const baseConfig = [
       "import-x/no-duplicates": ["error", { "prefer-inline": true }],
       "import-x/no-useless-path-segments": "off",
       "import-x/no-relative-packages": "error",
+      // @modelcontextprotocol/sdk >= 1.29 maps "./*" types to "./dist/esm/*.d.ts", so
+      // "sdk/server/index.js" points at "index.js.d.ts", which does not exist. TypeScript
+      // still resolves these imports and typecheck covers them; the import resolver does not.
+      "import-x/no-unresolved": ["error", { ignore: [String.raw`^@modelcontextprotocol/sdk/`] }],
 
       // Existing rules
       "security/detect-object-injection": "off",

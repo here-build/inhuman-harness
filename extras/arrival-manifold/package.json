@@ -42,18 +42,18 @@
     "@here.build/arrival-serializer": "^0.10.2",
     "@here.build/arrival-sugarcoat": "^0.10.0",
     "@inhuman.tools/substrate": "workspace:^",
-    "@modelcontextprotocol/sdk": "1.26.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "dedent": "1.7.2",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
     "@-internal-/tsconfig": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "eslint": "9.39.2",
-    "tsx": "^4.20.6",
-    "typescript": "6.0.2",
-    "vitest": "4.1.0"
+    "tsx": "^4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
   },
   "publishConfig": {
     "access": "public"

@@ -45,13 +45,13 @@
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
-    "@types/node": "^24.0.0",
-    "@types/ws": "8.18.1",
+    "@types/node": "^24.19.2",
+    "@types/ws": "8.18.2",
     "eslint": "9.39.2",
     "lib0": "0.2.119",
-    "typescript": "6.0.2",
-    "vitest": "4.1.0",
-    "ws": "^8.18.3",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12",
+    "ws": "^8.22.0",
     "y-protocols": "1.0.7",
     "y-websocket": "3.1.0",
     "yjs": "13.6.33"

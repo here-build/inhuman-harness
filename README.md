@@ -107,7 +107,7 @@ an email allowlist. `npx inhuman logout` turns it off, and
 
 ## Develop from source
 
-Requirements: Node.js 22+, pnpm 10.33 (`corepack enable` provides it), and a
+Requirements: Node.js 22+, pnpm 10.34 (`corepack enable` provides it), and a
 Rust toolchain for the terminal renderer (`qd`).
 
 ```sh

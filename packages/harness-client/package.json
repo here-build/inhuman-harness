@@ -39,11 +39,11 @@
   },
   "dependencies": {
     "@inhuman.tools/harness-contract": "workspace:^",
-    "@orpc/client": "1.15.7",
-    "@orpc/contract": "1.15.7"
+    "@orpc/client": "1.16.1",
+    "@orpc/contract": "1.16.1"
   },
   "peerDependencies": {
-    "ws": "^8.18.3"
+    "ws": "^8.22.0"
   },
   "peerDependenciesMeta": {
     "ws": {
@@ -52,12 +52,12 @@
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
-    "@types/node": "^24.0.0",
-    "@types/ws": "8.18.1",
+    "@types/node": "^24.19.2",
+    "@types/ws": "8.18.2",
     "eslint": "9.39.2",
-    "typescript": "6.0.2",
-    "vitest": "4.1.0",
-    "ws": "8.18.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.12",
+    "ws": "8.22.0"
   },
   "license": "MIT",
   "repository": {

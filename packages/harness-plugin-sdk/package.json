@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@inhuman.tools/harness-commons": "workspace:^",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@here.build/arrival": "^0.10.2"
@@ -38,9 +38,9 @@
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
     "eslint": "9.39.2",
-    "@types/node": "^24.0.0",
-    "typescript": "6.0.2",
-    "vitest": "4.1.0"
+    "@types/node": "^24.19.2",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
   },
   "license": "MIT",
   "repository": {
