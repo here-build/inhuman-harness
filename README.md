@@ -172,8 +172,10 @@ on npm.
 
 1. Bump the `version` of every package that changed (and anything that depends
    on it, `inhuman` included).
-2. Once: add a repository secret `NPM_TOKEN`, an npm granular access token with
-   publish rights on the `inhuman` package and the `@inhuman.tools` scope.
+2. Publishing uses npm trusted publishing (OIDC), no token. Each package needs
+   a trusted publisher on npmjs.com: repository `here-build/inhuman-harness`,
+   workflow `release.yml`. npm only accepts that for a package that already
+   exists, so a brand-new package gets one manual placeholder publish first.
 3. Run the Release workflow from the Actions tab with `dry_run` on, check the
    package list, then run it again with `dry_run` off.
 
