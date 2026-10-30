@@ -1,6 +1,10 @@
 # Remote access through harness.inhuman.tools
 
-Status: in progress on branch `remote-access`. Experimental sandbox, not a commercial production service.
+Status: phases 1–6 done on branch `remote-access`; phase 7 (deploy) waits on the owner-only steps below. Experimental sandbox, not a commercial production service.
+
+Run the whole chain locally: `pnpm turbo run build --filter=@inhuman.tools/harness-cli... --filter=@inhuman.tools/harness-relay...`, then `pnpm --filter @inhuman.tools/harness-relay test:e2e`. The wire contract between the connector and the relay is `packages/harness-relay/PROTOCOL.md`.
+
+Known gaps: the workflow-graph SSE (`/sessions/:id/workflows/:job`) has no server in local mode either, so it is not tunneled; raw `<a href>` links in the rail ignore the `/m/<id>/app` base on middle-click; logout does not revoke the token at WorkOS; real AuthKit login, device login against WorkOS and Durable Object hibernation are untested until deploy.
 
 ## Goal
 
