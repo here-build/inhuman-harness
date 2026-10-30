@@ -36,8 +36,8 @@
       },
       "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UserDO", "MachineDO"] }],
       "vars": {
-        "WORKOS_CLIENT_ID": "",
-        "ALLOWED_EMAILS": ""
+        // ALLOWED_EMAILS is a secret in production, so the tester list stays out of the public repo.
+        "WORKOS_CLIENT_ID": "client_01M6764BVAQ18A4ET39291RTMH"
       }
     }
   }
