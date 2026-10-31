@@ -233,7 +233,7 @@ end tell
     case "kitty": {
       const kitty = (await which("kitty")) ?? "/Applications/kitty.app/Contents/MacOS/kitty";
       const child = execa(kitty, ["--title", "terminal-e2e", "sh", "-lc", shell], { detached: true, stdio: "ignore" });
-      child.unref();
+      child.nodeChildProcess.unref();
       return {
         id,
         processName: meta.processName,
@@ -246,7 +246,7 @@ end tell
         detached: true,
         stdio: "ignore",
       });
-      child.unref();
+      child.nodeChildProcess.unref();
       return {
         id,
         processName: meta.processName,
@@ -259,7 +259,7 @@ end tell
         detached: true,
         stdio: "ignore",
       });
-      child.unref();
+      child.nodeChildProcess.unref();
       return {
         id,
         processName: meta.processName,

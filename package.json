@@ -25,7 +25,8 @@
   "devDependencies": {
     "turbo": "2.11.10",
     "typescript": "6.0.3",
-    "vitest": "4.1.12"
+    "vite": "7.3.7",
+    "vitest": "5.0.5"
   },
   "packageManager": "pnpm@10.34.8+sha512.f627a8e971343afe49dfd0f63d028234201dfa831d5cb588733e1e5f8db26bf16989a32161ab5c1b4db3b1fdbc373160606b5b89e002df6dd19a85adf91fc5a8",
   "engines": {
@@ -35,6 +36,9 @@
     "overrides": {
       "@here.build/arrival-syntax": "^0.10.0",
       "mobx": "6.16.1",
+      "nanoid@5": "5.1.16",
+      "node-gyp": "^13.1.0",
+      "undici@7": "7.30.1",
       "zod": "^4.6.7"
     },
     "patchedDependencies": {

@@ -42,6 +42,8 @@ export default defineConfig({
     ],
     projects: [
       {
+        // Vitest 5 merges the root config into inline projects by default; keep each project on its own include.
+        extends: false,
         resolve: packageResolve(),
         test: {
           name: "logic",
@@ -65,6 +67,8 @@ export default defineConfig({
         },
       },
       {
+        // Vitest 5 merges the root config into inline projects by default; keep each project on its own include.
+        extends: false,
         resolve: packageResolve(),
         test: {
           name: "visual",

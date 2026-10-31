@@ -32,7 +32,7 @@
     "eslint": "10.13.0",
     "storybook": "10.6.3",
     "typescript": "6.0.3",
-    "vitest": "4.1.12"
+    "vitest": "5.0.5"
   },
   "license": "MIT",
   "browserslist": ["last 2 chrome versions", "last 2 firefox versions", "last 2 safari versions", "ios_saf >= 16.4", "node >= 22"]

@@ -8,6 +8,8 @@ export default defineConfig({
     restoreMocks: true,
     projects: [
       {
+        // Vitest 5 merges the root config into inline projects by default; keep each project on its own include.
+        extends: false,
         test: {
           testTimeout: 30_000,
           hookTimeout: 30_000,
@@ -19,6 +21,8 @@ export default defineConfig({
         },
       },
       {
+        // Vitest 5 merges the root config into inline projects by default; keep each project on its own include.
+        extends: false,
         test: {
           testTimeout: 30_000,
           hookTimeout: 30_000,
@@ -33,6 +37,8 @@ export default defineConfig({
         },
       },
       {
+        // Vitest 5 merges the root config into inline projects by default; keep each project on its own include.
+        extends: false,
         test: {
           testTimeout: 30_000,
           hookTimeout: 30_000,

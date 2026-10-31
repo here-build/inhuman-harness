@@ -98,14 +98,11 @@ expect.extend({
 });
 
 declare module "vitest" {
-  // Match vitest's Assertion type params (no default) so augmentation merges.
-
+  // Augment `Matchers`, which both `Assertion` and `AsymmetricMatchersContaining` extend.
+  // The type parameters must match vitest's declaration exactly or the merge fails.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   // noinspection JSUnusedGlobalSymbols
-  interface Assertion<T> {
-    toMatchTerminalGolden(opts: TerminalGoldenOpts): void;
-  }
-  // noinspection JSUnusedGlobalSymbols
-  interface AsymmetricMatchersContaining {
-    toMatchTerminalGolden(opts: TerminalGoldenOpts): void;
+  interface Matchers<R extends void | Promise<void> = void | Promise<void>, T = unknown> {
+    toMatchTerminalGolden(opts: TerminalGoldenOpts): R;
   }
 }
