@@ -15,3 +15,5 @@ export * from "./program-source.js";
 export * from "./limits.js";
 
 export * from "./file-path.js";
+
+export * from "./agent-communication.js";

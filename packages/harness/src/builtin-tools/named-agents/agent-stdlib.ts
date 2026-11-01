@@ -3,6 +3,7 @@
  * a botmaker authors. Runtime does not special-case these names.
  */
 import { prompt } from "@inhuman.tools/harness-commons";
+import { AGENT_BRIEF_GUIDANCE } from "@inhuman.tools/harness-scheme";
 import { type BotDefinition, InhumanPlugin } from "@inhuman.tools/plugin-sdk";
 import dedent from "dedent";
 
@@ -98,5 +99,6 @@ export function namedAgentInventory(recipes: readonly CatalogRecipe[]): string {
     Bots — (bot/ask spec message) reuses the worker for this session; (agent/ask spec message) creates a disposable worker for that request. A schema is legal on (agent/ask spec message schema …) and on omitted-spec (bot/ask message schema), not on a standing named bot/ask.
     ${rows.map((recipe) => `${recipe.spec.name.padEnd(width)}  ${recipe.spec.description.trim()}`).join("\n")}
     (bot/ask message [schema]) omits spec for an anonymous worker this session reuses. agent/ask requires spec.
+    ${AGENT_BRIEF_GUIDANCE}
   `;
 }

@@ -17,6 +17,7 @@ import { SCHEME_REPL_NAMING } from "@inhuman.tools/harness-model";
 import { type CatalogRecipe, type KernelToolCatalog } from "@inhuman.tools/turn/catalog";
 import dedent from "dedent";
 
+import { AGENT_BRIEF_GUIDANCE, AGENT_STATUS_GUIDANCE } from "./agent-communication.js";
 import { boundToolsOf } from "./bound-tools.js";
 import type { SchemeReplFaces } from "./connection-models.js";
 
@@ -123,6 +124,8 @@ export function schemeReplDescription(catalog: KernelToolCatalog, faces?: Scheme
   (agent/call spec message :model) and (agent/ask spec message [schema] :readonly :model) create a new disposable worker for each call. Spec is required; keywords follow the message, not a trailing dict. Schema is positional after the message.
   :model is "connection/model" and pins that worker's completion wire.
   (connection/models connection) lists live model ids on that connection.
+  ${AGENT_BRIEF_GUIDANCE}
+  ${AGENT_STATUS_GUIDANCE}
   (agent/message target message) delivers without waiting for a response.
   Finish a worker request with the agent__respond JSON tool, not (agent/respond); (agent/void id) still voids a send.
   Ask requires a response and rejects void.

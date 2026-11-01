@@ -16,6 +16,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { parseJsonRecord } from "@inhuman.tools/harness-model/json-record";
 import { agentCallBagSchema } from "@inhuman.tools/harness-model/schemas";
+import { AGENT_BRIEF_GUIDANCE, AGENT_STATUS_GUIDANCE } from "@inhuman.tools/harness-scheme";
 
 import type { CatalogEntry, ToolRepresentation } from "@/tool-catalog";
 
@@ -35,7 +36,7 @@ function projection(
 export const AGENT_COMMS_ENTRIES: readonly CatalogEntry[] = [
   projection(
     AGENT_RESPOND,
-    "Complete an open agent call with a response.",
+    `Complete an open agent call with a response. ${AGENT_STATUS_GUIDANCE}`,
     {
       type: "object",
       properties: { requestId: { type: "string" }, response: { type: "string" } },
@@ -55,7 +56,7 @@ export const AGENT_COMMS_ENTRIES: readonly CatalogEntry[] = [
   ),
   projection(
     AGENT_NOTIFY,
-    "Yield a notification on an open agent call.",
+    `Yield a notification on an open agent call. ${AGENT_STATUS_GUIDANCE}`,
     {
       type: "object",
       properties: { requestId: { type: "string" }, message: { type: "string" } },
@@ -65,7 +66,7 @@ export const AGENT_COMMS_ENTRIES: readonly CatalogEntry[] = [
   ),
   projection(
     AGENT_MESSAGE,
-    "Send a message to a named or id-addressed agent.",
+    `Send a message to a named or id-addressed agent. ${AGENT_BRIEF_GUIDANCE}`,
     {
       type: "object",
       properties: {
@@ -79,7 +80,7 @@ export const AGENT_COMMS_ENTRIES: readonly CatalogEntry[] = [
   ),
   projection(
     AGENT_SEND,
-    "Address a named worker; void or respond settles.",
+    `Address a named worker; void or respond settles. ${AGENT_BRIEF_GUIDANCE}`,
     {
       type: "object",
       properties: {
@@ -92,7 +93,7 @@ export const AGENT_COMMS_ENTRIES: readonly CatalogEntry[] = [
   ),
   projection(
     AGENT_ASK,
-    "Ask a worker and wait for a response.",
+    `Ask a worker and wait for a response. ${AGENT_BRIEF_GUIDANCE}`,
     {
       type: "object",
       properties: {

@@ -22,3 +22,32 @@ A watcher must reach `(meta-reactivity/done-condition stop? [result])`:
 ## Routing
 
 Both outer tools admit a `ProgrammaticJob`; its persisted `toolName` selects the argument schema and preserves watcher identity. Neither outer tool is exposed as a nested Scheme symbol. Permissions remain on the inner operations. The shared symbol catalog is projected only on `scheme_repl`; the watcher references it.
+
+## Writing agent briefs and continuations
+
+Agent messages are delivered as authored. Use normal word spacing and readable
+sentences; concise briefs remove repetition while preserving the relationships
+between facts. Include the goal, relevant context and constraints, the worker's
+owned scope, and the evidence required for completion. Keep paths, identifiers,
+quoted requests, and errors exact. A disposable worker starts without the
+caller's conversation history.
+
+For example:
+
+> Fix draft recovery in `src/chat.ts`. Preserve the existing save format. Own
+> that file and its recovery tests; another worker owns the UI. Completion means
+> the interrupted-draft test passes and existing recovery behavior still works.
+> The previous call timed out after 1200000 ms. Its last verified change was the
+> recovery parser; test status is unknown. Check that worker's current state and
+> the working tree before assigning overlapping work.
+
+A timeout, tool failure, or exhausted budget is an observed event, not proof of
+completion or proof that all underlying work stopped. Continuations should name
+the worker or task, distinguish verified progress from remaining work, and state
+what must be checked before resuming. Report actual test outcomes and unresolved
+blockers instead of treating a returned response as a success signal.
+
+The live Scheme tool description and agent communication tool descriptions carry
+this guidance. The default compaction prompt preserves it in readable state
+snapshots. These instructions influence authoring; they do not repair historical
+messages or rewrite user prompts, and custom prompts can choose different rules.

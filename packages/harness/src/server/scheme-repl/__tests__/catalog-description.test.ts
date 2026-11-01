@@ -1,5 +1,11 @@
 import { SCHEME_REPL_TOOL_NAME } from "@inhuman.tools/harness-model";
-import { schemeReplDescription, oneShotModelError, parseModelRef } from "@inhuman.tools/harness-scheme";
+import {
+  schemeReplDescription,
+  oneShotModelError,
+  parseModelRef,
+  AGENT_BRIEF_GUIDANCE,
+  AGENT_STATUS_GUIDANCE,
+} from "@inhuman.tools/harness-scheme";
 import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { describe, expect, it } from "vitest";
 
@@ -9,6 +15,12 @@ import { openAiTools } from "../../toolkit/catalog.js";
 import { KernelToolCatalog } from "../../toolkit/tool-table.js";
 
 describe("schemeReplDescription", () => {
+  it("shows readable delegation and truthful continuation guidance on the live tool surface", () => {
+    const description = schemeReplDescription(new KernelToolCatalog());
+    expect(description).toContain(AGENT_BRIEF_GUIDANCE);
+    expect(description).toContain(AGENT_STATUS_GUIDANCE);
+  });
+
   it("CHARACTERIZE dump: live signatures, no unbound domains, no tasks/list; models enumerate/recency", () => {
     const catalog = new KernelToolCatalog();
     catalog.connectionHost = {
