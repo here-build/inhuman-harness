@@ -93,15 +93,33 @@ describe("visual store", () => {
     expect(gif.ok && gif.width).toBe(8);
   });
 
-  it("treats an unknown model as text-only", () => {
-    expect(modelSeesImages("gpt-4o-mini")).toBe(true);
-    expect(modelSeesImages("GPT-4o")).toBe(true);
-    expect(modelSeesImages("claude-3")).toBe(true);
-    expect(modelSeesImages("grok-4")).toBe(true);
-    expect(modelSeesImages("gpt-4-turbo")).toBe(false);
-    expect(modelSeesImages("gpt-4")).toBe(false);
-    expect(modelSeesImages("")).toBe(false);
-    expect(modelSeesImages("unknown")).toBe(false);
+  it("uses exact model metadata rather than model names", () => {
+    const capabilities = {
+      arbitrary: { inputModalities: ["text", "image"] },
+      "gpt-4o": { supportsVision: false },
+      "claude-3": { inputModalities: ["text"] },
+      contradictory: { inputModalities: ["image"], supportsVision: false },
+      boolean: { supportsVision: true },
+    };
+    expect(modelSeesImages("arbitrary", capabilities)).toBe(true);
+    expect(modelSeesImages("gpt-4o", capabilities)).toBe(false);
+    expect(modelSeesImages("claude-3", capabilities)).toBe(false);
+    expect(modelSeesImages("contradictory", capabilities)).toBe(false);
+    expect(modelSeesImages("boolean", capabilities)).toBe(true);
+    expect(modelSeesImages("gpt-4o-mini", capabilities)).toBe(true);
+    expect(modelSeesImages("GPT-4o", capabilities)).toBe(true);
+    expect(modelSeesImages(" gpt-4o ", capabilities)).toBe(false);
+  });
+
+  it("allows unknown support but rejects empty model ids", () => {
+    expect(modelSeesImages("gpt-6.1-sol", undefined)).toBe(true);
+    expect(modelSeesImages("unknown", {})).toBe(true);
+    expect(modelSeesImages("unknown", { unknown: {} })).toBe(true);
+    expect(modelSeesImages("unknown", { unknown: { inputModalities: [] } })).toBe(true);
+    expect(modelSeesImages("unknown", { unknown: { inputModalities: "text" } })).toBe(true);
+    expect(modelSeesImages("unknown", { unknown: { inputModalities: [null] } })).toBe(true);
+    expect(modelSeesImages("", undefined)).toBe(false);
+    expect(modelSeesImages("  ", {})).toBe(false);
   });
 
   it("stores bytes beside the session and rejects a path id", () => {

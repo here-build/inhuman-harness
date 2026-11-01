@@ -277,11 +277,13 @@ export class SessionDaemon extends RequestHost implements Disposable {
         if (named === "steer" || named === "queue" || named === "continue" || this.root.findRunningTurn() != null) {
           throw new RpcInvalidParams("an image can't be sent with that");
         }
-        if (!modelSeesImages(this.root.kvs.model ?? "")) {
-          throw new RpcInvalidParams("this model can't see images");
-        }
-        if ((this.root.kvs.connection ?? "").trim() === "") {
+        const connectionId = (this.root.kvs.connection ?? "").trim();
+        if (connectionId === "") {
           throw new RpcInvalidParams("connection is required");
+        }
+        const spec = this.kernel.connections[connectionId];
+        if (!modelSeesImages(this.root.kvs.model ?? "", spec?.live.modelCapabilities)) {
+          throw new RpcInvalidParams("this model can't see images");
         }
       }
       const visuals = incoming.length === 0 ? undefined : this.#seatVisuals(incoming);

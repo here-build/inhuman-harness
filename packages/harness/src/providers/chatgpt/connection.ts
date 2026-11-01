@@ -132,7 +132,9 @@ export class ChatGptDriverConnection extends OpenAiCompatDriverConnection {
   @computed
   override get fresh(): boolean {
     this.readSecrets();
-    return this.secretField("apiKey") !== undefined && !this.expiring && !this.needsAuth;
+    return (
+      this.secretField("apiKey") !== undefined && this.lastChallenge === "none" && !this.expiring && !this.needsAuth
+    );
   }
 
   override async bootstrap(): Promise<void> {

@@ -17,23 +17,6 @@ export const VISUAL_UNREADABLE = "the picture could not be read";
 export const VISUAL_TOO_LARGE = "the picture is too large";
 export const VISUAL_TYPE = "this picture type can't be sent";
 
-const VISION_MODELS = [
-  "gpt-4o",
-  "gpt-4.1",
-  "gpt-5",
-  "chatgpt-4o",
-  "claude",
-  "gemini",
-  "grok-4",
-  "grok-3",
-  "grok-2",
-  "pixtral",
-  "llava",
-  "qwen3-vl",
-  "qwen2-vl",
-  "qwen-vl",
-];
-
 let rootDir: string | null = null;
 
 /** Seats the store and hands providers the read seam; the wire projection reads pictures through it. */
@@ -42,11 +25,24 @@ export function bindVisualStore(root: string): void {
   bindVisualReader(readVisual);
 }
 
-/** Unknown and empty model ids are text-only. Bare `gpt-4` is not in the list. */
-export function modelSeesImages(modelId: string): boolean {
-  const id = modelId.trim().toLowerCase();
+/** Only explicit metadata rejects images; unknown support is adjudicated by the provider. */
+export function modelSeesImages(modelId: string, modelCapabilities: unknown): boolean {
+  const id = modelId.trim();
   if (id === "") return false;
-  return VISION_MODELS.some((token) => id.includes(token));
+  if (typeof modelCapabilities !== "object" || modelCapabilities === null) return true;
+  if (!Object.hasOwn(modelCapabilities, id)) return true;
+  const capabilities = (modelCapabilities as Record<string, unknown>)[id];
+  if (typeof capabilities !== "object" || capabilities === null) return true;
+  const { inputModalities, supportsVision } = capabilities as { inputModalities?: unknown; supportsVision?: unknown };
+  if (supportsVision === false) return false;
+  if (
+    Array.isArray(inputModalities) &&
+    inputModalities.length > 0 &&
+    inputModalities.every((item) => typeof item === "string" && item !== "")
+  ) {
+    return inputModalities.includes("image");
+  }
+  return true;
 }
 
 export type FittedVisual = {

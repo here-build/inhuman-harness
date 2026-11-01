@@ -48,6 +48,7 @@ import {
 import { describeFetchLine, describeHttpFailure, REQUEST_TIMEOUT_MS, wrapFetchFailure } from "./fetch-failure.js";
 import { headersRecord, type FetchInput, type HeaderInit } from "./fetch-types.js";
 import { detectedLocalOffers } from "./local-offers.js";
+import { modelCapabilitiesOf, type ModelCapabilities } from "./model-capabilities.js";
 import { CUSTOM_OFFER, isLoopbackBaseUrl, nameFromBaseUrl, REMOTE_OFFERS } from "./presence.js";
 import { reasoningFlavorFromBaseUrl, type ReasoningFlavor } from "./reasoning-flavor.js";
 import {
@@ -104,6 +105,7 @@ export function openaiCompatLiveState(): {
   auth: "needs-auth" | undefined;
   models: string[];
   windows: Record<string, number>;
+  modelCapabilities: Record<string, ModelCapabilities>;
 } {
   return {
     catalogName: "",
@@ -112,6 +114,7 @@ export function openaiCompatLiveState(): {
     auth: undefined,
     models: [],
     windows: {},
+    modelCapabilities: {},
   };
 }
 
@@ -209,13 +212,13 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
   }
 
   /**
-   * Static key: lastChallenge with a configured key. Empty key is not ceremony.
+   * A refused credential needs sign-in, including a keyless endpoint that starts requiring a key.
    * PR4: a send 401 is `noteChallenge`, not catalog `noteFail`.
    */
   @computed
   get needsAuth(): boolean {
     this.readSecrets();
-    return this.secretField("apiKey") !== undefined && this.lastChallenge !== "none";
+    return this.lastChallenge !== "none";
   }
 
   @computed
@@ -367,12 +370,15 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
     }
     const ids: string[] = [];
     const windows: Record<string, number> = {};
+    const modelCapabilities = Object.create(null) as Record<string, ModelCapabilities>;
     for (const row of modelRows(await response.json())) {
       const id = modelId(row);
       if (id === null) continue;
       ids.push(id);
       const window = contextWindowOf(row);
       if (window != null) windows[id] = window;
+      const capabilities = modelCapabilitiesOf(row);
+      if (capabilities !== undefined) modelCapabilities[id] = capabilities;
     }
     const manual = this.settings.contextWindow;
     for (const id of ids) {
@@ -385,6 +391,7 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
     runInAction(() => {
       this.state.models = ids;
       this.state.windows = windows;
+      this.state.modelCapabilities = modelCapabilities;
       this.#healthy = true;
     });
     this.#noteOk();
@@ -715,11 +722,13 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
 
   /** Handshake door. Always hits the wire. Never throws on !fresh. Never waits send-ready. */
   async handshakeFetch(input: FetchInput, init?: RequestInit, signal?: AbortSignal): Promise<Response> {
-    return fetch(input, {
+    const response = await fetch(input, {
       ...init,
       headers: this.stamp(init?.headers),
       signal: signal ?? init?.signal,
     });
+    if (response.status === 401 || response.status === 403) this.noteChallenge(response.status);
+    return response;
   }
 
   /** Extra auth headers for a subscription profile (account id, grok-cli token). */

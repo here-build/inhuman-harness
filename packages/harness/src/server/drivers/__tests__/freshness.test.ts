@@ -3,6 +3,7 @@ import { runInAction, when } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { OIDC_REFRESH_BACKOFF_MS, OIDC_REFRESH_SKEW_MS } from "@/providers/auth";
+import { ChatGptDriverConnection } from "@/providers/chatgpt";
 import { GrokDriverConnection } from "@/providers/grok";
 import { OpenAiCompatDriverConnection } from "@/providers/openai-compat";
 
@@ -68,7 +69,7 @@ function sendReady(connection: OpenAiCompatDriverConnection): boolean {
 }
 
 describe("openai-compat TFRP freshness: nowMs, per-class fresh, wait+stamp, deposit clears challenge", () => {
-  it("empty-key and static-key compat are fresh; nowMs stays off spec.live", () => {
+  it("empty-key and static-key compat stay fresh until challenged; nowMs stays off spec.live", () => {
     const empty = new OpenAiCompatDriverConnection("row", { baseUrl: "http://127.0.0.1:11434/v1" });
     const keyed = new OpenAiCompatDriverConnection("row", { baseUrl: "https://api.example.test/v1" }, { apiKey: "sk" });
     empty.tick(NOW);
@@ -83,6 +84,15 @@ describe("openai-compat TFRP freshness: nowMs, per-class fresh, wait+stamp, depo
       keyed: { fresh: true, expiring: false, needsAuth: false },
       live: expect.not.objectContaining({ nowMs: expect.anything() }),
       stateHasNow: false,
+    });
+    empty.noteChallenge(401);
+    keyed.noteChallenge(403);
+    expect({
+      empty: { fresh: empty.fresh, auth: empty.needsAuth, liveAuth: empty.state.auth },
+      keyed: { fresh: keyed.fresh, auth: keyed.needsAuth, liveAuth: keyed.state.auth },
+    }).toEqual({
+      empty: { fresh: false, auth: true, liveAuth: "needs-auth" },
+      keyed: { fresh: false, auth: true, liveAuth: "needs-auth" },
     });
     void empty[Symbol.asyncDispose]();
     void keyed[Symbol.asyncDispose]();
@@ -240,6 +250,89 @@ describe("openai-compat TFRP freshness: nowMs, per-class fresh, wait+stamp, depo
     await connection[Symbol.asyncDispose]();
     await force[Symbol.asyncDispose]();
   });
+
+  it.each([
+    { Driver: ChatGptDriverConnection, grant: "ok" },
+    { Driver: GrokDriverConnection, grant: "ok" },
+    { Driver: ChatGptDriverConnection, grant: "fail" },
+    { Driver: GrokDriverConnection, grant: "fail" },
+  ])(
+    "a server 401 waits for $Driver.name credential refresh; grant $grant determines follow-up admission",
+    async ({ Driver, grant }) => {
+      const renewal = Promise.withResolvers<Response>();
+      let refreshes = 0;
+      let sends = 0;
+      const followups: Array<string | null> = [];
+      globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+        const href = String(url);
+        if (href === Driver.oidcProfile.tokenUrl) {
+          refreshes += 1;
+          return renewal.promise;
+        }
+        if (href === "https://api.example.test/guarded") {
+          sends += 1;
+          return new Response("token_expired", { status: 401 });
+        }
+        if (href === "https://api.example.test/followup") {
+          followups.push(new Headers(init?.headers).get("authorization"));
+          return new Response("ok", { status: 200 });
+        }
+        return new Response(JSON.stringify({ data: [{ id: "m1" }], models: [{ slug: "m1" }] }), { status: 200 });
+      }) as typeof fetch;
+      const connection = new Driver(
+        "subscription",
+        { baseUrl: Driver.oidcProfile.baseUrl },
+        {
+          apiKey: "expired-on-server",
+          refreshToken: "rt",
+          expiresAt: iso(Date.now() + 86_400_000),
+          displayName: "Ada",
+        },
+      );
+      try {
+        await connection.ensureBootstrapStarted();
+        const response = await connection.authorizedFetch("https://api.example.test/guarded");
+        const next = connection.authorizedFetch("https://api.example.test/followup").then(
+          (value) => ({ status: value.status }),
+          (error: unknown) => ({ code: error instanceof ConnectionMiss ? error.code : String(error) }),
+        );
+        expect({ fresh: connection.fresh, auth: connection.needsAuth, followups }).toEqual({
+          fresh: false,
+          auth: false,
+          followups: [],
+        });
+        renewal.resolve(
+          grant === "fail"
+            ? new Response("invalid_grant", { status: 400 })
+            : new Response(
+                JSON.stringify({ access_token: "renewed-at", refresh_token: "renewed-rt", expires_in: 3600 }),
+                { status: 200 },
+              ),
+        );
+        const result = await next;
+        expect({
+          status: response.status,
+          refreshes,
+          sends,
+          result,
+          followups,
+          auth: connection.needsAuth,
+          liveAuth: connection.state.auth,
+        }).toEqual({
+          status: 401,
+          refreshes: 1,
+          sends: 1,
+          result: grant === "ok" ? { status: 200 } : { code: "needs-auth" },
+          followups: grant === "ok" ? ["Bearer renewed-at"] : [],
+          auth: grant === "fail",
+          liveAuth: grant === "fail" ? "needs-auth" : undefined,
+        });
+      } finally {
+        renewal.resolve(new Response("invalid_grant", { status: 400 }));
+        await connection[Symbol.asyncDispose]();
+      }
+    },
+  );
 
   it("audience: Grok stamp never sees another connection's secrets", () => {
     const a = bag({ apiKey: "secret-aaa", refreshToken: "rt-a", expiresAt: iso(NOW + 3_600_000) }).connection;

@@ -20,6 +20,7 @@ export type ChatGptHandle = {
 
 export async function listenChatGpt(opts?: {
   model?: string;
+  inputModalities?: string[];
   reply?: (hit: ChatGptHit) => {
     readonly status?: number;
     readonly contentType?: string;
@@ -63,7 +64,7 @@ export async function listenChatGpt(opts?: {
     const headers = lowerHeaders(req.headers);
     if (url.startsWith("/backend-api/codex/models")) {
       hits.push({ method: req.method ?? "GET", url, headers, body: null });
-      json(res, 200, { models: [{ slug: model }] });
+      json(res, 200, { models: [{ slug: model, input_modalities: opts?.inputModalities }] });
       return;
     }
     if (url.startsWith("/backend-api/wham/usage")) {

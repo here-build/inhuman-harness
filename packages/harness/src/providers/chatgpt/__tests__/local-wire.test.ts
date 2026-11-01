@@ -108,12 +108,12 @@ async function listenAuth(): Promise<{
 
 describe("chatgpt local wire", () => {
   it("discovers slug models, polls usage, and posts Responses with session cache", async () => {
-    const wire = await listenChatGpt({ model: "gpt-5.4" });
+    const wire = await listenChatGpt({ model: "gpt-6.1-sol", inputModalities: ["text", "image"] });
     globalThis.fetch = passAuth(originalFetch);
     const secrets = { apiKey: "codex-at", accountId: "acct-1" };
     const connection = new ChatGptDriverConnection(
       "chatgpt",
-      { baseUrl: wire.baseUrl, model: "gpt-5.4" },
+      { baseUrl: wire.baseUrl, model: "gpt-6.1-sol" },
       {
         get: (field) => secrets[field as keyof typeof secrets],
         all: () => secrets,
@@ -126,7 +126,10 @@ describe("chatgpt local wire", () => {
       const modelsHit = wire.hits.find((hit) => hit.url.startsWith("/backend-api/codex/models"));
       const usageHit = wire.hits.find((hit) => hit.url.startsWith("/backend-api/wham/usage"));
       expect(modelsHit?.url).toContain(`client_version=${CHATGPT_CLIENT_VERSION}`);
-      expect(connection.state.models).toEqual(["gpt-5.4"]);
+      expect(connection.state.models).toEqual(["gpt-6.1-sol"]);
+      expect(connection.state.modelCapabilities).toEqual({
+        "gpt-6.1-sol": { inputModalities: ["text", "image"] },
+      });
       expect(connection.state.account?.balanceDetail?.windows?.map((row) => row.label)).toEqual(["5h", "weekly"]);
       expect(usageHit?.headers.originator).toBe("codex_cli_rs");
       expect(usageHit?.headers["chatgpt-account-id"]).toBe("acct-1");
