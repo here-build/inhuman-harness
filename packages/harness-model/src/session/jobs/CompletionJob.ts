@@ -12,6 +12,8 @@ import {
 } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
+import type { ProgrammaticJob } from "./ProgrammaticJob.js";
+import type { ToolCallJob } from "./ToolCallJob.js";
 import type { CompletionExpectation } from "../expectations/CompletionExpectation.js";
 
 /** Predecessor this cell continues. Ref, not `@syncing.child` — child would reparent X. */
@@ -38,11 +40,17 @@ export class CompletionJob extends Job<unknown, string> {
   @syncing accessor turnTail: CompletionJobTail | null = null;
   /** Prefix already summarized. The same key does not start another summarizer. */
   @syncing accessor ambientCompactKey: string = "";
+  /** Provider settlement and response expansion are separate recovery checkpoints. */
+  @syncing accessor managesResponse: boolean = false;
+  @syncing accessor responseExpanded: boolean = false;
+  /** Admitted calls in response-processing order. Refs to turn-owned jobs; no second ownership. */
+  @syncing.list accessor responseWork: Array<ToolCallJob | ProgrammaticJob> = [];
 
   constructor(
     props:
       | {
           readonly expectation: CompletionExpectation;
+          readonly managesResponse?: boolean;
           readonly turnTail?: CompletionJobTail | null;
           readonly background?: boolean;
           readonly walkBoundary?: boolean;

@@ -1,8 +1,9 @@
 import { McpToolExpectation, MCPToolJob, SystemToolJob } from "@inhuman.tools/harness-model";
-import { expect, test } from "vitest";
+import { expect, onTestFinished, test } from "vitest";
 
-import { type ToolOutcome, Dict, toJS, type Val } from "@/extensions";
-import { guardedCallOf, guardedOutcomeJson, scopedPath } from "@/tool-runtime";
+import { AgentBehavior, BehaviorKernel, loadProgram, type ToolOutcome, Dict, toJS, type Val } from "@/extensions";
+import { Lambda } from "@/extensions/value";
+import { guardHostTool, guardedCallOf, guardedOutcomeJson, scopedPath, stampUnentered } from "@/tool-runtime";
 
 function system(name: string, args: object): SystemToolJob {
   return new SystemToolJob({
@@ -142,3 +143,123 @@ test("guards replace or refuse a receipt; hook diagnostics follow its text", () 
     failed: JSON.stringify({ ok: false, text: "boom\n\nnoted" }),
   });
 });
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((_resolve) => {
+    resolve = _resolve;
+  });
+  return { promise, resolve };
+}
+
+/** A real Scheme plugin callback supplied to the host's guard protocol. */
+async function shellGuard(suspend?: Promise<void>) {
+  const registry = await loadProgram({
+    agentId: "guard-agent",
+    source: `(define/tool 'callback :handler (lambda (command invoke) (invoke command)))`,
+    filename: "/plugin/guard.scm",
+    revision: "fixture",
+    root: "/plugin",
+    kind: "behavior",
+    read: () => {
+      throw new Error("unexpected import");
+    },
+  });
+  const original = registry.tools.get("callback")!.handler;
+  const handler =
+    suspend == null
+      ? original
+      : new Lambda(async (...args) => {
+          await suspend;
+          return original.call(...args);
+        }, original.source);
+  registry.guards.push({
+    point: "shell",
+    matchers: [],
+    guardCapability: "narrow",
+    contract: "",
+    handler,
+    reentrantDepth: 0,
+    hash: "fixture",
+    program: "guard.scm",
+    declarationId: "guard:shell",
+    source: original.source,
+  });
+  return new AgentBehavior(
+    "guard-agent",
+    [{ plugin: "fixture", bot: "foreground", registry, bindings: new Map() }],
+    new BehaviorKernel({ packages: () => [] }),
+  );
+}
+
+test("a suspended plugin guard denies at its deadline and cannot license a tool when it eventually invokes", async () => {
+  const gate = deferred<void>();
+  onTestFinished(() => gate.resolve());
+  const agent = await shellGuard(gate.promise);
+  const job = system("shell", { command: "effect" });
+  let licensed = 0;
+  const decision = await guardHostTool({
+    job,
+    agent,
+    origin: "model",
+    behaviorEntries: [],
+    turnId: "turn",
+    hookTimeoutMs: 20,
+    guardedCall: (leaf) => guardedCallOf(leaf, "/work"),
+    license: async () => {
+      licensed += 1;
+      return true;
+    },
+    onUnentered: stampUnentered,
+  });
+  gate.resolve();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect({ allowed: decision.allowed, licensed, receipt: job.outcomeSnap, args: job.args }).toEqual({
+    allowed: false,
+    licensed: 0,
+    receipt: { ok: false, text: "plugin guard failed: plugin guard deadline exceeded" },
+    args: { command: "effect" },
+  });
+});
+
+test.each(["approve", "abort"] as const)(
+  "plugin execution time excludes a human license wait, then honors %s",
+  async (answer) => {
+    const permission = deferred<boolean>();
+    const licensing = deferred<void>();
+    onTestFinished(() => permission.resolve(false));
+    const controller = new AbortController();
+    const agent = await shellGuard();
+    const job = system("shell", { command: "effect" });
+    let settled = false;
+    const waiting = guardHostTool({
+      job,
+      agent,
+      origin: "model",
+      behaviorEntries: [],
+      turnId: "turn",
+      hookTimeoutMs: 20,
+      signal: controller.signal,
+      guardedCall: (leaf) => guardedCallOf(leaf, "/work"),
+      license: () => {
+        licensing.resolve();
+        return permission.promise;
+      },
+      onUnentered: stampUnentered,
+    }).then((decision) => {
+      settled = true;
+      return decision;
+    });
+    await licensing.promise;
+    await new Promise<void>((resolve) => setTimeout(resolve, 60));
+    expect({ settled, receipt: job.outcomeSnap ?? null }).toEqual({ settled: false, receipt: null });
+    if (answer === "abort") controller.abort("park");
+    permission.resolve(true);
+    const decision = await waiting;
+    if (decision.opened != null) await decision.opened.finish({ ok: true, value: "original effect receipt" });
+    expect({ allowed: decision.allowed, receipt: job.outcomeSnap ?? null }).toEqual({
+      allowed: answer === "approve",
+      receipt: null,
+    });
+  },
+);

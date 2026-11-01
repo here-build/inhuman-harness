@@ -326,6 +326,23 @@ describe("openai-compat TFRP freshness: nowMs, per-class fresh, wait+stamp, depo
     await connection[Symbol.asyncDispose]();
   });
 
+  it("bounds a send-ready wait when freshness never arrives", async () => {
+    const { connection } = bag({ apiKey: "old-at", refreshToken: "rt", expiresAt: iso(NOW + 60_000) });
+    connection.tick(NOW);
+    runInAction(() => {
+      connection.readyState = "ready";
+    });
+    connection.sendReadyTimeoutMs = 20;
+    try {
+      await expect(connection.authorizedFetch("https://cli-chat-proxy.grok.com/v1/x")).rejects.toMatchObject({
+        code: "not-ready",
+        message: expect.stringContaining("did not become send-ready within 20ms"),
+      });
+    } finally {
+      await connection[Symbol.asyncDispose]();
+    }
+  });
+
   it("abortOnDrop unblocks send-path when with connection-dropped", async () => {
     const { connection } = bag({
       apiKey: "old-at",

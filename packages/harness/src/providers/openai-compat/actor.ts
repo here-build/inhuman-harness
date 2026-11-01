@@ -446,31 +446,6 @@ function visibleThought(raw: string, summary: string): { thought: string; kind: 
   return { thought: "", kind: null };
 }
 
-/**
- * Responses `incomplete` + `max_output_tokens` after a reasoning item is the
- * model spending the budget on thought and stopping before a message. Not a
- * failed generation — ReACT continues. Other incomplete reasons stay fatal.
- */
-function incompleteThoughtExhausted(
-  reason: unknown,
-  thought: {
-    readonly raw: string;
-    readonly summary: string;
-    readonly encrypted: string;
-    readonly kind: string | null;
-    readonly reasoningTokens: number | null;
-  },
-): boolean {
-  if (reason !== "max_output_tokens") return false;
-  return (
-    thought.raw.trim() !== "" ||
-    thought.summary.trim() !== "" ||
-    thought.encrypted !== "" ||
-    thought.kind != null ||
-    (thought.reasoningTokens ?? 0) > 0
-  );
-}
-
 const THINKING_PART_TYPES = new Set(["thinking", "reasoning", "redacted_thinking", "reasoning_text"]);
 
 function isThinkingPart(part: object): boolean {
@@ -547,17 +522,126 @@ function chunkMessageReasoning(raw: unknown): string {
   return typeof alt === "string" && alt !== "" ? alt : "";
 }
 
+/** A no-progress deadline is terminal, unlike explicitly configured transient retries. */
+async function withProgressDeadline<T>(
+  pending: Promise<T>,
+  signal: AbortSignal,
+  ms: number,
+  phase: string,
+  cancel: (reason: Error) => void,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason ?? new Error("completion aborted"));
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+    timer = setTimeout(() => {
+      const reason = new StreamStallError(ms);
+      reason.message = `${phase} stalled after ${ms}ms`;
+      reject(reason);
+      cancel(reason);
+    }, ms);
+    timer.unref();
+  });
+  try {
+    return await Promise.race([pending, deadline]);
+  } finally {
+    clearTimeout(timer);
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
+
+function readBulkText(response: Response, signal: AbortSignal, ms: number): Promise<string> {
+  return withProgressDeadline(response.text(), signal, ms, "response body", (reason) => {
+    // The fetch signal owns network cancellation. A synthetic response may not
+    // observe it; deadline rejection must not depend on its cancel implementation.
+    void response.body?.cancel(reason).catch(() => undefined);
+  });
+}
+
+/** Only model output or an authoritative terminal can extend the no-progress deadline. */
+function streamFrameProgress(frame: unknown): boolean {
+  if (typeof frame !== "object" || frame === null) return false;
+  const text = (value: unknown): boolean => typeof value === "string" && value.length > 0;
+  const type = readField(frame, "type");
+  if (
+    type === "error" ||
+    type === "response.completed" ||
+    type === "response.done" ||
+    type === "response.failed" ||
+    type === "response.incomplete"
+  )
+    return true;
+  if (typeof type === "string" && type.startsWith("response.") && type.endsWith(".delta"))
+    return text(readField(frame, "delta"));
+  if (type === "response.output_item.added" || type === "response.output_item.done") {
+    const item = readField(frame, "item");
+    if (typeof item !== "object" || item === null) return false;
+    const content = splitMessageContent(readField(item, "content"));
+    return (
+      text(readField(item, "name")) ||
+      text(readField(item, "arguments")) ||
+      text(readField(item, "encrypted_content")) ||
+      text(content.text) ||
+      text(content.thought)
+    );
+  }
+  const choices = readField(frame, "choices");
+  if (!Array.isArray(choices)) return false;
+  return choices.some((choice: unknown) => {
+    if (typeof choice !== "object" || choice === null) return false;
+    if (text(readField(choice, "finish_reason"))) return true;
+    const delta = readField(choice, "delta");
+    if (typeof delta !== "object" || delta === null) return false;
+    const content = splitMessageContent(readField(delta, "content"));
+    if (
+      text(content.text) ||
+      text(content.thought) ||
+      text(readField(delta, "reasoning_content")) ||
+      text(readField(delta, "reasoning"))
+    )
+      return true;
+    const calls = readField(delta, "tool_calls");
+    return (
+      Array.isArray(calls) &&
+      calls.some((call: unknown) => {
+        if (typeof call !== "object" || call === null) return false;
+        if (text(readField(call, "id"))) return true;
+        const fn = readField(call, "function");
+        return (
+          typeof fn === "object" && fn !== null && (text(readField(fn, "name")) || text(readField(fn, "arguments")))
+        );
+      })
+    );
+  });
+}
+
 export async function* readSseJson(
   body: ReadableStream<Uint8Array> | null,
   signal: AbortSignal,
   stallMs: number,
 ): AsyncGenerator<unknown> {
+  signal.throwIfAborted();
   if (!body) return;
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
   let armTimer: ReturnType<typeof setTimeout> | undefined;
   let stalled: StreamStallError | undefined;
+  let rejectInterrupted!: (reason: unknown) => void;
+  const interrupted = new Promise<never>((_resolve, reject) => {
+    rejectInterrupted = reject;
+  });
+  const onAbort = (): void => {
+    rejectInterrupted(signal.reason ?? new Error("completion aborted"));
+    void reader.cancel(signal.reason).catch(() => undefined);
+  };
+  if (signal.aborted) onAbort();
+  else signal.addEventListener("abort", onAbort, { once: true });
   const clearArm = (): void => {
     if (armTimer === undefined) return;
     clearTimeout(armTimer);
@@ -568,6 +652,7 @@ export async function* readSseJson(
     clearArm();
     const timer = setTimeout(() => {
       stalled = new StreamStallError(stallMs);
+      rejectInterrupted(stalled);
       void reader.cancel(stalled).catch(() => undefined);
     }, stallMs);
     timer.unref();
@@ -575,7 +660,7 @@ export async function* readSseJson(
   };
   const read = async (): Promise<ReadableStreamReadResult<Uint8Array>> => {
     try {
-      const next = await reader.read();
+      const next = await Promise.race([reader.read(), interrupted]);
       if (stalled !== undefined) throw stalled;
       return next;
     } catch (error) {
@@ -591,10 +676,10 @@ export async function* readSseJson(
       buf += decoder.decode(value, { stream: true });
       let yielded = false;
       for (;;) {
-        const sep = buf.indexOf("\n\n");
-        if (sep === -1) break;
-        const event = buf.slice(0, sep);
-        buf = buf.slice(sep + 2);
+        const separator = /\r?\n\r?\n/.exec(buf);
+        if (separator === null) break;
+        const event = buf.slice(0, separator.index);
+        buf = buf.slice(separator.index + separator[0].length);
         for (const line of event.split(/\r?\n/)) {
           const trimmed = line.trimEnd();
           if (!trimmed.startsWith("data:")) continue;
@@ -604,8 +689,9 @@ export async function* readSseJson(
             continue;
           }
           try {
-            yield parseJsonUnknown(data);
-            yielded = true;
+            const parsed = parseJsonUnknown(data);
+            yield parsed;
+            if (streamFrameProgress(parsed)) yielded = true;
           } catch {
             // skip malformed line
           }
@@ -628,6 +714,8 @@ export async function* readSseJson(
     }
   } finally {
     clearArm();
+    signal.removeEventListener("abort", onAbort);
+    void reader.cancel().catch(() => undefined);
     try {
       reader.releaseLock();
     } catch {
@@ -747,17 +835,23 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
             `post ${this.expectation.uuid} connection=${this.driverConnection.connectionId} model=${this.effectiveModel()} attempt=${n}`,
           );
           try {
-            response = await this.driverConnection.authorizedFetch(
-              url,
-              {
-                method: "POST",
-                headers: affinity.headers,
-                body: JSON.stringify(payload),
-              },
+            response = await withProgressDeadline(
+              this.driverConnection.authorizedFetch(
+                url,
+                {
+                  method: "POST",
+                  headers: affinity.headers,
+                  body: JSON.stringify(payload),
+                },
+                abort.signal,
+              ),
               abort.signal,
+              this.stallMs,
+              "completion request",
+              (reason) => abort.abort(reason),
             );
           } catch (error) {
-            if (error instanceof ConnectionMiss) throw error;
+            if (error instanceof ConnectionMiss || error instanceof StreamStallError) throw error;
             throw wrapFetchFailure(error, {
               why: "completion",
               method: "POST",
@@ -766,7 +860,13 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
           }
 
           if (!response.ok) {
-            const errorBody = await response.text();
+            const errorBody = await withProgressDeadline(
+              response.text(),
+              abort.signal,
+              this.stallMs,
+              "error response body",
+              (reason) => abort.abort(reason),
+            );
             const detail = errorBody.trim().slice(0, 240);
             const message = describeHttpFailure({
               why: "completion",
@@ -819,6 +919,7 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
         } catch (error) {
           if (this.signal.aborted) return;
           if (error instanceof ExpectationInvariant) throw error;
+          if (error instanceof StreamStallError) abort.abort(error);
           if (!isTransientCompletionError(error)) {
             const reason = error instanceof Error ? error.message : String(error);
             this.expectation.failReason = reason;
@@ -1094,12 +1195,12 @@ export class OpenAiCompatChatActor extends OpenAiCompatActor {
   protected async readAnswer(response: Response, signal: AbortSignal): Promise<RoundAnswer | null> {
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     if (contentType.includes("application/json")) {
-      return this.#roundFromBulk(await response.json());
+      return this.#roundFromBulk(parseJsonUnknown(await readBulkText(response, signal, this.stallMs)));
     }
     if (contentType.includes("text/event-stream") || contentType.includes("event-stream")) {
       return this.#consumeStream(readSseJson(response.body, signal, this.stallMs));
     }
-    const text = await response.text();
+    const text = await readBulkText(response, signal, this.stallMs);
     const head = text.trimStart();
     if (head.startsWith("{") || head.startsWith("[")) {
       try {
@@ -1130,6 +1231,9 @@ export class OpenAiCompatChatActor extends OpenAiCompatActor {
       Array.isArray(choices) && typeof choices[0] === "object" && choices[0] !== null ? choices[0] : undefined;
     const message = choice == null ? undefined : readField(choice, "message");
     const messageRec = typeof message === "object" && message !== null ? message : undefined;
+    const terminal = choice == null ? undefined : readField(choice, "finish_reason");
+    if (messageRec == null || typeof terminal !== "string" || terminal === "")
+      throw new Error("Chat completion response is missing its message or terminal finish reason");
     const reasoningContent = messageRec == null ? undefined : readField(messageRec, "reasoning_content");
     const reasoningAlt = messageRec == null ? undefined : readField(messageRec, "reasoning");
     const reasoning =
@@ -1193,6 +1297,7 @@ export class OpenAiCompatChatActor extends OpenAiCompatActor {
     const partial = new Set<string>();
     const dropped: DroppedCall[] = [];
     let finishReason: string | undefined;
+    let sawTerminal = false;
 
     const onEvent = (ev: {
       type: string;
@@ -1254,6 +1359,7 @@ export class OpenAiCompatChatActor extends OpenAiCompatActor {
       if (typeof raw === "object" && raw !== null) {
         const rec = raw as OpenAiChatChunk;
         const choice = rec.choices?.[0];
+        if (typeof choice?.finish_reason === "string" && choice.finish_reason !== "") sawTerminal = true;
         const delta = choice?.delta;
         let chunk = rec;
         if (delta != null) {
@@ -1286,7 +1392,9 @@ export class OpenAiCompatChatActor extends OpenAiCompatActor {
         for (const ev of session.ingest(chunk)) onEvent(ev);
       }
       if (thoughtAcc === "") thoughtAcc = chunkMessageReasoning(raw);
+      if (sawTerminal) break;
     }
+    if (!sawTerminal) throw new Error("Chat completion stream ended without a terminal finish reason");
     for (const ev of session.close()) onEvent(ev);
 
     const settled = settleCalls(calls, partial, dropped, finishReason);
@@ -1402,8 +1510,22 @@ export class OpenAiCompatResponsesActor extends OpenAiCompatActor {
   protected async readAnswer(response: Response, signal: AbortSignal): Promise<RoundAnswer | null> {
     const contentType = response.headers.get("content-type") ?? "";
     if (contentType.toLowerCase().includes("application/json") && !contentType.toLowerCase().includes("event-stream")) {
-      const payload: unknown = await response.json();
+      const payload: unknown = parseJsonUnknown(await readBulkText(response, signal, this.stallMs));
       this.stampConsumed(payload);
+      const status = typeof payload === "object" && payload !== null ? readField(payload, "status") : undefined;
+      if (status !== "completed" && status !== "incomplete") {
+        const error = readField(payload as object, "error");
+        const message = typeof error === "object" && error !== null ? readField(error, "message") : undefined;
+        throw new Error(typeof message === "string" ? message : `Responses request ended with status ${status}`);
+      }
+      const incomplete =
+        typeof payload === "object" && payload !== null ? readField(payload, "incomplete_details") : undefined;
+      const incompleteReason =
+        typeof incomplete === "object" && incomplete !== null ? readField(incomplete, "reason") : undefined;
+      if (status === "incomplete" && incompleteReason !== "max_output_tokens" && incompleteReason !== "content_filter")
+        throw new Error(`Responses request incomplete: ${String(incompleteReason)}`);
+      const finishReason =
+        status === "incomplete" ? (incompleteReason === "content_filter" ? "content_filter" : "length") : undefined;
       const parts: string[] = [];
       const rawParts: string[] = [];
       const summaryParts: string[] = [];
@@ -1459,7 +1581,13 @@ export class OpenAiCompatResponsesActor extends OpenAiCompatActor {
       this.#stampReasoningEncrypted(encrypted);
       this.stampThoughtKind(thoughtKind);
       this.speech(text, visible.thought);
-      return { content: text, reasoning: visible.thought, thoughtKind, calls };
+      return {
+        content: text,
+        reasoning: visible.thought,
+        thoughtKind,
+        calls,
+        ...(finishReason == null ? {} : { finishReason }),
+      };
     }
     let acc: {
       text: string;
@@ -1568,21 +1696,11 @@ export class OpenAiCompatResponsesActor extends OpenAiCompatActor {
               }
             }
           }
-          if (
-            incompleteThoughtExhausted(details, {
-              raw: acc.raw,
-              summary: acc.summary,
-              encrypted,
-              kind: this.expectation.responseThoughtKind,
-              reasoningTokens: this.expectation.reasoningTokens,
-            })
-          ) {
+          if (details === "max_output_tokens") {
             sawTerminal = true;
             finish = "length";
             break;
           }
-          // Speech cut off by max_output_tokens stays a failed round (chatgpt-complete.test); only
-          // the filter is a stop of its own.
           if (details === "content_filter") {
             sawTerminal = true;
             finish = "content_filter";
@@ -1642,6 +1760,7 @@ export class OpenAiCompatResponsesActor extends OpenAiCompatActor {
             emitSpeech();
           }
       }
+      if (sawTerminal) break;
     }
     if (!sawTerminal) throw new Error("Responses stream ended before terminal response event");
     this.#stampReasoningEncrypted(encrypted);

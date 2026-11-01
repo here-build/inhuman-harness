@@ -133,16 +133,21 @@ function turnsOf(root: { head: unknown; liveTurns: Iterable<SessionTurn> }): Ses
   return out;
 }
 
-function armStall(project: ProjectDaemon): boolean {
-  for (const session of Object.values(project.sessions)) {
-    for (const turn of turnsOf(session.root)) {
+function armWorkerStall(project: ProjectDaemon): boolean {
+  for (const root of internedRoots(project)) {
+    for (const turn of turnsOf(root)) {
       for (const node of walkWork(turn)) {
-        const pew = node instanceof CompletionExpectation ? node : tapeCompletion(node);
-        if (pew == null || pew.outcome != null) continue;
-        const actor = session.orchestrator.actorOf(pew);
-        if (!(actor instanceof OpenAiCompatActor)) continue;
-        actor.stallMs = STALL_MS;
-        return true;
+        if (!(node instanceof AgentCallJob) || node.toolCallId !== "call_ask") continue;
+        const worker = project.sessions[node.workerSessionId];
+        if (worker == null) return false;
+        for (const work of walkWork(worker.root)) {
+          const pew = work instanceof CompletionExpectation ? work : tapeCompletion(work);
+          if (pew == null || pew.outcome != null || pew.completionMode !== "session") continue;
+          const actor = worker.orchestrator.actorOf(pew);
+          if (!(actor instanceof OpenAiCompatActor)) continue;
+          actor.stallMs = STALL_MS;
+          return true;
+        }
       }
     }
   }
@@ -212,7 +217,10 @@ describe("stream stall", () => {
       await expect(client.request("turn", { prompt: PARENT })).resolves.toEqual({ ok: true });
 
       const project = await daemon.project(workspace);
-      await expect.poll(() => armStall(project), { timeout: 10_000 }).toBe(true);
+      // The worker request is held before headers. Its actor already exists, so
+      // arm that worker's exact attempt before allowing its stream to open.
+      await expect.poll(() => compat.workerPosts(), { timeout: 10_000 }).toBe(1);
+      expect(armWorkerStall(project)).toBe(true);
       compat.releaseWorker();
       await expect
         .poll(() => settled(project, compat.workerPosts()), { timeout: 10_000 })

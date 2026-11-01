@@ -29,19 +29,31 @@ export type ModelReply = {
   readonly text?: string;
   readonly calls?: readonly ResponseCall[];
   readonly thought?: string;
+  readonly finishReason?: string;
+  readonly usage?: { readonly totalTokens: number; readonly contextLimit: number };
+  /** Hold an owned provider reply to exercise live cancellation and input races. */
+  readonly gate?: Promise<void>;
+  /** Simulate a provider that does not cooperate with cancellation. */
+  readonly ignoreAbort?: boolean;
   /** Fail the round. The loop sees a crashed completion, not a hang. */
   readonly fail?: string;
 };
 
 export type ModelScript = {
   reply(reply: ModelReply): void;
+  /** Explicit judge replies exercise the real assessor through the provider port. */
+  judge(reply: ModelReply): void;
 };
 
 const queues = new Map<string, ReplyQueue>();
+const judges = new Map<string, ReplyQueue>();
 const attached = new WeakMap<object, ModelScript>();
 
 class ReplyQueue {
   readonly #pending: ModelReply[] = [];
+  get pending(): boolean {
+    return this.#pending.length > 0;
+  }
   readonly #waiters: Array<(reply: ModelReply) => void> = [];
 
   reply(reply: ModelReply): void {
@@ -72,6 +84,7 @@ class ReplyQueue {
 
 export class ScriptedCompletionConnection extends PEWDriver {
   readonly #queue: ReplyQueue;
+  readonly #judge: ReplyQueue;
 
   constructor(connectionId: string, settings: unknown, secrets?: ConstructorParameters<typeof PEWDriver>[2]) {
     super(connectionId, settings, secrets);
@@ -79,6 +92,7 @@ export class ScriptedCompletionConnection extends PEWDriver {
     const queue = typeof scriptId === "string" ? queues.get(scriptId) : undefined;
     if (queue == null) throw new Error("scripted model: missing queue");
     this.#queue = queue;
+    this.#judge = judges.get(scriptId as string)!;
   }
 
   override async bootstrap(): Promise<void> {}
@@ -90,14 +104,37 @@ export class ScriptedCompletionConnection extends PEWDriver {
   async complete(req: ConnectionCompleteRequest): Promise<CompleteResult> {
     // Ambient compact and an unstubbed judge share this connection. They must
     // not take the actor's next reply.
-    if (req.round.completionMode === "isolated") {
+    if (req.round.completionMode === "isolated" && (req.responseSchemaJson == null || !this.#judge.pending)) {
       const text = req.responseSchemaJson == null ? "" : JSON.stringify({ intent: false, awaiting_user: false });
       req.round.stampAnswer({ calls: [], text });
       req.round.succeed("settled", "", "null", { result: { text } });
       return { text };
     }
-    const reply = await this.#queue.take(req.signal);
+    const reply = await (req.round.completionMode === "isolated" ? this.#judge : this.#queue).take(req.signal);
+    if (reply.gate != null && reply.ignoreAbort) await reply.gate;
+    else if (reply.gate != null) {
+      await new Promise<void>((resolve, reject) => {
+        const onAbort = (): void => reject(req.signal?.reason ?? new Error("aborted"));
+        if (req.signal?.aborted) return onAbort();
+        req.signal?.addEventListener("abort", onAbort, { once: true });
+        void reply.gate!.then(
+          () => {
+            req.signal?.removeEventListener("abort", onAbort);
+            resolve();
+            return null;
+          },
+          (error: unknown) => {
+            req.signal?.removeEventListener("abort", onAbort);
+            reject(error);
+            return null;
+          },
+        );
+      });
+    }
+    if (reply.usage != null) Object.assign(req.round, reply.usage);
+    req.round.finishReason = reply.finishReason ?? "";
     if (reply.fail != null) {
+      req.round.failReason = reply.fail;
       req.round.fail("crash", reply.fail, "null");
       return { text: "" };
     }
@@ -110,7 +147,12 @@ export class ScriptedCompletionConnection extends PEWDriver {
     const text = normalized.content ?? "";
     const thought = normalized.reasoning_content ?? "";
     req.round.stampAnswer({
-      calls: responseCallsFromToolCalls(normalized.tool_calls),
+      calls: [
+        ...responseCallsFromToolCalls(normalized.tool_calls).filter(
+          (call) => !(reply.calls ?? []).some((raw) => raw.toolCallId === call.toolCallId && raw.dropReason !== ""),
+        ),
+        ...(reply.calls ?? []).filter((call) => call.dropReason !== ""),
+      ],
       text,
       ...(thought !== "" ? { thought } : {}),
     });
@@ -125,6 +167,8 @@ export function installScriptedModel(kernel: KernelDaemon, connectionId = "c1"):
   const scriptId = randomUUID();
   const queue = new ReplyQueue();
   queues.set(scriptId, queue);
+  const judge = new ReplyQueue();
+  judges.set(scriptId, judge);
   const driver = new DriverSpec({
     name: "scripted",
     description: "scripted test model",
@@ -149,6 +193,8 @@ export function installScriptedModel(kernel: KernelDaemon, connectionId = "c1"):
   const priorDispose = kernel[Symbol.dispose].bind(kernel);
   kernel[Symbol.dispose] = () => {
     stopKeep();
+    queues.delete(scriptId);
+    judges.delete(scriptId);
     priorDispose();
   };
   const runtime = kernel.runtime;
@@ -158,6 +204,9 @@ export function installScriptedModel(kernel: KernelDaemon, connectionId = "c1"):
   return {
     reply(reply) {
       queue.reply(reply);
+    },
+    judge(reply) {
+      judge.reply(reply);
     },
   };
 }

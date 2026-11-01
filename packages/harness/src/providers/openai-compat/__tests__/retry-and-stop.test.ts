@@ -28,13 +28,20 @@ async function listen(handler: Handler): Promise<{ baseUrl: string; posts: () =>
     req.resume();
     req.on("end", () => handler(posts++, res));
   });
-  const port = await new Promise<number>((resolve) => {
-    server.listen(0, "127.0.0.1", () => resolve((server.address() as { port: number }).port));
+  const port = await new Promise<number>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.removeListener("error", reject);
+      resolve((server.address() as { port: number }).port);
+    });
   });
   return {
     baseUrl: `http://127.0.0.1:${port}/v1`,
     posts: () => posts,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () => {
+      server.closeAllConnections();
+      return new Promise<void>((resolve) => server.close(() => resolve()));
+    },
   };
 }
 
@@ -47,9 +54,20 @@ function sse(res: ServerResponse, chunks: unknown[]): void {
 async function run(
   handler: Handler,
   setup?: (round: CompletionExpectation) => void,
+  setupActor?: (actor: OpenAiCompatActor) => void,
+  responses = false,
 ): Promise<{ round: CompletionExpectation; posts: number; ms: number }> {
   const server = await listen(handler);
-  const connection = new OpenAiCompatDriverConnection("row", { baseUrl: server.baseUrl, model: "m1" });
+  class ResponsesDriver extends OpenAiCompatDriverConnection {
+    override completionApi(): "chat" | "responses" {
+      return "responses";
+    }
+    override completionRequestUrl(): string {
+      return `${this.settings.baseUrl}/responses`;
+    }
+  }
+  const Driver = responses ? ResponsesDriver : OpenAiCompatDriverConnection;
+  const connection = new Driver("row", { baseUrl: server.baseUrl, model: "m1" });
   const plexus = SessionPlexus.create("retry-and-stop", "/ws");
   bindSessionCatalog(plexus.root, new KernelToolCatalog());
   try {
@@ -63,7 +81,10 @@ async function run(
       queue: [],
     });
     const actor = connection.resolveExpectation(round);
-    if (actor instanceof OpenAiCompatActor) actor.backoffMs = () => 0;
+    if (actor instanceof OpenAiCompatActor) {
+      actor.backoffMs = () => 0;
+      setupActor?.(actor);
+    }
     const started = Date.now();
     actor.start();
     await actor.settled;
@@ -213,5 +234,152 @@ describe("stop reasons on the wire", () => {
     );
     expect(round.finishReason).toBe("tool_calls");
     expect(round.responseCalls.map((call) => [call.name, call.dropReason])).toEqual([["write_file", ""]]);
+  });
+});
+
+describe("completion no-progress deadlines", () => {
+  it.each(["headers", "json", "error"])("fails a stalled %s once rather than leaving the turn live", async (phase) => {
+    const { round, posts, ms } = await run(
+      (_n, res) => {
+        if (phase !== "headers") {
+          res.writeHead(phase === "error" ? 503 : 200, { "content-type": "application/json" });
+          res.flushHeaders();
+          res.write('{"partial":');
+        }
+      },
+      undefined,
+      (actor) => {
+        actor.stallMs = 40;
+      },
+    );
+    expect(round.outcome).toBe("failed");
+    expect(round.endCause).toBe("settled");
+    expect(round.failReason).toContain("stalled after 40ms");
+    expect(posts).toBe(1);
+    expect(ms).toBeLessThan(2000);
+  });
+});
+
+describe("authoritative provider termination", () => {
+  it.each([
+    {
+      name: "chat EOF without terminal",
+      responses: false,
+      body: `data: ${JSON.stringify({ choices: [{ delta: { content: "partial" } }] })}\n\n`,
+      type: "text/event-stream",
+    },
+    {
+      name: "chat error JSON",
+      responses: false,
+      body: JSON.stringify({ error: { message: "upstream failed" } }),
+      type: "application/json",
+    },
+    {
+      name: "chat missing message",
+      responses: false,
+      body: JSON.stringify({ choices: [{ finish_reason: "stop" }] }),
+      type: "application/json",
+    },
+    {
+      name: "chat missing terminal",
+      responses: false,
+      body: JSON.stringify({ choices: [{ message: { content: "partial" } }] }),
+      type: "application/json",
+    },
+    {
+      name: "Responses failed JSON",
+      responses: true,
+      body: JSON.stringify({ status: "failed", error: { message: "upstream failed" }, output: [] }),
+      type: "application/json",
+    },
+    {
+      name: "Responses error JSON",
+      responses: true,
+      body: JSON.stringify({ error: { message: "upstream failed" } }),
+      type: "application/json",
+    },
+    {
+      name: "Responses missing status",
+      responses: true,
+      body: JSON.stringify({ output: [] }),
+      type: "application/json",
+    },
+    {
+      name: "Responses unknown incomplete reason",
+      responses: true,
+      body: JSON.stringify({ status: "incomplete", incomplete_details: { reason: "unknown_reason" }, output: [] }),
+      type: "application/json",
+    },
+  ])("$name cannot become a successful empty answer", async ({ responses, body, type }) => {
+    const { round, posts } = await run(
+      (_n, res) => {
+        res.writeHead(200, { "content-type": type });
+        res.end(body);
+      },
+      (attempt) => attempt.stampRetryLimits({ maxMs: 0, maxAttempts: 1 }),
+      undefined,
+      responses,
+    );
+    expect({ outcome: round.outcome, calls: round.responseCalls.length, posts }).toEqual({
+      outcome: "failed",
+      calls: 0,
+      posts: 1,
+    });
+  });
+
+  it.each([
+    { reason: "max_output_tokens", finish: "length", outcome: "successful" },
+    { reason: "content_filter", finish: "content_filter", outcome: "successful" },
+    { reason: "unknown_reason", finish: "", outcome: "failed" },
+  ])("Responses $reason has the same terminal meaning in bulk and SSE", async ({ reason, finish, outcome }) => {
+    const response = {
+      status: "incomplete",
+      incomplete_details: { reason },
+      output: [{ type: "message", content: [{ type: "output_text", text: "partial" }] }],
+    };
+    const got = [];
+    for (const encoding of ["bulk", "sse"]) {
+      const { round } = await run(
+        (_n, res) => {
+          res.writeHead(200, { "content-type": encoding === "bulk" ? "application/json" : "text/event-stream" });
+          res.end(
+            encoding === "bulk"
+              ? JSON.stringify(response)
+              : `data: ${JSON.stringify({ type: "response.incomplete", response })}\n\n`,
+          );
+        },
+        (attempt) => attempt.stampRetryLimits({ maxMs: 0, maxAttempts: 1 }),
+        undefined,
+        true,
+      );
+      got.push({ encoding, outcome: round.outcome, finish: round.finishReason, text: round.responseText });
+    }
+    expect(got).toEqual(
+      ["bulk", "sse"].map((encoding) => ({
+        encoding,
+        outcome,
+        finish,
+        text: outcome === "successful" ? "partial" : "",
+      })),
+    );
+  });
+
+  it("settles at the chat terminal event even when the server keeps the connection open", async () => {
+    const { round } = await run(
+      (_n, res) => {
+        res.writeHead(200, { "content-type": "text/event-stream" });
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "Done." }, finish_reason: "stop" }] })}\n\n`);
+        // Deliberately no EOF; a valid terminal is the receipt.
+      },
+      undefined,
+      (actor) => {
+        actor.stallMs = 100;
+      },
+    );
+    expect({ outcome: round.outcome, text: round.responseText, finish: round.finishReason }).toEqual({
+      outcome: "successful",
+      text: "Done.",
+      finish: "stop",
+    });
   });
 });

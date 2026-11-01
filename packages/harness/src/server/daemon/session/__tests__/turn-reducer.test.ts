@@ -20,6 +20,7 @@ import {
   SystemToolJob,
   ToolCallJob,
   TurnPromptChunk,
+  TurnNotificationChunk,
 } from "@inhuman.tools/harness-model";
 import { Client } from "@inhuman.tools/harness-sdk";
 import { mkdtemp } from "fs-extra";
@@ -83,6 +84,13 @@ test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later
   resetLocalIDs();
 
   const replica = await phaseMintReplicaSees();
+  expect(replica).toMatchObject({
+    connection: scriptedConnectionId(),
+    turn: true,
+    prompt: "hello",
+    turnTail: expect.any(SessionSystemPrompt),
+    promptChunk: expect.any(TurnPromptChunk),
+  });
 
   const session = await openSession();
   const root = session.root;
@@ -98,9 +106,20 @@ test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later
     messages: minted.messages,
     reducerExited: noTools.reducerExited,
   };
+  expect(mint).toMatchObject({
+    promptChunk: expect.any(TurnPromptChunk),
+    promptText: "hello",
+    connectionId: scriptedConnectionId(),
+    model: "grok-4.6",
+    messages: [],
+    reducerExited: false,
+  });
   modelOf(session).reply({ text: "hi" });
   await when(() => noTools.reducerExited, { timeout: TIMEOUT });
-  const mintSealed = { reducerExited: noTools.reducerExited, work: reactChunks(noTools).length };
+  expect({ reducerExited: noTools.reducerExited, work: reactChunks(noTools).length }).toEqual({
+    reducerExited: true,
+    work: 3,
+  });
 
   const toolTurn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`use echo` });
   root.head = toolTurn;
@@ -117,14 +136,25 @@ test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later
     react: reactChunks(toolTurn).some((chunk) => chunk instanceof ReACTChunk),
     reducerExited: toolTurn.reducerExited,
   };
+  expect(tools).toMatchObject({
+    name: "echo",
+    toolCallId: "call_1",
+    kind: true,
+    parent: toolTurn,
+    react: true,
+    reducerExited: false,
+  });
   echo.receiptJson = JSON.stringify({ ok: true, text: "ok" });
   echo.humanApprove = false;
   await when(() => completionsOf(toolTurn).length === 2, { timeout: TIMEOUT });
   const second = completionsOf(toolTurn)[1]!;
-  const secondRound = { promptText: second.promptText, messages: second.messages };
+  expect({ promptText: second.promptText, messages: second.messages }).toEqual({
+    promptText: "",
+    messages: [firstToolCompletion, echo],
+  });
   modelOf(session).reply({ text: "done" });
   await when(() => toolTurn.reducerExited, { timeout: TIMEOUT });
-  const toolsSealed = toolTurn.reducerExited;
+  expect(toolTurn.reducerExited).toBe(true);
 
   const catalog = new KernelToolCatalog();
   catalog.connectionHost = {
@@ -152,6 +182,13 @@ test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later
     serverToolName: mailTool instanceof MCPToolJob ? mailTool.serverToolName : "",
     args: mailTool.args,
   };
+  expect(mail).toEqual({
+    name: "mcp__mail__search",
+    kind: true,
+    connectionKey: "mail",
+    serverToolName: "search",
+    args: {},
+  });
   mailTool.receiptJson = JSON.stringify({ ok: true, value: { id: 1 } });
   mailTool.humanApprove = false;
   await when(() => completionsOf(mailTurn).length === 2, { timeout: TIMEOUT });
@@ -164,7 +201,7 @@ test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later
   modelOf(session).reply({ text: `<tool_call>\n{"name": "echo", "arguments": {}}\n</tool_call>` });
   await when(() => recoverTurn.work.some((chunk) => chunk instanceof ToolCallJob), { timeout: TIMEOUT });
   const recoveredTool = recoverTurn.work.find((chunk) => chunk instanceof ToolCallJob)!;
-  const recover = recoveredTool.name;
+  expect(recoveredTool.name).toBe("echo");
   recoveredTool.receiptJson = JSON.stringify({ ok: true, text: "ok" });
   recoveredTool.humanApprove = false;
   await when(() => completionsOf(recoverTurn).length === 2, { timeout: TIMEOUT });
@@ -182,6 +219,8 @@ test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later
     tools: failTurn.work.some((chunk) => chunk instanceof ToolCallJob),
   };
 
+  expect(failSeal).toEqual({ reducerExited: true, completions: 1, tools: false });
+
   const genesis = new SessionSystemPrompt();
   const priorTurn = new SessionTurn({ turnTail: genesis, prompt: prompt.user`old` });
   root.head = priorTurn;
@@ -196,55 +235,10 @@ test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later
   const laterMessages = completionsOf(later)[0]!.messages;
   modelOf(session).reply({ text: "ok" });
   await when(() => later.reducerExited, { timeout: TIMEOUT });
-
-  expect({
-    replica,
-    mint,
-    mintSealed,
-    tools,
-    secondRound,
-    toolsSealed,
-    mail,
-    recover,
-    failSeal,
-    later: { priorMessages, laterMessages, reducerExited: later.reducerExited },
-  }).toMatchObject({
-    replica: {
-      connection: scriptedConnectionId(),
-      turn: true,
-      prompt: "hello",
-      turnTail: expect.any(SessionSystemPrompt),
-      promptChunk: expect.any(TurnPromptChunk),
-    },
-    mint: {
-      promptChunk: expect.any(TurnPromptChunk),
-      promptText: "hello",
-      connectionId: scriptedConnectionId(),
-      model: "grok-4.6",
-      messages: [],
-      reducerExited: false,
-    },
-    mintSealed: { reducerExited: true, work: 3 },
-    tools: {
-      name: "echo",
-      toolCallId: "call_1",
-      kind: true,
-      parent: toolTurn,
-      react: true,
-      reducerExited: false,
-    },
-    secondRound: { promptText: "", messages: [firstToolCompletion, echo] },
-    toolsSealed: true,
-    mail: {
-      name: "mcp__mail__search",
-      kind: true,
-      connectionKey: "mail",
-      serverToolName: "search",
-      args: {},
-    },
-    recover: "echo",
-    failSeal: { reducerExited: true, completions: 1, tools: false },
-    later: { priorMessages: [], laterMessages: [prior], reducerExited: true },
+  expect({ priorMessages, laterMessages, reducerExited: later.reducerExited }).toEqual({
+    priorMessages: [],
+    laterMessages: [prior],
+    reducerExited: true,
   });
 }, 40_000);
 
@@ -412,7 +406,13 @@ async function runDoor(session: SessionDaemon, door: Door): Promise<{ got: unkno
       await when(() => continued!.reducerExited, { timeout: TIMEOUT });
       return {
         got,
-        want: { result: { ok: true }, newTurn: true, prompt: "", promptText: "", messages: [failed] },
+        want: {
+          result: { ok: true },
+          newTurn: true,
+          prompt: "",
+          promptText: "",
+          messages: [failed, ...failTurn.doneWork.filter((cell) => cell instanceof TurnNotificationChunk)],
+        },
       };
     }
     case "continue-cancel": {

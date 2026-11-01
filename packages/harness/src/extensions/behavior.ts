@@ -232,6 +232,7 @@ function registerCtx(what: string): Ctx {
 function liveCtx(what: string): Ctx {
   const ctx = behaviorAls.getStore();
   PluginSurfaceError.invariant(ctx != null, `${what} outside a behavior run`);
+  ctx.signal?.throwIfAborted();
   return ctx;
 }
 

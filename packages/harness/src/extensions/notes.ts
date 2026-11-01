@@ -4,6 +4,7 @@ import type { NotifyBoundary } from "./value.js";
 export type LoopNote = {
   readonly id: string;
   readonly text: string;
+  readonly mode: "ambient" | "activating";
 };
 
 export type NoteBoundary = NotifyBoundary;
@@ -52,6 +53,7 @@ export class NoteLog {
       .map((note) => ({
         id: note.id,
         text: note.message,
+        mode: note.mode,
       }));
   }
 

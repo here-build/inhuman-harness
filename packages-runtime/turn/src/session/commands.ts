@@ -24,6 +24,7 @@ import {
   skillMatchesVerb,
   tapeCompletion,
   userVisualsJson,
+  decideRound,
   type UserVisualIdentity,
 } from "@inhuman.tools/harness-model";
 
@@ -73,10 +74,12 @@ function retentionStamp(host: SessionCommandHost): { readonly retentionJson?: st
 }
 
 function mintContinueTurn(host: SessionCommandHost, head: SessionTurn): void {
+  const continuation = new ReACTChunk();
+  continuation.decision = decideRound([{ cause: { kind: "user", sources: [head.uuid] } }]);
   const turn = new SessionTurn({
     turnTail: head,
     prompt: asUserPrompt(""),
-    queue: [new ReACTChunk()],
+    queue: [continuation],
     toolsDefinition: host.toolsFor(head),
     ...retentionStamp(host),
   });

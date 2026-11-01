@@ -161,6 +161,25 @@ describe("Turn interpret", () => {
   });
 
   it("ReACT join waits for claim; nested keeps running after parent empty-queue", async () => {
+    const expected = {
+      join: {
+        held: { reducerExited: false, orchestrated: false, completed: false },
+        released: {
+          completed: true,
+          orchestrated: true,
+          outcome: JSON.stringify({
+            ok: false,
+            text: "User refused this tool use",
+            refusalReason: "User refused this tool use",
+          }),
+        },
+        sit: { reducerExited: true, completed: false, orchestrated: true },
+      },
+      nested: {
+        emptyQueue: { parentClosed: true, nestedClosed: false, nestedOrchestrated: true },
+        background: { parentClosed: true, reducerExited: false, orchestrated: true },
+      },
+    };
     const session = await openSession();
     const root = session.root;
 
@@ -205,6 +224,8 @@ describe("Turn interpret", () => {
       orchestrated: sitting.orchestrated,
     };
 
+    expect({ held: joinHeld, released: joinReleased, sit: joinSit }).toEqual(expected.join);
+
     const nested = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`child`,
@@ -224,6 +245,8 @@ describe("Turn interpret", () => {
       nestedClosed: nested.reducerExited,
       nestedOrchestrated: nested.orchestrated,
     };
+    modelOf(session).reply({ calls: [responseCall("child-list", "list_dir", '{"path":"."}')] });
+    await when(() => completionsOf(nested).length === 2, { timeout: TIMEOUT });
     modelOf(session).reply({ text: "child-hi" });
     await when(() => nested.reducerExited, { timeout: TIMEOUT });
 
@@ -247,34 +270,86 @@ describe("Turn interpret", () => {
       reducerExited: bgNested.reducerExited,
       orchestrated: bgNested.orchestrated,
     };
+    modelOf(session).reply({ calls: [responseCall("bg-child-list", "list_dir", '{"path":"."}')] });
+    await when(() => completionsOf(bgNested).length === 2, { timeout: TIMEOUT });
     modelOf(session).reply({ text: "bg-child" });
     await when(() => bgNested.reducerExited, { timeout: TIMEOUT });
 
     expect({
-      join: { held: joinHeld, released: joinReleased, sit: joinSit },
-      nested: { emptyQueue: nestedEmptyQueue, background: nestedBackground },
-    }).toEqual({
-      join: {
-        held: { reducerExited: false, orchestrated: false, completed: false },
-        released: {
-          completed: true,
-          orchestrated: true,
-          outcome: JSON.stringify({
-            ok: false,
-            text: "User refused this tool use",
-            refusalReason: "User refused this tool use",
-          }),
-        },
-        sit: { reducerExited: true, completed: false, orchestrated: true },
-      },
-      nested: {
-        emptyQueue: { parentClosed: true, nestedClosed: false, nestedOrchestrated: true },
-        background: { parentClosed: true, reducerExited: false, orchestrated: true },
-      },
-    });
+      emptyQueue: nestedEmptyQueue,
+      background: nestedBackground,
+      foregroundRounds: completionsOf(nested).length,
+      backgroundRounds: completionsOf(bgNested).length,
+    }).toEqual({ ...expected.nested, foregroundRounds: 2, backgroundRounds: 2 });
   }, 30_000);
 
   it("Abandon/abort: hanging tool, live completion, leftovers, nested child", async () => {
+    const expected = {
+      hanging: {
+        reducerExited: true,
+        cancelRequested: true,
+        cancelled: true,
+        running: null,
+        continue: true,
+        completions: 1,
+        outcomes: [{ outcome: "successful", endCause: "settled", endDetail: "" }],
+        echo: {
+          cancelled: true,
+          completed: true,
+          outcomeJson: JSON.stringify({ ok: false, text: "cancelled" }),
+        },
+      },
+      live: {
+        first: {
+          outcome: "failed",
+          endCause: "cancel",
+          endDetail: "terminate",
+          cancelled: true,
+          continue: true,
+          running: null,
+        },
+        postTool: {
+          completions: 2,
+          first: { outcome: "successful", endCause: "settled" },
+          second: { outcome: "failed", endCause: "cancel", endDetail: "terminate" },
+          cancelled: true,
+          continue: true,
+          running: null,
+          reducerExited: true,
+        },
+      },
+      leftovers: {
+        queued: [cancelled, cancelled],
+        unstarted: cancelled,
+        inner: cancelled,
+        already: {
+          reducerExited: true,
+          queue: [expect.any(TurnPromptChunk)],
+          doneWork: [],
+          completions: [],
+        },
+        inFlight: {
+          reducerExited: true,
+          completions: 1,
+          inDone: true,
+          inQueue: false,
+          outcome: "successful",
+          mintedTool: false,
+        },
+      },
+      nested: {
+        before: { abandonedWalk: true, abandonedLive: true, earlierLive: true },
+        afterRepoint: { abandonedWalk: false, abandonedLive: false, earlierLive: true },
+        abandonedClosed: true,
+        abandonedCompletions: 1,
+        nestedCompletions: 1,
+        nestedMintedTool: false,
+        pendingOutcome: "successful",
+        earlierCompletions: 1,
+        sameHead: false,
+        mintedTool: false,
+      },
+    };
     const session = await openSession();
     const root = session.root;
 
@@ -306,6 +381,8 @@ describe("Turn interpret", () => {
       },
     };
 
+    expect(hanging).toEqual(expected.hanging);
+
     const liveTurn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`run` });
     root.head = liveTurn;
     await when(() => completionsOf(liveTurn).length === 1, { timeout: TIMEOUT });
@@ -320,6 +397,8 @@ describe("Turn interpret", () => {
       continue: liveTurn.lastTurnIncomplete,
       running: root.findRunningTurn()?.uuid ?? null,
     };
+
+    expect(liveFirst).toEqual(expected.live.first);
 
     const toolTurn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`use echo` });
     root.head = toolTurn;
@@ -344,6 +423,8 @@ describe("Turn interpret", () => {
       running: root.findRunningTurn()?.uuid ?? null,
       reducerExited: toolTurn.reducerExited,
     };
+
+    expect(livePostTool).toEqual(expected.live.postTool);
 
     const queued = [echo("a"), echo("b")];
     const unstarted = echo("done");
@@ -403,6 +484,8 @@ describe("Turn interpret", () => {
       },
     };
 
+    expect(leftovers).toEqual(expected.leftovers);
+
     const earlier = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`old`,
@@ -422,6 +505,7 @@ describe("Turn interpret", () => {
     };
     await when(() => completionsOf(abandoned).length === 1 && completionsOf(nested).length === 1, { timeout: TIMEOUT });
     const pendingAbandoned = completionsOf(abandoned)[0]!;
+    const pendingNested = completionsOf(nested)[0]!;
     root.head = earlier;
     const nestedAfterRepoint = {
       abandonedWalk: [...walkWork(root)].includes(abandoned),
@@ -431,6 +515,8 @@ describe("Turn interpret", () => {
     await when(() => nested.reducerExited, { timeout: TIMEOUT });
     await when(() => abandoned.reducerExited, { timeout: TIMEOUT });
     await when(() => completionsOf(earlier).length === 1, { timeout: TIMEOUT });
+    pendingNested.stampAnswer({ calls: [responseCall("late-child", "list_dir", '{"path":"."}')], text: "late child" });
+    pendingNested.succeed("settled", "", "null", { result: { text: "late child" } });
     pendingAbandoned.succeed("settled", "", "null", { result: { text: "late" } });
     await Promise.resolve();
     await Promise.resolve();
@@ -440,77 +526,14 @@ describe("Turn interpret", () => {
       abandonedClosed: abandoned.reducerExited,
       abandonedCompletions: completionsOf(abandoned).length,
       nestedCompletions: completionsOf(nested).length,
+      nestedMintedTool: nested.work.some((chunk) => chunk instanceof ToolCallJob),
       pendingOutcome: pendingAbandoned.outcome,
       earlierCompletions: completionsOf(earlier).length,
       sameHead: completionsOf(earlier)[0] === pendingAbandoned,
       mintedTool: abandoned.work.some((chunk) => chunk instanceof ToolCallJob),
     };
 
-    expect({ hanging, live: { first: liveFirst, postTool: livePostTool }, leftovers, nested: nestedChild }).toEqual({
-      hanging: {
-        reducerExited: true,
-        cancelRequested: true,
-        cancelled: true,
-        running: null,
-        continue: true,
-        completions: 1,
-        outcomes: [{ outcome: "successful", endCause: "settled", endDetail: "" }],
-        echo: {
-          cancelled: true,
-          completed: true,
-          outcomeJson: JSON.stringify({ ok: false, text: "cancelled" }),
-        },
-      },
-      live: {
-        first: {
-          outcome: "failed",
-          endCause: "cancel",
-          endDetail: "terminate",
-          cancelled: true,
-          continue: true,
-          running: null,
-        },
-        postTool: {
-          completions: 2,
-          first: { outcome: "successful", endCause: "settled" },
-          second: { outcome: "failed", endCause: "cancel", endDetail: "terminate" },
-          cancelled: true,
-          continue: true,
-          running: null,
-          reducerExited: true,
-        },
-      },
-      leftovers: {
-        queued: [cancelled, cancelled],
-        unstarted: cancelled,
-        inner: cancelled,
-        already: {
-          reducerExited: true,
-          queue: [expect.any(TurnPromptChunk)],
-          doneWork: [],
-          completions: [],
-        },
-        inFlight: {
-          reducerExited: true,
-          completions: 1,
-          inDone: true,
-          inQueue: false,
-          outcome: "successful",
-          mintedTool: false,
-        },
-      },
-      nested: {
-        before: { abandonedWalk: true, abandonedLive: true, earlierLive: true },
-        afterRepoint: { abandonedWalk: false, abandonedLive: false, earlierLive: true },
-        abandonedClosed: true,
-        abandonedCompletions: 1,
-        nestedCompletions: 1,
-        pendingOutcome: "successful",
-        earlierCompletions: 1,
-        sameHead: false,
-        mintedTool: false,
-      },
-    });
+    expect(nestedChild).toEqual(expected.nested);
   }, 40_000);
 
   it("inbound turn queued at session.head mid-turn waits for the running turn to finish its ReACT follow-up", async () => {

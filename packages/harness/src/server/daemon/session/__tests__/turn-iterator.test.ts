@@ -16,62 +16,39 @@ import {
   SystemToolJob,
   TurnApprovalNoteChunk,
   TurnNotificationChunk,
-  TurnPromptChunk,
   TurnSteerChunk,
   ToolCallJob,
 } from "@inhuman.tools/harness-model";
 import { autorun } from "mobx";
 import { describe, expect, it } from "vitest";
 
-import { internContinueStreak, THOUGHT_CONTINUE_NOTE } from "../re-act-loop-intent-detected-trigger.js";
-import { TurnSequence } from "../turn-iterator.js";
+import { THOUGHT_CONTINUE_NOTE } from "../re-act-loop-intent-detected-trigger.js";
 import { turnFixture } from "./fixtures/turn-iterator.js";
 
 describe("turn sequence rules with mock resolution", () => {
-  it("visits appended cells in the same pass and does not replay the visited prefix", () => {
-    const { turn } = turnFixture();
-    const sequence = new TurnSequence(turn);
-    const next = new ReACTChunk();
-    const visited = [];
-    for (const step of sequence) {
-      visited.push(step);
-      if (step instanceof TurnPromptChunk) sequence.push(next);
-    }
-    expect(visited).toEqual([turn.doneWork[0], next]);
-    expect([...sequence]).toEqual([]);
-    expect(turn.doneWork).toEqual(visited);
-  });
-
-  it("keeps entered work on the tape atomically so observers cannot claim it as isolated work", () => {
-    const { turn } = turnFixture();
-    const sequence = new TurnSequence(turn);
+  it("moves entered work from queue to tape in one update without an observable ownership gap", () => {
+    const { session, turn } = turnFixture();
     const job = new CompletionJob({ expectation: new CompletionExpectation({ connectionId: "mock" }) });
-    sequence.push(job);
+    turn.enqueue(job);
+    const updates: Uint8Array[] = [];
+    session.__doc__?.on("update", (update: Uint8Array) => updates.push(update));
     const gaps: boolean[] = [];
     const stop = autorun(() => {
       gaps.push(!turn.queue.includes(job) && !turn.doneWork.includes(job));
     });
     try {
-      for (const _cell of sequence) {
-        /* traverse without resolving */
+      while (turn.take() != null) {
+        /* traverse the production cursor */
       }
-      expect(gaps).not.toContain(true);
+      expect({
+        gap: gaps.includes(true),
+        updates: updates.length,
+        done: turn.doneWork.length,
+        queued: turn.queue.length,
+      }).toEqual({ gap: false, updates: 2, done: 2, queued: 0 });
     } finally {
       stop();
     }
-  });
-
-  it("takes a cell off the queue onto the done tape in one document update", () => {
-    const { session, turn } = turnFixture();
-    const updates: Uint8Array[] = [];
-    session.__doc__?.on("update", (update: Uint8Array) => updates.push(update));
-    const sequence = new TurnSequence(turn);
-    for (const _cell of sequence) break;
-    expect({ updates: updates.length, done: turn.doneWork.length, queued: turn.queue.length }).toEqual({
-      updates: 1,
-      done: 1,
-      queued: 0,
-    });
   });
 
   it("finishes a text response, retaining the skipped conditional continuation", async () => {
@@ -81,8 +58,6 @@ describe("turn sequence rules with mock resolution", () => {
     await f.run();
     expect(f.resolvers.completion).toHaveBeenCalledTimes(1);
     expect(f.turn.doneWork.at(-1)).toMatchObject({ openPage: true, skipped: true });
-    f.turn.reducerExited = true;
-    expect(f.turn.lastTurnIncomplete).toBe(false);
     expect(f.turn.queuedContinuation).toBe(false);
   });
 
@@ -167,6 +142,50 @@ describe("turn sequence rules with mock resolution", () => {
     ]);
   });
 
+  it.each([false, true])(
+    "continues after a lone context_need with current_phase_settled=%s and no response text",
+    async (currentPhaseSettled) => {
+      const f = turnFixture(
+        (completion) => {
+          completion.responseCalls.push(
+            responseCall(
+              "need",
+              "context_need",
+              JSON.stringify({
+                min_remaining_tokens: 8000,
+                preserve: { user_turns: 1, rounds: 4 },
+                focus: "Continue the unfinished work after preparing context.",
+                current_phase_settled: currentPhaseSettled,
+              }),
+            ),
+          );
+        },
+        (completion) => {
+          // A service-only reply must not be classified as a final answer.
+          expect(f.host.classifyIntent).not.toHaveBeenCalled();
+          const need = f.resolvers.work.mock.calls[0]?.[0];
+          expect(need).toMatchObject({ name: "context_need", completed: true, triggersReactLoop: false });
+          // context_need is tape-hidden; its resolved job is not replayed as ordinary work.
+          expect(completion.messages).not.toContain(need);
+          completion.responseText = "Finished the remaining work.";
+        },
+      );
+
+      await f.run();
+
+      expect(f.resolvers.completion).toHaveBeenCalledTimes(2);
+      expect(f.resolvers.work).toHaveBeenCalledTimes(1);
+      expect(f.completions()[0]?.expectation.responseText).toBe("");
+      expect(f.completions()[1]?.expectation.responseText).toBe("Finished the remaining work.");
+      expect(f.host.classifyIntent).toHaveBeenCalledOnce();
+      expect(f.turn.doneWork.filter((step) => step instanceof ReACTChunk)).toMatchObject([
+        { skipped: false },
+        { openPage: true, skipped: true },
+      ]);
+      expect(f.turn.queuedContinuation).toBe(false);
+    },
+  );
+
   it("claims a steer arriving during resolution at the next model boundary", async () => {
     const f = turnFixture(
       (completion) => {
@@ -241,8 +260,9 @@ describe("turn sequence rules with mock resolution", () => {
     await f.run();
     expect({
       rounds: f.completions().length,
-      last: f.turn.doneWork.at(-1),
-    }).toMatchObject({ rounds: 5, last: { openPage: true, skipped: true } });
+      last: f.turn.doneWork.findLast((cell) => cell instanceof ReACTChunk),
+    }).toMatchObject({ rounds: 5, last: { decision: { kind: "halt", reason: "trigger-budget" }, skipped: true } });
+    expect(f.turn.broke).not.toBe("");
   });
 
   it("a round-end note enriches the next round and is consumed once", async () => {
@@ -286,7 +306,7 @@ describe("turn sequence rules with mock resolution", () => {
     f.host.openRound.mockResolvedValueOnce(false);
     await f.run();
     expect(f.resolvers.completion).not.toHaveBeenCalled();
-    expect(f.turn.doneWork).toHaveLength(1);
+    expect(f.turn.broke).toContain("plugin refused");
   });
 
   it("continues thought-only responses without consulting the intent classifier", async () => {
@@ -313,10 +333,14 @@ describe("turn sequence rules with mock resolution", () => {
         completion.responseText = "Done.";
       },
     );
-    f.host.classifyIntent.mockResolvedValueOnce(verdict);
+    f.host.classifyIntent.mockResolvedValueOnce({ verdict, status: "judged", detail: "" });
     await f.run();
     expect(f.completions()).toHaveLength(verdict === "continue" ? 2 : 1);
-    expect(internContinueStreak(f.turn)).toBe(verdict === "continue" ? 1 : 0);
+    expect(
+      f.turn.doneWork.filter(
+        (cell) => cell instanceof ReACTChunk && cell.decision?.causes.some((cause) => cause.kind === "intent"),
+      ),
+    ).toHaveLength(verdict === "continue" ? 1 : 0);
     expect(f.turn.questionLine !== "").toBe(verdict === "question");
   });
 
@@ -346,7 +370,9 @@ describe("turn sequence rules with mock resolution", () => {
     await f.run();
     expect(f.host.classifyIntent).not.toHaveBeenCalled();
     expect(f.host.admit).not.toHaveBeenCalled();
-    expect(f.turn.doneWork).toHaveLength(2);
+    expect(f.turn.doneWork.find((cell) => cell instanceof ReACTChunk)).toMatchObject({
+      decision: { kind: "blocked", reason: "provider-failed" },
+    });
   });
 
   it("dispatches compact and program nodes to their resolvers", async () => {

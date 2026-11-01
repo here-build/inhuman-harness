@@ -106,7 +106,7 @@ describe("behavior host", () => {
     }).toEqual({
       entered: true,
       hookFailures: [],
-      notes: [{ id: "note-0", text: "ship it" }],
+      notes: [{ id: "note-0", text: "ship it", mode: "activating" }],
       log: [{ type: "set", text: "ship it", loops: 2 }, { type: "tick" }],
     });
   });

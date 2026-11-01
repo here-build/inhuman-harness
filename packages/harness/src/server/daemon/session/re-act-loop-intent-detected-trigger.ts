@@ -1,6 +1,7 @@
 /**
  * Text-only continuation intern (A). Isolated json_schema, judge wire,
- * one shot. Fail-seal. Not remainder license. Not on ReACT tape.
+ * one shot. Returns a typed assessment, including unavailability; it never
+ * authorizes a model invocation itself. The round boundary owns arbitration.
  */
 import {
   clipSpeech,
@@ -9,23 +10,17 @@ import {
   RE_ACT_LOOP_INTENT_DETECTED_TRIGGER_NOTE as CORE_RE_ACT_NOTE,
   RE_ACT_LOOP_INTENT_DETECTED_TRIGGER_TIMEOUT_MS,
   THOUGHT_CONTINUE_NOTE as CORE_THOUGHT_NOTE,
-  THOUGHT_WITHOUT_ANSWER_STREAK_MAX,
   verdictOf,
-  type ReActLoopIntentDetectedTriggerVerdict,
 } from "@inhuman.tools/continuation";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
+  type IntentAssessment,
   CompletionJob,
   flattenOverviewLine,
   GLANCE_ASK_LINE_MAX_CHARS,
   isJsonSchemaUnsupported,
-  jobTriggersReactLoop,
-  ProgrammaticJob,
-  ReACTChunk,
   SessionTurn,
-  tapeCompletion,
-  ToolCallJob,
 } from "@inhuman.tools/harness-model";
 import {
   parseTextOnlyContinueVote,
@@ -91,62 +86,18 @@ export function thoughtWithoutAnswer(pew: CompletionExpectation): boolean {
   return pew.responseThoughtKind != null;
 }
 
-/** Consecutive thought-only actor rounds on the tape, including the latest. */
-export function consecutiveThoughtWithoutAnswer(turn: SessionTurn): number {
-  let count = 0;
-  for (let index = turn.doneWork.length - 1; index >= 0; index -= 1) {
-    const cell = turn.doneWork[index];
-    const pew = tapeCompletion(cell);
-    if (pew != null) {
-      if (pew.completionMode === "isolated") continue;
-      if (!thoughtWithoutAnswer(pew)) break;
-      count += 1;
-      continue;
-    }
-    if (cell instanceof ToolCallJob && jobTriggersReactLoop(cell)) break;
-    if (cell instanceof ProgrammaticJob) break;
-  }
-  return count;
-}
-
-export function thoughtWithoutAnswerCapped(turn: SessionTurn): boolean {
-  return consecutiveThoughtWithoutAnswer(turn) > THOUGHT_WITHOUT_ANSWER_STREAK_MAX;
-}
-
-/**
- * Intern continue nudges since the last work tool. A continue after a
- * thought-only round is the thought nudge, not the intern's.
- */
-export function internContinueStreak(turn: SessionTurn): number {
-  let count = 0;
-  let nudged = false;
-  for (let index = turn.doneWork.length - 1; index >= 0; index -= 1) {
-    const cell = turn.doneWork[index];
-    const pew = tapeCompletion(cell);
-    if (pew != null) {
-      if (pew.completionMode === "isolated") continue;
-      if (nudged && !thoughtWithoutAnswer(pew)) count += 1;
-      nudged = false;
-      continue;
-    }
-    if (cell instanceof ReACTChunk && cell.intentContinue) nudged = true;
-    if (cell instanceof ToolCallJob && jobTriggersReactLoop(cell)) break;
-    if (cell instanceof ProgrammaticJob) break;
-  }
-  return count;
-}
-
 export type ReActLoopIntentDetectedTriggerComplete = (req: CompleteRequest) => Promise<CompleteResult>;
 
-export async function runTextOnlyContinueIntern(opts: {
+export async function assessTextOnlyContinueIntern(opts: {
   readonly speech: string;
   readonly wire: InternJudgeWire;
   readonly haltKeys: Set<string>;
   readonly home: SessionTurn;
   readonly complete: ReActLoopIntentDetectedTriggerComplete;
   readonly signal: AbortSignal;
-}): Promise<ReActLoopIntentDetectedTriggerVerdict> {
-  if (opts.haltKeys.has(opts.wire.key)) return "seal";
+}): Promise<IntentAssessment> {
+  if (opts.haltKeys.has(opts.wire.key))
+    return { verdict: null, status: "unsupported", detail: "Continuation judge does not support structured output." };
   const speech = clipSpeech(splitThink(opts.speech).content);
   const intern = new CompletionExpectation({
     connectionId: opts.wire.connection,
@@ -162,15 +113,26 @@ export async function runTextOnlyContinueIntern(opts: {
     opts.signal,
     AbortSignal.timeout(RE_ACT_LOOP_INTENT_DETECTED_TRIGGER_TIMEOUT_MS),
   ]);
+  let stopWaiting = (): void => {};
   try {
-    await opts.complete({
-      connectionId: opts.wire.connection,
-      model: opts.wire.model,
-      promptText: intern.userPrompt,
-      responseSchemaJson: intern.responseSchema == null ? undefined : JSON.stringify(intern.responseSchema),
-      round: intern,
-      signal: internAbort,
+    internAbort.throwIfAborted();
+    const aborted = new Promise<never>((_resolve, reject) => {
+      const onAbort = (): void => reject(internAbort.reason ?? new Error("Continuation judge aborted."));
+      stopWaiting = () => internAbort.removeEventListener("abort", onAbort);
+      if (internAbort.aborted) onAbort();
+      else internAbort.addEventListener("abort", onAbort, { once: true });
     });
+    await Promise.race([
+      opts.complete({
+        connectionId: opts.wire.connection,
+        model: opts.wire.model,
+        promptText: intern.userPrompt,
+        responseSchemaJson: intern.responseSchema == null ? undefined : JSON.stringify(intern.responseSchema),
+        round: intern,
+        signal: internAbort,
+      }),
+      aborted,
+    ]);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (isJsonSchemaUnsupported(message)) opts.haltKeys.add(opts.wire.key);
@@ -178,15 +140,33 @@ export async function runTextOnlyContinueIntern(opts: {
       intern.failReason = message;
       intern.fail("crash", message, "null");
     }
-    return "seal";
+    return {
+      verdict: null,
+      status: isJsonSchemaUnsupported(message)
+        ? "unsupported"
+        : message.includes("response schema:")
+          ? "invalid"
+          : "failed",
+      detail: message,
+    };
   } finally {
+    stopWaiting();
     job.completed = true;
   }
   if (intern.outcome !== "successful") {
-    if (intern.failReason != null && isJsonSchemaUnsupported(intern.failReason)) opts.haltKeys.add(opts.wire.key);
-    return "seal";
+    const detail = intern.failReason?.trim() || intern.endDetail?.trim() || "Continuation judge failed.";
+    if (isJsonSchemaUnsupported(detail)) opts.haltKeys.add(opts.wire.key);
+    return {
+      verdict: null,
+      status: isJsonSchemaUnsupported(detail)
+        ? "unsupported"
+        : detail.includes("response schema:")
+          ? "invalid"
+          : "failed",
+      detail,
+    };
   }
   const vote = parseTextOnlyContinueVote(intern.responseText);
-  if (vote == null) return "seal";
-  return verdictOf(vote);
+  if (vote == null) return { verdict: null, status: "invalid", detail: "Continuation judge returned an invalid vote." };
+  return { verdict: verdictOf(vote), status: "judged", detail: "" };
 }

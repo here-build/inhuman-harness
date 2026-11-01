@@ -136,7 +136,9 @@ export async function loadProgram(opts: LoadOptions): Promise<Registry> {
 
 export async function applyLambda(lambda: Lambda, args: readonly Val[], ctx: Ctx): Promise<Val> {
   try {
+    ctx.signal?.throwIfAborted();
     const result = await behaviorAls.run(ctx, () => lambda.call(...args.map((arg) => valToScheme(arg))));
+    ctx.signal?.throwIfAborted();
     return jsToVal(result);
   } catch (error) {
     throw unwrapBehaviorError(error);

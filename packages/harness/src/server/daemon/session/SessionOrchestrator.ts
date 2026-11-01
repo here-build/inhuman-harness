@@ -15,6 +15,7 @@ import {
   ApprovableJob,
   cancelOutcomeText,
   CompletionExpectation,
+  type IntentAssessment,
   CompletionJob,
   ContextNeedToolJob,
   delegatesPermissionMode,
@@ -39,10 +40,7 @@ import {
   WebExtractToolJob,
   WebSearchToolJob,
 } from "@inhuman.tools/harness-model";
-import {
-  RE_ACT_LOOP_INTENT_DETECTED_TRIGGER_STREAK_MAX,
-  reActLoopIntentDetectedTriggerFor,
-} from "@inhuman.tools/harness-model/shared";
+import { reActLoopIntentDetectedTriggerFor } from "@inhuman.tools/harness-model/shared";
 import {
   type CapabilityConnection,
   type CompleteRequest,
@@ -67,6 +65,7 @@ import { autorun, comparer, reaction, runInAction, when } from "mobx";
 import invariant from "tiny-invariant";
 
 import { admitPrivateMcpTool, type NoteLog } from "@/extensions";
+import { pluginHookTimeoutMs } from "@/extensions/hook-deadline";
 import { license, noteDenied } from "@/policy-processor/license";
 import { scopes } from "@/policy-processor/scope";
 import { documentKey } from "@/protocol/document";
@@ -90,6 +89,7 @@ import {
   dispatchedMcpSettled,
   failLeftoverApprovables,
   liveEvalWork,
+  isWorkReachable,
   mcpJobOnWire,
   turnLoopStopped,
 } from "@/session";
@@ -126,13 +126,8 @@ import { startAmbientCompact } from "./ambient-compact.js";
 import { isParkAbort, SessionBehavior } from "./behavior-host.js";
 import { loadCompactProgram } from "./compact.js";
 import { CompletionFlights } from "./completion-flight.js";
-import { pluginHookTimeoutMs } from "./hook-deadline.js";
 import { PROJECT_LAYER_POLL_MS, readProjectAuthorization } from "./project-authorization.js";
-import {
-  internContinueStreak,
-  internJudgeWire,
-  runTextOnlyContinueIntern,
-} from "./re-act-loop-intent-detected-trigger.js";
+import { internJudgeWire, assessTextOnlyContinueIntern } from "./re-act-loop-intent-detected-trigger.js";
 import type { SessionDaemon } from "./SessionDaemon.js";
 import { iterateTurn } from "./turn-iterator.js";
 import { createTurnResolvers } from "./turn-resolvers.js";
@@ -515,7 +510,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
               },
               waitInbound: (abort) => this.#inboundResumed(turn, abort, () => turnLoopStopped(turn, abort)),
               openRound: async (resumed) => {
-                const behavior = await this.#behavior.enterTurn(turn, resumed);
+                const behavior = await this.#behavior.enterTurn(turn, resumed, signal);
                 return (
                   behavior != null && !turnLoopStopped(turn, signal) && (await this.#behavior.openRound(turn, behavior))
                 );
@@ -541,15 +536,15 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
           else {
             // The post hooks are bounded, but a throw must still reach the close below.
             try {
-              await this.#behavior.leaveTurn(turn, broke);
+              await this.#behavior.leaveTurn(turn, broke || turn.broke);
             } catch (error) {
               fail("turn boundary", error);
             }
             const ending: TurnEnding = turn.cancelRequested
               ? { kind: "cancel" }
-              : broke === ""
+              : (broke || turn.broke) === ""
                 ? { kind: "finish" }
-                : { kind: "broke", detail: broke };
+                : { kind: "broke", detail: broke || turn.broke };
             closeTurn(turn, ending, this.#closeOptions());
             this.#releaseUnansweredCall(turn);
             // Self-service lane: the turn that was head takes the next queued message itself.
@@ -945,7 +940,10 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     // here as model until those callers pass their origin through this path.
     const result = await guardHostTool({
       job,
+      signal: this.#behavior.signalFor(job),
+      stopped: () => !isWorkReachable(this.session.root, job),
       origin: "model",
+      hookTimeoutMs: pluginHookTimeoutMs(this.session.root.kvs, this.kernel.root.kvs),
       agent: this.#behavior.agent,
       behaviorEntries: behaviorEntriesThatRun(behaviorEntriesOf(this.session.root), (wire) =>
         sessionCatalog(this.session.root)?.catalogEntry(wire),
@@ -1293,6 +1291,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     // A park pauses the round it interrupts; only a dispose ends it.
     this.#stopCompletions(cause);
     this.stopAdmission();
+    this.#behavior.stopAdmission();
     scopes.get(this.session.root).close();
     return true;
   }
@@ -1463,15 +1462,14 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     turn: SessionTurn,
     pew: CompletionExpectation,
     signal: AbortSignal,
-  ): Promise<"continue" | "question" | "seal"> {
-    if (internContinueStreak(turn) >= RE_ACT_LOOP_INTENT_DETECTED_TRIGGER_STREAK_MAX) return "seal";
+  ): Promise<IntentAssessment> {
     if (
       !reActLoopIntentDetectedTriggerFor(this.kernel.root.reActLoopIntentDetectedTrigger, pew.connectionId, pew.model)
     )
-      return "seal";
+      return { verdict: null, status: "disabled", detail: "Continuation judge is disabled." };
     const wire = internJudgeWire(this.session.root.kvs, this.kernel.root.kvs, (id) => this.#configuredModel(id));
-    if (wire == null) return "seal";
-    return runTextOnlyContinueIntern({
+    if (wire == null) return { verdict: null, status: "unconfigured", detail: "No continuation judge is configured." };
+    return assessTextOnlyContinueIntern({
       speech: pew.responseText,
       wire,
       haltKeys: this.#reActLoopIntentDetectedTriggerHaltKeys,

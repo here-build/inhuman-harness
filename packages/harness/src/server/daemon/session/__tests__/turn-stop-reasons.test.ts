@@ -8,15 +8,9 @@ import { maxRoundsMessage } from "../round-stop.js";
 import type { TurnIteratorHost } from "../turn-iterator.js";
 import { turnFixture } from "./fixtures/turn-iterator.js";
 
-/** The kind of early stop, read from the one place a turn records it: `broke`. */
+/** Stop policy is persisted independently of presentation prose. */
 const stopKind = (turn: ReturnType<typeof turnFixture>["turn"]) =>
-  turn.broke === ""
-    ? ""
-    : turn.broke.includes("content filter")
-      ? "content_filter"
-      : turn.broke.includes("model rounds")
-        ? "max_rounds"
-        : "length";
+  turn.doneWork.findLast((cell): cell is ReACTChunk => cell instanceof ReACTChunk)?.decision?.reason ?? "";
 
 const notices = (turn: ReturnType<typeof turnFixture>["turn"]) =>
   turn.doneWork
@@ -34,7 +28,7 @@ describe("round cap", () => {
     expect({ cap: f.turn.maxRounds, rounds: f.turn.rounds, stop: stopKind(f.turn) }).toEqual({
       cap: 0,
       rounds: 3,
-      stop: "",
+      stop: "no-trigger",
     });
   });
 
@@ -46,7 +40,7 @@ describe("round cap", () => {
     (f.host as TurnIteratorHost).loopLimits = () => ({ maxRounds: 2, lengthContinuations: 3 });
     await f.run();
     expect(f.turn.rounds).toBe(2);
-    expect(stopKind(f.turn)).toBe("max_rounds");
+    expect(stopKind(f.turn)).toBe("round-limit");
     // One field records an early stop, the same one a failed round writes: `broke`.
     expect(f.turn.broke).toBe(maxRoundsMessage(2));
     expect(notices(f.turn)).toEqual([expect.stringContaining("2 model rounds")]);
@@ -67,7 +61,7 @@ describe("round cap", () => {
     expect({ cap: f.turn.maxRounds, rounds: f.turn.rounds, stop: stopKind(f.turn) }).toEqual({
       cap: 5,
       rounds: 3,
-      stop: "",
+      stop: "no-trigger",
     });
   });
 
@@ -97,7 +91,7 @@ describe("provider stop reasons", () => {
     const continued = f.turn.doneWork.find((cell) => cell instanceof ReACTChunk && cell.truncated);
     expect(continued).toBeDefined();
     expect(f.completions()[1]?.expectation.systemNote).toContain(LENGTH_CONTINUE_NOTE);
-    expect(stopKind(f.turn)).toBe("");
+    expect(stopKind(f.turn)).toBe("no-trigger");
     expect(f.host.classifyIntent).toHaveBeenCalledTimes(1);
   });
 
@@ -110,7 +104,7 @@ describe("provider stop reasons", () => {
     (f.host as TurnIteratorHost).loopLimits = () => ({ maxRounds: 0, lengthContinuations: 2 });
     await f.run();
     expect(f.completions()).toHaveLength(3);
-    expect(stopKind(f.turn)).toBe("length");
+    expect(stopKind(f.turn)).toBe("trigger-budget");
     expect(notices(f.turn)).toEqual([expect.stringContaining("output limit")]);
   });
 
@@ -122,7 +116,7 @@ describe("provider stop reasons", () => {
     (f.host as TurnIteratorHost).loopLimits = () => ({ maxRounds: 0, lengthContinuations: 0 });
     await f.run();
     expect(f.completions()).toHaveLength(1);
-    expect(stopKind(f.turn)).toBe("length");
+    expect(stopKind(f.turn)).toBe("trigger-budget");
   });
 
   it("is bounded by maxRounds", async () => {
@@ -134,7 +128,7 @@ describe("provider stop reasons", () => {
     (f.host as TurnIteratorHost).loopLimits = () => ({ maxRounds: 2, lengthContinuations: 9 });
     await f.run();
     expect(f.completions()).toHaveLength(2);
-    expect(stopKind(f.turn)).toBe("max_rounds");
+    expect(stopKind(f.turn)).toBe("round-limit");
   });
 
   it("stops, and records it, when a reasoning model spends its whole budget thinking", async () => {
@@ -144,7 +138,7 @@ describe("provider stop reasons", () => {
     });
     await f.run();
     expect(f.completions()).toHaveLength(1);
-    expect(stopKind(f.turn)).toBe("length");
+    expect(stopKind(f.turn)).toBe("length-no-answer");
     expect(notices(f.turn)[0]).toContain("reasoning");
     expect(f.turn.doneWork.some((cell) => cell instanceof ReACTChunk && cell.intentContinue)).toBe(false);
   });
@@ -161,7 +155,7 @@ describe("provider stop reasons", () => {
   it("surfaces a content-filtered response as its own stop, not an empty answer", async () => {
     const f = turnFixture((c) => void (c.finishReason = "content_filter"));
     await f.run();
-    expect(stopKind(f.turn)).toBe("content_filter");
+    expect(stopKind(f.turn)).toBe("content-filter");
     expect(notices(f.turn)[0]).toContain("content filter");
     expect(f.host.classifyIntent).not.toHaveBeenCalled();
     expect(f.completions()).toHaveLength(1);
@@ -176,7 +170,7 @@ describe("provider stop reasons", () => {
     expect(f.host.admit).not.toHaveBeenCalled();
     const job = f.turn.doneWork.find((cell) => "toolCallId" in cell && cell.toolCallId === "t1");
     expect(job).toMatchObject({ completed: true });
-    expect(stopKind(f.turn)).toBe("content_filter");
+    expect(stopKind(f.turn)).toBe("content-filter");
   });
 
   it("tells the model a truncated call was cut off, and runs it never", async () => {
@@ -200,7 +194,7 @@ describe("provider stop reasons", () => {
     });
     // The round is not treated as text-only: the loop continues so the model can re-issue.
     expect(f.completions()).toHaveLength(2);
-    expect(stopKind(f.turn)).toBe("");
+    expect(stopKind(f.turn)).toBe("no-trigger");
   });
 });
 

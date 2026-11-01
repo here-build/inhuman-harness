@@ -40,7 +40,8 @@ import { TurnApprovalNoteChunk } from "./approval-note-chunk.js";
 import { SessionTurnEvalSpec } from "./eval-spec.js";
 import { TurnNotificationChunk } from "./notification-chunk.js";
 import { TurnPromptChunk } from "./prompt-chunk.js";
-import { ReACTChunk } from "./react-chunk.js";
+import { ReACTChunk, type RoundContextNote } from "./react-chunk.js";
+import type { RoundDecision } from "./round-decision.js";
 import type { SessionUnit, TurnChunk } from "./types.js";
 import { parseUserVisuals, userVisualsJson, type UserVisualIdentity } from "./user-visual.js";
 
@@ -239,6 +240,66 @@ export class SessionTurn extends SequenceJob {
     bindContinuation(chunk, tapePredecessor(this));
     this.pushChild(chunk);
     this.queue.push(chunk);
+  }
+
+  /** Response admission and its expansion cursor are one durable fact. */
+  @syncing.action
+  recordResponseWork(source: CompletionJob, work: ToolCallJob | ProgrammaticJob): void {
+    source.responseWork.push(work);
+    this.enqueue(work);
+  }
+
+  /** A response cannot be marked expanded without a reachable settlement boundary. */
+  @syncing.action
+  finishResponseExpansion(source: CompletionJob, compact: CompactJob | null = null): void {
+    if (compact != null) this.enqueue(compact);
+    this.enqueue(new ReACTChunk({ source }));
+    source.responseExpanded = true;
+  }
+
+  /** Persist the successor together with the edge authorizing it. */
+  @syncing.action
+  admitRound(boundary: ReACTChunk | null, next: CompletionJob): void {
+    this.enqueue(next);
+    if (boundary?.decision != null) {
+      boundary.successor = next;
+      boundary.waitingFor = "";
+    }
+  }
+
+  /** Decision, presentation and terminal notice become visible together. */
+  @syncing.action
+  commitBoundary(
+    boundary: ReACTChunk,
+    decision: RoundDecision,
+    notes: readonly RoundContextNote[],
+    question: string,
+  ): void {
+    boundary.contextNotes = notes;
+    boundary.decision = decision;
+    boundary.skipped = decision.kind !== "advance";
+    if (decision.kind !== "advance") boundary.waitingFor = "";
+    boundary.openPage = decision.kind !== "advance";
+    boundary.intentContinue = decision.causes.some(
+      (cause) => cause.kind === "intent" || cause.kind === "thought-repair",
+    );
+    boundary.truncated = decision.causes.some((cause) => cause.kind === "length-repair");
+    if (decision.kind === "blocked" || decision.reason === "trigger-budget") this.stopLoop(decision.detail);
+    this.questionLine = question;
+  }
+
+  /** Re-enter a taken cell without losing it between the two cursor lists. */
+  @syncing.action
+  requeueTaken(index: number): void {
+    const [cell] = this.doneWork.splice(index, 1);
+    if (cell != null) this.queue.unshift(cell);
+  }
+
+  /** Account for an abandoned attempt exactly once before a fresh attempt is admitted. */
+  @syncing.action
+  recoverRound(source: CompletionJob, boundary: ReACTChunk): void {
+    this.enqueue(boundary);
+    source.responseExpanded = true;
   }
 
   /** Move the next queued cell onto `doneWork` in one transaction: a crash cannot drop it from both. */
@@ -480,13 +541,17 @@ export class SessionTurn extends SequenceJob {
   }
 
   /**
-   * Loop token still on the tape after the last completion: ReACT / prompt /
-   * compact, or an uncompleted CompactJob. A later completion clears it.
+   * A boundary still awaiting a decision/admission, a prompt, or unfinished compaction.
+   * Legacy documents use the old token flags; new boundaries use the durable decision.
    */
   @computed
   get queuedContinuation(): boolean {
     let pending = false;
     for (const chunk of reactChunks(this)) {
+      if (chunk instanceof ReACTChunk && chunk.decision != null) {
+        pending = chunk.decision.kind === "advance" && chunk.decision.nextRoundId == null;
+        continue;
+      }
       if (chunk instanceof ReACTChunk && chunk.skipped) continue;
       if (
         chunk instanceof ReACTChunk ||
@@ -530,6 +595,13 @@ export class SessionTurn extends SequenceJob {
     if (!this.reducerExited || this.unattended) return false;
     if (this.openWork) return false;
     if (this.cancelled) return true;
+    const boundary = this.doneWork.findLast((chunk) => chunk instanceof ReACTChunk);
+    if (boundary instanceof ReACTChunk && boundary.decision?.nextRoundId == null) {
+      const decision = boundary.decision;
+      if (decision?.kind === "blocked" || decision?.reason === "trigger-budget") return true;
+      if (decision?.intent != null && ["failed", "invalid", "unsupported"].includes(decision.intent.status))
+        return true;
+    }
     const chunks = reactChunks(this);
     let index = chunks.length - 1;
     while (index >= 0) {
@@ -606,7 +678,7 @@ function genesisOf(turn: SessionTurn): SessionSystemPrompt {
   let oldest = turn;
   for (const cell of tailTurns(turn)) oldest = cell;
   const genesis = oldest.turnTail;
-  if (genesis instanceof SessionTurn) throw new Error("turnTail cycle");
+  if (genesis instanceof SessionTurn) throw new TypeError("turnTail cycle");
   return genesis;
 }
 

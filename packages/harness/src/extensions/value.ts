@@ -75,6 +75,8 @@ export type Frame = {
 export type Mode = "register" | "run" | "pure";
 
 export type Ctx = {
+  /** Revoked when the owning daemon abandons this invocation. */
+  signal?: AbortSignal;
   mode: Mode;
   agentId: string;
   sourceText: string;

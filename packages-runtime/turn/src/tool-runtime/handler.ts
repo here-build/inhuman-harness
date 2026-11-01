@@ -302,6 +302,7 @@ export class ToolCallHandler {
         toolName: name,
         toolCallId,
         argsJson,
+        ...catalogFlags(catalog.catalogEntry(name) ?? this.kernel.catalog.catalogEntry(name)),
         ...flagged,
       });
       if (job.background && job.toolCallId.trim() !== "") {

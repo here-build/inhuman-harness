@@ -1,6 +1,7 @@
 export * from "./eval-spec.js";
 export * from "./prompt-chunk.js";
 export * from "./react-chunk.js";
+export * from "./round-decision.js";
 export * from "./notification-chunk.js";
 export * from "./steer-chunk.js";
 export * from "./approval-note-chunk.js";

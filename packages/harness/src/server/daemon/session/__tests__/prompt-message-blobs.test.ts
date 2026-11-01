@@ -26,7 +26,7 @@ import { historyBehind, keepFloors, projectHistory, sliceCompactEat, Transcript 
 
 import { ambientCutoff, startAmbientCompact } from "../ambient-compact.js";
 import { promptMessageOf } from "../prompt-message-of.js";
-import { runTextOnlyContinueIntern } from "../re-act-loop-intent-detected-trigger.js";
+import { assessTextOnlyContinueIntern } from "../re-act-loop-intent-detected-trigger.js";
 
 const sha256Of = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
@@ -223,7 +223,7 @@ describe("the continue intern", () => {
       const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`hi`, queue: [] });
       plexus.root.head = turn;
       let messages: Array<[role: string, kind: string]> = [];
-      await runTextOnlyContinueIntern({
+      await assessTextOnlyContinueIntern({
         speech: "I will write the tests now. ".repeat(2_000),
         wire: { connection: "c1", model: "judge", key: "c1\njudge" },
         haltKeys: new Set(),

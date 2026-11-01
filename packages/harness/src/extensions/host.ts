@@ -57,6 +57,8 @@ export type Opened<O> = {
     { readonly entered: true; readonly value: Val } | { readonly entered: false; readonly outcome: O }
   >;
   finish(settle: Settle): Promise<O>;
+  /** Revoke late state writes, notifications and entry into the host effect. */
+  abandon(): void;
 };
 
 function messageOf(error: unknown): string {
@@ -524,11 +526,13 @@ export class AgentBehavior {
   }
 
   openBoundary(point: "turn" | "round", record: Val, turnId: string): Opened<BoundaryOutcome> {
+    const lifetime = new AbortController();
     const reached = deferred<Val>();
     const release = deferred<Settle>();
     const outcomes: BoundaryOutcome[] = [];
     let fallback: Val = false;
     const layer = async (index: number, value: Val): Promise<Val> => {
+      lifetime.signal.throwIfAborted();
       if (index >= this.instances.length) {
         reached.resolve(value);
         const settled = await release.promise;
@@ -542,6 +546,7 @@ export class AgentBehavior {
         point,
         record: value,
         notes: this.kernel.notes,
+        signal: lifetime.signal,
         turnId,
         onMethod: this.#onMethod(instance, new CallerLedger()),
         core: (inner) => layer(index + 1, inner),
@@ -559,6 +564,10 @@ export class AgentBehavior {
       },
     );
     return {
+      abandon: () => {
+        lifetime.abort(new Error("plugin invocation abandoned"));
+        release.resolve({ ok: false, error: "plugin invocation abandoned" });
+      },
       started: Promise.race([
         reached.promise.then((value) => ({ entered: true as const, value })),
         whole.then((outcome) => ({ entered: false as const, outcome })),
@@ -582,16 +591,19 @@ export class AgentBehavior {
     readonly floor: (value: Val) => Promise<Val>;
   }): Opened<ToolOutcome> {
     const active = this.instances.filter((row) => selectsCall(row.registry, opts.point, opts.paths));
+    const lifetime = new AbortController();
     const reached = deferred<Val>();
     const release = deferred<Settle>();
     const outcomes: ToolOutcome[] = [];
     const core = async (value: Val): Promise<Val> => {
+      lifetime.signal.throwIfAborted();
       reached.resolve(value);
       const settled = await release.promise;
       PluginSurfaceError.invariant(settled.ok, settled.ok ? "" : settled.error);
       return settled.value;
     };
     const layer = async (index: number, value: Val): Promise<Val> => {
+      lifetime.signal.throwIfAborted();
       if (index >= active.length) {
         const judged = await opts.floor(value);
         if (judged instanceof Refusal) return judged;
@@ -607,6 +619,7 @@ export class AgentBehavior {
         floor: last ? opts.floor : (inner) => inner,
         core: last ? core : (inner) => layer(index + 1, inner),
         notes: this.kernel.notes,
+        signal: lifetime.signal,
         turnId: opts.turnId,
         onMethod: this.#onMethod(instance, new CallerLedger()),
       });
@@ -620,6 +633,10 @@ export class AgentBehavior {
       (error: unknown) => (outcomes.length === 0 ? bareTool(false, messageOf(error)) : combineTool(outcomes)),
     );
     return {
+      abandon: () => {
+        lifetime.abort(new Error("plugin invocation abandoned"));
+        release.resolve({ ok: false, error: "plugin invocation abandoned" });
+      },
       started: Promise.race([
         reached.promise.then((value) => ({ entered: true as const, value })),
         whole.then((outcome) => ({ entered: false as const, outcome })),

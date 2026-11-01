@@ -585,14 +585,7 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
   async complete(req: ConnectionCompleteRequest): Promise<CompleteResult> {
     invariant(req.round.plexus != null, "complete: round must be homed");
     const waitSignal = req.signal;
-    const sendReady = (): boolean =>
-      (this.readyState === "ready" && this.fresh) || this.needsAuth || this.readyState === "failed";
-    try {
-      await (waitSignal === undefined ? when(sendReady) : when(sendReady, { signal: waitSignal }));
-    } catch (error) {
-      if (waitSignal?.reason instanceof ConnectionMiss) throw waitSignal.reason;
-      throw error;
-    }
+    await this.waitUntilSendReady(waitSignal);
     if (this.needsAuth) {
       throw new ConnectionMiss("needs-auth", `connection ${this.connectionId} needs auth — reconnect`);
     }
@@ -673,20 +666,33 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
     return out;
   }
 
+  /** Auth readiness is bounded independently of HTTP/body progress. */
+  sendReadyTimeoutMs = REQUEST_TIMEOUT_MS;
+
+  protected async waitUntilSendReady(signal?: AbortSignal): Promise<void> {
+    const sendReady = (): boolean =>
+      (this.readyState === "ready" && this.fresh) || this.needsAuth || this.readyState === "failed";
+    try {
+      await when(sendReady, { signal, timeout: this.sendReadyTimeoutMs });
+    } catch (error) {
+      if (signal?.aborted) throw signal.reason ?? error;
+      if (error instanceof Error && error.message === "WHEN_TIMEOUT") {
+        throw new ConnectionMiss(
+          "not-ready",
+          `connection ${this.connectionId} did not become send-ready within ${this.sendReadyTimeoutMs}ms`,
+        );
+      }
+      throw error;
+    }
+  }
+
   /**
    * Send door. Wait on the graph; stamp; fetch once. No retry. No `refreshSession()`.
    */
   async authorizedFetch(input: FetchInput, init?: RequestInit, signal?: AbortSignal): Promise<Response> {
     const waitSignal = signal ?? init?.signal ?? undefined;
     const started = Date.now();
-    const sendReady = (): boolean =>
-      (this.readyState === "ready" && this.fresh) || this.needsAuth || this.readyState === "failed";
-    try {
-      await (waitSignal === undefined ? when(sendReady) : when(sendReady, { signal: waitSignal }));
-    } catch (error) {
-      if (waitSignal?.reason instanceof ConnectionMiss) throw waitSignal.reason;
-      throw error;
-    }
+    await this.waitUntilSendReady(waitSignal);
     step(`wait-fresh: connection=${this.connectionId} ms=${Date.now() - started}`);
     if (this.needsAuth) {
       throw new ConnectionMiss("needs-auth", `connection ${this.connectionId} needs auth — reconnect`);

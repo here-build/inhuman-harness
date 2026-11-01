@@ -12,9 +12,10 @@ import {
   SystemToolJob,
   ToolCallJob,
 } from "@inhuman.tools/harness-model";
-import { runInAction } from "mobx";
+import { observable, runInAction } from "mobx";
 
 import { type AgentBehavior, type Opened, Refusal, type ToolOutcome } from "@/extensions";
+import { bounded, DEFAULT_PLUGIN_HOOK_TIMEOUT_MS } from "@/extensions/hook-deadline";
 
 import { unenteredOutcome, type GuardedCall } from "./tool-behavior.js";
 
@@ -45,6 +46,9 @@ type GuardHostTool = {
   readonly guardedCall: (job: ToolCallJob) => GuardedCall | null;
   readonly license: (job: ToolCallJob) => Promise<boolean>;
   readonly turnId: string;
+  readonly hookTimeoutMs?: number;
+  readonly signal?: AbortSignal;
+  readonly stopped?: () => boolean;
   readonly narrowAgent?: (job: AgentCallJob, tools: readonly string[]) => void;
   readonly onUnentered: (
     job: ToolCallJob,
@@ -104,12 +108,18 @@ export async function guardHostTool(opts: GuardHostTool): Promise<GuardDecision>
   if (skipPlugin || call == null || !agent!.selects(call.point, call.paths)) {
     return { allowed: await opts.license(job) };
   }
+  const licensing = observable.box(false);
+  let abandoned = false;
+  const noLongerActive = () =>
+    opts.signal?.aborted === true || opts.stopped?.() === true || job.cancelled || job.completed;
+  const active = () => !abandoned && !noLongerActive();
   const opened = agent!.openTool({
     point: call.point,
     paths: call.paths,
     raw: call.raw,
     turnId: opts.turnId,
     floor: async (value) => {
+      if (!active()) return new Refusal("call no longer active");
       const next = call.argsFor(value);
       if ("error" in next) return new Refusal(next.error);
       if (next.args !== job.args || next.tools != null || next.speech !== undefined) {
@@ -122,15 +132,40 @@ export async function guardHostTool(opts: GuardHostTool): Promise<GuardDecision>
           if (next.tools != null && job instanceof AgentCallJob) opts.narrowAgent?.(job, next.tools);
         });
       }
-      return (await opts.license(job)) ? value : new Refusal(LICENSE_REFUSED);
+      runInAction(() => licensing.set(true));
+      try {
+        const licensed = await opts.license(job);
+        return licensed && active() ? value : new Refusal(LICENSE_REFUSED);
+      } finally {
+        runInAction(() => licensing.set(false));
+      }
     },
   });
   try {
-    const started = await opened.started;
+    const result = await bounded(opened.started, {
+      ms: opts.hookTimeoutMs ?? DEFAULT_PLUGIN_HOOK_TIMEOUT_MS,
+      paused: () => licensing.get(),
+      signal: opts.signal,
+      stopped: noLongerActive,
+    });
+    if (result.kind !== "done") {
+      abandoned = true;
+      opened.abandon();
+      throw new Error(result.kind === "timeout" ? "plugin guard deadline exceeded" : "call stopped");
+    }
+    if (!active()) {
+      abandoned = true;
+      opened.abandon();
+      return { allowed: false };
+    }
+    const started = result.value;
     if (started.entered) return { allowed: true, opened };
     opts.onReport?.(job, started.outcome);
     runInAction(() => opts.onUnentered(job, unenteredOutcome(started.outcome)));
   } catch (error) {
+    abandoned = true;
+    opened.abandon();
+    if (noLongerActive()) return { allowed: false };
     opts.onProblem?.(`plugin ${job.name} guard`, error);
     runInAction(() =>
       opts.onUnentered(job, {

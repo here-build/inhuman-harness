@@ -113,7 +113,7 @@ async function sealAfterNeed(session: SessionDaemon, turn: SessionTurn): Promise
 describe("context_need loop", () => {
   beforeEach(() => resetLocalIDs());
 
-  it("text-only overflow compacts and re-enters the loop", async () => {
+  it("text-only overflow compacts without manufacturing continuation", async () => {
     const session = await openSession();
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`plan` });
     session.root.head = turn;
@@ -127,22 +127,17 @@ describe("context_need loop", () => {
     second.totalTokens = 95;
     second.contextLimit = 100;
     modelOf(session).reply({ text: "the head row is gone" });
-    await when(() => completionsOf(turn).length === 3, { timeout: TIMEOUT });
+    await when(() => turn.reducerExited, { timeout: TIMEOUT });
     const compact = compactOf(turn);
     const chunks = reactChunks(turn);
     const compactAt = compact == null ? -1 : chunks.indexOf(compact);
     const followed = chunks.slice(compactAt + 1).some((chunk) => tapeCompletion(chunk) != null);
-    const third = completionsOf(turn)[2]!;
-    third.totalTokens = 10;
-    third.contextLimit = 100;
-    modelOf(session).reply({ text: "ok" });
-    await when(() => turn.reducerExited, { timeout: TIMEOUT });
     expect({
       reason: compact?.reason,
       cutoff: compact?.cutoff === true,
       followed,
       incomplete: turn.lastTurnIncomplete,
-    }).toEqual({ reason: "overflow", cutoff: true, followed: true, incomplete: false });
+    }).toEqual({ reason: "overflow", cutoff: true, followed: false, incomplete: false });
   });
 
   it("completion case: quiet, mixed ReACT, deficit cutoff, compact-then-ReACT, overflow-only, steer, live dial; slash mint inherits a live need", async () => {
@@ -182,12 +177,8 @@ describe("context_need loop", () => {
     );
     await when(() => completionsOf(overflowOnly).length >= 2, { timeout: TIMEOUT });
     modelOf(session).reply({ text: "done" });
-    await when(() => completionsOf(overflowOnly).length >= 3, { timeout: TIMEOUT });
-    const overflowContinued = completionsOf(overflowOnly)[2]!;
-    overflowContinued.totalTokens = 10;
-    overflowContinued.contextLimit = 100;
-    modelOf(session).reply({ text: "ok" });
     await when(() => overflowOnly.reducerExited, { timeout: TIMEOUT });
+    expect(completionsOf(overflowOnly)).toHaveLength(2);
     const overflowChunk = compactOf(overflowOnly);
 
     const steerTurn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`plan` });
@@ -276,7 +267,7 @@ describe("context_need loop", () => {
     session.root.head = tail;
     const minted = await session.handleRequest("compact", { focus: "user-focus" });
     const head = session.root.head;
-    if (!(head instanceof SessionTurn)) throw new Error("expected minted turn");
+    if (!(head instanceof SessionTurn)) throw new TypeError("expected minted turn");
     const inheritLive = head.contextNeed;
     await when(() => compactOf(head)?.cutoff === true || head.reducerExited, { timeout: TIMEOUT });
     const chunk = compactOf(head);

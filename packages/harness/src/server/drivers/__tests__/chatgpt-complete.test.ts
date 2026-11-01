@@ -68,6 +68,7 @@ type Dialect = {
   readonly name: string;
   readonly kind: "chatgpt" | "compat";
   readonly contentType: string;
+  readonly keepOpen?: boolean;
   readonly body: string;
   readonly out: {
     readonly text: string;
@@ -117,6 +118,7 @@ const dialects: readonly Dialect[] = [
     kind: "chatgpt",
     contentType: "application/json",
     body: JSON.stringify({
+      status: "completed",
       output: [
         {
           type: "reasoning",
@@ -163,6 +165,7 @@ const dialects: readonly Dialect[] = [
       { choices: [{ delta: { reasoning: "more " } }] },
       { choices: [{ delta: { content: "Hi" } }] },
       { choices: [{ delta: { content: " there" } }] },
+      { choices: [{ delta: {}, finish_reason: "stop" }] },
     ]),
     out: { text: "Hi there", thought: "plan more ", thoughtKind: "raw" },
   },
@@ -277,6 +280,7 @@ const dialects: readonly Dialect[] = [
     kind: "chatgpt",
     contentType: "application/json",
     body: JSON.stringify({
+      status: "completed",
       output: [{ type: "reasoning", encrypted_content: "enc-only" }],
     }),
     out: {
@@ -302,6 +306,7 @@ async function assemble(
   calls?: unknown;
   outcome: string;
   reason?: string;
+  finish?: string;
   encrypted?: string;
   include?: unknown;
   reasoning?: unknown;
@@ -332,7 +337,8 @@ async function assemble(
             return;
           }
           res.writeHead(200, { "content-type": row.contentType });
-          res.end(row.body);
+          if (row.keepOpen) res.write(row.body);
+          else res.end(row.body);
           return;
         }
         res.writeHead(404);
@@ -386,6 +392,7 @@ async function assemble(
         function: { name: call.name, arguments: JSON.stringify(call.args ?? {}) },
       })),
       encrypted: round.responseReasoningEncrypted,
+      finish: round.finishReason,
       include: posted?.include,
       reasoning: posted?.reasoning,
       sessionHeader,
@@ -398,6 +405,13 @@ async function assemble(
 }
 
 describe("streaming delta assembly", () => {
+  it("settles a terminal Responses event without waiting for socket EOF", async () => {
+    const started = Date.now();
+    const result = await assemble({ ...dialects[0]!, keepOpen: true });
+    expect(result).toMatchObject(dialects[0]!.out);
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
   it.each(["gpt-5.4", "gpt-5.6-sol", "gpt-6-astra"])(
     "ChatGPT %s completes without public API cache options",
     async (model) => {
@@ -405,7 +419,7 @@ describe("streaming delta assembly", () => {
     },
   );
 
-  it("yields cumulative speech; HTTP-200 failed/missing/speech-incomplete fail; thought-exhausted incomplete completes", async () => {
+  it("yields cumulative speech; failed/missing terminals fail; explicit output exhaustion preserves speech and thought", async () => {
     const got: Record<string, Awaited<ReturnType<typeof assemble>>> = {};
     for (const row of dialects) {
       got[row.name] = await assemble(row);
@@ -509,14 +523,14 @@ describe("streaming delta assembly", () => {
     expect({
       failed: await assemble(failed, "gpt-5.4", "fail"),
       unterminated: await assemble(unterminated, "gpt-5.4", "fail"),
-      incompleteSpeech: await assemble(incompleteSpeech, "gpt-5.4", "fail"),
+      incompleteSpeech: await assemble(incompleteSpeech, "gpt-5.4"),
       incompleteThought: await assemble(incompleteThought, "gpt-5.4"),
       incompleteNested: await assemble(incompleteNested, "gpt-5.4"),
       incompleteTokens: await assemble(incompleteTokens, "gpt-5.4"),
     }).toMatchObject({
       failed: { outcome: "fail", reason: "upstream failed" },
       unterminated: { outcome: "fail", reason: "Responses stream ended before terminal response event" },
-      incompleteSpeech: { outcome: "fail", reason: "Responses stream incomplete: max_output_tokens" },
+      incompleteSpeech: { outcome: "complete", text: "partial", finish: "length" },
       incompleteThought: {
         outcome: "complete",
         text: "",

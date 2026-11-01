@@ -8,6 +8,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   BotCallJob,
   ProgrammaticJob,
+  ReACTChunk,
   reactChunks,
   responseCall,
   ToolCallJob,
@@ -459,3 +460,369 @@ test("a plugin bot is a named agent whose worker runs its pinned behavior", asyn
     log: [{ type: "put", text: "hello" }],
   });
 }, 20_000);
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((_resolve) => {
+    resolve = _resolve;
+  });
+  return { promise, resolve };
+}
+
+/**
+ * A deferred external plugin callback, installed after the real package and
+ * state modules load. Dispatch, method proposals, daemon and document remain
+ * live; only the plugin's completion is controlled by this fixture.
+ */
+function suspendPluginMutation(kernel: KernelDaemon, toolHook?: "read" | "agent") {
+  const entered = deferred<void>();
+  const release = deferred<void>();
+  const returned = deferred<void>();
+  const installed = new Set<string>();
+  const install = (ownerId: string) => {
+    if (installed.has(ownerId)) return;
+    installed.add(ownerId);
+    const method = kernel.behavior.directory.get(ownerId).methods.get("mark")!;
+    const call = method.handler.call;
+    Object.assign(method.handler, {
+      call: async (...args: unknown[]) => {
+        const result = await call(...args);
+        entered.resolve();
+        await release.promise;
+        returned.resolve();
+        return result;
+      },
+    });
+  };
+  const existing = kernel.behavior.directory.ownerId("stalled", "session", "s1", "state");
+  if (kernel.behavior.directory.has(existing)) install(existing);
+  const attach = kernel.behavior.attach.bind(kernel.behavior);
+  kernel.behavior.attach = async (opts) => {
+    const attached = await attach(opts);
+    if (toolHook) {
+      for (const instance of attached.agent.instances.filter((row) => row.plugin === "stalled")) {
+        instance.registry.hooks.splice(
+          0,
+          instance.registry.hooks.length,
+          ...instance.registry.hooks.map((hook) => ({ ...hook, point: toolHook })),
+        );
+      }
+    }
+    const ownerId = kernel.behavior.directory.ownerId("stalled", "session", opts.agentId, "state");
+    if (kernel.behavior.directory.has(ownerId)) install(ownerId);
+    return attached;
+  };
+  onTestFinished(() => release.resolve());
+  return { entered: entered.promise, release: () => release.resolve(), returned: returned.promise };
+}
+
+function latePluginNotes(kernel: KernelDaemon): string[] {
+  return kernel.behavior.notes.notes
+    .filter((note) => note.agentId === "s1" && note.message === "late plugin note")
+    .map((note) => note.message);
+}
+
+function stalledPlugin(phase: "pre" | "post") {
+  return inlinePackage(
+    "@test/stalled",
+    "stalled",
+    {
+      "foreground.prompt": `---
+attach: foreground
+behavior:
+  program: ./foreground.scm
+  bindings:
+    state:
+      plugin: stalled
+      scope: session
+      methods: [mark]
+---
+Suspended plugin callback.
+`,
+      "foreground.scm": `(hook/round :${phase} (lambda (round . ignored)
+      (call/method 'state 'mark)
+      (self/notify 'ambient "late plugin note")))`,
+      "session.scm": `
+(define/reducer :initial (lambda () 0) :reduce (lambda (state action) (+ state 1)))
+(define/method 'mark :kind 'mutation :input (s/object) :output (s/number)
+  :handler (lambda (input state) (state/propose "mark") (+ state 1)))`,
+    },
+    { bots: ["./foreground.prompt"], states: { session: "./session.scm" } },
+  );
+}
+
+test.each(["pre", "post"] as const)(
+  "a suspended round %s hook times out and cannot write state or notes after the turn exits",
+  async (phase) => {
+    resetLocalIDs();
+    const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin(phase) });
+    await session.handleRequest("kv/set", { key: "plugin.hook-timeout-ms", value: "40" });
+    const callback = suspendPluginMutation(kernel);
+    const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`start` });
+    session.root.head = turn;
+    if (phase === "post") {
+      await when(() => completionsOf(turn).length === 1, { timeout: TIMEOUT });
+      modelOf(session).reply({ text: "done" });
+    }
+    await callback.entered;
+    if (phase === "pre") {
+      await when(() => completionsOf(turn).length === 1, { timeout: TIMEOUT });
+      modelOf(session).reply({ text: "done" });
+    }
+    await when(() => turn.reducerExited, { timeout: TIMEOUT });
+    const ended = { exited: turn.reducerExited, problem: session.root.pluginProblem };
+    callback.release();
+    await callback.returned;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const ownerId = kernel.behavior.directory.ownerId("stalled", "session", "s1", "state");
+    expect({
+      ended,
+      log: kernel.behavior.directory.get(ownerId).log.map(toJS),
+      notes: latePluginNotes(kernel),
+      snapshot: turn.pluginState?.["stalled:state"] ?? "[]",
+    }).toEqual({
+      ended: { exited: true, problem: expect.stringContaining("plugin round hook: no answer in 40ms; skipped") },
+      log: [],
+      notes: [],
+      snapshot: "[]",
+    });
+  },
+  15_000,
+);
+
+test.each(["cancel", "park"] as const)(
+  "%s stops a suspended pre hook before its deadline and revokes its eventual effects",
+  async (stop) => {
+    resetLocalIDs();
+    const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin("pre") });
+    const callback = suspendPluginMutation(kernel);
+    const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`start` });
+    session.root.head = turn;
+    await callback.entered;
+    if (stop === "cancel") {
+      await session.handleRequest("turn/cancel", { turnId: turn.uuid });
+      await when(() => turn.reducerExited, { timeout: TIMEOUT });
+    } else await session.park();
+    callback.release();
+    await callback.returned;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const ownerId = kernel.behavior.directory.ownerId("stalled", "session", "s1", "state");
+    expect({
+      exited: turn.reducerExited,
+      completions: completionsOf(turn).length,
+      log: kernel.behavior.directory.get(ownerId).log.map(toJS),
+      notes: latePluginNotes(kernel),
+    }).toEqual({ exited: stop === "cancel", completions: 0, log: [], notes: [] });
+  },
+  15_000,
+);
+
+test("rewinding while a post hook awaits its state method prevents the old turn from changing the restored head", async () => {
+  resetLocalIDs();
+  const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin("post") });
+  const first = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`first` });
+  session.root.head = first;
+  await when(() => completionsOf(first).length === 1, { timeout: TIMEOUT });
+  modelOf(session).reply({ text: "done" });
+  await when(() => first.reducerExited, { timeout: TIMEOUT });
+  const snapshot = first.pluginState;
+  const callback = suspendPluginMutation(kernel);
+  const second = new SessionTurn({ turnTail: first, prompt: prompt.user`second` });
+  session.root.head = second;
+  await when(() => completionsOf(second).length === 1, { timeout: TIMEOUT });
+  modelOf(session).reply({ text: "done" });
+  await callback.entered;
+  await session.handleRequest("turn/rewind", { turnId: first.uuid });
+  await when(() => second.reducerExited, { timeout: TIMEOUT });
+  const before = latePluginNotes(kernel);
+  callback.release();
+  await callback.returned;
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const ownerId = kernel.behavior.directory.ownerId("stalled", "session", "s1", "state");
+  expect({
+    head: session.root.head.uuid,
+    document: session.root.pluginState,
+    snapshot: first.pluginState,
+    log: kernel.behavior.directory.get(ownerId).log.map(toJS),
+    notes: latePluginNotes(kernel),
+  }).toEqual({ head: first.uuid, document: snapshot, snapshot, log: ["mark"], notes: before });
+}, 15_000);
+
+test("a suspended tool post hook preserves the effect receipt at its deadline and cannot later mutate the ended turn", async () => {
+  resetLocalIDs();
+  const { kernel, session } = await withPlugins(
+    { "@test/stalled": stalledPlugin("post") },
+    { files: { "note.txt": "kept effect receipt" } },
+  );
+  await session.handleRequest("kv/set", { key: "plugin.hook-timeout-ms", value: "40" });
+  const callback = suspendPluginMutation(kernel, "read");
+  const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`read note` });
+  session.root.head = turn;
+  await when(() => completionsOf(turn).length === 1, { timeout: TIMEOUT });
+  modelOf(session).reply({ calls: [responseCall("read", "read_file", JSON.stringify({ path: "note.txt" }))] });
+  await callback.entered;
+  await when(() => completionsOf(turn).length === 2, { timeout: TIMEOUT });
+  modelOf(session).reply({ text: "done" });
+  await when(() => turn.reducerExited, { timeout: TIMEOUT });
+  const job = reactChunks(turn).find((chunk): chunk is ToolCallJob => chunk instanceof ToolCallJob)!;
+  const receipt = job.receiptJson;
+  callback.release();
+  await callback.returned;
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const ownerId = kernel.behavior.directory.ownerId("stalled", "session", "s1", "state");
+  expect({
+    receipt: JSON.parse(job.receiptJson ?? ""),
+    unchanged: job.receiptJson === receipt,
+    problem: session.root.pluginProblem,
+    log: kernel.behavior.directory.get(ownerId).log.map(toJS),
+    notes: latePluginNotes(kernel),
+  }).toEqual({
+    receipt: { ok: true, text: expect.stringContaining("kept effect receipt") },
+    unchanged: true,
+    problem: expect.stringContaining("plugin read_file hook: deadline exceeded; skipped"),
+    log: [],
+    notes: [],
+  });
+}, 15_000);
+
+test.each(["finish", "timeout", "nested owner"] as const)(
+  "a completed worker call joins its owning turn finalizer before the snapshot: %s",
+  async (variant) => {
+    const ending = variant === "timeout" ? "timeout" : "finish";
+    resetLocalIDs();
+    const memo = inlinePackage("@test/memo", "memo", MEMO_FILES, {
+      bots: ["./writer.prompt"],
+      states: { project: "./project.scm" },
+    });
+    const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin("post"), "@test/memo": memo });
+    if (ending === "timeout") await session.handleRequest("kv/set", { key: "plugin.hook-timeout-ms", value: "40" });
+    const callback = suspendPluginMutation(kernel, "agent");
+    const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`delegate` });
+    if (variant === "nested owner") {
+      const parent = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [] });
+      turn.walkBoundary = true;
+      parent.children.push(turn);
+      session.root.head = parent;
+    } else session.root.head = turn;
+    await when(() => completionsOf(turn).length === 1, { timeout: TIMEOUT });
+    modelOf(session).reply({
+      calls: [responseCall("send", "scheme_repl", JSON.stringify({ expr: `(bot/send 'writer "answer")` }))],
+    });
+    const call = () =>
+      reactChunks(turn)
+        .filter((chunk): chunk is ProgrammaticJob => chunk instanceof ProgrammaticJob)
+        .flatMap((program) => program.children)
+        .find((child): child is BotCallJob => child instanceof BotCallJob);
+    await when(() => (call()?.workerSessionId ?? "") !== "", { timeout: TIMEOUT });
+    const worker = kernel.sessionPlexus(call()!.workerSessionId)!;
+    await when(() => worker.root.head instanceof SessionTurn && completionsOf(worker.root.head).length === 1, {
+      timeout: TIMEOUT,
+    });
+    modelOf(session).reply({
+      calls: [
+        responseCall(
+          "respond",
+          "agent__respond",
+          JSON.stringify({ requestId: call()!.uuid, response: "worker result" }),
+        ),
+      ],
+    });
+    await callback.entered;
+    await when(() => completionsOf(turn).length === 2, { timeout: TIMEOUT });
+    modelOf(session).reply({ text: "done" });
+    if (ending === "finish") {
+      await when(
+        () =>
+          reactChunks(turn).some(
+            (chunk) =>
+              chunk instanceof ReACTChunk &&
+              chunk.source?.expectation === completionsOf(turn)[1] &&
+              chunk.decision?.kind === "halt",
+          ),
+        { timeout: TIMEOUT },
+      );
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect({ callCompleted: call()!.completed, turnExited: turn.reducerExited }).toEqual({
+        callCompleted: true,
+        turnExited: false,
+      });
+      callback.release();
+    }
+    await when(() => turn.reducerExited, { timeout: TIMEOUT });
+    if (ending === "timeout") callback.release();
+    await callback.returned;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const ownerId = kernel.behavior.directory.ownerId("stalled", "session", "s1", "state");
+    expect({
+      receipt: JSON.parse(call()!.receiptJson ?? ""),
+      log: kernel.behavior.directory.get(ownerId).log.map(toJS),
+      snapshot: JSON.parse(turn.pluginState?.["stalled:state"] ?? "[]"),
+      notes: latePluginNotes(kernel),
+      problem: session.root.pluginProblem,
+    }).toEqual({
+      receipt: { ok: true, value: "worker result" },
+      log: ending === "finish" ? ["mark"] : [],
+      snapshot: ending === "finish" ? ["mark"] : [],
+      notes: ending === "finish" ? ["late plugin note"] : [],
+      problem: ending === "finish" ? null : expect.stringContaining("hook: deadline exceeded; skipped"),
+    });
+  },
+  15_000,
+);
+
+test.each(["settle", "rewind"] as const)(
+  "a retained background tool owns its post hook after its parent retires: %s",
+  async (ending) => {
+    resetLocalIDs();
+    const { kernel, session } = await withPlugins(
+      { "@test/stalled": stalledPlugin("post") },
+      { files: { "note.txt": "background receipt" } },
+    );
+    const callback = suspendPluginMutation(kernel, "read");
+    const earlier = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`earlier` });
+    session.root.head = earlier;
+    await when(() => completionsOf(earlier).length === 1, { timeout: TIMEOUT });
+    modelOf(session).reply({ text: "done" });
+    await when(() => earlier.reducerExited, { timeout: TIMEOUT });
+    const turn = new SessionTurn({ turnTail: earlier, prompt: prompt.user`read in background` });
+    session.root.head = turn;
+    await when(() => completionsOf(turn).length === 1, { timeout: TIMEOUT });
+    modelOf(session).reply({ calls: [responseCall("background-read", "read_file", '{"path":"note.txt"}')] });
+    await callback.entered;
+    const job = reactChunks(turn).find((chunk): chunk is ToolCallJob => chunk instanceof ToolCallJob)!;
+    job.background = true;
+    await when(() => completionsOf(turn).length === 2, { timeout: TIMEOUT });
+    modelOf(session).reply({ text: "done" });
+    await when(() => turn.reducerExited, { timeout: TIMEOUT });
+    const overlay = new SessionTurn({ turnTail: turn, queue: [], reducerExited: true });
+    session.root.head = overlay;
+    expect({
+      scheduled: session.root.work.includes(job),
+      completed: job.completed,
+      parentClosed: turn.reducerExited,
+    }).toEqual({ scheduled: true, completed: false, parentClosed: true });
+    if (ending === "rewind") {
+      await session.handleRequest("turn/rewind", { turnId: earlier.uuid });
+      await when(() => job.completed, { timeout: TIMEOUT });
+    }
+    callback.release();
+    await callback.returned;
+    await when(() => job.completed, { timeout: TIMEOUT });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const ownerId = kernel.behavior.directory.ownerId("stalled", "session", "s1", "state");
+    expect({
+      receipt: JSON.parse(job.receiptJson ?? ""),
+      log: kernel.behavior.directory.get(ownerId).log.map(toJS),
+      notes: latePluginNotes(kernel),
+      problem: session.root.pluginProblem,
+      head: session.root.head.uuid,
+    }).toEqual({
+      receipt: { ok: true, text: expect.stringContaining("background receipt") },
+      log: ending === "settle" ? ["mark"] : [],
+      notes: ending === "settle" ? ["late plugin note"] : [],
+      problem: null,
+      head: ending === "settle" ? overlay.uuid : earlier.uuid,
+    });
+  },
+  15_000,
+);

@@ -23,6 +23,24 @@ function homeRound(plexus: SessionPlexus, round: CompletionExpectation): void {
 }
 
 describe("openai-compat connection.complete: honor live (no double-start) and honor disposed", () => {
+  it("bounds readiness before creating a completion actor", async () => {
+    const connection = new OpenAiCompatDriverConnection("waiting", { baseUrl: "https://api.example.test/v1" });
+    connection.sendReadyTimeoutMs = 20;
+    const plexus = SessionPlexus.create("complete-readiness-deadline", "/ws");
+    const round = new CompletionExpectation({ promptText: prompt.user`hi`, connectionId: "waiting", model: "m1" });
+    homeRound(plexus, round);
+    try {
+      await expect(connection.complete({ model: "m1", round })).rejects.toMatchObject({
+        code: "not-ready",
+        message: expect.stringContaining("did not become send-ready within 20ms"),
+      });
+      expect(connection.has(round)).toBe(false);
+    } finally {
+      plexus.destroy();
+      await connection[Symbol.asyncDispose]();
+    }
+  });
+
   it("handle then complete is idempotent (honor live)", async () => {
     const compat = await listenCompat({ reply: () => "from-wire" });
     const connection = new OpenAiCompatDriverConnection("row-ok", {

@@ -65,6 +65,7 @@ export async function listenCompat(opts: {
         completionContentType = "application/json";
         if (req.url?.includes("/responses")) {
           json(res, 200, {
+            status: "completed",
             output: [{ type: "message", content: [{ type: "output_text", text }] }],
             ...(usage === undefined ? {} : { usage }),
           });

@@ -48,6 +48,7 @@ export type BoundaryOutcome = {
 };
 
 type RunOptions = {
+  readonly signal?: AbortSignal;
   readonly lineage?: readonly string[];
   readonly onMethod?: Ctx["onMethod"];
   readonly admit?: (id: string) => Val;
@@ -138,6 +139,7 @@ function runtime(
     registry,
     environment: registry.environment,
   });
+  ctx.signal = opts.signal;
   ctx.lineage = inheritedLineage(opts.lineage);
   ctx.onMethod = opts.onMethod ?? null;
   ctx.admit = opts.admit ?? null;
@@ -277,6 +279,7 @@ async function runGuard(
     guard.reentrantDepth,
   );
   const invokeFn = async (...jsArgs: unknown[]): Promise<unknown> => {
+    ctx.signal?.throwIfAborted();
     PluginSurfaceError.invariant(token.state === "unused", "invoke is single-use");
     own.retryable = false;
     const args = jsArgs.map((item) => unwrap(jsToVal(item)));
@@ -400,9 +403,11 @@ export async function dispatchTool(
     const innermost: Link = async (value, marks) => {
       reach.at = { value, marks };
       try {
+        opts.signal?.throwIfAborted();
         const judged = await opts.floor(value, marks);
         if (judged instanceof Refusal) return judged;
         await runHooks(hooks, "pre", opts.point, value, false, ctx, boundary, failures);
+        opts.signal?.throwIfAborted();
         return await opts.core(value);
       } catch (error) {
         throw new CoreFailure(error);
@@ -511,6 +516,7 @@ export async function dispatchBoundary(
     filtered = value;
     await runHooks(hooks, "pre", opts.point, value, false, ctx, start, failures);
     try {
+      opts.signal?.throwIfAborted();
       return await core(value);
     } catch (error) {
       throw new CoreFailure(error);

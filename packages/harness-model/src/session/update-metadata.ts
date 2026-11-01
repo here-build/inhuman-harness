@@ -52,8 +52,9 @@ export function isTitledOnlyCompletion(chunk: {
 }
 
 /**
- * A round whose only calls are `context_need`.
- * Empty speech keeps the loop. Speech seals it. Any other tool is not this case.
+ * Legacy content classification for a round whose only calls are `context_need`.
+ * `keep` / `seal` are historical labels, not admission decisions.
+ * @deprecated The round boundary owns continuation policy; context metadata cannot seal it.
  */
 export function contextNeedRound(chunk: {
   readonly responseText: string;

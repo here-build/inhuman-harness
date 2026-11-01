@@ -220,6 +220,8 @@ export async function callMethod(opts: {
   readonly hostAuthority?: boolean;
   readonly admit?: (id: string) => Val;
 }): Promise<Val> {
+  const signal = behaviorAls.getStore()?.signal;
+  signal?.throwIfAborted();
   const binding = opts.bindings.get(opts.receiver);
   PluginSurfaceError.invariant(binding != null, `unbound receiver ${opts.receiver}`);
   PluginSurfaceError.invariant(binding.methods.has(opts.method), "method not granted");
@@ -254,6 +256,7 @@ export async function callMethod(opts: {
     config: new Dict({}),
     registry: registryOf(owner, new Map([[decl.name, decl]])),
   });
+  ctx.signal = signal;
   ctx.lineage = lineage;
   ctx.hostAuthority = opts.hostAuthority === true;
   ctx.admit = opts.admit ?? null;
@@ -278,6 +281,7 @@ export async function callMethod(opts: {
   if (result instanceof Refusal) return result;
   const outputIssue = decl.output.check(result);
   PluginSurfaceError.invariant(outputIssue == null, `schema ${outputIssue}`);
+  signal?.throwIfAborted();
   if (decl.kind === "query") {
     opts.caller.calls.set(opts.callId, {
       id: opts.callId,
@@ -293,6 +297,7 @@ export async function callMethod(opts: {
       PluginSurfaceError.invariant(!(await isProtected(owner, action)), "protected action");
     }
   }
+  signal?.throwIfAborted();
   for (const action of ctx.proposals ?? []) owner.log.push(action);
   opts.directory.commit(owner);
   opts.caller.calls.set(opts.callId, {

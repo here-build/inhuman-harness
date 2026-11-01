@@ -14,8 +14,8 @@ import { onTestFinished, vi } from "vitest";
 import { NoteLog } from "@/extensions";
 import { bindSessionCatalog } from "@/tool-catalog";
 
-import { iterateTurn, type TurnIteratorHost } from "../../turn-iterator.js";
 import { KernelToolCatalog } from "../../../../toolkit/tool-table.js";
+import { iterateTurn, type TurnIteratorHost } from "../../turn-iterator.js";
 import type { TurnResolvers } from "../../turn-resolvers.js";
 
 export type ModelReply = (completion: CompletionExpectation) => void | Promise<void>;
@@ -51,7 +51,9 @@ export function turnFixture(...replies: ModelReply[]) {
       job.markComplete();
       return "settled";
     }),
-    compact: vi.fn<TurnResolvers["compact"]>(async (job) => { job.markComplete(); }),
+    compact: vi.fn<TurnResolvers["compact"]>(async (job) => {
+      job.markComplete();
+    }),
   } satisfies TurnResolvers;
   const host = {
     session,
@@ -61,16 +63,30 @@ export function turnFixture(...replies: ModelReply[]) {
     hardCompactTrigger: "95%",
     admit: vi.fn<TurnIteratorHost["admit"]>((call) => {
       const JobType = call.function.name === "context_need" ? ContextNeedToolJob : SystemToolJob;
-      return new JobType({ toolCallId: call.id, name: call.function.name, argsJson: call.function.arguments, triggersReactLoop: !["update_metadata", "context_need"].includes(call.function.name), tapeHidden: ["update_metadata", "context_need"].includes(call.function.name) });
+      return new JobType({
+        toolCallId: call.id,
+        name: call.function.name,
+        argsJson: call.function.arguments,
+        triggersReactLoop: !["update_metadata", "context_need"].includes(call.function.name),
+        tapeHidden: ["update_metadata", "context_need"].includes(call.function.name),
+      });
     }),
     waitInbound: vi.fn<TurnIteratorHost["waitInbound"]>(async () => true),
     openRound: vi.fn<TurnIteratorHost["openRound"]>(async () => true),
     closeRound: vi.fn<TurnIteratorHost["closeRound"]>(async () => {}),
-    classifyIntent: vi.fn<TurnIteratorHost["classifyIntent"]>(async () => "seal"),
+    classifyIntent: vi.fn<TurnIteratorHost["classifyIntent"]>(async () => ({
+      verdict: "seal",
+      status: "judged",
+      detail: "",
+    })),
     startAmbientCompact: vi.fn<TurnIteratorHost["startAmbientCompact"]>(),
   } satisfies TurnIteratorHost;
   return {
-    session, turn, host, resolvers, abort,
+    session,
+    turn,
+    host,
+    resolvers,
+    abort,
     run: () => iterateTurn(turn, host, abort.signal),
     completions: () => turn.doneWork.filter((cell): cell is CompletionJob => cell instanceof CompletionJob),
   };

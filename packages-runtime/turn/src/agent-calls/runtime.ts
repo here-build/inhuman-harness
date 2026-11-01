@@ -14,7 +14,6 @@ import {
   AgentNotifyJob,
   ApprovableJob,
   ProgrammaticJob,
-  tapeCompletion,
   demoteSteers,
   SessionRoot,
   SessionTurn,
@@ -30,6 +29,7 @@ import {
   TurnNotificationChunk,
   TurnPromptChunk,
   TurnSteerChunk,
+  decideRound,
 } from "@inhuman.tools/harness-model";
 import { Job, walkWork, WorkExpectation } from "@inhuman.tools/plexus-expectations";
 import { runInAction } from "mobx";
@@ -271,7 +271,9 @@ export function settleCancelledTurn(
  *
  * A model round the park or a restart interrupted is not replayed: a
  * CompletionJob is one attempt, and recovery closes it as unknown. The turn
- * gets a fresh round (a new attempt) unless the user stopped it.
+ * gets an explicit recovery grant for a new attempt unless the user stopped it.
+ * A successful provider response instead resumes its separately checkpointed
+ * response expansion; completed provider I/O is never repeated to recover tools.
  */
 export function restorePendingRound(turn: SessionTurn): void {
   if (turn.reducerExited || !turn.orchestrated || turn.completed) return;
@@ -279,15 +281,16 @@ export function restorePendingRound(turn: SessionTurn): void {
   while (index >= 0 && isClaimCell(turn.doneWork[index])) index -= 1;
   const cell = turn.doneWork[index];
   if (cell == null || !interrupted(cell, turn)) return;
-  if (cell instanceof CompletionJob && cell.orchestrated) {
+  if (cell instanceof CompletionJob && cell.orchestrated && !cell.expectation.isDone) {
     if (turn.cancelRequested) return;
-    runInAction(() => turn.enqueue(new ReACTChunk()));
+    runInAction(() => {
+      const next = new ReACTChunk();
+      next.decision = decideRound([{ cause: { kind: "recovery", sources: [cell.uuid] } }]);
+      turn.recoverRound(cell, next);
+    });
     return;
   }
-  runInAction(() => {
-    turn.doneWork.splice(index, 1);
-    turn.queue.unshift(cell);
-  });
+  turn.requeueTaken(index);
 }
 
 function isClaimCell(cell: unknown): boolean {
@@ -304,7 +307,16 @@ function interrupted(cell: unknown, turn: SessionTurn): boolean {
   ) {
     return turn.queuedContinuation;
   }
-  const pew = tapeCompletion(cell);
-  if (pew != null) return !pew.isDone;
+  if (cell instanceof CompletionJob) {
+    if (
+      turn.queue.some(
+        (queued) =>
+          queued instanceof ReACTChunk &&
+          queued.decision?.causes.some((cause) => cause.kind === "recovery" && cause.sources.includes(cell.uuid)),
+      )
+    )
+      return false;
+    return !cell.expectation.isDone || (cell.managesResponse && !cell.responseExpanded);
+  }
   return (cell instanceof ProgrammaticJob || cell instanceof ToolCallJob) && !cell.completed;
 }

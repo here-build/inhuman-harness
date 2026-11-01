@@ -3,7 +3,7 @@
  * deadline, and a stop request outranks it. Liveness is never left to a
  * promise the plugin controls.
  */
-import { when } from "mobx";
+import { reaction, when } from "mobx";
 
 /** Session or kernel kv, in milliseconds. */
 export const PLUGIN_HOOK_TIMEOUT_KV = "plugin.hook-timeout-ms";
@@ -25,6 +25,9 @@ export type Bounded<T> =
 
 export type HookBound = {
   readonly ms: number;
+  readonly signal?: AbortSignal;
+  /** The host license can wait for a human without spending plugin execution time. */
+  readonly paused?: () => boolean;
   /** Ends the wait early: the turn's cancel request. Absent for a hook that must run on cancel. */
   readonly stopped?: () => boolean;
 };
@@ -38,21 +41,43 @@ export function bounded<T>(work: Promise<T>, bound: HookBound): Promise<Bounded<
   return new Promise<Bounded<T>>((resolve, reject) => {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let remaining = bound.ms;
+    let started = performance.now();
     let stop: () => void = () => {};
+    let pause: () => void = () => {};
+    const onAbort = (): void => finish(() => resolve({ kind: "stopped" }));
     const finish = (run: () => void): void => {
       if (settled) return;
       settled = true;
       if (timer !== undefined) clearTimeout(timer);
       stop();
+      pause();
+      bound.signal?.removeEventListener("abort", onAbort);
       run();
     };
-    timer = setTimeout(() => finish(() => resolve({ kind: "timeout" })), bound.ms);
-    if (bound.stopped != null) {
-      stop = when(bound.stopped, () => finish(() => resolve({ kind: "stopped" })));
-    }
+    const clock = (paused: boolean): void => {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+        remaining -= performance.now() - started;
+      }
+      if (!paused && !settled) {
+        started = performance.now();
+        timer = setTimeout(() => finish(() => resolve({ kind: "timeout" })), Math.max(0, remaining));
+      }
+    };
+    // Observe the work before cancellation can win synchronously.
     void work.then(
       (value) => finish(() => resolve({ kind: "done", value })),
       (error: unknown) => finish(() => reject(error)),
     );
+    bound.signal?.addEventListener("abort", onAbort, { once: true });
+    if (bound.signal?.aborted) {
+      onAbort();
+      return;
+    }
+    clock(bound.paused?.() ?? false);
+    if (bound.paused != null) pause = reaction(bound.paused, clock);
+    if (bound.stopped != null) stop = when(bound.stopped, onAbort);
   });
 }

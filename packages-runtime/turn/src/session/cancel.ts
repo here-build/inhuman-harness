@@ -2,12 +2,20 @@
  * Stop predicate and leftover rejection for a turn. Accepted-work Calls stay.
  * In-flight BODY abort is the caller's `abort`.
  */
-import { ApprovableJob, CallJob, SessionTurn } from "@inhuman.tools/harness-model";
-import { walkWork } from "@inhuman.tools/plexus-expectations";
+import { ApprovableJob, CallJob, SessionTurn, type SessionRoot } from "@inhuman.tools/harness-model";
+import { walkWork, type WorkContainer } from "@inhuman.tools/plexus-expectations";
 
 import { shouldSkipTurnCancel } from "../agent-calls/acceptance.js";
 import { type CallsCatalog } from "../agent-calls/index.js";
 import { cancelUnstartedTool } from "../tool-runtime/index.js";
+
+/** Canonical work ownership includes nested and retained background turns, not just head ancestry. */
+export function isWorkReachable(session: SessionRoot, work: WorkContainer): boolean {
+  for (const node of walkWork(session)) {
+    if (node === work) return true;
+  }
+  return false;
+}
 
 export function turnLoopStopped(turn: SessionTurn, signal: AbortSignal): boolean {
   return signal.aborted || turn.reducerExited || turn.cancelRequested;

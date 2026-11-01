@@ -1,5 +1,5 @@
 export { type SessionCommandHost } from "./types.js";
-export { failLeftoverApprovables, turnLoopStopped } from "./cancel.js";
+export { failLeftoverApprovables, isWorkReachable, turnLoopStopped } from "./cancel.js";
 export { abortParkableWork, dispatchedMcpSettled, liveEvalWork, mcpJobOnWire } from "./park.js";
 export { admitCompact, admitTurn, cancelTurnCommand, drainPromptQueue, retryTurn, rewindTurn } from "./commands.js";
 export { type CompactProgram, type CompactStrategyResolve, loadCompactProgram } from "./compact.js";
