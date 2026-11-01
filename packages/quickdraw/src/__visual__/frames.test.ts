@@ -98,29 +98,37 @@ test("chrome T-join picker stacked above omnibox", () => {
       48,
       H,
     ),
-  ).toMatchObject({
+  ).toEqual({
+    size: { w: 48, h: H },
     tree: {
       type: "box",
+      key: "composer:stack",
+      texts: ["/connect                       Bind a source", "/model                         Session model", "/con"],
       children: [
         {
           type: "chrome_frame",
+          key: "slash-complete",
           glyphs: ["›", " "],
-          texts: expect.arrayContaining([expect.stringContaining("/connect"), expect.stringContaining("/model")]),
+          userSelect: "none",
+          texts: ["/connect                       Bind a source", "/model                         Session model"],
         },
         {
           type: "chrome_frame",
+          key: "composer",
           draft: "/con",
           completion: "nect",
+          texts: ["/con"],
         },
       ],
     },
-    chars: expect.arrayContaining([
-      expect.stringMatching(/^╭/),
-      expect.stringContaining("/connect"),
-      expect.stringMatching(/^├.*Tab: select/),
-      expect.stringMatching(/┤$/),
-      expect.stringContaining("/con"),
-    ]),
+    chars: [
+      "╭──────────────────────────────────────────────╮",
+      "│› /connect                       Bind a source│",
+      "│  /model                         Session model│",
+      "├─ ⇥: select ──────────────────────────────────┤",
+      "│  /connect                                    │",
+      "╰──────────────────────────────────────────────╯",
+    ],
   });
 });
 
@@ -284,24 +292,21 @@ test("thinking live peek overlays markdown body on the header row", () => {
     H,
     { nowMs: 0 },
   );
-  const first = painted.chars.find((row) => row.trim().length > 0) ?? "";
-  const compact = first.replaceAll(/\s+/g, " ");
-  expect({
-    tree: painted.tree,
-    spinner: painted.chars[0]?.[1],
-    headerAndBody: /thinking/.test(compact) && /weighing/.test(compact),
-    options: compact.includes("weighing options"),
-    glued: compact.includes("weighingoptions"),
-    markers: compact.includes("**"),
-    rows: painted.chars.filter((row) => row.trim().length > 0).length,
-  }).toMatchObject({
-    tree: { type: "disclosure", collapsed: true },
-    spinner: "⠋",
-    headerAndBody: true,
-    options: true,
-    glued: false,
-    markers: false,
-    rows: 1,
+  expect(painted).toMatchObject({
+    tree: {
+      type: "disclosure",
+      collapsed: true,
+      children: [
+        { type: "indication", gutter: { kind: "top", glyph: "⁖" } },
+        { type: "indication", texts: ["thinking · 1.2s"] },
+        {
+          type: "indication",
+          gutter: { kind: "rule", glyph: "┃" },
+          children: [{ type: "markdown", texts: ["weighing **options**"] }],
+        },
+      ],
+    },
+    chars: [" ⁖ thinking · 1.2s   weighing options"],
   });
 });
 
