@@ -8,6 +8,8 @@
  */
 import {
   CallJob,
+  AgentCallJob,
+  spawnDescriptionArgs,
   CompactJob,
   CompletionExpectation,
   type CompletionMessage,
@@ -37,6 +39,7 @@ import { elideArgs, refOfNode, textRemainder, toolRemainder, visualRef, type Stu
 import { effectiveRule, kindRule } from "./retention/resolve.js";
 import { parseJobStamp } from "./retention/stamp.js";
 import { buildView, horizonExpired, newestOf, type RetentionView, type ViewOptions } from "./retention/view.js";
+import { isProgramEnvelope, OMITTED_PROGRAM, spawnProgramOperations } from "./spawn-history.js";
 import {
   liftToolImages,
   paintObservation,
@@ -236,7 +239,12 @@ function stubFacts(
     tool: job instanceof ToolCallJob ? job.name : job.toolName,
     kind,
     ref: refOfNode(job) ?? "job:?",
-    args: job.args,
+    args:
+      job instanceof AgentCallJob
+        ? spawnDescriptionArgs(job)
+        : spawnProgramOperations(job) !== null
+          ? OMITTED_PROGRAM
+          : job.args,
     full: sealedText(job),
     ok: snap?.ok !== false,
     value: job instanceof ToolCallJob ? job.observationPayload() : snap?.value,
@@ -543,6 +551,40 @@ function historyToolCall(
 ): HistoryToolCall {
   const base = { id: call.toolCallId, name: call.name };
   const args = call.args ?? {};
+  // The worker retains its complete brief. The caller's very next model input
+  // gets only its description and identity, even while the spawn is running.
+  if (job instanceof AgentCallJob) {
+    return { ...base, argsJson: JSON.stringify(spawnDescriptionArgs(job)) };
+  }
+  if (job instanceof ProgrammaticJob || job instanceof ToolCallJob) {
+    const operations = spawnProgramOperations(job);
+    if (operations !== null) {
+      return {
+        ...base,
+        argsJson: JSON.stringify({
+          ...OMITTED_PROGRAM,
+          operations: operations.map((operation) =>
+            isProgramEnvelope(operation)
+              ? {
+                  id: operation.toolCallId,
+                  name: operation instanceof ToolCallJob ? operation.name : operation.toolName,
+                  argsJson: JSON.stringify(OMITTED_PROGRAM),
+                }
+              : historyToolCall(
+                  {
+                    toolCallId: operation.toolCallId,
+                    name: operation instanceof ToolCallJob ? operation.name : operation.toolName,
+                    args: operation.args,
+                  },
+                  operation,
+                  producer,
+                  ctx,
+                ),
+          ),
+        }),
+      };
+    }
+  }
   const stamp = job === undefined ? null : parseJobStamp(job.retentionJson);
   const consumer = ctx.view.nextOf(producer);
   if (

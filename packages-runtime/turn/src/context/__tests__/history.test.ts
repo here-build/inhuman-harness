@@ -4,6 +4,8 @@
 import { resetLocalIDs } from "@here.build/plexus";
 import { asSystemPrompt, prompt } from "@inhuman.tools/harness-commons";
 import {
+  AgentCallJob,
+  FailureOutcome,
   CONTEXT_NEED_TOOL_NAME,
   CompletionExpectation,
   CompletionJob,
@@ -100,7 +102,8 @@ function history(
 ): HistoryMessage[] {
   const plexus = session(id, extra?.path ?? "");
   const last = cells.at(-1);
-  if (!(last instanceof CompletionExpectation)) throw new Error("history: last cell is not a CompletionExpectation");
+  if (!(last instanceof CompletionExpectation))
+    throw new TypeError("history: last cell is not a CompletionExpectation");
   const tip = last;
   if (extra?.systemNote !== undefined) tip.systemNote = prompt.system`${extra.systemNote}`;
   const turn = new SessionTurn({
@@ -523,5 +526,169 @@ describe("bodies stored beside the document", () => {
     plexus.root.head = turn;
     const user = [...projectHistory(tip, { readBlob: reader({ [SHA]: FULL }) })].find((row) => row.role === "user");
     expect(user?.content === `first\n\n${FULL}`).toBe(true);
+  });
+});
+
+describe("spawn briefs in caller history", () => {
+  const brief = "PRIVATE_WORKER_BRIEF must stay only with the worker.";
+  const omitted = { description: "Delegated work; enclosing program source omitted." };
+  function spawn(id: string, extra: { background?: boolean; completed?: boolean } = {}): AgentCallJob {
+    const agent = new AgentCallJob({
+      toolCallId: id,
+      name: "agent__ask",
+      workerSessionId: "worker-1",
+      argsJson: JSON.stringify({ spec: "implementer", description: "Fix draft recovery.", message: brief }),
+      ...extra,
+    });
+    agent.registerJob(new ProgrammaticJob({ argsJson: JSON.stringify({ expr: brief }) }));
+    return agent;
+  }
+
+  it.each([
+    { name: "pending", background: false, failed: false, receipt: IN_FLIGHT_TOOL },
+    { name: "background", background: true, failed: false, receipt: BACKGROUND_TOOL },
+    { name: "failed", background: false, failed: true, receipt: "Worker connection failed" },
+  ])(
+    "replaces the brief on the first next request while preserving the $name receipt",
+    ({ background, failed, receipt }) => {
+      const agent = spawn("spawn-1", { background });
+      if (failed) agent.settleResult(new FailureOutcome({ code: "error", message: receipt }));
+      const output = history(`spawn-${background}-${failed}`, [
+        completion("q", { calls: nativeCalls(["spawn-1", agent.name, JSON.stringify(agent.args)]) }),
+        agent,
+        completion("next"),
+      ]);
+      const call = output.flatMap((row) => row.toolCalls ?? []).find((row) => row.id === "spawn-1")!;
+      expect({
+        call: { ...call, argsJson: JSON.parse(call.argsJson) },
+        receipt: output.find((row) => row.toolCallId === "spawn-1")?.content,
+        leaked: JSON.stringify(output).includes(brief),
+        workerSpeech: agent.speech,
+      }).toEqual({
+        call: {
+          id: "spawn-1",
+          name: "agent__ask",
+          argsJson: { description: "Fix draft recovery.", spec: "implementer", workerSessionId: "worker-1" },
+        },
+        receipt,
+        leaked: false,
+        workerSpeech: brief,
+      });
+    },
+  );
+
+  it.each([false, true])(
+    "replaces mixed nested source immediately, including wrappers (background=%s)",
+    (background) => {
+      const expr = `(define private "${brief}") (agent/ask 'implementer private)`;
+      const read = toolCall("read", "read_file", { outcomeJson: '{"ok":true,"text":"non-agent receipt"}' });
+      read.args = { path: "src/chat.ts" };
+      read.completed = true;
+      const nested = new ProgrammaticJob({
+        toolCallId: "nested",
+        argsJson: JSON.stringify({ expr }),
+        children: [spawn("spawn")],
+      });
+      const program = new ProgrammaticJob({
+        toolCallId: "program",
+        background,
+        argsJson: JSON.stringify({ expr }),
+        children: [nested, read],
+        completed: !background,
+        outcomeJson: '{"ok":false,"text":"mixed program failed after read"}',
+      });
+      const wrapper = toolCall("wrapped", "scheme_repl", { background });
+      wrapper.args = { expr };
+      wrapper.registerJob(program);
+      wrapper.completed = !background;
+      wrapper.outcomeSnap = { ok: false, text: "mixed program failed after read" };
+      const output = history(`mixed-${background}`, [
+        completion("q", { calls: nativeCalls(["wrapped", "scheme_repl", JSON.stringify(wrapper.args)]) }),
+        wrapper,
+        completion("next"),
+      ]);
+      const call = output.flatMap((row) => row.toolCalls ?? []).find((row) => row.id === "wrapped")!;
+      const args = JSON.parse(call.argsJson);
+      expect({
+        call: {
+          id: call.id,
+          name: call.name,
+          args: {
+            ...args,
+            operations: args.operations.map((row: { id: string; name: string; argsJson: string }) => ({
+              ...row,
+              argsJson: JSON.parse(row.argsJson),
+            })),
+          },
+        },
+        receipt: output.find((row) => row.toolCallId === "wrapped")?.content,
+        leaked: JSON.stringify(output).includes(brief),
+        stored: [program.expr, nested.expr],
+      }).toEqual({
+        call: {
+          id: "wrapped",
+          name: "scheme_repl",
+          args: {
+            ...omitted,
+            operations: [
+              { id: "program", name: "scheme_repl", argsJson: omitted },
+              { id: "nested", name: "scheme_repl", argsJson: omitted },
+              {
+                id: "spawn",
+                name: "agent__ask",
+                argsJson: { description: "Fix draft recovery.", spec: "implementer", workerSessionId: "worker-1" },
+              },
+              { id: "read", name: "read_file", argsJson: { path: "src/chat.ts" } },
+            ],
+          },
+        },
+        receipt: background ? BACKGROUND_TOOL : "mixed program failed after read",
+        leaked: false,
+        stored: [expr, expr],
+      });
+    },
+  );
+
+  it("honors ordinary argument retention within a mixed program without changing receipt metadata", () => {
+    const write = toolCall("mixed:write", "write_file");
+    write.args = { path: "src/chat.ts", contents: "LONG_WRITE_BODY ".repeat(100) };
+    write.retentionJson = JSON.stringify({
+      kind: "tool.write",
+      keep: [],
+      leave: "stub",
+      minChars: 0,
+      onError: null,
+      args: { keep: ["round"], leave: "stub", minChars: 0 },
+    });
+    const program = new ProgrammaticJob({
+      toolCallId: "mixed",
+      argsJson: JSON.stringify({ expr: brief }),
+      children: [spawn("mixed:spawn"), write],
+    });
+    const output = history("mixed-retention", [
+      completion("q", { calls: nativeCalls(["mixed", "scheme_repl", JSON.stringify(program.args)]) }),
+      program,
+      completion("middle"),
+      completion("next"),
+    ]);
+    const call = output.flatMap((row) => row.toolCalls ?? []).find((row) => row.id === "mixed")!;
+    expect({
+      body: call.argsJson.includes("LONG_WRITE_BODY"),
+      path: call.argsJson.includes("src/chat.ts"),
+      source: call.argsJson.includes(brief),
+    }).toEqual({ body: false, path: true, source: false });
+  });
+
+  it("keeps ordinary program source when no spawn was executed", () => {
+    const args = { expr: '(read_file "src/chat.ts")' };
+    const program = new ProgrammaticJob({ toolCallId: "ordinary", argsJson: JSON.stringify(args), completed: true });
+    const output = history("ordinary-program", [
+      completion("q", { calls: nativeCalls(["ordinary", "scheme_repl", JSON.stringify(args)]) }),
+      program,
+      completion("next"),
+    ]);
+    expect(output.flatMap((row) => row.toolCalls ?? []).find((row) => row.id === "ordinary")?.argsJson).toBe(
+      JSON.stringify(args),
+    );
   });
 });

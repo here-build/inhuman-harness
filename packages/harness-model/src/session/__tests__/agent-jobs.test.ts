@@ -269,3 +269,45 @@ describe("named-agent models", () => {
     plexus.destroy();
   });
 });
+
+describe("agent invocation description", () => {
+  it("retains a bounded caller sentence while preserving the exact worker brief", () => {
+    const brief = `  Full worker brief.\n${"Keep all source and instructions.\n".repeat(200)}`;
+    const cases = [
+      {
+        args: { message: brief, description: " Inspect the auth\n boundary. More detail stays in the brief. " },
+        description: "Inspect the auth boundary.",
+        speech: brief,
+      },
+      {
+        args: { message: "Map the entry point.\nIgnore this second sentence." },
+        description: "Map the entry point.",
+        speech: "Map the entry point.\nIgnore this second sentence.",
+      },
+      {
+        args: { message: "word ".repeat(1000), description: "   " },
+        description: `${"word ".repeat(39).trimEnd()}…`,
+        speech: "word ".repeat(1000),
+      },
+      {
+        args: { message: "😀".repeat(201) },
+        description: `${"😀".repeat(199)}…`,
+        speech: "😀".repeat(201),
+      },
+      { args: {}, description: "Delegated agent task.", speech: "" },
+    ];
+    expect(
+      cases.map(({ args }) => {
+        const call = new AgentCallJob({ argsJson: JSON.stringify(args) });
+        return { description: call.description, speech: call.speech, args: call.args };
+      }),
+    ).toEqual(cases.map(({ args, description, speech }) => ({ description, speech, args })));
+    const rows = new AgentCallJob({
+      promptMessages: [new PromptMessage({ role: "user", content: "Inspect the parser. Preserve the source." })],
+    });
+    expect({ description: rows.description, speech: rows.speech }).toEqual({
+      description: "Inspect the parser.",
+      speech: "Inspect the parser. Preserve the source.",
+    });
+  });
+});

@@ -86,7 +86,7 @@ describe("call ownership", () => {
         new BotCallJob({ name: "review", toolCallId: "bot", background: true }),
       ]),
     ).toEqual([
-      { jobId: "child", kind: "agent", object: "agent__ask" },
+      { jobId: "child", kind: "agent", object: 'agent__ask {"description":"Delegated agent task."}' },
       { jobId: "bot", kind: "bot", object: "review" },
     ]);
   });

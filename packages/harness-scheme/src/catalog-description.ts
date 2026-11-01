@@ -121,7 +121,7 @@ export function schemeReplDescription(catalog: KernelToolCatalog, faces?: Scheme
   Bots: (bot/send spec message) waits until the standing bot responds or finishes without a response; the latter returns no value.
   (bot/ask spec message :readonly) waits for a standing bot's response. (bot/ask message [schema] :readonly) omits spec for an anonymous worker this session reuses. A schema is legal on (agent/ask spec message schema …) and on omitted-spec (bot/ask message schema), not on a standing named bot/ask.
   :readonly removes write_file, edit_file, and write-class MCP tools, but leaves shell available; it is not a guarantee against all mutations.
-  (agent/call spec message :model) and (agent/ask spec message [schema] :readonly :model) create a new disposable worker for each call. Spec is required; keywords follow the message, not a trailing dict. Schema is positional after the message.
+  (agent/call spec message :model :description) and (agent/ask spec message [schema] :readonly :model :description) create a new disposable worker for each call. Spec is required; keywords follow the message, not a trailing dict. Schema is positional after the message. Supply :description as one concise sentence describing the delegated task: this is the parent's retained record. The full brief and spawn source are immediately omitted from future parent model context, while remaining stored for worker execution and human inspection. Without :description, a bounded first sentence is used.
   :model is "connection/model" and pins that worker's completion wire.
   (connection/models connection) lists live model ids on that connection.
   ${AGENT_BRIEF_GUIDANCE}

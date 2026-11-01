@@ -93,7 +93,14 @@ async function fixture(withAgent = false, cancelled = false) {
       : [{ prompt: "Worker Message", work: [] }],
   });
   const call = agent("MixedCase Reviewer", "Review this change", { worker: worker.root.sessionId });
-  if (cancelled) call.outcome = new FailureOutcome({ code: "cancelled", message: "The parent finished." });
+  if (cancelled) {
+    call.args = {
+      spec: "MixedCase Reviewer",
+      message: "Exact delegated instruction.\n".repeat(100),
+      description: "Inspect the cancellation boundary. Internal description detail stays out of the note.",
+    };
+    call.outcome = new FailureOutcome({ code: "cancelled", message: "The parent finished." });
+  }
   destroyWorker = () => worker.destroy();
   const open = session({
     id: "specialized-controls",
@@ -297,9 +304,14 @@ describe("specialized transcript controls", () => {
       this.open = true;
     });
     const copied = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
-    await interact(() => user.click(button(/MixedCase Reviewer/)));
+    const note = button(/MixedCase Reviewer/);
+    expect(note.textContent).toContain("Inspect the cancellation boundary.");
+    expect(note.textContent).not.toContain("Exact delegated instruction.");
+    expect(note.textContent).not.toContain("Internal description detail");
+    await interact(() => user.click(note));
     const dialog = within(document.body).getByRole("dialog");
     expect(dialog.dataset.state).toBe("cancelled");
+    expect(within(dialog).getByRole("heading", { name: "Inspect the cancellation boundary." })).toBeTruthy();
     expect(within(dialog).getByText("Cancelled: The parent finished.")).toBeTruthy();
     expect(within(dialog).getByText("Actual agent activity.")).toBeTruthy();
     expect(within(dialog).getByText("Follow-up instruction.")).toBeTruthy();

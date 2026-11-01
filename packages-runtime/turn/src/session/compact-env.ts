@@ -63,6 +63,7 @@ import {
   Transcript,
   type EatCell,
 } from "../context/index.js";
+import { spawnHistoryText } from "../context/spawn-history.js";
 import { charsOf } from "../context/transcript.js";
 
 /** Same door as scheme_repl `load`: last-write-wins over `require`. */
@@ -316,6 +317,9 @@ export const compactReducerCapability = EnvCapability.define("harness/compact", 
                 if (cell instanceof TurnNotificationChunk) return textOfCell(cell);
                 if (cell instanceof TurnApprovalNoteChunk) return `user: ${cell.approvalNoteText()}`;
                 if (cell instanceof TurnSteerChunk) return `user: ${cell.completionMessage}`;
+                const spawnText =
+                  cell instanceof ToolCallJob || cell instanceof ProgrammaticJob ? spawnHistoryText(cell) : null;
+                if (spawnText !== null) return spawnText;
                 if (cell instanceof ToolCallJob) {
                   const scheme = cell.children.find(
                     (child): child is ProgrammaticJob => child instanceof ProgrammaticJob,

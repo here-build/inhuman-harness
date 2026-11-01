@@ -1,4 +1,5 @@
 import {
+  AgentCallJob,
   type BlobPeek,
   CallJob,
   clampChars,
@@ -439,7 +440,7 @@ function firstString(args: Readonly<Record<string, unknown>> | null, keys: reado
 export { type ToolBody } from "./tool-receipt.js";
 
 export function agentCell(job: CallJob): AgentCell {
-  const message = job.argString("message");
+  const message = job instanceof AgentCallJob ? job.description : job.argString("message");
   const failure = job.outcome instanceof FailureOutcome ? job.outcome : null;
   const success = job.outcome instanceof SuccessfulOutcome ? job.outcome : null;
   const detail =

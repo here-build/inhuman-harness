@@ -3,6 +3,7 @@ import { autorun } from "mobx";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { liveBackgroundJobs, liveJobsCheckIn, programKind } from "../background-jobs.js";
+import { AgentCallJob } from "../jobs/AgentCallJob.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
 import { programKindNow } from "../program-kind.js";
@@ -95,6 +96,63 @@ describe("background jobs", () => {
     expect(programKindNow(first)).toBe("command");
     for (let index = 0; index < 1024; index++) await programKind(`(shell "${index}")`);
     expect(programKindNow(first)).toBe("workflow");
+  });
+
+  it("retains live spawn identity and descriptions without replaying briefs or wrapper source", async () => {
+    const brief = "PRIVATE-SPAWN-BRIEF inspect every file and record secret details";
+    const expr = `(agent/ask 'explore "${brief}")`;
+    const rows = [];
+    for (const shape of ["direct", "program", "nested", "wrapper"] as const) {
+      const call = new AgentCallJob({
+        toolCallId: `call-${shape}`,
+        name: "agent__ask",
+        background: true,
+        workerSessionId: `worker-${shape}`,
+        faceName: "reviewer",
+        argsJson: JSON.stringify({ spec: "explore", message: brief, description: "Review file structure." }),
+      });
+      const program = new ProgrammaticJob({
+        toolCallId: `program-${shape}`,
+        background: true,
+        argsJson: JSON.stringify({ expr }),
+      });
+      program.children.push(call);
+      const wrapper = new SystemToolJob({
+        toolCallId: `wrapper-${shape}`,
+        name: "shell",
+        background: true,
+        argsJson: JSON.stringify({ command: expr }),
+      });
+      wrapper.children.push(program);
+      const outer = new ProgrammaticJob({
+        toolCallId: `outer-${shape}`,
+        background: true,
+        argsJson: JSON.stringify({ expr }),
+      });
+      outer.children.push(wrapper);
+      const job = shape === "direct" ? call : shape === "program" ? program : shape === "wrapper" ? wrapper : outer;
+      const listed = await liveBackgroundJobs([job]);
+      const object = `agent__ask ${JSON.stringify({
+        description: "Review file structure.",
+        spec: "explore",
+        faceName: "reviewer",
+        workerSessionId: `worker-${shape}`,
+      })}`;
+      rows.push({
+        shape,
+        listed,
+        checkIn: liveJobsCheckIn(listed),
+        preserved: { speech: call.speech, expr: program.expr, command: wrapper.argString("command") },
+        expected: { jobId: job.toolCallId, kind: job.kind, object },
+      });
+    }
+    expect(rows.map(({ listed, checkIn, preserved }) => ({ listed, checkIn, preserved }))).toEqual(
+      rows.map(({ expected }) => ({
+        listed: [expected],
+        checkIn: `background jobs:\n${expected.jobId} ${expected.kind} ${expected.object}`,
+        preserved: { speech: brief, expr, command: expr },
+      })),
+    );
   });
 
   it("lists a live background program", async () => {

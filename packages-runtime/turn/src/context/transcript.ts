@@ -55,6 +55,7 @@ import {
 } from "@inhuman.tools/harness-model";
 
 import { keepFloorsOfJob } from "./compact-floors.js";
+import { spawnHistoryText } from "./spawn-history.js";
 import { compactToolLine, toolCallRepresentation } from "./squeeze.js";
 
 export type MessageRole = "user" | "assistant";
@@ -686,6 +687,10 @@ export function textOfCell(cell: unknown): string {
   if (cell instanceof TurnNotificationChunk) return cell.notificationText();
   if (cell instanceof TurnApprovalNoteChunk) return cell.approvalNoteText();
   if (cell instanceof TurnSteerChunk) return cell.completionMessage;
+  if (cell instanceof ToolCallJob || cell instanceof ProgrammaticJob) {
+    const spawnText = spawnHistoryText(cell);
+    if (spawnText !== null) return spawnText;
+  }
   if (cell instanceof ToolCallJob) {
     const scheme = cell.children.find((child): child is ProgrammaticJob => child instanceof ProgrammaticJob);
     if (scheme !== undefined) {

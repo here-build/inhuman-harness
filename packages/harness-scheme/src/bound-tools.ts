@@ -74,13 +74,13 @@ export function boundToolsOf(
               break;
             }
             case AGENT_SEND: {
-              signatureText = "(bot/send spec message) | (agent/call spec message :model)";
+              signatureText = "(bot/send spec message) | (agent/call spec message :model :description)";
 
               break;
             }
             case AGENT_ASK: {
               signatureText =
-                "(bot/ask spec message :readonly) | (bot/ask message [schema] :readonly) | (agent/ask spec message [schema] :readonly :model)";
+                "(bot/ask spec message :readonly) | (bot/ask message [schema] :readonly) | (agent/ask spec message [schema] :readonly :model :description)";
 
               break;
             }

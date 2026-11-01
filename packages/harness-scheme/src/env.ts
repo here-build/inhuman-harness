@@ -282,7 +282,7 @@ function metadataBlank(value: unknown): boolean {
 
 function metadataString(value: unknown, field: string): string {
   const js = toJsValue(value);
-  if (typeof js !== "string") throw new Error(`update_metadata: ${field} must be a string`);
+  if (typeof js !== "string") throw new TypeError(`update_metadata: ${field} must be a string`);
   return js;
 }
 
@@ -531,10 +531,10 @@ type Crossing = (inner: ToolCallJob) => void;
 
 function stringList(text: string): string[] {
   const parsed: unknown = JSON.parse(text);
-  if (!Array.isArray(parsed)) throw new Error("replay: connection/models record is not a list of strings");
+  if (!Array.isArray(parsed)) throw new TypeError("replay: connection/models record is not a list of strings");
   const ids: string[] = [];
   for (const item of parsed) {
-    if (typeof item !== "string") throw new Error("replay: connection/models record is not a list of strings");
+    if (typeof item !== "string") throw new TypeError("replay: connection/models record is not a list of strings");
     ids.push(item);
   }
   return ids;
@@ -656,6 +656,7 @@ function spawnCall(
     readonly deskReadonly?: boolean;
     readonly schema?: Record<string, unknown>;
     readonly model?: string;
+    readonly description?: string;
   },
 ): Promise<unknown> {
   const { job, host, rig } = replBag(ctx);
@@ -664,6 +665,7 @@ function spawnCall(
   const args: Record<string, unknown> = {};
   if (trimmed !== "") args.spec = raw;
   args.message = message;
+  if (flags.description?.trim()) args.description = flags.description.trim();
   const model = flags.model?.trim() ?? "";
   if (model !== "") args.model = model;
   const props = {
@@ -934,10 +936,14 @@ export const schemeReplCapability = EnvCapability.define("harness/scheme-repl", 
         },
         function (slot, message, ...rest) {
           const spec = workerSpec("agent/call", slot);
-          const { model } = keywordsOf("agent/call", rest, { model: sz.string.optional() });
+          const { model, description } = keywordsOf("agent/call", rest, {
+            model: sz.string.optional(),
+            description: sz.string.optional(),
+          });
           return spawnCall(this, AGENT_SEND, false, spec, stringOf(message), {
             verb: "agent/call",
             model,
+            description,
           }) as Promise<string>;
         },
       ),
@@ -955,15 +961,17 @@ export const schemeReplCapability = EnvCapability.define("harness/scheme-repl", 
         const { positionals, keywords } = splitKeywords("agent/ask", rest, {
           readonly: sz.boolean.optional(),
           model: sz.string.optional(),
+          description: sz.string.optional(),
         });
         if (positionals.length > 1) throw new Error("agent/ask: at most a schema after the message");
         const schemaSlot = positionals[0];
-        const { readonly, model } = keywords;
+        const { readonly, model, description } = keywords;
         return spawnCall(this, AGENT_ASK, false, spec, stringOf(message), {
           verb: "agent/ask",
           deskReadonly: readonly === true,
           schema: compiledAskSchema(schemaSlot),
           model,
+          description,
         });
       },
     ),

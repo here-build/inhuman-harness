@@ -5,14 +5,18 @@
 import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
+  AgentCallJob,
+  ContextNeedToolJob,
+  ProgrammaticJob,
   CompactJob,
   CompletionExpectation,
   CompletionJob,
   SessionSystemPrompt,
   SessionTurn,
+  SessionPlexus,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 
 import { applyCompact } from "../../session/index.js";
 import { stampCompactInputs } from "../compact-floors.js";
@@ -126,3 +130,135 @@ describe("F10: the card is a typed cell", () => {
     expect(eat.withoutCheckIns().cells).not.toContain(job);
   });
 });
+
+it.each(["direct", "program", "wrapper"])(
+  "compacts %s spawn history without source while retaining mixed receipts",
+  async (shape) => {
+    const brief = "PRIVATE-SPAWN-BRIEF all detailed instructions must stay on the worker";
+    const child = new AgentCallJob({
+      toolCallId: "spawn",
+      name: "agent__ask",
+      workerSessionId: "worker-1",
+      argsJson: JSON.stringify({ message: brief, description: "Inspect the module." }),
+      completed: true,
+    });
+    child.outcomeSnap = { ok: true, value: "worker receipt" };
+    const read = new SystemToolJob({
+      toolCallId: "read",
+      name: "read_file",
+      argsJson: '{"path":"src/module.ts"}',
+      outcomeJson: '{"ok":true,"text":"non-agent receipt"}',
+      completed: true,
+    });
+    const context = new ContextNeedToolJob({
+      toolCallId: "context",
+      argsJson: '{"reason":"SILENT_CONTEXT_REASON","needed":true}',
+      outcomeJson: '{"ok":true,"text":"SILENT_CONTEXT_RECEIPT"}',
+      completed: true,
+    });
+    const nested = new ProgrammaticJob({
+      toolCallId: "nested",
+      argsJson: JSON.stringify({ expr: `(agent/ask 'explore "${brief}")` }),
+      children: [child, read, context],
+      completed: true,
+      outcomeJson: '{"ok":false,"text":"caught nested failure"}',
+    });
+    const program = new ProgrammaticJob({
+      toolCallId: "program",
+      argsJson: JSON.stringify({ expr: brief }),
+      children: [nested],
+      completed: true,
+      outcomeJson: '{"ok":true,"text":"outer receipt"}',
+    });
+    const sibling = new ProgrammaticJob({
+      toolCallId: "sibling",
+      argsJson: JSON.stringify({ expr: brief }),
+      completed: true,
+      outcomeJson: '{"ok":true,"text":"first program receipt"}',
+    });
+    const wrapper = new SystemToolJob({
+      toolCallId: "wrapper",
+      name: "scheme_repl",
+      argsJson: JSON.stringify({ expr: brief }),
+      completed: true,
+      outcomeJson: '{"ok":true,"text":"wrapper receipt"}',
+    });
+    wrapper.registerJob(sibling);
+    wrapper.registerJob(program);
+    const cell = shape === "direct" ? child : shape === "program" ? program : wrapper;
+    const gauge = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`request` });
+    gauge.totalTokens = 10000;
+    const plexus = SessionPlexus.create(`compact-spawn-${shape}`, "");
+    onTestFinished(() => plexus.destroy());
+    plexus.root.head = turnWith([new CompletionJob({ expectation: gauge }), cell]);
+    const transcript = Transcript.fromCells([gauge, cell]);
+    const projected: Record<string, unknown> = {};
+    for (const [name, expression] of [
+      ["chunk-text", "(chunk-text (car (cdr (transcript/cells t))))"],
+      ["summarizer", "(message/transcript-as-single-prompt t)"],
+    ]) {
+      const compacted = await applyCompact(
+        `(define (compact t full) (list (message/user ${expression})))`,
+        transcript,
+        transcript,
+      );
+      const text = compacted.ok ? compacted.checkIn.map(textOfCell).join("\n") : compacted.reason;
+      projected[name!] = {
+        ok: compacted.ok,
+        leaked: text.includes("PRIVATE-SPAWN-BRIEF"),
+        description: text.includes("Inspect the module."),
+        worker: text.includes("worker-1"),
+        receipts: [
+          "worker receipt",
+          "non-agent receipt",
+          "caught nested failure",
+          "outer receipt",
+          "first program receipt",
+          "wrapper receipt",
+        ].filter((receipt) => text.includes(receipt)),
+        readPath: text.includes("src/module.ts"),
+        context: text.includes("SILENT_CONTEXT"),
+      };
+    }
+    const expected = {
+      ok: true,
+      leaked: false,
+      description: true,
+      worker: true,
+      receipts:
+        shape === "direct"
+          ? ["worker receipt"]
+          : shape === "program"
+            ? ["worker receipt", "non-agent receipt", "caught nested failure", "outer receipt"]
+            : [
+                "worker receipt",
+                "non-agent receipt",
+                "caught nested failure",
+                "outer receipt",
+                "first program receipt",
+                "wrapper receipt",
+              ],
+      readPath: shape !== "direct",
+      context: false,
+    };
+    expect({ projected, stored: [program.expr, sibling.expr, child.speech] }).toEqual({
+      projected: { "chunk-text": expected, summarizer: expected },
+      stored: [brief, brief, brief],
+    });
+    child.outcomeSnap = { ok: true, value: "LARGE_WORKER_RECEIPT ".repeat(1000) };
+    const bounded = await applyCompact(
+      `(define (compact t full) (list (message/user (message/transcript-as-single-prompt t))))`,
+      transcript,
+      transcript,
+    );
+    const boundedText = bounded.ok ? bounded.checkIn.map(textOfCell).join("\n") : bounded.reason;
+    expect({
+      ok: bounded.ok,
+      bounded: boundedText.length <= 5300,
+      recall: boundedText.includes("context_recall"),
+      description: boundedText.includes("Inspect the module."),
+      worker: boundedText.includes("worker-1"),
+      leaked: boundedText.includes("PRIVATE-SPAWN-BRIEF"),
+    }).toEqual({ ok: true, bounded: true, recall: true, description: true, worker: true, leaked: false });
+  },
+);

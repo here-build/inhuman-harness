@@ -8,12 +8,14 @@
  */
 import type { JobKind } from "@inhuman.tools/plexus-expectations";
 
+import { AgentCallJob } from "./jobs/AgentCallJob.js";
 import { AgentCallNotification } from "./jobs/AgentCallNotification.js";
 import { CallJob } from "./jobs/CallJob.js";
 import { ProgrammaticJob } from "./jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "./jobs/SystemToolJob.js";
 import { programKind } from "./program-kind.js";
 import { SCHEME_WATCH_TOOL_NAME } from "./scheme-syntax.js";
+import { spawnDescriptionArgs, spawnProgramDescription } from "./spawn-history.js";
 
 export { programKind } from "./program-kind.js";
 
@@ -47,7 +49,11 @@ export async function liveBackgroundJobs(nodes: Iterable<unknown>): Promise<Live
   return Promise.all(
     tracked.map(async (node) => {
       if (node instanceof ProgrammaticJob && node.toolName !== SCHEME_WATCH_TOOL_NAME) await programKind(node.expr);
-      return { jobId: node.toolCallId, kind: node.kind, object: node.object };
+      const description =
+        node instanceof AgentCallJob
+          ? `${node.name} ${JSON.stringify(spawnDescriptionArgs(node))}`
+          : spawnProgramDescription(node);
+      return { jobId: node.toolCallId, kind: node.kind, object: description ?? node.object };
     }),
   );
 }

@@ -41,3 +41,5 @@ export * from "./shell-tail.js";
 export * from "./turn/index.js";
 export * from "./call-order.js";
 export * from "./worker-permissions.js";
+
+export * from "./spawn-history.js";

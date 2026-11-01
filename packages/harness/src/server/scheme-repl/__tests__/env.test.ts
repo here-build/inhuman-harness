@@ -221,6 +221,40 @@ describe("harness/scheme-repl", () => {
     });
   });
 
+  it("stores caller-authored descriptions on disposable agent calls without changing their worker brief", async () => {
+    const calls: Tape = [];
+    await run(
+      '(agent/call \'reviewer "Exact full brief. Source stays here." :description "  Review auth boundaries.  " :model "local/reviewer")',
+      calls,
+    );
+    await run(
+      '(agent/ask \'reviewer "Another exact brief." (dict :answer (s/enum "yes" "no")) :description "Check the failure path." :readonly #t)',
+      calls,
+    );
+    const rejected = await door(() => run('(agent/ask \'reviewer "Do not spawn." :description 42)', calls));
+    expect({ calls: calls.filter((entry) => entry.kind === "spawn").map((entry) => entry.payload), rejected }).toEqual({
+      calls: [
+        spawned(AGENT_SEND, "agent", {
+          spec: "reviewer",
+          message: "Exact full brief. Source stays here.",
+          description: "Review auth boundaries.",
+          model: "local/reviewer",
+        }),
+        spawned(
+          AGENT_ASK,
+          "agent",
+          {
+            spec: "reviewer",
+            message: "Another exact brief.",
+            description: "Check the failure path.",
+          },
+          { desk: true, schema: YES_NO },
+        ),
+      ],
+      rejected: expect.stringMatching(/agent\/ask: :description/),
+    });
+  });
+
   it("dispatch: toolkit positionals, MCP/pack identity, bot/send/ask and agent/call/ask; readonly desk drops write_file; doors the rest", async () => {
     const calls: Tape = [];
 
@@ -547,7 +581,7 @@ describe("harness/scheme-repl", () => {
         deskSend: false,
         deskSearch: true,
         askSig:
-          "(bot/ask spec message :readonly) | (bot/ask message [schema] :readonly) | (agent/ask spec message [schema] :readonly :model)",
+          "(bot/ask spec message :readonly) | (bot/ask message [schema] :readonly) | (agent/ask spec message [schema] :readonly :model :description)",
       },
       wires: {
         callEcho: undefined,

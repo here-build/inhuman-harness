@@ -113,6 +113,20 @@ export class AgentCallJob extends CallJob {
     return speech.map((row) => (row.role === "user" ? row.content : `${row.role}:\n${row.content}`)).join("\n\n");
   }
 
+  /** The caller's retained task record. The complete speech remains worker/inspection data. */
+  @computed
+  get description(): string {
+    const authored = this.argString("description").trim();
+    const text = (authored || this.speech).replaceAll(/\s+/g, " ").trim();
+    const sentence = text.split(/(?<=[.!?。！？])(?:\s|$)/u)[0] ?? "";
+    if (sentence === "") return "Delegated agent task.";
+    const characters = [...sentence];
+    if (characters.length <= 200) return sentence;
+    const prefix = characters.slice(0, 199).join("");
+    const boundary = prefix.lastIndexOf(" ");
+    return `${(boundary > 0 ? prefix.slice(0, boundary) : prefix).trimEnd()}…`;
+  }
+
   /** A guard's rewritten prompt. System rows stay; the new text is one user row. */
   @syncing.action
   replaceSpeech(content: string): void {
