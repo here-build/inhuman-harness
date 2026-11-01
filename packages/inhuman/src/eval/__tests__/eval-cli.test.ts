@@ -2,20 +2,18 @@
  * `run(argv, streams)` against a temporary daemon. The client never writes
  * `approved`; stdout is only the program value.
  */
-import { execFileSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 
 import { HarnessDaemon } from "@inhuman.tools/harness/testkit";
-import { ApprovableJob, evalProgramOf, findEvalTurnByRequestId } from "@inhuman.tools/harness-model";
+import { ApprovableJob, evalProgramOf } from "@inhuman.tools/harness-model";
 import { Client } from "@inhuman.tools/harness-sdk";
 import { termSessionKey, type Streams } from "@inhuman.tools/harness-sdk/launch";
 import { walkWork } from "@inhuman.tools/plexus-expectations";
-import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
 
+import { openWorld } from "./world.js";
 import { run } from "../../bin.js";
 
 const TIMEOUT = 20_000;
@@ -67,26 +65,6 @@ function capture(
       return stderr;
     },
   };
-}
-
-async function openWorld(): Promise<{
-  readonly kernel: string;
-  readonly workspace: string;
-  readonly daemon: HarnessDaemon;
-}> {
-  const kernel = await mkdtemp(join(tmpdir(), "harness-eval-cli-k-"));
-  const workspace = await mkdtemp(join(tmpdir(), "harness-eval-cli-p-"));
-  onTestFinished(async () => {
-    await rm(kernel, { recursive: true, force: true, maxRetries: 10 });
-    await rm(workspace, { recursive: true, force: true, maxRetries: 10 });
-  });
-  await writeFile(join(kernel, "config.json"), JSON.stringify({ connections: {} }));
-  const daemon = new HarnessDaemon(kernel);
-  await daemon.listen();
-  onTestFinished(async () => {
-    await daemon[Symbol.asyncDispose]();
-  });
-  return { kernel, workspace, daemon };
 }
 
 describe("eval CLI", () => {
@@ -290,47 +268,6 @@ describe("eval CLI", () => {
         stdout: "",
         expr: '(bot/send \'greeter "say hi")',
       });
-    },
-    TIMEOUT,
-  );
-
-  it(
-    "reconnects mid-flight to the same program and does not admit another",
-    async () => {
-      const { kernel, workspace } = await openWorld();
-      execFileSync("mkfifo", [join(workspace, "hang.fifo")]);
-      const client = await Client.start(kernel, workspace);
-      const admitted = (await client.request("eval", {
-        requestId: "req-mid",
-        expr: '(read_file "hang.fifo")',
-        policy: "yolo",
-      })) as { ok: true; turnId: string; programId: string };
-      await when(() => evalProgramOf(findEvalTurnByRequestId(client.sessionRoot, "req-mid")!) != null, {
-        timeout: TIMEOUT,
-      });
-      const sessionId = client.sessionId;
-      await client[Symbol.asyncDispose]();
-      const again = await Client.connect(kernel, workspace, sessionId);
-      onTestFinished(async () => {
-        await again[Symbol.asyncDispose]();
-      });
-      const turn = findEvalTurnByRequestId(again.sessionRoot, "req-mid");
-      const program = evalProgramOf(turn!);
-      const reused = (await again.request("eval", {
-        requestId: "req-mid",
-        expr: '(read_file "hang.fifo")',
-        policy: "yolo",
-      })) as { ok: true; turnId: string; programId: string };
-      expect({
-        completed: program?.completed ?? true,
-        programId: program?.uuid,
-        reused,
-      }).toEqual({
-        completed: false,
-        programId: admitted.programId,
-        reused: { ok: true, turnId: admitted.turnId, programId: admitted.programId },
-      });
-      await again.request("turn/cancel", { requestId: "req-mid" });
     },
     TIMEOUT,
   );

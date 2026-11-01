@@ -45,7 +45,7 @@ export default defineConfig({
           testTimeout: 30_000,
           hookTimeout: 30_000,
           restoreMocks: true,
-          include: ["src/eval/__process__/**/*.test.ts"],
+          include: ["src/**/__process__/**/*.test.ts"],
         },
       },
     ],

@@ -1,0 +1,1223 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`scheme_repl caption: collapsed description, expand expr > scheme-ok-caption 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Eval (read",
+            "file "src/tea.ts")",
+            "and show me the bindings it returns.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Eval (read",
+        "file "src/tea.ts")",
+        "and show me the bindings it returns.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Add one and two",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "{",
+            "1",
+            "+",
+            "2",
+            "}",
+            "3",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Add one and two",
+        "Add one and two",
+        "{",
+        "1",
+        "+",
+        "2",
+        "}",
+        "3",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`scheme_repl caption: collapsed description, expand expr > scheme-ok-caption-expanded 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Eval (read",
+            "file "src/tea.ts")",
+            "and show me the bindings it returns.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Eval (read",
+        "file "src/tea.ts")",
+        "and show me the bindings it returns.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Add one and two",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "{",
+            "1",
+            "+",
+            "2",
+            "}",
+            "3",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": false,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Add one and two",
+        "Add one and two",
+        "{",
+        "1",
+        "+",
+        "2",
+        "}",
+        "3",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`scheme_repl compact tape: floor-allow inner and agent start render under the bag > scheme-compact-inners 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Eval (read",
+            "file "src/tea.ts")",
+            "and show me the bindings it returns.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Eval (read",
+        "file "src/tea.ts")",
+        "and show me the bindings it returns.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Read tea and delegate",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "read_file",
+            ""src/tea.ts"",
+            ")",
+            "(",
+            "agent/ask",
+            ""map the repo"",
+            ")",
+            "export const Tea",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Read tea and delegate",
+        "Read tea and delegate",
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+        "(",
+        "agent/ask",
+        ""map the repo"",
+        ")",
+        "export const Tea",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "glyph": "·",
+                "kind": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "Read **src/tea.ts**",
+              ],
+              "type": "indication",
+            },
+          ],
+          "texts": [
+            "Read **src/tea.ts**",
+          ],
+          "type": "box",
+        },
+      ],
+      "texts": [
+        "Read **src/tea.ts**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "glyph": "·",
+                "kind": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "explore",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "map the repo",
+                "Response",
+                "mapped",
+                "mapped",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore",
+            "explore",
+            "map the repo",
+            "Response",
+            "mapped",
+            "mapped",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "explore",
+        "explore",
+        "map the repo",
+        "Response",
+        "mapped",
+        "mapped",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`scheme_repl fail > scheme-fail 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Eval (read",
+            "file "src/tea.ts")",
+            "and show me the bindings it returns.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Eval (read",
+        "file "src/tea.ts")",
+        "and show me the bindings it returns.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "error",
+          "texts": [
+            "(",
+            "read_file",
+            ""src/tea.ts"",
+            ")",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "error",
+          "texts": [
+            "boom",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "error",
+      "texts": [
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+        "boom",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "glyph": "·",
+                "kind": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "Read **src/tea.ts**",
+              ],
+              "type": "indication",
+            },
+          ],
+          "texts": [
+            "Read **src/tea.ts**",
+          ],
+          "type": "box",
+        },
+      ],
+      "texts": [
+        "Read **src/tea.ts**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`scheme_repl inner ask > scheme-inner-ask 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Ask · Read **src/tea.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · Read **src/tea.ts**",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Eval (read",
+            "file "src/tea.ts")",
+            "and show me the bindings it returns.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Eval (read",
+        "file "src/tea.ts")",
+        "and show me the bindings it returns.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "read_file",
+            ""src/tea.ts"",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`scheme_repl tape: prompt → live → seal > scheme-live 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Eval (read",
+            "file "src/tea.ts")",
+            "and show me the bindings it returns.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Eval (read",
+        "file "src/tea.ts")",
+        "and show me the bindings it returns.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "read_file",
+            ""src/tea.ts"",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "Read **src/tea.ts**",
+              ],
+              "type": "indication",
+            },
+          ],
+          "texts": [
+            "Read **src/tea.ts**",
+          ],
+          "type": "box",
+        },
+      ],
+      "texts": [
+        "Read **src/tea.ts**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`scheme_repl tape: prompt → live → seal > scheme-ok 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Eval (read",
+            "file "src/tea.ts")",
+            "and show me the bindings it returns.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Eval (read",
+        "file "src/tea.ts")",
+        "and show me the bindings it returns.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "read_file",
+            ""src/tea.ts"",
+            ")",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "export const Tea",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+        "export const Tea",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "glyph": "·",
+                "kind": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "Read **src/tea.ts**",
+              ],
+              "type": "indication",
+            },
+          ],
+          "texts": [
+            "Read **src/tea.ts**",
+          ],
+          "type": "box",
+        },
+      ],
+      "texts": [
+        "Read **src/tea.ts**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`scheme_repl tape: prompt → live → seal > scheme-ok-expanded 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Eval (read",
+            "file "src/tea.ts")",
+            "and show me the bindings it returns.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Eval (read",
+        "file "src/tea.ts")",
+        "and show me the bindings it returns.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "read_file",
+            ""src/tea.ts"",
+            ")",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "export const Tea",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": false,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+        "(",
+        "read_file",
+        ""src/tea.ts"",
+        ")",
+        "export const Tea",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "glyph": "·",
+                "kind": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "Read **src/tea.ts**",
+              ],
+              "type": "indication",
+            },
+          ],
+          "texts": [
+            "Read **src/tea.ts**",
+          ],
+          "type": "box",
+        },
+      ],
+      "texts": [
+        "Read **src/tea.ts**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;

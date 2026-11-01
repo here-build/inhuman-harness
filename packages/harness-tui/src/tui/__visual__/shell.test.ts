@@ -5,7 +5,6 @@ import { beforeAll, expect, test } from "vitest";
 
 import {
   dumpKinds,
-  dumpTexts,
   findDisclosure,
   localClient,
   openTea,
@@ -80,21 +79,6 @@ test("shell tape: prompt → live → seal", () => {
     totalBytes: 40_000,
   });
 
-  const live = ui.dump();
-  const liveCell = findDisclosure(live.transcript);
-  expect({
-    kinds: dumpKinds(live.transcript),
-    collapsed: liveCell?.collapsed ?? null,
-    gutter: liveCell?.gutter ?? null,
-    timeout: JSON.stringify(liveCell).includes("30000"),
-    turnTail: (liveCell?.texts ?? []).some((text) => text.includes("boom")),
-  }).toEqual({
-    kinds: ["speech", "disclosure"],
-    collapsed: false,
-    gutter: { kind: "spinner", profile: "tool", rows: "top" },
-    timeout: false,
-    turnTail: true,
-  });
   expect(ui).toMatchScreenshot("shell-live");
 
   leaf.receiptJson = JSON.stringify({
@@ -102,36 +86,9 @@ test("shell tape: prompt → live → seal", () => {
     value: { exitCode: 0, stdout: STDOUT, stderr: "" },
   });
   leaf.completed = true;
-  const okCell = findDisclosure(ui.dump().transcript);
-  expect({
-    kinds: dumpKinds(ui.dump().transcript),
-    collapsed: okCell?.collapsed ?? null,
-    gutter: okCell?.gutter ?? null,
-    identity: {
-      exit: /\bexit\b/.test(identityTexts(okCell)),
-      allow: identityTexts(okCell).includes("allow"),
-    },
-  }).toEqual({
-    kinds: ["speech", "disclosure"],
-    collapsed: true,
-    gutter: { kind: "top", glyph: "$" },
-    identity: { exit: false, allow: false },
-  });
   expect(ui).toMatchScreenshot("shell-ok");
 
   clickExpand(ui, "git");
-  const openTexts = dumpTexts(ui.dump().transcript);
-  expect({
-    kinds: dumpKinds(ui.dump().transcript),
-    collapsed: findDisclosure(ui.dump().transcript)?.collapsed ?? null,
-    stdout: openTexts.includes(" M src/tui/tea.ts"),
-    extra: openTexts.includes("?? src/tui/work-cells.ts"),
-  }).toEqual({
-    kinds: ["speech", "disclosure"],
-    collapsed: false,
-    stdout: true,
-    extra: true,
-  });
   expect(ui).toMatchScreenshot("shell-ok-expanded");
 });
 
@@ -146,44 +103,11 @@ test("shell ask", async () => {
     prompt: PROMPT,
     doneWork: [leaf],
   });
-  const asked = ui.dump();
-  expect({
-    kinds: dumpKinds(asked.transcript),
-    disclosure: findDisclosure(asked.transcript) === undefined,
-    ask: asked.ask,
-    annotation: asked.composer.annotation,
-    command: asked.composer.texts.join("\n").includes("git status --short"),
-    tick: asked.composer.texts.join("\n").includes("run `git status --short`"),
-  }).toEqual({
-    kinds: ["speech"],
-    disclosure: true,
-    ask: [],
-    annotation: "Ask · run command",
-    command: true,
-    tick: false,
-  });
   expect(ui).toMatchScreenshot("shell-ask");
 
   leaf.args = {
     command: LONG_COMMAND,
   };
-  const long = ui.dump();
-  const stacked = long.composer.texts.join("\n");
-  expect({
-    annotation: long.composer.annotation,
-    head: stacked.includes("head -80"),
-    readme: stacked.includes("harness-server/README.md"),
-    redir: stacked.includes("2> /dev/null"),
-    ls: stacked.includes("ls && echo '=== server ==='"),
-    glued: stacked.includes("=== server ===';"),
-  }).toEqual({
-    annotation: "Ask · run command",
-    head: true,
-    readme: true,
-    redir: true,
-    ls: true,
-    glued: false,
-  });
   expect(ui).toMatchScreenshot("shell-ask-long");
 });
 
@@ -236,19 +160,6 @@ test("shell pair", () => {
       }),
     ],
   });
-  const pair = ui.dump();
-  const pairTexts = dumpTexts(pair.transcript);
-  expect({
-    kinds: dumpKinds(pair.transcript),
-    diff: pairTexts.includes("diff"),
-    stat: pairTexts.includes("--stat"),
-    ran: pairTexts.includes("Ran "),
-  }).toEqual({
-    kinds: ["speech", "disclosure", "disclosure"],
-    diff: true,
-    stat: true,
-    ran: false,
-  });
   expect(ui).toMatchScreenshot("shell-pair");
 });
 
@@ -270,22 +181,9 @@ test("shell caption: collapsed description, expand command", () => {
     prompt: PROMPT,
     doneWork: [leaf],
   });
-  const cell = findDisclosure(ui.dump().transcript);
-  const caption = cell?.texts.join("\n") ?? "";
-  expect({
-    collapsed: cell?.collapsed ?? null,
-    description: caption.includes("Show working tree status"),
-    command: caption.includes("git status --short"),
-  }).toEqual({ collapsed: true, description: true, command: false });
   expect(ui).toMatchScreenshot("shell-ok-caption");
 
   clickExpand(ui, "Show working tree status");
-  const open = dumpTexts(ui.dump().transcript);
-  expect({
-    collapsed: findDisclosure(ui.dump().transcript)?.collapsed ?? null,
-    command: open.includes("git status --short"),
-    description: open.includes("Show working tree status"),
-  }).toEqual({ collapsed: false, command: true, description: true });
   expect(ui).toMatchScreenshot("shell-ok-caption-expanded");
 });
 
@@ -309,12 +207,6 @@ test("shell color: ANSI stdout is theme ink", () => {
     doneWork: [leaf],
   });
   clickExpand(ui, "git");
-  const open = dumpTexts(ui.dump().transcript);
-  expect({
-    leftover: open.includes("[31m") || open.includes("\u001b"),
-    modified: open.includes(" M src/tui/tea.ts"),
-    untracked: open.includes("?? src/tui/work-cells.ts"),
-  }).toEqual({ leftover: false, modified: true, untracked: true });
   expect(ui).toMatchScreenshot("shell-ok-color");
 });
 
@@ -333,10 +225,5 @@ test("shell command with an embedded language colors the heredoc body", async ()
     queue: [leaf],
   });
   // The ask stack renders the whole command, embedded body included.
-  const stacked = ui.dump().composer.texts.join("\n");
-  expect(stacked.includes("cat > greet.py")).toBe(true);
-  expect(stacked.includes("def greet")).toBe(true);
-  expect(stacked.includes("print(f'hi {name}')")).toBe(true);
-  expect(stacked.includes("EOF")).toBe(true);
   expect(ui).toMatchScreenshot("shell-embed-py");
 });

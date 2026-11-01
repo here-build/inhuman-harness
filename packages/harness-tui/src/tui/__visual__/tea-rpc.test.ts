@@ -564,7 +564,7 @@ test("Tea pick-wire hides LM Studio duplicate offer", async () => {
     config: { kernel },
   });
   const surface = values.at(-1);
-  if (!(surface instanceof UiNode)) throw new Error("connect.scm did not eval to a UiNode");
+  if (!(surface instanceof UiNode)) throw new TypeError("connect.scm did not eval to a UiNode");
   expect(surface.choices.map((row) => row.action.map((leaf) => ({ method: leaf.op, params: leaf.params })))).toEqual([
     [{ method: "kv/set", params: { key: "connection", value: "work", remember: "1" } }],
   ]);
@@ -594,7 +594,7 @@ test("connect.scm paints needs-auth ahead of the stored sign-in", async () => {
     config: { kernel },
   });
   const surface = values.at(-1);
-  if (!(surface instanceof UiNode)) throw new Error("connect.scm did not eval to a UiNode");
+  if (!(surface instanceof UiNode)) throw new TypeError("connect.scm did not eval to a UiNode");
   const row = surface.choices.find((choice) => choice.name === "Grok");
   expect({ description: row?.description, health: row?.health, annotation: row?.annotation }).toEqual({
     description: "needs auth — reconnect",
@@ -627,7 +627,7 @@ test("connect.scm says reconnect for a refused key and keeps a timeout as the co
     config: { kernel },
   });
   const surface = values.at(-1);
-  if (!(surface instanceof UiNode)) throw new Error("connect.scm did not eval to a UiNode");
+  if (!(surface instanceof UiNode)) throw new TypeError("connect.scm did not eval to a UiNode");
   const row = (name: string) => surface.choices.find((choice) => choice.name === name);
   expect({
     openai: row("OpenAI")?.description,

@@ -3,12 +3,18 @@ name: Harness verification
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      visual:
+        description: Run terminal and browser visual approvals
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  verify:
+  logic:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -18,9 +24,65 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      # The visual and process suites spawn the qd release binary
-      # (packages/quickdraw/rust/qd/target/release/qd, see harness-tui present-visual/dump.ts).
-      # It is not committed, so build it from the pinned toolchain.
+      - run: pnpm install --frozen-lockfile
+      # Logic runs two packages at a time: each vitest run
+      # has its own workers, and more at once oversubscribes the 4-vCPU runner.
+      - run: pnpm test:boundaries
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm turbo test --continue --concurrency=2
+
+  process-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:process
+
+  visual-scope:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.scope.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: scope
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          REQUESTED: ${{ inputs.visual }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "changed=$REQUESTED" >> "$GITHUB_OUTPUT"
+          elif [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BASE" HEAD | rg '^(packages/(harness-tui|harness-web-app|harness-transcript|quickdraw|harness-model|harness-sdk)/|package.json|pnpm-lock.yaml|turbo.json|.github/workflows/verify.yml)' >/dev/null; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  visual:
+    needs: visual-scope
+    if: needs.visual-scope.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      # Only visual approvals invoke the qd paint binary.
       - uses: dtolnay/rust-toolchain@1.99.1
       - uses: actions/cache@v6
         with:
@@ -31,14 +93,9 @@ jobs:
           key: qd-${{ runner.os }}-${{ hashFiles('packages/quickdraw/rust/qd/Cargo.lock') }}
       - run: cargo build --release --manifest-path packages/quickdraw/rust/qd/Cargo.toml
       - run: pnpm install --frozen-lockfile
-      # pnpm verify, as separate steps. Unit tests run two packages at a time: each vitest run
-      # has its own workers, and more at once oversubscribes the 4-vCPU runner.
-      - run: pnpm test:boundaries
-      - run: pnpm build
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm turbo test --continue --concurrency=2
-      - run: pnpm test:process
-        if: ${{ !cancelled() }}
+      - name: Locate browser for computed appearance approvals
+        run: |
+          test -x /usr/bin/google-chrome
+          /usr/bin/google-chrome --version
+          echo 'CHROME_BIN=/usr/bin/google-chrome' >> "$GITHUB_ENV"
       - run: pnpm test:visual
-        if: ${{ !cancelled() }}

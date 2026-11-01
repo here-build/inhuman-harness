@@ -19,6 +19,7 @@ import {
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
 import { ConnectionSpec, DriverSpec, reportRole } from "@inhuman.tools/plexus-expectations";
+import { SCREENSHOT_NOW_MS } from "@inhuman.tools/quickdraw/runtime";
 import { expect, test } from "vitest";
 
 import { askCoverShortcuts } from "../ask-shortcuts.js";
@@ -27,9 +28,6 @@ import {
   PRIOR_PROMPT,
   PRIOR_REPLY,
   defaultCommandSpec,
-  collectNodeTexts,
-  dumpTexts,
-  preparePaint,
   hotkeyLabels,
   localClient,
   openTea,
@@ -43,7 +41,6 @@ import {
   waitDump,
   wrapTurn,
   type FrameDump,
-  type TranscriptBlock,
 } from "./_helpers.js";
 
 const FOLLOW_PROMPT =
@@ -80,17 +77,6 @@ function pickerNames(frame: FrameDump): string[] {
 
 function pickerSelected(frame: FrameDump): string | null {
   return frame.composer.picker.rows.find((row) => row.key === frame.composer.picker.selectedKey)?.name ?? null;
-}
-
-function flattenBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
-  return blocks.flatMap((block) => [block, ...(block.children ? flattenBlocks(block.children) : [])]);
-}
-
-function gutterKind(blocks: TranscriptBlock[], kind: string): boolean {
-  return flattenBlocks(blocks).some((block) => {
-    const gutter = block.gutter;
-    return typeof gutter === "object" && gutter !== null && (gutter as { kind?: string }).kind === kind;
-  });
 }
 
 test("empty shell — two sites, empty transcript, empty draft", () => {
@@ -133,11 +119,6 @@ test("live then seal — thought/speech then thought-only", () => {
     result: { text: PRIOR_REPLY, thought: LIVE_THOUGHT },
   });
   expect(ui).toMatchScreenshot("sealed-after-live");
-  const sealedTexts = dumpTexts(ui.dump().transcript);
-  expect({
-    thought: sealedTexts.includes("The 401 is the old hash"),
-    partial: sealedTexts.includes("I'll move the lookup"),
-  }).toEqual({ thought: true, partial: false });
 
   const thoughtOnly = sealedCompletion({
     text: "",
@@ -160,12 +141,6 @@ test("failed head — omnibox + transcript error", () => {
   );
   expect(ui.dump().composer.hints).toEqual(["Enter: Resume the interrupted turn"]);
   expect(ui.dump().composer.annotationRole).toBe("");
-  expect(
-    ui
-      .dump()
-      .wait.flatMap((block) => block.texts)
-      .join(""),
-  ).toContain("openai-compat completion failed: 426");
   expect(ui).toMatchScreenshot("failed-head");
 });
 
@@ -185,12 +160,6 @@ test("failed wire — connection annotation", () => {
   connection.readyState = "failed";
   connection.error = "openai-compat completion failed: 403";
   expect(ui.dump().composer.annotationRole).toBe("");
-  expect(
-    ui
-      .dump()
-      .wait.flatMap((block) => block.texts)
-      .join(""),
-  ).toContain("The key was refused. Reconnect.");
   expect(ui).toMatchScreenshot("failed-wire");
 });
 
@@ -684,47 +653,14 @@ test("busy turn — queue hint, deck extender, slash owns the stack", async () =
     draft: QUEUE_DRAFT,
     hints: ["Enter: queue message"],
   });
-  admitSteer(client.sessionRoot, STEER_ROW, turn.uuid);
-  admitQueue(client.sessionRoot, QUEUE_ROW, turn.uuid);
+  admitSteer(client.sessionRoot, STEER_ROW, turn.uuid).composedAtMs = SCREENSHOT_NOW_MS;
+  admitQueue(client.sessionRoot, QUEUE_ROW, turn.uuid).composedAtMs = SCREENSHOT_NOW_MS;
   press(ui.tea, "Escape");
   press(ui.tea, "Escape");
-  const prepared = preparePaint(ui.tea);
-  const deck = ui.dump();
-  const deckTexts = deck.composer.texts.join("\n");
-  const body = prepared.tapeNode;
-  const bodyKids = body !== null && "children" in body && Array.isArray(body.children) ? body.children : [];
-  const userBlocks = bodyKids.filter((child) => "key" in child && String(child.key).endsWith(":speech-user"));
-  const steerText = collectNodeTexts(userBlocks.at(-1)).join(" ");
-  expect({
-    draft: deck.composer.draft,
-    hints: deck.composer.hints,
-    glyphs: deck.composer.glyphs,
-    steerInDeck: deckTexts.includes(STEER_ROW),
-    steerOnTape: steerText.includes("Keep AUTH") && steerText.includes("module scope"),
-    queue: deckTexts.includes(QUEUE_ROW),
-  }).toEqual({
-    draft: "",
-    hints: ["Enter: steer first", "Esc: retract last queued"],
-    glyphs: ["1"],
-    steerInDeck: false,
-    steerOnTape: true,
-    queue: true,
-  });
   expect(ui).toMatchScreenshot("steer-queue-deck");
 
   typeText(ui.tea, "/");
   await waitDump(ui.dump, (frame) => frame.composer.picker.rows.some((row) => row.name === "/compact"));
-  const slash = ui.dump();
-  const slashTexts = slash.composer.texts.join("\n");
-  expect({
-    queueHint: slash.composer.hints.some((hint) => hint.includes("queue message") || hint.includes("steer first")),
-    steer: slashTexts.includes(STEER_ROW),
-    queue: slashTexts.includes(QUEUE_ROW),
-  }).toEqual({
-    queueHint: false,
-    steer: false,
-    queue: false,
-  });
 });
 
 test("/model remainder chrome — typed-id hint", async () => {
@@ -909,43 +845,6 @@ function mountAskQueue() {
 test("ask queue: tape stops at the pointer; pin holds the Diff", () => {
   const { client } = mountAskQueue();
   using ui = openTea(client);
-  const frame = ui.dump();
-  const tape = dumpTexts(frame.transcript);
-  const pin = frame.ask.flatMap((block) => block.texts).join("");
-  expect({
-    annotation: frame.composer.annotation,
-    hints: frame.composer.hints,
-    tape: {
-      auth: tape.includes("src/AuthForm.ts"),
-      login: tape.includes("src/login.ts"),
-      comment: tape.includes(COVER_COMMENT),
-      session: tape.includes("src/session.ts"),
-      cookie: tape.includes("src/cookie.ts"),
-      spinner: gutterKind(frame.transcript, "spinner"),
-      askGlyph: flattenBlocks(frame.transcript).some((block) => {
-        const gutter = block.gutter;
-        return typeof gutter === "object" && gutter !== null && (gutter as { glyph?: string }).glyph === "?";
-      }),
-    },
-    pin: {
-      wire: pin.includes("edit_file"),
-      hunk: pin.includes("export const a = 2"),
-      cursor: pin.includes("▌"),
-    },
-  }).toEqual({
-    annotation: "Ask · edit **src/session.ts**",
-    hints: hotkeyLabels(askCoverShortcuts({ comment: false })),
-    tape: {
-      auth: true,
-      login: true,
-      comment: true,
-      session: false,
-      cookie: false,
-      spinner: true,
-      askGlyph: false,
-    },
-    pin: { wire: false, hunk: true, cursor: true },
-  });
   expect(ui).toMatchScreenshot("ask-queue");
   typeText(ui.tea, COVER_COMMENT);
   expect(ui.dump().composer.hints).toEqual(hotkeyLabels(askCoverShortcuts({ comment: true })));
@@ -958,23 +857,6 @@ test("ask cover shadows a frozen draft and swaps Enter/Esc hints", () => {
   using ui = openTea(client);
   typeText(ui.tea, "keep me");
   ui.client.sessionRoot.head = askTurn().turn;
-  const asked = ui.dump();
-  const askedPin = asked.ask.flatMap((block) => block.texts).join("");
-  expect({
-    placeholder: asked.composer.placeholder,
-    interactive: asked.composer.interactive,
-    annotation: asked.composer.annotation,
-    hints: asked.composer.hints,
-    askWire: askedPin.includes("edit_file"),
-    askHunk: askedPin.includes("export const a = 2"),
-  }).toEqual({
-    placeholder: "",
-    interactive: true,
-    annotation: "Ask · edit **a.ts**",
-    hints: hotkeyLabels(askCoverShortcuts({ comment: false })),
-    askWire: false,
-    askHunk: true,
-  });
   expect(ui).toMatchScreenshot("ask-cover");
   typeText(ui.tea, COVER_COMMENT);
   const commented = ui.dump();
@@ -1041,11 +923,6 @@ test("ask Diff peek casts transparent over scrolled tape", () => {
   client.kernelRoot.approvalAskThrottleMs = 0;
   using ui = openTea(client);
   ui.client.sessionRoot.head = turn;
-  const pin = ui
-    .dump()
-    .ask.flatMap((block) => block.texts)
-    .join("");
-  expect({ hunk: pin.includes("export const a = 2") }).toEqual({ hunk: true });
   expect(screenshot(ui.tea, { atBottom: false, scroll: 0 })).toMatchScreenshot("ask-cover-over-tape");
 });
 
@@ -1073,14 +950,6 @@ test("tall ask Diff scrolls in the tape; last rows sit on the composer", () => {
   client.kernelRoot.approvalAskThrottleMs = 0;
   using ui = openTea(client);
   ui.client.sessionRoot.head = turn;
-  const pin = ui
-    .dump()
-    .ask.flatMap((block) => block.texts)
-    .join("");
-  expect({ v19: pin.includes("v19"), twenty: pin.includes("20") }).toEqual({
-    v19: true,
-    twenty: true,
-  });
   expect(ui).toMatchScreenshot("ask-cover-tall-edit");
   expect(screenshot(ui.tea, { atBottom: false, scroll: 0 })).toMatchScreenshot("ask-cover-tall-edit-top");
 });
@@ -1126,13 +995,6 @@ test("session title — idle then ask wins", async () => {
 
   press(ui.tea, "/");
   await waitDump(ui.dump, (frame) => frame.composer.picker.rows.some((row) => row.name === "/connect"));
-  expect({
-    title: ui.dump().composer.annotation,
-    description: ui.dump().composer.texts.some((text) => text.includes("Manage provider connections")),
-  }).toEqual({
-    title: "Auth refactor",
-    description: true,
-  });
 
   press(ui.tea, "Escape");
   press(ui.tea, "Escape");

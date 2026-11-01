@@ -1,0 +1,1168 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`edit_file caption sits to the right of the path > edit-file-ok-caption 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Replace the greeting in src/hello.ts.",
+            "Keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Replace the greeting in src/hello.ts.",
+        "Keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/hello.ts",
+            "Rename the greeting",
+          ],
+          "type": "indication",
+        },
+        {
+          "texts": [
+            "1 ",
+            "export function greet() {",
+            "1 ",
+            "export function greet() {",
+            "▌",
+            "2 ",
+            "  return "",
+            "hello",
+            "";",
+            "▌",
+            "2 ",
+            "  return "",
+            "hi, world",
+            "";",
+            "3 ",
+            "}",
+            "3 ",
+            "}",
+          ],
+          "type": "indentation_exception",
+        },
+      ],
+      "texts": [
+        "src/hello.ts",
+        "Rename the greeting",
+        "1 ",
+        "export function greet() {",
+        "1 ",
+        "export function greet() {",
+        "▌",
+        "2 ",
+        "  return "",
+        "hello",
+        "";",
+        "▌",
+        "2 ",
+        "  return "",
+        "hi, world",
+        "";",
+        "3 ",
+        "}",
+        "3 ",
+        "}",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`edit_file over a prior held in a blob: the span first, the file around it once the text lands > edit-file-blob-landed 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Replace the greeting in src/hello.ts.",
+            "Keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Replace the greeting in src/hello.ts.",
+        "Keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/a.ts",
+          ],
+          "type": "indication",
+        },
+        {
+          "texts": [
+            "·· 17 unchanged ··",
+            "18 ",
+            "line-17",
+            "18 ",
+            "line-17",
+            "19 ",
+            "line-18",
+            "19 ",
+            "line-18",
+            "20 ",
+            "line-19",
+            "20 ",
+            "line-19",
+            "▌",
+            "21 ",
+            "line-20",
+            "▌",
+            "21 ",
+            "line-20",
+            "-edited",
+            "22 ",
+            "line-21",
+            "22 ",
+            "line-21",
+            "23 ",
+            "line-22",
+            "23 ",
+            "line-22",
+            "24 ",
+            "line-23",
+            "24 ",
+            "line-23",
+            "·· 16 unchanged ··",
+          ],
+          "type": "indentation_exception",
+        },
+      ],
+      "texts": [
+        "src/a.ts",
+        "·· 17 unchanged ··",
+        "18 ",
+        "line-17",
+        "18 ",
+        "line-17",
+        "19 ",
+        "line-18",
+        "19 ",
+        "line-18",
+        "20 ",
+        "line-19",
+        "20 ",
+        "line-19",
+        "▌",
+        "21 ",
+        "line-20",
+        "▌",
+        "21 ",
+        "line-20",
+        "-edited",
+        "22 ",
+        "line-21",
+        "22 ",
+        "line-21",
+        "23 ",
+        "line-22",
+        "23 ",
+        "line-22",
+        "24 ",
+        "line-23",
+        "24 ",
+        "line-23",
+        "·· 16 unchanged ··",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`edit_file over a prior held in a blob: the span first, the file around it once the text lands > edit-file-blob-pending 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Replace the greeting in src/hello.ts.",
+            "Keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Replace the greeting in src/hello.ts.",
+        "Keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/a.ts",
+          ],
+          "type": "indication",
+        },
+        {
+          "texts": [
+            "▌",
+            "21 ",
+            "line-20",
+            "▌",
+            "21 ",
+            "line-20",
+            "-edited",
+          ],
+          "type": "indentation_exception",
+        },
+      ],
+      "texts": [
+        "src/a.ts",
+        "▌",
+        "21 ",
+        "line-20",
+        "▌",
+        "21 ",
+        "line-20",
+        "-edited",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`edit_file tape: prompt → live → ask Diff → sealed Diff > edit-file-ask 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "1 ",
+        "export function greet() {",
+        "1 ",
+        "export function greet() {",
+        "▌",
+        "2 ",
+        "  return "",
+        "hello",
+        "";",
+        "▌",
+        "2 ",
+        "  return "",
+        "hi, world",
+        "";",
+        "3 ",
+        "}",
+        "3 ",
+        "}",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **src/hello.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **src/hello.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Replace the greeting in src/hello.ts.",
+            "Keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Replace the greeting in src/hello.ts.",
+        "Keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`edit_file tape: prompt → live → ask Diff → sealed Diff > edit-file-live 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Replace the greeting in src/hello.ts.",
+            "Keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Replace the greeting in src/hello.ts.",
+        "Keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/hello.ts",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "src/hello.ts",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`edit_file tape: prompt → live → ask Diff → sealed Diff > edit-file-ok 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Replace the greeting in src/hello.ts.",
+            "Keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Replace the greeting in src/hello.ts.",
+        "Keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/hello.ts",
+          ],
+          "type": "indication",
+        },
+        {
+          "texts": [
+            "1 ",
+            "export function greet() {",
+            "1 ",
+            "export function greet() {",
+            "▌",
+            "2 ",
+            "  return "",
+            "hello",
+            "";",
+            "▌",
+            "2 ",
+            "  return "",
+            "hi, world",
+            "";",
+            "3 ",
+            "}",
+            "3 ",
+            "}",
+          ],
+          "type": "indentation_exception",
+        },
+      ],
+      "texts": [
+        "src/hello.ts",
+        "1 ",
+        "export function greet() {",
+        "1 ",
+        "export function greet() {",
+        "▌",
+        "2 ",
+        "  return "",
+        "hello",
+        "";",
+        "▌",
+        "2 ",
+        "  return "",
+        "hi, world",
+        "";",
+        "3 ",
+        "}",
+        "3 ",
+        "}",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`write_file caption sits to the right of the path > write-file-ok-caption 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Write src/hello.ts with a one-line greeting",
+            "the rest of the app can import.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Write src/hello.ts with a one-line greeting",
+        "the rest of the app can import.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/hello.ts",
+            "Add a greeting",
+          ],
+          "type": "indication",
+        },
+        {
+          "texts": [
+            "▌",
+            "1 ",
+            "export const greeting = "hello";",
+          ],
+          "type": "indentation_exception",
+        },
+      ],
+      "texts": [
+        "src/hello.ts",
+        "Add a greeting",
+        "▌",
+        "1 ",
+        "export const greeting = "hello";",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`write_file tape: prompt → live → ask pin → sealed Diff > write-file-ask 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "export const greeting = "hello";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · create **src/hello.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · create **src/hello.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Write src/hello.ts with a one-line greeting",
+            "the rest of the app can import.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Write src/hello.ts with a one-line greeting",
+        "the rest of the app can import.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`write_file tape: prompt → live → ask pin → sealed Diff > write-file-live 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Write src/hello.ts with a one-line greeting",
+            "the rest of the app can import.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Write src/hello.ts with a one-line greeting",
+        "the rest of the app can import.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/hello.ts",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "src/hello.ts",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`write_file tape: prompt → live → ask pin → sealed Diff > write-file-ok 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Write src/hello.ts with a one-line greeting",
+            "the rest of the app can import.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Write src/hello.ts with a one-line greeting",
+        "the rest of the app can import.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/hello.ts",
+          ],
+          "type": "indication",
+        },
+        {
+          "texts": [
+            "▌",
+            "1 ",
+            "export const greeting = "hello";",
+          ],
+          "type": "indentation_exception",
+        },
+      ],
+      "texts": [
+        "src/hello.ts",
+        "▌",
+        "1 ",
+        "export const greeting = "hello";",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;

@@ -1,0 +1,1361 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`shell ask > shell-ask 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Ask · run command",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [
+      " ",
+    ],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "ask-line:0",
+          "name": " ",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · run command",
+      "git status --short",
+      "Ask · run command",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`shell ask > shell-ask-long 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Ask · run command",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [
+      " ",
+      " ",
+    ],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "ask-line:0",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:1",
+          "name": " ",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · run command",
+      "ls && echo '=== server ==='",
+      "head -80 ./harness-server/README.md 2> /dev/null",
+      "Ask · run command",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`shell caption: collapsed description, expand command > shell-ok-caption 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "$",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Show working tree status",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "git",
+            "status",
+            "--short",
+            " M src/tui/tea.ts",
+            " M src/tui/identity.ts",
+            "?? src/tui/work-cells.ts",
+            "?? packages/harness/src/tui/__visual__/plans/shell-scheme.md",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "$",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Show working tree status",
+        "Show working tree status",
+        "git",
+        "status",
+        "--short",
+        " M src/tui/tea.ts",
+        " M src/tui/identity.ts",
+        "?? src/tui/work-cells.ts",
+        "?? packages/harness/src/tui/__visual__/plans/shell-scheme.md",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`shell caption: collapsed description, expand command > shell-ok-caption-expanded 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "$",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Show working tree status",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "git",
+            "status",
+            "--short",
+            " M src/tui/tea.ts",
+            " M src/tui/identity.ts",
+            "?? src/tui/work-cells.ts",
+            "?? packages/harness/src/tui/__visual__/plans/shell-scheme.md",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": false,
+      "gutter": {
+        "glyph": "$",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Show working tree status",
+        "Show working tree status",
+        "git",
+        "status",
+        "--short",
+        " M src/tui/tea.ts",
+        " M src/tui/identity.ts",
+        "?? src/tui/work-cells.ts",
+        "?? packages/harness/src/tui/__visual__/plans/shell-scheme.md",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`shell color: ANSI stdout is theme ink > shell-ok-color 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "$",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "git",
+            "status",
+            "--short",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            " M src/tui/tea.ts",
+            "?? src/tui/work-cells.ts",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": false,
+      "gutter": {
+        "glyph": "$",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "git",
+        "status",
+        "--short",
+        "git",
+        "status",
+        "--short",
+        " M src/tui/tea.ts",
+        "?? src/tui/work-cells.ts",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`shell command with an embedded language colors the heredoc body > shell-embed-py 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Ask · run command",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [
+      " ",
+      " ",
+      " ",
+      " ",
+    ],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "ask-line:0",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:1",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:2",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:3",
+          "name": " ",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · run command",
+      "cat > greet.py << 'EOF'",
+      "def greet(name):",
+      "print(f'hi {name}')",
+      "EOF",
+      "Ask · run command",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Write a python greeter to greet.py",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Write a python greeter to greet.py",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`shell fail > shell-fail 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "$",
+            "kind": "top",
+          },
+          "role": "error",
+          "texts": [
+            "git",
+            "status",
+            "--short",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "error",
+          "texts": [
+            "fatal: not a git repository",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "$",
+        "kind": "top",
+      },
+      "role": "error",
+      "texts": [
+        "git",
+        "status",
+        "--short",
+        "git",
+        "status",
+        "--short",
+        "fatal: not a git repository",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`shell pair > shell-pair 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "$",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "git",
+            "status",
+            "--short",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            " M src/tui/tea.ts",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "$",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "git",
+        "status",
+        "--short",
+        "git",
+        "status",
+        "--short",
+        " M src/tui/tea.ts",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "$",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "git",
+            "diff",
+            "--stat",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            " src/tui/tea.ts | 2 +-",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "$",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "git",
+        "diff",
+        "--stat",
+        "git",
+        "diff",
+        "--stat",
+        " src/tui/tea.ts | 2 +-",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`shell tape: prompt → live → seal > shell-live 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "git",
+            "status",
+            "--short",
+            "/tmp/p",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "F",
+            "A",
+            "I",
+            "L",
+            "s",
+            "r",
+            "c",
+            "/",
+            "f",
+            "o",
+            "o",
+            ".",
+            "t",
+            "e",
+            "s",
+            "t",
+            ".",
+            "t",
+            "s",
+            "Error: boom",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": false,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "git",
+        "status",
+        "--short",
+        "/tmp/p",
+        "git",
+        "status",
+        "--short",
+        "/tmp/p",
+        "F",
+        "A",
+        "I",
+        "L",
+        "s",
+        "r",
+        "c",
+        "/",
+        "f",
+        "o",
+        "o",
+        ".",
+        "t",
+        "e",
+        "s",
+        "t",
+        ".",
+        "t",
+        "s",
+        "Error: boom",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`shell tape: prompt → live → seal > shell-ok 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "$",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "git",
+            "status",
+            "--short",
+            "/tmp/p",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            " M src/tui/tea.ts",
+            " M src/tui/identity.ts",
+            "?? src/tui/work-cells.ts",
+            "?? packages/harness/src/tui/__visual__/plans/shell-scheme.md",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "$",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "git",
+        "status",
+        "--short",
+        "/tmp/p",
+        "git",
+        "status",
+        "--short",
+        "/tmp/p",
+        " M src/tui/tea.ts",
+        " M src/tui/identity.ts",
+        "?? src/tui/work-cells.ts",
+        "?? packages/harness/src/tui/__visual__/plans/shell-scheme.md",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`shell tape: prompt → live → seal > shell-ok-expanded 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Run git status --short so I can see",
+            "what's still dirty in the TUI.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Run git status --short so I can see",
+        "what's still dirty in the TUI.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "$",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "git",
+            "status",
+            "--short",
+            "/tmp/p",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            " M src/tui/tea.ts",
+            " M src/tui/identity.ts",
+            "?? src/tui/work-cells.ts",
+            "?? packages/harness/src/tui/__visual__/plans/shell-scheme.md",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": false,
+      "gutter": {
+        "glyph": "$",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "git",
+        "status",
+        "--short",
+        "/tmp/p",
+        "git",
+        "status",
+        "--short",
+        "/tmp/p",
+        " M src/tui/tea.ts",
+        " M src/tui/identity.ts",
+        "?? src/tui/work-cells.ts",
+        "?? packages/harness/src/tui/__visual__/plans/shell-scheme.md",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;

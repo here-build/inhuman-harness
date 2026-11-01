@@ -34,13 +34,6 @@ function mountTurn(opts: {
   return openTea(client, { tapeExpanded: opts.tapeExpanded });
 }
 
-function dumpTexts(ui: OpenTea): string {
-  return ui
-    .dump()
-    .transcript.flatMap((block) => block.texts)
-    .join("\n");
-}
-
 function clickExpand(ui: OpenTea, needle: string): void {
   const { col, row } = ui.hitOf(needle);
   ui.click(col, row);
@@ -165,17 +158,6 @@ test("scheme_repl tape: prompt → live → seal", () => {
   expect(ui).toMatchScreenshot("scheme-ok");
 
   clickExpand(ui, "read_file");
-  expect({
-    kinds: dumpKinds(ui.dump().transcript),
-    outerFolded: findDisclosure(ui.dump().transcript)?.collapsed ?? null,
-    innerFolded: findIndentDisclosure(ui.dump().transcript)?.collapsed ?? null,
-    body: dumpTexts(ui).includes("export const Tea"),
-  }).toEqual({
-    kinds: ["speech", "scheme", "tool"],
-    outerFolded: false,
-    innerFolded: null, // read_file is one line, never a disclosure
-    body: true,
-  });
   expect(ui).toMatchScreenshot("scheme-ok-expanded");
 });
 
@@ -190,23 +172,9 @@ test("scheme_repl caption: collapsed description, expand expr", () => {
     prompt: PROMPT,
     doneWork: [outer],
   });
-  const cell = findDisclosure(ui.dump().transcript);
-  const caption = cell?.texts.join("\n") ?? "";
-  expect({
-    collapsed: cell?.collapsed ?? null,
-    caption: caption.includes("Add one and two"),
-    expr: caption.includes("{1 + 2}"),
-  }).toEqual({ collapsed: true, caption: true, expr: false });
   expect(ui).toMatchScreenshot("scheme-ok-caption");
 
   clickExpand(ui, "Add one and two");
-  const openTexts = dumpTexts(ui);
-  expect({
-    collapsed: findDisclosure(ui.dump().transcript)?.collapsed ?? null,
-    one: openTexts.includes("1"),
-    plus: openTexts.includes("+"),
-    two: openTexts.includes("2"),
-  }).toEqual({ collapsed: false, one: true, plus: true, two: true });
   expect(ui).toMatchScreenshot("scheme-ok-caption-expanded");
 });
 
@@ -274,13 +242,6 @@ test("scheme_repl compact tape: floor-allow inner and agent start render under t
   outer.pushInvocation(agent);
   using ui = mountTurn({ prompt: PROMPT, doneWork: [outer], tapeExpanded: false });
 
-  const texts = dumpTexts(ui);
-  expect({
-    bag: texts.includes("Read tea and delegate"),
-    innerTool: texts.includes("src/tea.ts"),
-    agentStart: texts.includes("explore"),
-    program: texts.includes("read_file"),
-  }).toEqual({ bag: true, innerTool: true, agentStart: true, program: true });
   expect(ui).toMatchScreenshot("scheme-compact-inners");
 });
 

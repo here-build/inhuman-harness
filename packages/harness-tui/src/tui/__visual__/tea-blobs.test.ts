@@ -6,7 +6,7 @@
 import { FileMutateToolJob, SessionSystemPrompt, storedBlobJson } from "@inhuman.tools/harness-model";
 import { expect, test } from "vitest";
 
-import { dumpTexts, localClient, openTea, seatTurn, type OpenTea } from "../__visual__/_helpers.js";
+import { dumpTexts, localClient, openTea, seatTurn, type OpenTea } from "./_helpers.js";
 
 const SHA = "c".repeat(64);
 const file = `${Array.from({ length: 40 }, (_, i) => `line-${String(i).padStart(2, "0")}`).join("\n")}\n`;

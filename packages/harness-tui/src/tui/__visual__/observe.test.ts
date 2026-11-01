@@ -1,7 +1,7 @@
 import { SessionSystemPrompt, SystemToolJob } from "@inhuman.tools/harness-model";
 import { expect, test } from "vitest";
 
-import { dumpTexts, findDisclosure, localClient, normalizeDump, openTea, seatTurn, type OpenTea } from "./_helpers.js";
+import { localClient, openTea, seatTurn } from "./_helpers.js";
 
 function mount(prompt: string, leaf: SystemToolJob, opts?: { ask?: boolean }) {
   const client = localClient();
@@ -21,21 +21,6 @@ function mount(prompt: string, leaf: SystemToolJob, opts?: { ask?: boolean }) {
   return openTea(client);
 }
 
-function observeFace(ui: OpenTea) {
-  const frame = ui.dump();
-  const texts = dumpTexts(frame.transcript);
-  const cell = findDisclosure(frame.transcript);
-  return {
-    collapsed: cell?.collapsed ?? null,
-    kinds: frame.transcript.filter((block) => block.band !== "gap").map((block) => block.type ?? "unknown"),
-    annotation: frame.composer.annotation,
-    ask: frame.ask,
-    identity: texts.includes("Read **src/tea.ts**") || texts.includes("Read **README.md**"),
-    path: texts.includes("src/tea.ts") || texts.includes("README.md"),
-    body: texts.includes("export function openTea") || texts.includes("# Harness"),
-  };
-}
-
 test("read_file", () => {
   const job = new SystemToolJob({
     toolCallId: "r",
@@ -47,15 +32,6 @@ test("read_file", () => {
   job.receiptJson = '{"ok":true,"text":"export function openTea() {}\\nexport class Tea {}"}';
   job.completed = true;
   expect(ui).toMatchScreenshot("read-file-ok");
-  expect(observeFace(ui)).toEqual({
-    collapsed: null,
-    kinds: ["box", "box"],
-    annotation: "",
-    ask: [],
-    identity: true,
-    path: true,
-    body: false,
-  });
 });
 
 test("read_file ask", () => {
@@ -66,20 +42,6 @@ test("read_file ask", () => {
     policyResult: "ask",
   });
   using ui = mount("Read src/tea.ts and tell me the exports\nthe composer face actually uses.", job, { ask: true });
-  const frame = ui.dump();
-  expect({
-    ...normalizeDump(frame),
-    ask: frame.ask,
-    wire: dumpTexts(frame.transcript).includes("read_file"),
-  }).toEqual({
-    kinds: ["speech"],
-    collapsed: null,
-    gutter: null,
-    role: null,
-    annotation: "Ask · Read **src/tea.ts**",
-    ask: [],
-    wire: false,
-  });
   expect(ui).toMatchScreenshot("read-file-ask");
 });
 
@@ -91,20 +53,6 @@ test("grep ask", () => {
     policyResult: "ask",
   });
   using ui = mount("Grep for TODO in packages/harness/src\nand show the matching lines.", job, { ask: true });
-  const frame = ui.dump();
-  expect({
-    ...normalizeDump(frame),
-    ask: frame.ask,
-    wire: dumpTexts(frame.transcript).includes("grep  TODO"),
-  }).toEqual({
-    kinds: ["speech"],
-    collapsed: null,
-    gutter: null,
-    role: null,
-    annotation: "Ask · grep **TODO** in **packages/harness/src**",
-    ask: [],
-    wire: false,
-  });
   expect(ui).toMatchScreenshot("grep-ask");
 });
 
@@ -129,14 +77,5 @@ test("read_file markdown", () => {
     completed: true,
   });
   using ui = mount("Read README.md and summarize\nwhat Tea is supposed to be.", job);
-  expect(observeFace(ui)).toEqual({
-    collapsed: null,
-    kinds: ["box", "box"],
-    annotation: "",
-    ask: [],
-    identity: true,
-    path: true,
-    body: false,
-  });
   expect(ui).toMatchScreenshot("read-file-md");
 });

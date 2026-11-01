@@ -13,7 +13,7 @@ import { Client, ProjectPlexus } from "@inhuman.tools/harness-sdk";
 import type { DecodedKeyEvent } from "@inhuman.tools/quickdraw/runtime";
 import { expect, test } from "vitest";
 
-import { answerLikeDaemon } from "./answer-door.js";
+import { answerLikeDaemon } from "../__tests__/answer-door.js";
 import { ackAnnotation, ackChoices, ackPromptModel, ackVariant } from "../ack-prompt.js";
 import { askCoverShortcuts } from "../ask-shortcuts.js";
 import { Tea } from "../tea.js";

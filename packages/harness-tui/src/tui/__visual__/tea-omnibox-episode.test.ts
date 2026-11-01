@@ -18,8 +18,8 @@ import {
 import { Client, ProjectPlexus } from "@inhuman.tools/harness-sdk";
 import { expect, test } from "vitest";
 
-import { answerLikeDaemon } from "./answer-door.js";
-import { dumpPaint } from "../__visual__/_helpers.js";
+import { dumpPaint } from "./_helpers.js";
+import { answerLikeDaemon } from "../__tests__/answer-door.js";
 import { Tea } from "../tea.js";
 
 type RpcCall = { method: string; params: unknown };

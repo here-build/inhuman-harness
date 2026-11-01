@@ -1,0 +1,8527 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`/connect picker — rows, health, dim remainder, identity, same-name keys > connect-backspace 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "openai",
+    "draft": "/connect ",
+    "glyphs": [
+      " ",
+      "›",
+      " ",
+    ],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "choice:0:openrouter",
+          "name": "openrouter",
+        },
+        {
+          "key": "choice:1:openai",
+          "name": "openai",
+        },
+        {
+          "key": "choice:2:chatgpt",
+          "name": "chatgpt",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:1:openai",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "openrouter",
+      "openai",
+      "chatgpt",
+      "/connect ",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`/connect picker — rows, health, dim remainder, identity, same-name keys > connect-filter-open 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": " openrouter",
+    "draft": "/connect",
+    "glyphs": [
+      "›",
+      " ",
+      " ",
+    ],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "choice:0:openrouter",
+          "name": "openrouter",
+        },
+        {
+          "key": "choice:1:openai",
+          "name": "openai",
+        },
+        {
+          "key": "choice:2:chatgpt",
+          "name": "chatgpt",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:openrouter",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "openrouter",
+      "openai",
+      "chatgpt",
+      "/connect",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`/connect picker — rows, health, dim remainder, identity, same-name keys > connect-filter-openai 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": " openai",
+    "draft": "/connect",
+    "glyphs": [
+      " ",
+      "›",
+      " ",
+    ],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "choice:0:openrouter",
+          "name": "openrouter",
+        },
+        {
+          "key": "choice:1:openai",
+          "name": "openai",
+        },
+        {
+          "key": "choice:2:chatgpt",
+          "name": "chatgpt",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:1:openai",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "openrouter",
+      "openai",
+      "chatgpt",
+      "/connect",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`/connect picker — rows, health, dim remainder, identity, same-name keys > connect-health 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": " openrouter",
+    "draft": "/connect",
+    "glyphs": [
+      "›",
+      " ",
+      " ",
+    ],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "description": "openai-compat handshake failed: 401",
+          "key": "choice:0:openrouter",
+          "name": "openrouter",
+          "status": "failed",
+        },
+        {
+          "key": "choice:1:openai",
+          "name": "openai",
+        },
+        {
+          "key": "choice:2:chatgpt",
+          "name": "chatgpt",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:openrouter",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "openrouter · failed                    openai-compat handshake failed: 401",
+      "openai",
+      "chatgpt",
+      "/connect",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`/connect picker — rows, health, dim remainder, identity, same-name keys > connect-tab-work 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "/connect Work",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [
+      "Enter: select",
+      "Ctrl-x: Remove connection",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "kv/set",
+            },
+            {
+              "displayName": "Remove connection",
+              "hotkey": "control-x",
+              "name": "connect/drop",
+            },
+          ],
+          "key": "choice:0:Work",
+          "name": "Work",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:Work",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Work",
+      "/connect Work",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`/connect picker — rows, health, dim remainder, identity, same-name keys > connect-twins 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": " OpenAI",
+    "draft": "/connect",
+    "glyphs": [
+      "›",
+      " ",
+    ],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "choice:0:OpenAI",
+          "name": "OpenAI",
+        },
+        {
+          "key": "choice:1:OpenAI",
+          "name": "OpenAI",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:OpenAI",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "OpenAI",
+      "OpenAI",
+      "/connect",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`/connect picker — rows, health, dim remainder, identity, same-name keys > connect-type-c 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "hatgpt",
+    "draft": "/connect c",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "choice:2:chatgpt",
+          "name": "chatgpt",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:2:chatgpt",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "chatgpt",
+      "/connect c",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`/connect picker — rows, health, dim remainder, identity, same-name keys > connect-type-o 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "penai",
+    "draft": "/connect o",
+    "glyphs": [
+      " ",
+      "›",
+    ],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "choice:0:openrouter",
+          "name": "openrouter",
+        },
+        {
+          "key": "choice:1:openai",
+          "name": "openai",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:1:openai",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "openrouter",
+      "openai",
+      "/connect o",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`/connect picker — rows, health, dim remainder, identity, same-name keys > connect-wired 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": " Work",
+    "draft": "/connect",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [
+      "Enter: select",
+      "Ctrl-x: Remove connection",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "kv/set",
+            },
+            {
+              "displayName": "Remove connection",
+              "hotkey": "control-x",
+              "name": "connect/drop",
+            },
+          ],
+          "key": "choice:0:Work",
+          "name": "Work",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:Work",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Work",
+      "/connect",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`/model remainder chrome — typed-id hint > model-remainder 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "/model grok-4",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [
+      "Enter: Set model",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "Set model",
+          "actions": [
+            {
+              "displayName": "Set model",
+              "hotkey": "Enter",
+              "name": "kv/set",
+            },
+          ],
+          "description": "Set model",
+          "key": "choice:0:Set model",
+          "name": "Set model",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:Set model",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Set model",
+      "/model grok-4",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`agents compact meter — live calls, no drawer > agents-compact-live 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Fan out QA checks",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "parallel",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Fan out QA checks",
+        "Fan out QA checks",
+        "(",
+        "parallel",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "checking a",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check a
+haiku",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "checking a",
+            "qa ",
+            "checking a",
+            "check a
+haiku",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "checking a",
+        "qa ",
+        "checking a",
+        "check a
+haiku",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "needs you",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check b",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "needs you",
+            "qa ",
+            "needs you",
+            "check b",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "needs you",
+        "qa ",
+        "needs you",
+        "check b",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore ",
+            "mapping the repo",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "map the repo
+haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "explore ",
+        "mapping the repo",
+        "explore ",
+        "mapping the repo",
+        "map the repo
+haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "chief",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "steer",
+            "Response",
+            "steered",
+            "steered",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "chief",
+        "chief",
+        "steer",
+        "Response",
+        "steered",
+        "steered",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools and waiting for QA, QA, and Explore agents",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`agents drawer — current session has no peek > agents-drawer-current 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Fan out QA checks",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "parallel",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Fan out QA checks",
+        "Fan out QA checks",
+        "(",
+        "parallel",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "checking a",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check a
+haiku",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "checking a",
+            "qa ",
+            "checking a",
+            "check a
+haiku",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "checking a",
+        "qa ",
+        "checking a",
+        "check a
+haiku",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "needs you",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check b",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "needs you",
+            "qa ",
+            "needs you",
+            "check b",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "needs you",
+        "qa ",
+        "needs you",
+        "check b",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore ",
+            "mapping the repo",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "map the repo
+haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "explore ",
+        "mapping the repo",
+        "explore ",
+        "mapping the repo",
+        "map the repo
+haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "chief",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "steer",
+            "Response",
+            "steered",
+            "steered",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "chief",
+        "chief",
+        "steer",
+        "Response",
+        "steered",
+        "steered",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools and waiting for QA, QA, and Explore agents",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`agents drawer — dive-wide recap > agents-drawer-dive 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Fan out QA checks",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "parallel",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Fan out QA checks",
+        "Fan out QA checks",
+        "(",
+        "parallel",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "checking a",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check a
+haiku",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "checking a",
+            "qa ",
+            "checking a",
+            "check a
+haiku",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "checking a",
+        "qa ",
+        "checking a",
+        "check a
+haiku",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "needs you",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check b",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "needs you",
+            "qa ",
+            "needs you",
+            "check b",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "needs you",
+        "qa ",
+        "needs you",
+        "check b",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore ",
+            "mapping the repo",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "map the repo
+haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "explore ",
+        "mapping the repo",
+        "explore ",
+        "mapping the repo",
+        "map the repo
+haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "chief",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "steer",
+            "Response",
+            "steered",
+            "steered",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "chief",
+        "chief",
+        "steer",
+        "Response",
+        "steered",
+        "steered",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools and waiting for QA, QA, and Explore agents",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`agents drawer — hover rich subagent plaque > agents-subagent-rich 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Fan out QA checks",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "parallel",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Fan out QA checks",
+        "Fan out QA checks",
+        "(",
+        "parallel",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "checking a",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check a
+haiku",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "checking a",
+            "qa ",
+            "checking a",
+            "check a
+haiku",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "checking a",
+        "qa ",
+        "checking a",
+        "check a
+haiku",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "needs you",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check b",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "needs you",
+            "qa ",
+            "needs you",
+            "check b",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "needs you",
+        "qa ",
+        "needs you",
+        "check b",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore ",
+            "mapping the repo",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "map the repo
+haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "explore ",
+        "mapping the repo",
+        "explore ",
+        "mapping the repo",
+        "map the repo
+haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "chief",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "steer",
+            "Response",
+            "steered",
+            "steered",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "chief",
+        "chief",
+        "steer",
+        "Response",
+        "steered",
+        "steered",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "texts": [
+        "from explore: found AuthForm",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools and waiting for QA, QA, and Explore agents",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`agents drawer — long description clamps in the peek > agents-drawer-clamp 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Fan out QA checks",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "parallel",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Fan out QA checks",
+        "Fan out QA checks",
+        "(",
+        "parallel",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "checking a",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check a
+haiku",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "checking a",
+            "qa ",
+            "checking a",
+            "check a
+haiku",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "checking a",
+        "qa ",
+        "checking a",
+        "check a
+haiku",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "needs you",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check b",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "needs you",
+            "qa ",
+            "needs you",
+            "check b",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "needs you",
+        "qa ",
+        "needs you",
+        "check b",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore ",
+            "mapping the repo",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "map the repo
+haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "explore ",
+        "mapping the repo",
+        "explore ",
+        "mapping the repo",
+        "map the repo
+haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "chief",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "steer",
+            "Response",
+            "steered",
+            "steered",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "chief",
+        "chief",
+        "steer",
+        "Response",
+        "steered",
+        "steered",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools and waiting for QA, QA, and Explore agents",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`agents drawer — nested subagent focused > agents-subagent-nested 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Fan out QA checks",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "parallel",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Fan out QA checks",
+        "Fan out QA checks",
+        "(",
+        "parallel",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "checking a",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check a
+haiku",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "checking a",
+            "qa ",
+            "checking a",
+            "check a
+haiku",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "checking a",
+        "qa ",
+        "checking a",
+        "check a
+haiku",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "needs you",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check b",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "needs you",
+            "qa ",
+            "needs you",
+            "check b",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "needs you",
+        "qa ",
+        "needs you",
+        "check b",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore ",
+            "mapping the repo",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "map the repo
+haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "explore ",
+        "mapping the repo",
+        "explore ",
+        "mapping the repo",
+        "map the repo
+haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "chief",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "steer",
+            "Response",
+            "steered",
+            "steered",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "chief",
+        "chief",
+        "steer",
+        "Response",
+        "steered",
+        "steered",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools and waiting for QA, QA, and Explore agents",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`agents drawer — open overlay > agents-drawer-small 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Fan out QA checks",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "parallel",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Fan out QA checks",
+        "Fan out QA checks",
+        "(",
+        "parallel",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "checking a",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check a
+haiku",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "checking a",
+            "qa ",
+            "checking a",
+            "check a
+haiku",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "checking a",
+        "qa ",
+        "checking a",
+        "check a
+haiku",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "needs you",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check b",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "needs you",
+            "qa ",
+            "needs you",
+            "check b",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "needs you",
+        "qa ",
+        "needs you",
+        "check b",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore ",
+            "mapping the repo",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "map the repo
+haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "explore ",
+        "mapping the repo",
+        "explore ",
+        "mapping the repo",
+        "map the repo
+haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "chief",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "steer",
+            "Response",
+            "steered",
+            "steered",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "chief",
+        "chief",
+        "steer",
+        "Response",
+        "steered",
+        "steered",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools and waiting for QA, QA, and Explore agents",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`agents drawer — subagent ask plaque > agents-subagent-ask 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Fan out QA checks",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "parallel",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Fan out QA checks",
+        "Fan out QA checks",
+        "(",
+        "parallel",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "checking a",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check a
+haiku",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "checking a",
+            "qa ",
+            "checking a",
+            "check a
+haiku",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "checking a",
+        "qa ",
+        "checking a",
+        "check a
+haiku",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "needs you",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check b",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "needs you",
+            "qa ",
+            "needs you",
+            "check b",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "needs you",
+        "qa ",
+        "needs you",
+        "check b",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore ",
+            "mapping the repo",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "map the repo
+haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "explore ",
+        "mapping the repo",
+        "explore ",
+        "mapping the repo",
+        "map the repo
+haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "chief",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "steer",
+            "Response",
+            "steered",
+            "steered",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "chief",
+        "chief",
+        "steer",
+        "Response",
+        "steered",
+        "steered",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools and waiting for QA, QA, and Explore agents",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`agents drawer — subagent sneak-peek overlay > agents-drawer-preview 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⒪",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Fan out QA checks",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "(",
+            "parallel",
+            ")",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⒪",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Fan out QA checks",
+        "Fan out QA checks",
+        "(",
+        "parallel",
+        ")",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "checking a",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check a
+haiku",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "checking a",
+            "qa ",
+            "checking a",
+            "check a
+haiku",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "checking a",
+        "qa ",
+        "checking a",
+        "check a
+haiku",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "children": [
+            {
+              "gutter": {
+                "kind": "spinner",
+                "profile": "tool",
+                "rows": "top",
+              },
+              "role": "foreground",
+              "texts": [
+                "qa ",
+                "needs you",
+              ],
+              "type": "indication",
+            },
+            {
+              "gutter": {
+                "glyph": "┃",
+                "kind": "rule",
+              },
+              "role": "foreground",
+              "texts": [
+                "check b",
+              ],
+              "type": "indication",
+            },
+          ],
+          "collapsed": false,
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "qa ",
+            "needs you",
+            "qa ",
+            "needs you",
+            "check b",
+          ],
+          "type": "disclosure",
+        },
+      ],
+      "texts": [
+        "qa ",
+        "needs you",
+        "qa ",
+        "needs you",
+        "check b",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "explore ",
+            "mapping the repo",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "map the repo
+haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "explore ",
+        "mapping the repo",
+        "explore ",
+        "mapping the repo",
+        "map the repo
+haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "chief",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "steer",
+            "Response",
+            "steered",
+            "steered",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "chief",
+        "chief",
+        "steer",
+        "Response",
+        "steered",
+        "steered",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools and waiting for QA, QA, and Explore agents",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`agents empty — idle named bot does not occupy chrome > agents-empty 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [],
+  "wait": [],
+}
+`;
+
+exports[`ask Diff peek casts transparent over scrolled tape > ask-cover-over-tape 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **a.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **a.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Pass 0. The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Pass 0. The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Pass 0. AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Pass 1. The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Pass 1. The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Pass 1. AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Pass 2. The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Pass 2. The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Pass 2. AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Pass 3. The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Pass 3. The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Pass 3. AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The greeting constant in a.ts is stale. Change it to 2",
+            "and keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The greeting constant in a.ts is stale. Change it to 2",
+        "and keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`ask cover affix-clips an ultra-long filename > ask-cover-long-edit 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **generated-super-califragilistic-expialidocious-component-module.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **generated-super-califragilistic-expialidocious-component-module.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The greeting constant in a.ts is stale. Change it to 2",
+            "and keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The greeting constant in a.ts is stale. Change it to 2",
+        "and keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`ask cover shadows a frozen draft and swaps Enter/Esc hints > ask-cover 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **a.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **a.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The greeting constant in a.ts is stale. Change it to 2",
+            "and keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The greeting constant in a.ts is stale. Change it to 2",
+        "and keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`ask cover shadows a frozen draft and swaps Enter/Esc hints > ask-cover-comment 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **a.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "keep the export",
+    "glyphs": [],
+    "hints": [
+      "Ctrl+Enter: Allow",
+      "Ctrl+Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **a.ts**",
+      "keep the export",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The greeting constant in a.ts is stale. Change it to 2",
+            "and keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The greeting constant in a.ts is stale. Change it to 2",
+        "and keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`ask queue: tape stops at the pointer; pin holds the Diff > ask-queue 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **src/session.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **src/session.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch AuthForm, login, session, and the cookie helper",
+            "in that order. I'll confirm each write.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch AuthForm, login, session, and the cookie helper",
+        "in that order. I'll confirm each write.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/AuthForm.ts",
+          ],
+          "type": "indication",
+        },
+        {
+          "texts": [
+            "▌",
+            "1 ",
+            "export const a = ",
+            "1",
+            ";",
+            "▌",
+            "1 ",
+            "export const a = ",
+            "2",
+            ";",
+          ],
+          "type": "indentation_exception",
+        },
+      ],
+      "texts": [
+        "src/AuthForm.ts",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/login.ts  keep the export",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "src/login.ts  keep the export",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`ask queue: tape stops at the pointer; pin holds the Diff > ask-queue-comment 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **src/session.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "keep the export",
+    "glyphs": [],
+    "hints": [
+      "Ctrl+Enter: Allow",
+      "Ctrl+Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **src/session.ts**",
+      "keep the export",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch AuthForm, login, session, and the cookie helper",
+            "in that order. I'll confirm each write.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch AuthForm, login, session, and the cookie helper",
+        "in that order. I'll confirm each write.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/AuthForm.ts",
+          ],
+          "type": "indication",
+        },
+        {
+          "texts": [
+            "▌",
+            "1 ",
+            "export const a = ",
+            "1",
+            ";",
+            "▌",
+            "1 ",
+            "export const a = ",
+            "2",
+            ";",
+          ],
+          "type": "indentation_exception",
+        },
+      ],
+      "texts": [
+        "src/AuthForm.ts",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "src/login.ts  keep the export",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "src/login.ts  keep the export",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`busy turn — queue hint, deck extender, slash owns the stack > steer-queue-deck 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [
+      "1",
+    ],
+    "hints": [
+      "Enter: steer first",
+      "Esc: retract last queued",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "ask-line:0",
+          "name": " ",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Also rotate the cookie name on logout.",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⁖",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "thought for <1s",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "The 401 is the old hash, not the session cookie.",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⁖",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "thought for <1s",
+        "T",
+        "h",
+        "e",
+        "4",
+        "0",
+        "1",
+        "i",
+        "s",
+        "t",
+        "h",
+        "e",
+        "o",
+        "l",
+        "d",
+        "h",
+        "a",
+        "s",
+        "h",
+        ",",
+        "n",
+        "o",
+        "t",
+        "t",
+        "h",
+        "e",
+        "s",
+        "e",
+        "s",
+        "s",
+        "i",
+        "o",
+        "n",
+        "c",
+        "o",
+        "o",
+        "k",
+        "i",
+        "e",
+        ".",
+        "thought for <1s",
+        "The 401 is the old hash, not the session cookie.",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm still reads AUTH",
+        "SECRET from the module",
+        "scope. I'll move the lookup into",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Keep AUTH",
+            "SECRET out of the module scope.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Keep AUTH",
+        "SECRET out of the module scope.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "responding...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`connect.scm identity / funds / health > connect-identity 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": " Grok",
+    "draft": "/connect",
+    "glyphs": [
+      "›",
+      " ",
+      " ",
+    ],
+    "hints": [
+      "Enter: select",
+      "Ctrl-x: Remove connection",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "kv/set",
+            },
+            {
+              "displayName": "Remove connection",
+              "hotkey": "control-x",
+              "name": "connect/drop",
+            },
+          ],
+          "description": "User",
+          "key": "choice:0:Grok",
+          "name": "Grok",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "kv/set",
+            },
+            {
+              "displayName": "Remove connection",
+              "hotkey": "control-x",
+              "name": "connect/drop",
+            },
+          ],
+          "annotation": "$74.75",
+          "description": "sk-or-...999",
+          "key": "choice:1:OpenRouter",
+          "name": "OpenRouter",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "kv/set",
+            },
+            {
+              "displayName": "Remove connection",
+              "hotkey": "control-x",
+              "name": "connect/drop",
+            },
+          ],
+          "description": "The key was refused. Reconnect.",
+          "key": "choice:2:openrouter",
+          "name": "openrouter",
+          "status": "failed",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:Grok",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Grok                                                                  User",
+      "OpenRouter · $74.75                                           sk-or-...999",
+      "openrouter · failed                        The key was refused. Reconnect.",
+      "/connect",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`double-Esc — arm / disarm / clear > esc-armed 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "Also check whether the cookie name needs to rotate when AUTH_SECRET changes.",
+    "glyphs": [],
+    "hints": [
+      "Esc: clear",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Also check whether the cookie name needs to rotate when AUTH_SECRET changes.",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`double-Esc — arm / disarm / clear > esc-cleared 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`empty shell — two sites, empty transcript, empty draft > empty-shell 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [],
+  "wait": [],
+}
+`;
+
+exports[`failed head — omnibox + transcript error > failed-head 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Resume the interrupted turn",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "role": "error",
+      "texts": [
+        "openai-compat completion failed: 426 CLI version (none)",
+      ],
+      "type": "text",
+    },
+  ],
+}
+`;
+
+exports[`failed wire — connection annotation > failed-wire 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "grok",
+    ],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "role": "error",
+      "texts": [
+        "The key was refused. Reconnect.",
+      ],
+      "type": "text",
+    },
+  ],
+}
+`;
+
+exports[`first-ask throttle paints ask chrome while the draft stays live > ask-throttle 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "still looking at AuthForm",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "still looking at AuthForm",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The greeting constant in a.ts is stale. Change it to 2",
+            "and keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The greeting constant in a.ts is stale. Change it to 2",
+        "and keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`live then seal — thought/speech then thought-only > live-thought-speech 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⁖",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "thought for <1s",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "The 401 is the old hash, not the session cookie.",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⁖",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "thought for <1s",
+        "T",
+        "h",
+        "e",
+        "4",
+        "0",
+        "1",
+        "i",
+        "s",
+        "t",
+        "h",
+        "e",
+        "o",
+        "l",
+        "d",
+        "h",
+        "a",
+        "s",
+        "h",
+        ",",
+        "n",
+        "o",
+        "t",
+        "t",
+        "h",
+        "e",
+        "s",
+        "e",
+        "s",
+        "s",
+        "i",
+        "o",
+        "n",
+        "c",
+        "o",
+        "o",
+        "k",
+        "i",
+        "e",
+        ".",
+        "thought for <1s",
+        "The 401 is the old hash, not the session cookie.",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm still reads AUTH",
+        "SECRET from the module",
+        "scope. I'll move the lookup into",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "responding...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`live then seal — thought/speech then thought-only > sealed-after-live 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⁖",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "thought for <1s",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "The 401 is the old hash, not the session cookie.",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⁖",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "thought for <1s",
+        "T",
+        "h",
+        "e",
+        "4",
+        "0",
+        "1",
+        "i",
+        "s",
+        "t",
+        "h",
+        "e",
+        "o",
+        "l",
+        "d",
+        "h",
+        "a",
+        "s",
+        "h",
+        ",",
+        "n",
+        "o",
+        "t",
+        "t",
+        "h",
+        "e",
+        "s",
+        "e",
+        "s",
+        "s",
+        "i",
+        "o",
+        "n",
+        "c",
+        "o",
+        "o",
+        "k",
+        "i",
+        "e",
+        ".",
+        "thought for <1s",
+        "The 401 is the old hash, not the session cookie.",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`live then seal — thought/speech then thought-only > thought-only 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⁖",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "thought for <1s",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "The module-scope AUTH_SECRET is captured when AuthForm
+loads. Request-time read would pick up the rotate.",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⁖",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "thought for <1s",
+        "T",
+        "h",
+        "e",
+        "m",
+        "o",
+        "d",
+        "u",
+        "l",
+        "e",
+        "-",
+        "s",
+        "c",
+        "o",
+        "p",
+        "e",
+        "A",
+        "U",
+        "T",
+        "H",
+        "S",
+        "E",
+        "C",
+        "R",
+        "E",
+        "T",
+        "i",
+        "s",
+        "c",
+        "a",
+        "p",
+        "t",
+        "u",
+        "r",
+        "e",
+        "d",
+        "w",
+        "h",
+        "e",
+        "n",
+        "A",
+        "u",
+        "t",
+        "h",
+        "F",
+        "o",
+        "r",
+        "m",
+        "loads. Request-time read would pick up the rotate.",
+        "thought for <1s",
+        "The module-scope AUTH_SECRET is captured when AuthForm
+loads. Request-time read would pick up the rotate.",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`notice on fire reject > notice-dismissed 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "/go row",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [
+      "Enter: select",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "connect/adopt",
+            },
+          ],
+          "key": "choice:0:row",
+          "name": "row",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:row",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "row",
+      "/go row",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`notice on fire reject > notice-reject 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "connect/adopt: grok is not adoptable yet",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [
+      "Enter: Dismiss",
+      "Esc: Dismiss",
+    ],
+    "interactive": false,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "Dismiss",
+          "actions": [
+            {
+              "displayName": "Dismiss",
+              "hotkey": "Enter",
+              "name": "ui/resolve",
+            },
+            {
+              "displayName": "Dismiss",
+              "hotkey": "escape",
+              "name": "ui/resolve",
+            },
+          ],
+          "description": "Dismiss",
+          "key": "choice:0:Dismiss",
+          "name": "Dismiss",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:Dismiss",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Dismiss",
+      "connect/adopt: grok is not adoptable yet",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`overlay confirm — drop confirm chrome > overlay-confirm 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "Remove work?",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [
+      "Enter: Confirm",
+      "Esc: Cancel",
+    ],
+    "interactive": false,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "Confirm",
+          "actions": [
+            {
+              "displayName": "Confirm",
+              "hotkey": "Enter",
+              "name": "ui/resolve",
+            },
+            {
+              "displayName": "Cancel",
+              "hotkey": "escape",
+              "name": "ui/resolve",
+            },
+          ],
+          "description": "Confirm",
+          "key": "choice:0:Confirm",
+          "name": "Confirm",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:Confirm",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Confirm",
+      "Remove work?",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`overlay confirm — drop confirm chrome > overlay-confirm-dismissed 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "/go row",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [
+      "Enter: select",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "connect/drop",
+            },
+          ],
+          "key": "choice:0:row",
+          "name": "row",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:row",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "row",
+      "/go row",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`overlay input — Base URL / instructional / auth wait / busy dim > overlay-auth-wait 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "Waiting for the browser…",
+    "glyphs": [
+      "›",
+      " ",
+    ],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [
+        {
+          "description": "Authorize OpenRouter in the browser",
+          "href": "https://openrouter.ai/auth?code_challenge=abc",
+          "key": "choice:0:Authorize OpenRouter in the browser",
+          "name": "Authorize OpenRouter in the browser",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:Authorize OpenRouter in the browser",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Authorize OpenRouter in the browser",
+      "https://openrouter.ai/auth?code_challenge=abc",
+      "Waiting for the browser…",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`overlay input — Base URL / instructional / auth wait / busy dim > overlay-base-url 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [
+      "Enter: Base URL",
+      "Esc: Cancel",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "Base URL",
+          "actions": [
+            {
+              "displayName": "Base URL",
+              "hotkey": "Enter",
+              "name": "ui/resolve",
+            },
+            {
+              "displayName": "Cancel",
+              "hotkey": "escape",
+              "name": "ui/resolve",
+            },
+          ],
+          "description": "Base URL",
+          "key": "choice:0:Base URL",
+          "name": "Base URL",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:Base URL",
+    },
+    "placeholder": "Base URL",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Base URL",
+      "Base URL",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`overlay input — Base URL / instructional / auth wait / busy dim > overlay-busy 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "http://x",
+    "glyphs": [
+      "›",
+    ],
+    "hints": [],
+    "interactive": false,
+    "picker": {
+      "rows": [
+        {
+          "description": "Base URL",
+          "key": "choice:0:Base URL",
+          "name": "Base URL",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:Base URL",
+    },
+    "placeholder": "Base URL",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Base URL",
+      "Base URL",
+      "http://x",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`overlay input — Base URL / instructional / auth wait / busy dim > overlay-instructional 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [
+      "›",
+      " ",
+      " ",
+      " ",
+    ],
+    "hints": [
+      "Enter: Continue",
+      "Esc: Cancel",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "Continue",
+          "actions": [
+            {
+              "displayName": "Continue",
+              "hotkey": "Enter",
+              "name": "ui/resolve",
+            },
+            {
+              "displayName": "Cancel",
+              "hotkey": "escape",
+              "name": "ui/resolve",
+            },
+          ],
+          "description": "This authorization server has no dynamic registration. Create an OAuth or GitHub App with callback http://127.0.0.1/callback, then paste the client ID.",
+          "href": "https://docs.github.com/apps",
+          "key": "choice:0:This authorization server has no dynamic registration. Create an OAuth or GitHub App with callback http://127.0.0.1/callback, then paste the client ID.",
+          "name": "This authorization server has no dynamic registration. Create an OAuth or GitHub App with callback http://127.0.0.1/callback, then paste the client ID.",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "choice:0:This authorization server has no dynamic registration. Create an OAuth or GitHub App with callback http://127.0.0.1/callback, then paste the client ID.",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "This authorization server has no dynamic registration. Create an OAuth or",
+      "GitHub App with callback http://127.0.0.1/callback, then paste the client",
+      "ID.",
+      "https://docs.github.com/apps",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`sealed turn — head thought+speech, oldest-first > sealed-thought-speech 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "⁖",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "thought for <1s",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "401 is the old hash. AuthForm imports AUTH_SECRET
+when the module loads, so rotate never reaches POST.",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "⁖",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "thought for <1s",
+        "4",
+        "0",
+        "1",
+        "i",
+        "s",
+        "t",
+        "h",
+        "e",
+        "o",
+        "l",
+        "d",
+        "h",
+        "a",
+        "s",
+        "h",
+        ".",
+        "A",
+        "u",
+        "t",
+        "h",
+        "F",
+        "o",
+        "r",
+        "m",
+        "i",
+        "m",
+        "p",
+        "o",
+        "r",
+        "t",
+        "s",
+        "A",
+        "U",
+        "T",
+        "H",
+        "S",
+        "E",
+        "C",
+        "R",
+        "E",
+        "T",
+        "when the module loads, so rotate never reaches POST.",
+        "thought for <1s",
+        "401 is the old hash. AuthForm imports AUTH_SECRET
+when the module loads, so rotate never reaches POST.",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`sealed turn — head thought+speech, oldest-first > two-prompts 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Also the session cookie survives the rotate. Should",
+            "/logout clear it, or do we rotate the cookie name too?",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Also the session cookie survives the rotate. Should",
+        "/logout clear it, or do we rotate the cookie name too?",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Cookie name stays. /logout already clears it; the 401",
+        "was the stale hash, not the cookie.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`session title — idle then ask wins > session-title-ask 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "export const a = ",
+        "1",
+        ";",
+        "▌",
+        "1 ",
+        "export const a = ",
+        "2",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **a.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **a.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The greeting constant in a.ts is stale. Change it to 2",
+            "and keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The greeting constant in a.ts is stale. Change it to 2",
+        "and keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`session title — idle then ask wins > session-title-idle 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Auth refactor",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Auth refactor",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`slash catalog — paint, Tab/arrows, wrap, Esc arm, /compact > slash-catalog 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "connect",
+    "draft": "/",
+    "glyphs": [
+      "›",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+    ],
+    "hints": [
+      "Enter: select",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "connect",
+            },
+          ],
+          "description": "Manage provider connections",
+          "key": "catalog:connect",
+          "name": "/connect",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "model",
+            },
+          ],
+          "description": "Session model",
+          "key": "catalog:model",
+          "name": "/model",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "compact",
+            },
+          ],
+          "description": "plugin shadow",
+          "key": "catalog:compact",
+          "name": "/compact",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "rename",
+            },
+          ],
+          "description": "Set or clear the session title",
+          "key": "catalog:rename",
+          "name": "/rename",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "new",
+            },
+          ],
+          "description": "Mint a new session",
+          "key": "catalog:new",
+          "name": "/new",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "quit",
+            },
+          ],
+          "description": "Leave the TUI",
+          "key": "catalog:quit",
+          "name": "/quit",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "agentic",
+            },
+          ],
+          "description": "Keep the session running without a client",
+          "key": "catalog:agentic",
+          "name": "/agentic",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "background",
+            },
+          ],
+          "description": "Keep the session running and leave the TUI",
+          "key": "catalog:background",
+          "name": "/background",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "rewind",
+            },
+          ],
+          "description": "Rewind conversation one step; files stay",
+          "key": "catalog:rewind",
+          "name": "/rewind",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "permissions",
+            },
+          ],
+          "description": "Mode, grants, acknowledgements; explain a call",
+          "key": "catalog:permissions",
+          "name": "/permissions",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "catalog:connect",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "/connect                                       Manage provider connections",
+      "/model                                                       Session model",
+      "/compact                                                     plugin shadow",
+      "/rename                                     Set or clear the session title",
+      "/new                                                    Mint a new session",
+      "/quit                                                        Leave the TUI",
+      "/agentic                         Keep the session running without a client",
+      "/background                     Keep the session running and leave the TUI",
+      "/",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`slash catalog — paint, Tab/arrows, wrap, Esc arm, /compact > slash-catalog-model 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "model",
+    "draft": "/",
+    "glyphs": [
+      " ",
+      "›",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+    ],
+    "hints": [
+      "Enter: select",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "connect",
+            },
+          ],
+          "description": "Manage provider connections",
+          "key": "catalog:connect",
+          "name": "/connect",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "model",
+            },
+          ],
+          "description": "Session model",
+          "key": "catalog:model",
+          "name": "/model",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "compact",
+            },
+          ],
+          "description": "plugin shadow",
+          "key": "catalog:compact",
+          "name": "/compact",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "rename",
+            },
+          ],
+          "description": "Set or clear the session title",
+          "key": "catalog:rename",
+          "name": "/rename",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "new",
+            },
+          ],
+          "description": "Mint a new session",
+          "key": "catalog:new",
+          "name": "/new",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "quit",
+            },
+          ],
+          "description": "Leave the TUI",
+          "key": "catalog:quit",
+          "name": "/quit",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "agentic",
+            },
+          ],
+          "description": "Keep the session running without a client",
+          "key": "catalog:agentic",
+          "name": "/agentic",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "background",
+            },
+          ],
+          "description": "Keep the session running and leave the TUI",
+          "key": "catalog:background",
+          "name": "/background",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "rewind",
+            },
+          ],
+          "description": "Rewind conversation one step; files stay",
+          "key": "catalog:rewind",
+          "name": "/rewind",
+        },
+        {
+          "actionDisplayName": "select",
+          "actions": [
+            {
+              "displayName": "select",
+              "hotkey": "Enter",
+              "name": "permissions",
+            },
+          ],
+          "description": "Mode, grants, acknowledgements; explain a call",
+          "key": "catalog:permissions",
+          "name": "/permissions",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": "catalog:model",
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "/connect                                       Manage provider connections",
+      "/model                                                       Session model",
+      "/compact                                                     plugin shadow",
+      "/rename                                     Set or clear the session title",
+      "/new                                                    Mint a new session",
+      "/quit                                                        Leave the TUI",
+      "/agentic                         Keep the session running without a client",
+      "/background                     Keep the session running and leave the TUI",
+      "/",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`status rail — local-endpoint name; model/provider > status-grok 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "grok-4",
+      "grok",
+    ],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`status rail — local-endpoint name; model/provider > status-idle 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads the secret at import time. I'll look it",
+        "up per request and add a rotate regression.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`tall ask Diff scrolls in the tape; last rows sit on the composer > ask-cover-tall-edit 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        " 1 ",
+        "export const v0 = ",
+        "0",
+        ";",
+        "▌",
+        " 1 ",
+        "export const v0 = ",
+        "1",
+        ";",
+        "▌",
+        " 2 ",
+        "export const v1 = ",
+        "1",
+        ";",
+        "▌",
+        " 2 ",
+        "export const v1 = ",
+        "2",
+        ";",
+        "▌",
+        " 3 ",
+        "export const v2 = ",
+        "2",
+        ";",
+        "▌",
+        " 3 ",
+        "export const v2 = ",
+        "3",
+        ";",
+        "▌",
+        " 4 ",
+        "export const v3 = ",
+        "3",
+        ";",
+        "▌",
+        " 4 ",
+        "export const v3 = ",
+        "4",
+        ";",
+        "▌",
+        " 5 ",
+        "export const v4 = ",
+        "4",
+        ";",
+        "▌",
+        " 5 ",
+        "export const v4 = ",
+        "5",
+        ";",
+        "▌",
+        " 6 ",
+        "export const v5 = ",
+        "5",
+        ";",
+        "▌",
+        " 6 ",
+        "export const v5 = ",
+        "6",
+        ";",
+        "▌",
+        " 7 ",
+        "export const v6 = ",
+        "6",
+        ";",
+        "▌",
+        " 7 ",
+        "export const v6 = ",
+        "7",
+        ";",
+        "▌",
+        " 8 ",
+        "export const v7 = ",
+        "7",
+        ";",
+        "▌",
+        " 8 ",
+        "export const v7 = ",
+        "8",
+        ";",
+        "▌",
+        " 9 ",
+        "export const v8 = ",
+        "8",
+        ";",
+        "▌",
+        " 9 ",
+        "export const v8 = ",
+        "9",
+        ";",
+        "▌",
+        "10 ",
+        "export const v9 = ",
+        "9",
+        ";",
+        "▌",
+        "10 ",
+        "export const v9 = ",
+        "10",
+        ";",
+        "▌",
+        "11 ",
+        "export const v10 = ",
+        "10",
+        ";",
+        "▌",
+        "11 ",
+        "export const v10 = ",
+        "11",
+        ";",
+        "▌",
+        "12 ",
+        "export const v11 = ",
+        "11",
+        ";",
+        "▌",
+        "12 ",
+        "export const v11 = ",
+        "12",
+        ";",
+        "▌",
+        "13 ",
+        "export const v12 = ",
+        "12",
+        ";",
+        "▌",
+        "13 ",
+        "export const v12 = ",
+        "13",
+        ";",
+        "▌",
+        "14 ",
+        "export const v13 = ",
+        "13",
+        ";",
+        "▌",
+        "14 ",
+        "export const v13 = ",
+        "14",
+        ";",
+        "▌",
+        "15 ",
+        "export const v14 = ",
+        "14",
+        ";",
+        "▌",
+        "15 ",
+        "export const v14 = ",
+        "15",
+        ";",
+        "▌",
+        "16 ",
+        "export const v15 = ",
+        "15",
+        ";",
+        "▌",
+        "16 ",
+        "export const v15 = ",
+        "16",
+        ";",
+        "▌",
+        "17 ",
+        "export const v16 = ",
+        "16",
+        ";",
+        "▌",
+        "17 ",
+        "export const v16 = ",
+        "17",
+        ";",
+        "▌",
+        "18 ",
+        "export const v17 = ",
+        "17",
+        ";",
+        "▌",
+        "18 ",
+        "export const v17 = ",
+        "18",
+        ";",
+        "▌",
+        "19 ",
+        "export const v18 = ",
+        "18",
+        ";",
+        "▌",
+        "19 ",
+        "export const v18 = ",
+        "19",
+        ";",
+        "▌",
+        "20 ",
+        "export const v19 = ",
+        "19",
+        ";",
+        "▌",
+        "20 ",
+        "export const v19 = ",
+        "20",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **src/values.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **src/values.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The greeting constant in a.ts is stale. Change it to 2",
+            "and keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The greeting constant in a.ts is stale. Change it to 2",
+        "and keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`tall ask Diff scrolls in the tape; last rows sit on the composer > ask-cover-tall-edit-top 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        " 1 ",
+        "export const v0 = ",
+        "0",
+        ";",
+        "▌",
+        " 1 ",
+        "export const v0 = ",
+        "1",
+        ";",
+        "▌",
+        " 2 ",
+        "export const v1 = ",
+        "1",
+        ";",
+        "▌",
+        " 2 ",
+        "export const v1 = ",
+        "2",
+        ";",
+        "▌",
+        " 3 ",
+        "export const v2 = ",
+        "2",
+        ";",
+        "▌",
+        " 3 ",
+        "export const v2 = ",
+        "3",
+        ";",
+        "▌",
+        " 4 ",
+        "export const v3 = ",
+        "3",
+        ";",
+        "▌",
+        " 4 ",
+        "export const v3 = ",
+        "4",
+        ";",
+        "▌",
+        " 5 ",
+        "export const v4 = ",
+        "4",
+        ";",
+        "▌",
+        " 5 ",
+        "export const v4 = ",
+        "5",
+        ";",
+        "▌",
+        " 6 ",
+        "export const v5 = ",
+        "5",
+        ";",
+        "▌",
+        " 6 ",
+        "export const v5 = ",
+        "6",
+        ";",
+        "▌",
+        " 7 ",
+        "export const v6 = ",
+        "6",
+        ";",
+        "▌",
+        " 7 ",
+        "export const v6 = ",
+        "7",
+        ";",
+        "▌",
+        " 8 ",
+        "export const v7 = ",
+        "7",
+        ";",
+        "▌",
+        " 8 ",
+        "export const v7 = ",
+        "8",
+        ";",
+        "▌",
+        " 9 ",
+        "export const v8 = ",
+        "8",
+        ";",
+        "▌",
+        " 9 ",
+        "export const v8 = ",
+        "9",
+        ";",
+        "▌",
+        "10 ",
+        "export const v9 = ",
+        "9",
+        ";",
+        "▌",
+        "10 ",
+        "export const v9 = ",
+        "10",
+        ";",
+        "▌",
+        "11 ",
+        "export const v10 = ",
+        "10",
+        ";",
+        "▌",
+        "11 ",
+        "export const v10 = ",
+        "11",
+        ";",
+        "▌",
+        "12 ",
+        "export const v11 = ",
+        "11",
+        ";",
+        "▌",
+        "12 ",
+        "export const v11 = ",
+        "12",
+        ";",
+        "▌",
+        "13 ",
+        "export const v12 = ",
+        "12",
+        ";",
+        "▌",
+        "13 ",
+        "export const v12 = ",
+        "13",
+        ";",
+        "▌",
+        "14 ",
+        "export const v13 = ",
+        "13",
+        ";",
+        "▌",
+        "14 ",
+        "export const v13 = ",
+        "14",
+        ";",
+        "▌",
+        "15 ",
+        "export const v14 = ",
+        "14",
+        ";",
+        "▌",
+        "15 ",
+        "export const v14 = ",
+        "15",
+        ";",
+        "▌",
+        "16 ",
+        "export const v15 = ",
+        "15",
+        ";",
+        "▌",
+        "16 ",
+        "export const v15 = ",
+        "16",
+        ";",
+        "▌",
+        "17 ",
+        "export const v16 = ",
+        "16",
+        ";",
+        "▌",
+        "17 ",
+        "export const v16 = ",
+        "17",
+        ";",
+        "▌",
+        "18 ",
+        "export const v17 = ",
+        "17",
+        ";",
+        "▌",
+        "18 ",
+        "export const v17 = ",
+        "18",
+        ";",
+        "▌",
+        "19 ",
+        "export const v18 = ",
+        "18",
+        ";",
+        "▌",
+        "19 ",
+        "export const v18 = ",
+        "19",
+        ";",
+        "▌",
+        "20 ",
+        "export const v19 = ",
+        "19",
+        ";",
+        "▌",
+        "20 ",
+        "export const v19 = ",
+        "20",
+        ";",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **src/values.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **src/values.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The greeting constant in a.ts is stale. Change it to 2",
+            "and keep the export name.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The greeting constant in a.ts is stale. Change it to 2",
+        "and keep the export name.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;

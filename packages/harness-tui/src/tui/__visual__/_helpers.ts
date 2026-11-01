@@ -331,7 +331,10 @@ export function dumpPaint(tea: Tea): FrameDump {
 /**
  * Product column as a truecolor PNG. Frozen clock. Same prepare as dumpPaint.
  */
-export function screenshot(tea: Tea, opts?: { atBottom?: boolean; scroll?: number }): Buffer {
+export function screenshot(
+  tea: Tea,
+  opts?: { atBottom?: boolean; scroll?: number },
+): { png: Buffer; frame: FrameDump } {
   const prepared = preparePaint(tea);
   try {
     const root = assemblePaintFrame({
@@ -357,7 +360,7 @@ export function screenshot(tea: Tea, opts?: { atBottom?: boolean; scroll?: numbe
       pastNeighbors: prepared.rewind.pastNeighbors,
       futureNeighbors: prepared.rewind.futureNeighbors,
     });
-    return rasterPng(root, tea.cols, tea.rows);
+    return { png: rasterPng(root, tea.cols, tea.rows), frame: dumpAssembled(root, tea.cols, tea.rows) };
   } finally {
     prepared[Symbol.dispose]();
   }

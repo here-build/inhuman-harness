@@ -1,0 +1,528 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`grep ask > grep-ask 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Ask · grep **TODO** in **packages/harness/src**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · grep **TODO** in **packages/harness/src**",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Grep for TODO in packages/harness/src",
+            "and show the matching lines.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Grep for TODO in packages/harness/src",
+        "and show the matching lines.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`read_file > read-file-live 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Read src/tea.ts and tell me the exports",
+            "the composer face actually uses.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Read src/tea.ts and tell me the exports",
+        "the composer face actually uses.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Read **src/tea.ts**",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "Read **src/tea.ts**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`read_file > read-file-ok 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Read src/tea.ts and tell me the exports",
+            "the composer face actually uses.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Read src/tea.ts and tell me the exports",
+        "the composer face actually uses.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Read **src/tea.ts**",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "Read **src/tea.ts**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`read_file ask > read-file-ask 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Ask · Read **src/tea.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · Read **src/tea.ts**",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Read src/tea.ts and tell me the exports",
+            "the composer face actually uses.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Read src/tea.ts and tell me the exports",
+        "the composer face actually uses.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`read_file fail > read-file-fail 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Read src/tea.ts and tell me the exports",
+            "the composer face actually uses.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Read src/tea.ts and tell me the exports",
+        "the composer face actually uses.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "error",
+          "texts": [
+            "Read **src/tea.ts**",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "Read **src/tea.ts**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`read_file markdown > read-file-md 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Read README.md and summarize",
+            "what Tea is supposed to be.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Read README.md and summarize",
+        "what Tea is supposed to be.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Read **README.md**",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "Read **README.md**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;

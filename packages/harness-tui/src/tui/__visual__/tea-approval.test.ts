@@ -23,7 +23,7 @@ import { Client, ProjectPlexus } from "@inhuman.tools/harness-sdk";
 import type { DecodedKeyEvent } from "@inhuman.tools/quickdraw/runtime";
 import { expect, test } from "vitest";
 
-import { answerLikeDaemon } from "./answer-door.js";
+import { answerLikeDaemon } from "../__tests__/answer-door.js";
 import { askAnnotation, Tea } from "../tea.js";
 
 function localClient(): Client {

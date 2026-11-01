@@ -80,7 +80,7 @@ export default defineConfig({
           environment: "node",
           restoreMocks: true,
           ...serverPool,
-          include: ["src/server/__process__/**/*.test.ts"],
+          include: ["src/**/__process__/**/*.test.ts"],
         },
       },
       {

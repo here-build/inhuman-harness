@@ -1,0 +1,761 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`license tape: cover vs chip vs spinner > license-auto-faulted 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Ask · edit **a.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "auto",
+    ],
+    "texts": [
+      "Ask · edit **a.ts**",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch a.ts and run the unit tests",
+            "for the login path after the rotate.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch a.ts and run the unit tests",
+        "for the login path after the rotate.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`license tape: cover vs chip vs spinner > license-auto-remainder 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "auto",
+    ],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch a.ts and run the unit tests",
+            "for the login path after the rotate.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch a.ts and run the unit tests",
+        "for the login path after the rotate.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "?",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "a.ts",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "a.ts",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`license tape: cover vs chip vs spinner > license-deny 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch a.ts and run the unit tests",
+            "for the login path after the rotate.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch a.ts and run the unit tests",
+        "for the login path after the rotate.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "$",
+            "kind": "top",
+          },
+          "role": "error",
+          "texts": [
+            "rm file",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "error",
+          "texts": [
+            "Policy prohibits this tool use. Do not try to bypass it; if this is crucial",
+            ", ask user to do it",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "$",
+        "kind": "top",
+      },
+      "role": "error",
+      "texts": [
+        "rm file",
+        "rm file",
+        "Policy prohibits this tool use. Do not try to bypass it; if this is crucial",
+        ", ask user to do it",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`license tape: cover vs chip vs spinner > license-hatch 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "auto",
+    ],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch a.ts and run the unit tests",
+            "for the login path after the rotate.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch a.ts and run the unit tests",
+        "for the login path after the rotate.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "npm run test",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "npm run test",
+        "npm run test",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`license tape: cover vs chip vs spinner > license-hatch-faulted 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "auto",
+    ],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch a.ts and run the unit tests",
+            "for the login path after the rotate.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch a.ts and run the unit tests",
+        "for the login path after the rotate.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "npm run test",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "npm run test",
+        "npm run test",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`license tape: cover vs chip vs spinner > license-machine-allow 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "auto",
+    ],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch a.ts and run the unit tests",
+            "for the login path after the rotate.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch a.ts and run the unit tests",
+        "for the login path after the rotate.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Read **a.ts**",
+          ],
+          "type": "indication",
+        },
+      ],
+      "texts": [
+        "Read **a.ts**",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`license tape: cover vs chip vs spinner > license-manual-ask 1`] = `
+{
+  "ask": [
+    {
+      "band": "work",
+      "texts": [
+        "▌",
+        "1 ",
+        "a",
+        "▌",
+        "1 ",
+        "b",
+      ],
+      "type": "indentation_exception",
+    },
+  ],
+  "composer": {
+    "annotation": "Ask · edit **a.ts**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · edit **a.ts**",
+    ],
+  },
+  "sites": [
+    "ask",
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch a.ts and run the unit tests",
+            "for the login path after the rotate.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch a.ts and run the unit tests",
+        "for the login path after the rotate.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`license tape: cover vs chip vs spinner > license-manual-deny 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Soft-deny · licensed every time, nothing is remembered · run command",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [
+      " ",
+    ],
+    "hints": [
+      "Enter: Allow",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "ask-line:0",
+          "name": " ",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Soft-deny · licensed every time, nothing is remembered · run command",
+      "rm file",
+      "Soft-deny · licensed every time, nothing is remembered · run command",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Patch a.ts and run the unit tests",
+            "for the login path after the rotate.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Patch a.ts and run the unit tests",
+        "for the login path after the rotate.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;

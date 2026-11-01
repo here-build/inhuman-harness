@@ -28,6 +28,14 @@
         "packages/harness-tui/src/e2e/**/*.ts"
       ],
       "outputs": []
+    },
+    "test:process": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "test:visual": {
+      "dependsOn": ["build"],
+      "outputs": []
     }
   }
 }

@@ -33,7 +33,7 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsc -p tsconfig.json --noEmit && vitest run --project logic --project server",
-    "test:process": "tsc -p tsconfig.json --noEmit && vitest run --project server-process",
+    "test:process": "pnpm build && vitest run --project server-process",
     "research": "vitest run --project research"
   },
   "dependencies": {

@@ -1,0 +1,1442 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`rewind at tip — hidden neighbors, empty omnibox, one tape > rewind-tip 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Auth refactor",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Auth refactor",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "rotate AUTH",
+            "SECRET",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "rotate AUTH",
+        "SECRET",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "rotate AUTH",
+        "SECRET.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "keep the cookie name",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "keep the cookie name",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "keep the cookie name.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "move lookup to request time",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "move lookup to request time",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "move lookup to request time.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "clear session on logout",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "clear session on logout",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "clear session on logout.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "ok",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "ok",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "ok.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`rewind deep — two above, pin, two below > rewind-deep 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Auth refactor",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "move lookup to request time",
+    "glyphs": [],
+    "hints": [
+      "Enter: Rollback here",
+      "Esc: Back",
+      "↑: Previous message",
+      "↓: Next message",
+    ],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Auth refactor",
+      "move lookup to request time",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "rotate AUTH",
+            "SECRET",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "rotate AUTH",
+        "SECRET",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "rotate AUTH",
+        "SECRET.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "keep the cookie name",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "keep the cookie name",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "keep the cookie name.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "texts": [
+        "Auth refactor",
+        "move lookup to request time",
+      ],
+      "type": "chrome_frame",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "move lookup to request time.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "clear session on logout",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "clear session on logout",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "clear session on logout.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "ok",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "ok",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "ok.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`rewind first pin — no behind, ahead stack > rewind-first 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Auth refactor",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "rotate AUTH_SECRET",
+    "glyphs": [],
+    "hints": [
+      "Enter: Rollback here",
+      "Esc: Back",
+      "↓: Next message",
+    ],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Auth refactor",
+      "rotate AUTH_SECRET",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "work",
+      "texts": [
+        "Auth refactor",
+        "rotate AUTH_SECRET",
+      ],
+      "type": "chrome_frame",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "rotate AUTH",
+        "SECRET.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "keep the cookie name",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "keep the cookie name",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "keep the cookie name.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "move lookup to request time",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "move lookup to request time",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "move lookup to request time.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "clear session on logout",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "clear session on logout",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "clear session on logout.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "ok",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "ok",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "ok.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`rewind last pin — recap is the input, no scroll-down hint > rewind-last 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Auth refactor",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "ok",
+    "glyphs": [],
+    "hints": [
+      "Enter: Rollback here",
+      "Esc: Back",
+      "↑: Previous message",
+    ],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Auth refactor",
+      "ok",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "rotate AUTH",
+            "SECRET",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "rotate AUTH",
+        "SECRET",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "rotate AUTH",
+        "SECRET.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "keep the cookie name",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "keep the cookie name",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "keep the cookie name.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "move lookup to request time",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "move lookup to request time",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "move lookup to request time.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "clear session on logout",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "clear session on logout",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "clear session on logout.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "texts": [
+        "Auth refactor",
+        "ok",
+      ],
+      "type": "chrome_frame",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "ok.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`rewind pre-last — recap in tape, no omnibox, one stack below > rewind-pre-last 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Auth refactor",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "clear session on logout",
+    "glyphs": [],
+    "hints": [
+      "Enter: Rollback here",
+      "Esc: Back",
+      "↑: Previous message",
+      "↓: Next message",
+    ],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Auth refactor",
+      "clear session on logout",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "rotate AUTH",
+            "SECRET",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "rotate AUTH",
+        "SECRET",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "rotate AUTH",
+        "SECRET.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "keep the cookie name",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "keep the cookie name",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "keep the cookie name.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "move lookup to request time",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "move lookup to request time",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "move lookup to request time.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "texts": [
+        "Auth refactor",
+        "clear session on logout",
+      ],
+      "type": "chrome_frame",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "clear session on logout.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "ok",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "ok",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "ok.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`rewind tiny terminal — neighbors shrink, recap stays in tape > rewind-tiny 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Auth refactor",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "move lookup to request time",
+    "glyphs": [],
+    "hints": [
+      "Enter: Rollback here",
+      "Esc: Back",
+      "↑: Previous message",
+      "↓: Next message",
+    ],
+    "interactive": false,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Auth refactor",
+      "move lookup to request time",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 12,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "rotate AUTH",
+            "SECRET",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "rotate AUTH",
+        "SECRET",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "rotate AUTH",
+        "SECRET.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "keep the cookie name",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "keep the cookie name",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "keep the cookie name.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "texts": [
+        "Auth refactor",
+        "move lookup to request time",
+      ],
+      "type": "chrome_frame",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "move lookup to request time.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "clear session on logout",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "clear session on logout",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "clear session on logout.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "ok",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "ok",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "ok.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;

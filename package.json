@@ -6,11 +6,11 @@
   "scripts": {
     "build": "turbo build",
     "test": "turbo test --continue",
-    "test:process": "pnpm --filter inhuman test:process && pnpm --filter @inhuman.tools/harness test:process",
-    "test:visual": "pnpm --filter @inhuman.tools/harness-tui test:visual",
+    "test:process": "turbo test:process --continue --concurrency=1",
+    "test:visual": "turbo test:visual --continue --concurrency=1",
     "test:boundaries": "node --test scripts/packed-product.test.mjs scripts/release-check.test.mjs",
     "release:check": "node scripts/release-check.mjs",
-    "verify": "pnpm test:boundaries && pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm test:process && pnpm test:visual",
+    "verify": "pnpm verify:logic && pnpm test:process && pnpm test:visual",
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
@@ -20,7 +20,8 @@
     "pretty-mcp:uncovered": "pnpm --filter @inhuman.tools/pretty-mcp uncovered",
     "check:color-parity": "node packages/quickdraw/scripts/check-color-parity.mjs",
     "check:color-parity:update": "node packages/quickdraw/scripts/check-color-parity.mjs --update",
-    "qd:prebuild": "node scripts/qd-prebuild.mjs"
+    "qd:prebuild": "node scripts/qd-prebuild.mjs",
+    "verify:logic": "pnpm test:boundaries && pnpm build && pnpm typecheck && pnpm lint && pnpm test"
   },
   "devDependencies": {
     "turbo": "2.11.10",

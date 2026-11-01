@@ -398,7 +398,7 @@ export const outsideProgram = [
  * not tests; fixture `*.js` packs are not the package graph. projectService
  * fails those files unless they stay ignored.
  */
-const neverInProgram = ["**/vitest*.config.ts", "**/__research__/**", "**/__tests__/fixtures/**"];
+const neverInProgram = ["**/vitest*.config.ts", "**/__research__/**", "**/__tests__/fixtures/**", "**/__process__/fixtures/**"];
 
 /**
  * `nodejs` plus typed-lint projectService. Tests belong in the tsconfig program.

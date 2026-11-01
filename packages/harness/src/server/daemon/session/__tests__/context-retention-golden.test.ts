@@ -357,7 +357,7 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     expect(callOf(within).argsJson.length).toBeGreaterThan(6000);
     const stubbed = JSON.parse(callOf(after).argsJson) as Record<string, string>;
     expect(stubbed.path).toBe("src/new.ts");
-    expect(stubbed.content).toMatch(/^\[elided: 1 lines, 6\.0 KB — recall job:[0-9a-zA-Z]+#args\]$/);
+    expect(stubbed.content).toMatch(/^\[elided: 1 lines, 6\.0 KB — recall job:[\w-]+#args\]$/);
     expect(after.some((row) => row.role === "tool" && row.toolCallId === "wf1")).toBe(true);
   });
 

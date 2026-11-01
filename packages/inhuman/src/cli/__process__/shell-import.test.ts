@@ -3,11 +3,10 @@
  * and exit 1; a broken install of a shell that is there keeps its stack.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
-import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -139,19 +138,17 @@ describe("importShell", () => {
 });
 
 describe("shells stay optional", () => {
-  it("no production file imports a shell statically", () => {
-    const root = fileURLToPath(new URL("../..", import.meta.url));
-    const files = readdirSync(root, { recursive: true, encoding: "utf8" })
-      .filter(
-        (file) =>
-          file.endsWith(".ts") && !/(?:^|\/)(?:__tests__|__process__)\//.test(file) && !file.endsWith(".test.ts"),
-      )
-      .toSorted();
-    const staticShellImport =
-      /^(?:import|export)\s(?!type\b)[^"']*?from\s*["']@inhuman\.tools\/harness-(?:tui|web-app)/m;
-    expect({
-      scanned: files.length > 0,
-      offenders: files.filter((file) => staticShellImport.test(readFileSync(join(root, file), "utf8"))),
-    }).toEqual({ scanned: true, offenders: [] });
+  it("loads the built CLI when optional shell resolution is unavailable", () => {
+    const bin = new URL("../../../dist/bin.js", import.meta.url).href;
+    const loader = `export function resolve(specifier, context, next) {
+      if (specifier === "@inhuman.tools/harness-tui" || specifier.startsWith("@inhuman.tools/harness-web-app")) {
+        throw new Error("optional shell eagerly loaded: " + specifier);
+      }
+      return next(specifier, context);
+    }`;
+    const script = `import { register } from "node:module";
+      register(${JSON.stringify(`data:text/javascript,${encodeURIComponent(loader)}`)}, import.meta.url);
+      await import(${JSON.stringify(bin)});`;
+    expect(execFileSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8" })).toBe("");
   });
 });

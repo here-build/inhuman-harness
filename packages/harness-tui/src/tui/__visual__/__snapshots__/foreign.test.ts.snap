@@ -1,0 +1,1365 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`mcp Gmail_SendEmail — ask, fat options > mcp-gmail-send-ask 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Ask · Gmail **send email**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+      " ",
+    ],
+    "hints": [
+      "Enter: Allow",
+      "Ctrl+Enter: Remember gmail (gmail) · Gmail_SendEmail this session",
+      "Ctrl+Shift+Enter: Remember gmail (gmail) · Gmail_SendEmail in this project (7 days)",
+      "Esc: Deny",
+      "Ctrl+Esc: Deny this session",
+      "Ctrl+Shift+Esc: Deny forever",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "ask-line:0",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:1",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:2",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:3",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:4",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:5",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:6",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:7",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:8",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:9",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:10",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:11",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:12",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:13",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:14",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:15",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:16",
+          "name": " ",
+        },
+        {
+          "key": "ask-line:17",
+          "name": " ",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · Gmail **send email**",
+      "recipient  ada@example.com",
+      "subject  Invoice 1042",
+      "body",
+      "Hi Ada,",
+      "Please find last week's invoice.",
+      "Line items:",
+      "- Studio, 12 hours",
+      "- Review, 4 hours",
+      "Net 30 as usual.",
+      "Ask · Gmail **send email**",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Send Ada last week's invoice.",
+            "CC bookkeeping so the ledger stays honest.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Send Ada last week's invoice.",
+        "CC bookkeeping so the ledger stays honest.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`mcp mail search — ask, options in the composer stack > mcp-ask 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "Ask · Mail **search**",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [
+      " ",
+    ],
+    "hints": [
+      "Enter: Allow",
+      "Ctrl+Enter: Remember mail (mail) · search this session",
+      "Ctrl+Shift+Enter: Remember mail (mail) · search in this project (7 days)",
+      "Esc: Deny",
+    ],
+    "interactive": true,
+    "picker": {
+      "rows": [
+        {
+          "key": "ask-line:0",
+          "name": " ",
+        },
+      ],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [
+      "Ask · Mail **search**",
+      "q  invoices",
+      "Ask · Mail **search**",
+    ],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Search mail for last week's invoices.",
+            "I need the ones that are still unpaid.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Search mail for last week's invoices.",
+        "I need the ones that are still unpaid.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+  ],
+  "wait": [],
+}
+`;
+
+exports[`mcp mail search — fail > mcp-fail 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Search mail for last week's invoices.",
+            "I need the ones that are still unpaid.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Search mail for last week's invoices.",
+        "I need the ones that are still unpaid.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "error",
+          "texts": [
+            "Mail ",
+            "search",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "error",
+          "texts": [
+            "mail server timeout",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "error",
+      "texts": [
+        "Mail ",
+        "search",
+        "Mail ",
+        "search",
+        "mail server timeout",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`mcp mail search — prompt, live, seal > mcp-live 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Search mail for last week's invoices.",
+            "I need the ones that are still unpaid.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Search mail for last week's invoices.",
+        "I need the ones that are still unpaid.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Mail ",
+            "search",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Mail ",
+        "search",
+        "Mail ",
+        "search",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "using tools...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`mcp mail search — prompt, live, seal > mcp-ok 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Search mail for last week's invoices.",
+            "I need the ones that are still unpaid.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Search mail for last week's invoices.",
+        "I need the ones that are still unpaid.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Mail ",
+            "search",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "3 invoices from last week",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Mail ",
+        "search",
+        "Mail ",
+        "search",
+        "3 invoices from last week",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`mcp mail search — prompt, live, seal > mcp-ok-open 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Search mail for last week's invoices.",
+            "I need the ones that are still unpaid.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Search mail for last week's invoices.",
+        "I need the ones that are still unpaid.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "Mail ",
+            "search",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "3 invoices from last week",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": false,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Mail ",
+        "search",
+        "Mail ",
+        "search",
+        "3 invoices from last week",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`named agent call — fail > agent-fail 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Ask the reviewer bot to check the diff",
+            "before I open the PR.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Ask the reviewer bot to check the diff",
+        "before I open the PR.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "error",
+          "texts": [
+            "reviewer",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "error",
+          "texts": [
+            "check the diff",
+            "reviewer unavailable",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "error",
+      "texts": [
+        "reviewer",
+        "reviewer",
+        "check the diff",
+        "reviewer unavailable",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`named agent call — prompt, live, seal > agent-live 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "Claude Haiku",
+    ],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Ask the reviewer bot to check the diff",
+            "before I open the PR.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Ask the reviewer bot to check the diff",
+        "before I open the PR.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "kind": "spinner",
+            "profile": "tool",
+            "rows": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "reviewer ",
+            "active",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "check the diff
+Claude Haiku",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "kind": "spinner",
+        "profile": "tool",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "reviewer ",
+        "active",
+        "reviewer ",
+        "active",
+        "check the diff
+Claude Haiku",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "waiting for Reviewer agent",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`named agent call — prompt, live, seal > agent-ok 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "Claude Haiku",
+    ],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Ask the reviewer bot to check the diff",
+            "before I open the PR.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Ask the reviewer bot to check the diff",
+        "before I open the PR.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "reviewer",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "check the diff
+Claude Haiku",
+            "Response",
+            "looks good",
+            "looks good",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "reviewer",
+        "reviewer",
+        "check the diff
+Claude Haiku",
+        "Response",
+        "looks good",
+        "looks good",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`named agent call — prompt, live, seal > agent-ok-open 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [
+      "Claude Haiku",
+    ],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Ask the reviewer bot to check the diff",
+            "before I open the PR.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Ask the reviewer bot to check the diff",
+        "before I open the PR.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "reviewer",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "check the diff
+Claude Haiku",
+            "Response",
+            "looks good",
+            "looks good",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": false,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "reviewer",
+        "reviewer",
+        "check the diff
+Claude Haiku",
+        "Response",
+        "looks good",
+        "looks good",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;
+
+exports[`named agent notify is a yield, not a spinner > agent-notify 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+    "wait",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "Ask the reviewer bot to check the diff",
+            "before I open the PR.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "Ask the reviewer bot to check the diff",
+        "before I open the PR.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "children": [
+        {
+          "gutter": {
+            "glyph": "·",
+            "kind": "top",
+          },
+          "role": "foreground",
+          "texts": [
+            "reviewer",
+          ],
+          "type": "indication",
+        },
+        {
+          "gutter": {
+            "glyph": "┃",
+            "kind": "rule",
+          },
+          "role": "foreground",
+          "texts": [
+            "check the diff",
+            "Response",
+            "looks good",
+            "looks good",
+          ],
+          "type": "indication",
+        },
+      ],
+      "collapsed": true,
+      "gutter": {
+        "glyph": "·",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "reviewer",
+        "reviewer",
+        "check the diff",
+        "Response",
+        "looks good",
+        "looks good",
+      ],
+      "type": "disclosure",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "texts": [
+        "from reviewer: diff looks good",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [
+    {
+      "band": "work",
+      "gutter": {
+        "kind": "spinner",
+        "profile": "thinking",
+        "rows": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "connecting...",
+      ],
+      "type": "indication",
+    },
+  ],
+}
+`;

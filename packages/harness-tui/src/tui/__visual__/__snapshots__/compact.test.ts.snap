@@ -1,0 +1,102 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`collapsed compact sits on the tape between rounds > tape-compact-notice 1`] = `
+{
+  "ask": [],
+  "composer": {
+    "annotation": "",
+    "annotationRole": "",
+    "completion": "",
+    "draft": "",
+    "glyphs": [],
+    "hints": [],
+    "interactive": true,
+    "picker": {
+      "rows": [],
+      "scrollOffset": 0,
+      "selectedKey": null,
+    },
+    "placeholder": "",
+    "quotaWindows": [],
+    "statusItems": [],
+    "texts": [],
+  },
+  "sites": [
+    "composer",
+    "transcript",
+  ],
+  "size": {
+    "height": 24,
+    "width": 80,
+  },
+  "transcript": [
+    {
+      "band": "input",
+      "children": [
+        {
+          "texts": [
+            "❯",
+            "The login form still posts the previous password hash",
+            "after I rotate AUTH",
+            "SECRET. Check AuthForm and /login.",
+            "10:13 PM",
+          ],
+          "type": "flex",
+        },
+      ],
+      "texts": [
+        "❯",
+        "The login form still posts the previous password hash",
+        "after I rotate AUTH",
+        "SECRET. Check AuthForm and /login.",
+        "10:13 PM",
+      ],
+      "type": "box",
+    },
+    {
+      "band": "gap",
+      "texts": [],
+      "type": "box",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "AuthForm reads AUTH",
+        "SECRET at import time.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "texts": [
+        "compacted",
+      ],
+      "type": "indication",
+    },
+    {
+      "band": "work",
+      "gutter": {
+        "glyph": " ",
+        "kind": "top",
+      },
+      "role": "foreground",
+      "texts": [
+        "Request-time lookup lives in src/secret.ts.",
+        "10:13 PM",
+      ],
+      "type": "indication",
+    },
+  ],
+  "wait": [],
+}
+`;
