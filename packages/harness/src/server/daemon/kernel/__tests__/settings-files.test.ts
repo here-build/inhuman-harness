@@ -2,9 +2,12 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { skillListOutput, skillWriteOutput, skillReadOutput } from "@inhuman.tools/harness-contract";
 import { describe, expect, it } from "vitest";
 
 import { parseConfigJson } from "../../../schemas/well-known.js";
+import { ProjectDaemon } from "../../project/ProjectDaemon.js";
+import { KernelDaemon } from "../KernelDaemon.js";
 import { applyConfigSet, applyPluginSet } from "../settings-config.js";
 import {
   listSkillFiles,
@@ -24,6 +27,49 @@ describe("settings files", () => {
     expect(listSkillFiles(root, null).map((row) => row.name)).toEqual(["review"]);
     removeSkillFile(root, "review");
     expect(listSkillFiles(root, null)).toEqual([]);
+  });
+
+  it("qualifies reserved command collisions and retains invoke in the list contract", () => {
+    const root = mkdtempSync(join(tmpdir(), "harness-skill-"));
+    writeSkillFile(root, "undo", "Skill undo", "Undo a change.");
+    const location = join(root, ".agents", "skills", "undo", "SKILL.md");
+    const skills = listSkillFiles(root, null, new Set(["undo"]));
+    expect(skills).toEqual([
+      { name: "undo", description: "Skill undo", location, invoke: "skill:undo", scope: "project" },
+    ]);
+    expect(skillListOutput.parse({ skills })).toEqual({ skills });
+  });
+
+  it("retains canonical invokes for duplicate names across project and home", () => {
+    const root = mkdtempSync(join(tmpdir(), "harness-skill-"));
+    const home = mkdtempSync(join(tmpdir(), "harness-skill-home-"));
+    writeSkillFile(root, "review", "Project review", "Read the diff.");
+    writeSkillFile(home, "review", "Home review", "Read the whole project.");
+    const projectLocation = join(root, ".agents", "skills", "review", "SKILL.md");
+    const homeLocation = join(home, ".agents", "skills", "review", "SKILL.md");
+    const listed = listSkillFiles(root, home);
+    expect(listed.map(({ name, invoke, scope }) => ({ name, invoke, scope }))).toEqual([
+      { name: "review", invoke: "review", scope: "project" },
+      { name: "review", invoke: "agents:review", scope: "home" },
+    ]);
+    const skills = listSkillFiles(root, home, new Set(["review"]));
+    expect(skills).toEqual([
+      {
+        name: "review",
+        description: "Project review",
+        location: projectLocation,
+        invoke: "skill:review",
+        scope: "project",
+      },
+      {
+        name: "review",
+        description: "Home review",
+        location: homeLocation,
+        invoke: "agents:review",
+        scope: "home",
+      },
+    ]);
+    expect(skillListOutput.parse({ skills })).toEqual({ skills });
   });
 
   it("refuses a skill name that leaves the root", () => {
@@ -69,5 +115,35 @@ describe("settings files", () => {
     expect(config.superKey).toBe("cmd");
     expect(config.reActLoopIntentDetectedTrigger).toMatchObject({ enabled: false });
     expect(config.compact).toBe("@inhuman.tools/harness/compact.scm");
+  });
+});
+
+it("skill list, write and read agree on the qualified invocation when a host command owns the bare name", async () => {
+  const root = mkdtempSync(join(tmpdir(), "harness-skill-rpc-k-"));
+  const workspace = mkdtempSync(join(tmpdir(), "harness-skill-rpc-p-"));
+  await using kernel = new KernelDaemon(root);
+  await kernel.ready;
+  using project = new ProjectDaemon(kernel, workspace);
+  await project.ready;
+  const written = skillWriteOutput.parse(
+    await kernel.handleRequest("skill/write", {
+      project: project.path,
+      scope: "project",
+      name: "compact",
+      description: "Local compact skill",
+      body: "Summarize the work.",
+    }),
+  );
+  const listed = skillListOutput
+    .parse(await kernel.handleRequest("skill/list", { project: project.path }))
+    .skills.find((skill) => skill.name === "compact");
+  const read = skillReadOutput.parse(
+    await kernel.handleRequest("skill/read", { project: project.path, scope: "project", name: "compact" }),
+  );
+  expect({ write: written.invoke, list: listed?.invoke, read: read.invoke, body: read.body }).toEqual({
+    write: "skill:compact",
+    list: "skill:compact",
+    read: "skill:compact",
+    body: "Summarize the work.",
   });
 });

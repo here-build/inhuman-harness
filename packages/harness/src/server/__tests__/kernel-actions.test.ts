@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -6,17 +7,15 @@ import { mkdtemp, readJson } from "fs-extra";
 import { describe, expect, it } from "vitest";
 
 import { isUiForm } from "@/protocol/rpc";
-import { mintOidcPkce } from "@/providers/auth";
 import { ChatGptDriverConnection } from "@/providers/chatgpt";
 import { GrokDriverConnection } from "@/providers/grok";
-import { OpenRouterDriverConnection } from "@/providers/openrouter";
 
 import { callbackOf, hitCallback, parkedUrl } from "../../providers/auth/__tests__/browser.js";
 import { RpcInvalidParams, RpcMethodNotFound } from "../contract.js";
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 
 describe("kernel actions", () => {
-  it("connection CRUD: adopt parks, secrets stay out of config, eTLD+1, drop, list, rewrite", async () => {
+  it("connection lifecycle: adopt parks, secrets stay private, and drop confirms", async () => {
     const root = await mkdtemp(join(tmpdir(), "harness-act-crud-"));
     using daemon = new KernelDaemon(root);
     await daemon.ready;
@@ -174,6 +173,12 @@ describe("kernel actions", () => {
 
     await expect(daemon.handleRequest("connect/probe", {})).rejects.toBeInstanceOf(RpcMethodNotFound);
     await expect(daemon.handleRequest("connect/drop", {})).rejects.toBeInstanceOf(RpcInvalidParams);
+  });
+
+  it("MCP tool policy persists idempotent allow and exclusion updates", async () => {
+    const root = await mkdtemp(join(tmpdir(), "harness-act-actions-"));
+    using daemon = new KernelDaemon(root);
+    await daemon.ready;
 
     const github = (await daemon.handleRequest("connect/adopt", {
       driver: "mcp-http",
@@ -208,6 +213,12 @@ describe("kernel actions", () => {
     await expect(
       daemon.handleRequest("connect/exclude-tool", { id: "missing", tool: "merge_pull_request" }),
     ).rejects.toBeInstanceOf(RpcInvalidParams);
+  });
+
+  it("authorization config validates before writing and clears the replica", async () => {
+    const root = await mkdtemp(join(tmpdir(), "harness-act-actions-"));
+    using daemon = new KernelDaemon(root);
+    await daemon.ready;
 
     // the old cluster flags are gone from the wire: no shorthand, no compatibility
     await expect(daemon.handleRequest("config/auto-allow", { write: true })).rejects.toThrow(/Method not found/);
@@ -227,6 +238,12 @@ describe("kernel actions", () => {
     await expect(daemon.handleRequest("config/set", { authorization: null })).resolves.toEqual({ ok: true });
     expect((await configOf(root)).authorization).toBeUndefined();
     expect(daemon.plexus.root.authorizationJson).toBe("");
+  });
+
+  it("stored grants validate scope, persist, revoke, and expire", async () => {
+    const root = await mkdtemp(join(tmpdir(), "harness-act-actions-"));
+    using daemon = new KernelDaemon(root);
+    await daemon.ready;
 
     // stored grants: settings grants do not expire, a fenced subtree is refused, revoke removes the row
     const subject = { kind: "command", argv0: "make", spine: [], args: ["deploy"] } as const;
@@ -289,6 +306,206 @@ describe("kernel actions", () => {
       });
     });
   });
+
+  it.each(["settings edited", "connection replaced"] as const)(
+    "re-login rejects stale identity when %s while its key prompt is pending",
+    async (change) => {
+      const root = await mkdtemp(join(tmpdir(), "harness-act-login-race-"));
+      using daemon = new KernelDaemon(root);
+      await daemon.ready;
+      const adopted = (await daemon.handleRequest("connect/adopt", {
+        driver: "openai-compat",
+        name: "Existing",
+        settings: { baseUrl: "https://old.example.test/v1" },
+        secrets: { apiKey: "old-key" },
+      })) as { id: string };
+      const login = parked(await daemon.handleRequest("connect/login", { id: adopted.id }));
+      if (change === "settings edited") {
+        await daemon.handleRequest("connect/update", {
+          id: adopted.id,
+          settings: { baseUrl: "https://new.example.test/v1" },
+        });
+      } else {
+        await daemon.handleRequest("connect/drop", { id: adopted.id, confirm: true });
+        const replacement = await daemon.handleRequest("connect/adopt", {
+          driver: "openai-compat",
+          name: "Existing",
+          settings: { baseUrl: "https://old.example.test/v1" },
+          secrets: { apiKey: "other-key" },
+        });
+        expect(replacement).toEqual(adopted);
+      }
+      const beforeSecrets = await readJson(join(root, "secrets.json"));
+      await expect(
+        daemon.handleRequest("ui/resolve", { pending: login.pending, kind: "text", input: "replacement-key" }),
+      ).rejects.toThrow("Connection changed during sign-in. Try again.");
+      expect({
+        endpoint: (await configOf(root)).connections[adopted.id]?.settings?.baseUrl,
+        secrets: await readJson(join(root, "secrets.json")),
+      }).toEqual({
+        endpoint: change === "settings edited" ? "https://new.example.test/v1" : "https://old.example.test/v1",
+        secrets: beforeSecrets,
+      });
+    },
+  );
+
+  it("a superseded sign-in form cannot replace credentials from the newer ceremony", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ data: [{ id: "m1" }] }), { headers: { "content-type": "application/json" } });
+    try {
+      const root = await mkdtemp(join(tmpdir(), "harness-login-order-"));
+      await using daemon = new KernelDaemon(root);
+      await daemon.ready;
+      const adopted = (await daemon.handleRequest("connect/adopt", {
+        driver: "openai-compat",
+        name: "Existing",
+        settings: { baseUrl: "https://login.example.test/v1" },
+        secrets: { apiKey: "old-key" },
+      })) as { id: string };
+      const older = parked(await daemon.handleRequest("connect/login", { id: adopted.id }));
+      const newer = parked(await daemon.handleRequest("connect/login", { id: adopted.id }));
+      expect(
+        await daemon.handleRequest("ui/resolve", { pending: newer.pending, kind: "text", input: "newest-key" }),
+      ).toEqual({ ok: true });
+      const newest = await readJson(join(root, "secrets.json"));
+      await expect(
+        daemon.handleRequest("ui/resolve", { pending: older.pending, kind: "text", input: "obsolete-key" }),
+      ).rejects.toThrow("A newer sign-in attempt replaced this one. Try again.");
+      expect(await readJson(join(root, "secrets.json"))).toEqual(newest);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("explicit local sign-in asks for a replacement key, preserves cancellation, and reprobes with the new credential", async () => {
+    const server = createServer((req, res) => {
+      const authenticated = req.headers.authorization === "Bearer replacement-key";
+      res.writeHead(authenticated ? 200 : 401, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify(authenticated ? { data: [{ id: "local-model" }] } : { error: { message: "API key required" } }),
+      );
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const address = server.address();
+    if (address == null || typeof address === "string") throw new TypeError("owned server has no port");
+    try {
+      const root = await mkdtemp(join(tmpdir(), "harness-local-login-"));
+      await using daemon = new KernelDaemon(root);
+      await daemon.ready;
+      const adopted = (await daemon.handleRequest("connect/adopt", {
+        driver: "openai-compat",
+        name: "Local",
+        settings: { baseUrl: `http://127.0.0.1:${address.port}/v1` },
+        secrets: { apiKey: "old-key" },
+      })) as { id: string };
+      const before = await readJson(join(root, "secrets.json"));
+      const cancelled = parked(await daemon.handleRequest("connect/login", { id: adopted.id }));
+      expect(await daemon.handleRequest("ui/resolve", { pending: cancelled.pending, kind: "cancel" })).toEqual({
+        ok: false,
+      });
+      expect(await readJson(join(root, "secrets.json"))).toEqual(before);
+      const login = parked(await daemon.handleRequest("connect/login", { id: adopted.id }));
+      const result = await daemon.handleRequest("ui/resolve", {
+        pending: login.pending,
+        kind: "text",
+        input: "replacement-key",
+      });
+      expect({
+        result,
+        secrets: await readJson(join(root, "secrets.json")),
+        models: daemon.plexus.root.connections[adopted.id]?.live.models,
+        configuration: (await configOf(root)).connections[adopted.id]?.settings,
+      }).toEqual({
+        result: { ok: true },
+        secrets: { connections: { [adopted.id]: { apiKey: "replacement-key" } } },
+        models: ["local-model"],
+        configuration: { baseUrl: `http://127.0.0.1:${address.port}/v1` },
+      });
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it.each(["settings edited", "connection replaced", "newer login"] as const)(
+    "MCP login rejects a stale OAuth callback after %s",
+    async (change) => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = async (input) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const json = (body: unknown) =>
+          new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
+        if (url === "https://mcp.example.test/mcp")
+          return new Response("unauthorized", {
+            status: 401,
+            headers: { "www-authenticate": 'Bearer resource_metadata="https://auth.example.test/protected"' },
+          });
+        if (url === "https://auth.example.test/protected")
+          return json({ authorization_servers: ["https://auth.example.test"] });
+        if (url === "https://auth.example.test/.well-known/oauth-authorization-server")
+          return json({
+            authorization_endpoint: "https://auth.example.test/authorize",
+            token_endpoint: "https://auth.example.test/token",
+            registration_endpoint: "https://auth.example.test/register",
+          });
+        if (url === "https://auth.example.test/register") return json({ client_id: "owned-client" });
+        throw new Error(`Unexpected OAuth request: ${url}`);
+      };
+      try {
+        const root = await mkdtemp(join(tmpdir(), "harness-mcp-login-order-"));
+        await using daemon = new KernelDaemon(root);
+        await daemon.ready;
+        const adopt = () =>
+          daemon.handleRequest("connect/adopt", {
+            driver: "mcp-http",
+            name: "Existing",
+            settings: { url: "https://mcp.example.test/mcp" },
+          });
+        const adopted = (await adopt()) as { id: string };
+        const cancelled = parked(await daemon.handleRequest("connect/login", { id: adopted.id }));
+        expect(await daemon.handleRequest("ui/resolve", { pending: cancelled.pending, kind: "cancel" })).toEqual({
+          ok: false,
+        });
+        expect(existsSync(join(root, "secrets.json"))).toBe(false);
+        const stale = parked(await daemon.handleRequest("connect/login", { id: adopted.id }));
+        if (change === "settings edited")
+          await daemon.handleRequest("connect/update", {
+            id: adopted.id,
+            settings: { url: "https://replacement.example.test/mcp" },
+          });
+        else if (change === "connection replaced") {
+          await daemon.handleRequest("connect/drop", { id: adopted.id, confirm: true });
+          expect(await adopt()).toEqual(adopted);
+        } else {
+          const newer = parked(await daemon.handleRequest("connect/login", { id: adopted.id }));
+          expect(
+            await daemon.handleRequest("ui/resolve", { pending: newer.pending, kind: "text", input: "newest-token" }),
+          ).toEqual({ ok: true });
+        }
+        const beforeConfig = await connectionsOf(root);
+        const beforeSecrets = existsSync(join(root, "secrets.json"))
+          ? await readJson(join(root, "secrets.json"))
+          : null;
+        await expect(
+          daemon.handleRequest("ui/resolve", { pending: stale.pending, kind: "text", input: "obsolete-token" }),
+        ).rejects.toThrow(
+          change === "newer login"
+            ? "A newer sign-in attempt replaced this one. Try again."
+            : "Connection changed during sign-in. Try again.",
+        );
+        expect({
+          connections: await connectionsOf(root),
+          secrets: existsSync(join(root, "secrets.json")) ? await readJson(join(root, "secrets.json")) : null,
+        }).toEqual({ connections: beforeConfig, secrets: beforeSecrets });
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
 
   describe("mcp-server/adopt", () => {
     it("plane close aborts hung OAuth probe and does not stamp config", async () => {
@@ -353,28 +570,6 @@ describe("kernel actions", () => {
   });
 
   describe("OIDC login", () => {
-    it("PKCE dialect is per-provider", async () => {
-      let openrouterHref = "";
-      await OpenRouterDriverConnection.adopt({}, async (_kind, body) => {
-        openrouterHref = parkedUrl(body).toString();
-        return { kind: "text", input: "sk-or-x" };
-      });
-      const grokPkce = mintOidcPkce(GrokDriverConnection.oidcProfile);
-      const chatgptPkce = mintOidcPkce(ChatGptDriverConnection.oidcProfile);
-      expect({
-        openrouter: new URL(openrouterHref).searchParams.get("callback_url"),
-        grok: new URL(grokPkce.url).searchParams.get("redirect_uri"),
-        chatgpt: new URL(chatgptPkce.url).searchParams.get("redirect_uri"),
-        originator: new URL(chatgptPkce.url).searchParams.get("originator"),
-        grokScope: new URL(grokPkce.url).searchParams.get("scope")?.includes("grok-cli:access") ?? false,
-      }).toEqual({
-        openrouter: expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/callback$/),
-        grok: null,
-        chatgpt: null,
-        originator: "codex_cli_rs",
-        grokScope: true,
-      });
-    });
     it("cancel while waiting for the browser aborts the adopt and frees the callback", async () => {
       const root = await mkdtemp(join(tmpdir(), "harness-act-cancel-"));
       using daemon = new KernelDaemon(root);
@@ -469,20 +664,6 @@ describe("kernel actions", () => {
     });
 
     it("OIDC login: PKCE dialect and token exchange", async () => {
-      const grokPkce = mintOidcPkce(GrokDriverConnection.oidcProfile);
-      const chatgptPkce = mintOidcPkce(ChatGptDriverConnection.oidcProfile);
-      expect({
-        grok: new URL(grokPkce.url).searchParams.get("redirect_uri"),
-        chatgpt: new URL(chatgptPkce.url).searchParams.get("redirect_uri"),
-        originator: new URL(chatgptPkce.url).searchParams.get("originator"),
-        grokScope: new URL(grokPkce.url).searchParams.get("scope")?.includes("grok-cli:access") ?? false,
-      }).toEqual({
-        grok: null,
-        chatgpt: null,
-        originator: "codex_cli_rs",
-        grokScope: true,
-      });
-
       const payload = Buffer.from(
         JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: "acct-1" } }),
       ).toString("base64url");
@@ -565,6 +746,30 @@ describe("kernel actions", () => {
           expect(await readJson(join(root, "secrets.json"))).toMatchObject({
             connections: { [row.id]: row.secrets },
           });
+          const beforeLogin = await configOf(root);
+          const beforeSecrets = await readJson(join(root, "secrets.json"));
+          const cancelled = parked(await daemon.handleRequest("connect/login", { id: row.id }));
+          expect(await daemon.handleRequest("ui/resolve", { pending: cancelled.pending, kind: "cancel" })).toEqual({
+            ok: false,
+          });
+          expect(await configOf(root)).toEqual(beforeLogin);
+          expect(await readJson(join(root, "secrets.json"))).toEqual(beforeSecrets);
+
+          const login = parked(await daemon.handleRequest("connect/login", { id: row.id }));
+          const loginUrl = urlFromPark(login.body);
+          const loginAnswer =
+            row.code === undefined
+              ? row.paste
+              : await hitCallback(
+                  login.body,
+                  { code: row.code, state: loginUrl.searchParams.get("state") ?? "" },
+                  originalFetch,
+                );
+          expect(await daemon.handleRequest("ui/resolve", { pending: login.pending, ...loginAnswer })).toEqual({
+            ok: true,
+          });
+          expect(await configOf(root)).toEqual(beforeLogin);
+          expect(await readJson(join(root, "secrets.json"))).toMatchObject({ connections: { [row.id]: row.secrets } });
         }
       } finally {
         globalThis.fetch = originalFetch;

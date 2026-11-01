@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { isAbsolute, join, resolve } from "node:path";
 
 import { fail } from "@inhuman.tools/harness-diagnostics";
 import {
@@ -25,11 +26,14 @@ import {
 } from "@inhuman.tools/harness-model";
 import { parseTextOnlyContinue, type KvProposal } from "@inhuman.tools/harness-model/shared";
 import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { dropConnection } from "@inhuman.tools/plexus-expectations/executor";
 import { parseRetentionLayer } from "@inhuman.tools/turn/context";
 import fs from "fs-extra";
 
 import { applyRegistryToDrivers, openDriverRegistry, type DriverRegistry } from "@/connections";
 import { readPluginInventory } from "@/extensions";
+import { MCP_STDIO_DRIVER } from "@/providers/mcp/registration";
+import { mcpStdioConfigurationSchema } from "@/providers/mcp/schemas/mcp";
 import {
   projectNousGatewayConnection,
   sourceNousConnectionId,
@@ -42,6 +46,9 @@ import { defaultCommands, defaultCompactSource } from "../../../defaults/index.j
 import { projectKeylessConnection } from "../../../drivers/web-search/pick.js";
 import { KEYLESS_CONNECTION_ID, KEYLESS_DRIVER_NAME } from "../../../drivers/web-search/types.js";
 import { parseConfigJson, parseKvBag, type ConfigJson } from "../../../schemas/well-known.js";
+
+/** Only rows actually projected by this process own an intern; user-configured IDs never do. */
+const publicMcpDescriptors = new WeakMap<KernelRoot, ReadonlyMap<string, string>>();
 
 /** 0 (or a bad value) puts the whole eat in the prefix; clamp to the default floor. */
 function clampKeepTurns(value: number | undefined | null): number {
@@ -137,6 +144,7 @@ export function reflectKernel(
   }
 
   const keepConnections = new Set<string>();
+  const projectedMcp = new Map<string, string>();
   if (into.drivers[KEYLESS_DRIVER_NAME] !== undefined) keepConnections.add(KEYLESS_CONNECTION_ID);
   if (into.drivers[NOUS_GATEWAY_DRIVER_NAME] !== undefined) keepConnections.add(NOUS_GATEWAY_CONNECTION_ID);
   for (const [id, slice] of Object.entries(file?.connections ?? {})) {
@@ -150,6 +158,36 @@ export function reflectKernel(
       annotation: slice.annotation,
       configuration: slice.settings,
     });
+  }
+  const mcpDriver = into.drivers[MCP_STDIO_DRIVER];
+  if (mcpDriver !== undefined) {
+    for (const server of inventory.publicMcpServers) {
+      // A bounded, wire-safe namespace, independent of install location and graph order.
+      const key = createHash("sha256")
+        .update(JSON.stringify([server.pluginName, server.name]))
+        .digest("hex")
+        .slice(0, 16);
+      const id = `plugin_mcp_${key}`;
+      if (Object.hasOwn(file?.connections ?? {}, id)) continue;
+      const command =
+        !isAbsolute(server.command) && (server.command.includes("/") || server.command.includes("\\"))
+          ? resolve(server.rootPath, server.command)
+          : server.command;
+      const configuration = mcpStdioConfigurationSchema.parse({
+        command,
+        args: [...server.args],
+        cwd: server.rootPath,
+      });
+      projectedMcp.set(id, JSON.stringify([mcpDriver.name, configuration]));
+      keepConnections.add(id);
+      into.connections[id] ??= new ConnectionSpec({ driver: mcpDriver });
+      Object.assign(into.connections[id], {
+        driver: mcpDriver,
+        name: `${server.pluginName}/${server.name}`,
+        annotation: "",
+        configuration,
+      });
+    }
   }
   if (into.drivers[NOUS_GATEWAY_DRIVER_NAME] === undefined || sourceNousConnectionId(into) === null) {
     keepConnections.delete(NOUS_GATEWAY_CONNECTION_ID);
@@ -225,5 +263,13 @@ export function reflectKernel(
   projectKeylessConnection(into);
   projectNousGatewayConnection(into);
 
+  const priorMcp = publicMcpDescriptors.get(into);
+  publicMcpDescriptors.set(into, projectedMcp);
+  for (const [id, descriptor] of priorMcp ?? []) {
+    if (projectedMcp.get(id) === descriptor) continue;
+    // Removal, disabling, ownership transfer, or a changed command retires the
+    // old process. dropConnection revokes the exact old lease before awaiting disposal.
+    void dropConnection(into, id).catch((error: unknown) => fail("public plugin MCP transport", error));
+  }
   return into;
 }

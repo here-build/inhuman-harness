@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "cua",
+  "version": "0.0.1",
+  "description": "Inspect windows, receive screenshots and interact with local apps through Cua Driver.",
+  "extensions": {
+    "tools.inhuman": {
+      "skills": ["./skills/cua"],
+      "mcp": [
+        {
+          "name": "cua-driver",
+          "command": "cua-driver",
+          "args": ["mcp"],
+          "visibility": "public",
+          "scope": "global"
+        }
+      ]
+    }
+  }
+}

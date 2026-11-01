@@ -40,7 +40,21 @@ export const pluginMcpSchema = z
     visibility: z.enum(["private", "public"]).default("private"),
     scope: z.enum(["session", "workspace", "global"]).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((server, ctx) => {
+    if (
+      server.visibility === "public" &&
+      server.command !== undefined &&
+      server.scope !== undefined &&
+      server.scope !== "global"
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["scope"],
+        message: `public MCP scope ${server.scope} is not supported; set scope to global for a shared host process`,
+      });
+    }
+  });
 export const inhumanExtensionSchema = z.object({
   plugins: z.array(advertisedModuleSchema).default([]),
   commands: z.record(z.string(), declaredCommandSchema).default({}),

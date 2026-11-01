@@ -84,6 +84,18 @@ function bind(ownerId: string, abi: string, methods: readonly string[]): BoundRe
   return { alias: ownerId, ownerId, methods: new Set(methods), abi };
 }
 describe("manifest and consent", () => {
+  it("loads the Cua pack's official public MCP transport and skill", () => {
+    const root = join(HERE, "../../../../../plugins/inhuman-plugin-cua");
+    const manifest = pluginManifestSchema.parse(JSON.parse(readFileSync(join(root, "plugin.json"), "utf8")));
+    expect(manifest.extensions["tools.inhuman"].mcp).toEqual([
+      { name: "cua-driver", command: "cua-driver", args: ["mcp"], visibility: "public", scope: "global" },
+    ]);
+    const surface = resolvePackageSurface(root);
+    expect(surface.mcp).toEqual([{ name: "cua-driver", visibility: "public" }]);
+    expect(surface.skills).toEqual(["./skills/cua"]);
+    expect(surface.bots).toEqual([]);
+    expect(surface.abi).toBeNull();
+  });
   it("resolves the design's bot frontmatter, state files, and mcp records", async () => {
     const root = writePkg({
       "plugin.json": JSON.stringify({

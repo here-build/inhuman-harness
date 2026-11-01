@@ -10,6 +10,8 @@ export type AdoptCallback = (kind: "UI", body: string) => Promise<Readonly<Recor
 export type DriverAdoptArgs = {
   name?: string;
   settings?: Record<string, unknown>;
+  /** An explicit sign-in replaces credentials even when ordinary discovery needs none. */
+  reauthenticate?: boolean;
   signal?: AbortSignal;
   secrets?: Readonly<Record<string, string>>;
 };

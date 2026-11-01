@@ -16,6 +16,14 @@ import {
   type LoadedCommand,
 } from "./schemas/plugin-manifest.js";
 
+type PublicPluginMcpServer = {
+  readonly pluginName: string;
+  readonly rootPath: string;
+  readonly name: string;
+  readonly command: string;
+  readonly args: readonly string[];
+};
+
 export function readPluginInventory(
   root: string,
   disabled: ReadonlySet<string>,
@@ -23,6 +31,7 @@ export function readPluginInventory(
   readonly plugins: readonly z.infer<typeof consentedPluginSchema>[];
   readonly commands: readonly LoadedCommand[];
   readonly drivers: readonly AdvertisedDriver[];
+  readonly publicMcpServers: readonly PublicPluginMcpServer[];
 } {
   const { presence, load } = buildPluginGraph({
     installRoot: root,
@@ -53,8 +62,20 @@ export function readPluginInventory(
     }
   }
   const driversByName = new Map<string, AdvertisedDriver>();
+  const publicMcpServers: PublicPluginMcpServer[] = [];
   for (const node of load) {
-    for (const driver of readInhumanExtension(node.root).drivers) {
+    const extension = readInhumanExtension(node.root);
+    for (const server of extension.mcp) {
+      if (server.visibility !== "public" || server.command === undefined) continue;
+      publicMcpServers.push({
+        pluginName: node.pluginName,
+        rootPath: node.root,
+        name: server.name,
+        command: server.command,
+        args: server.args ?? [],
+      });
+    }
+    for (const driver of extension.drivers) {
       if (!(isPackageFormSpecifier(driver.importPath) && packageNameOfSpecifier(driver.importPath) === node.npmName))
         continue;
       driversByName.set(driver.name, driver);
@@ -73,6 +94,7 @@ export function readPluginInventory(
     ),
     commands: [...commandsByVerb.values()],
     drivers: [...driversByName.values()],
+    publicMcpServers,
   };
 }
 

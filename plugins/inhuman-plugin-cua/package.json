@@ -1,0 +1,18 @@
+{
+  "name": "@inhuman.tools/plugin-cua",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Cua Driver computer use through its official local stdio MCP server.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["inhuman", "harness-plugin", "cua", "computer-use", "mcp"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "files": ["plugin.json", "skills/", "README.md"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "plugins/inhuman-plugin-cua"
+  }
+}

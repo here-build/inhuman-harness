@@ -1,5 +1,13 @@
 # Exemplar packs
 
+## Integrations
+
+| Dir | Package | Integration |
+|-----|---------|-------------|
+| `inhuman-plugin-cua` | `@inhuman.tools/plugin-cua` | Official local `cua-driver mcp`: desktop screenshots, accessibility and GUI input. Requires a separately installed Cua Driver and OS permissions. See its README. |
+
+Public stdio MCP declarations currently support kernel-global processes only (omitted scope also means global). Explicit `session` or `workspace` public transports are rejected with a plugin problem instead of silently sharing state across projects. Private MCP declarations keep their separate scoped binding path.
+
 These packs are behavior programs. A bot's `.prompt` selects `behavior.program`. Scoped state is a Scheme reducer and its methods. Installation does not register one program for every agent.
 
 Host builtins that still construct `InhumanPlugin` live on the daemon (`packages/harness-server/src/system-plugins`). The notebook catalog (`task__*`) is one of those builtins: it imports `@inhuman.tools/plugin-tasks` into `SYSTEM_ENTRIES`. That module is the trajectory projection, not the pack's `plugin.json` load path.

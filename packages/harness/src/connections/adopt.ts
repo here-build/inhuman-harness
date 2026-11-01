@@ -14,6 +14,8 @@ export type AdoptCallback = (kind: "UI", body: string) => Promise<Readonly<Recor
 export type DriverAdoptArgs = {
   name?: string;
   settings?: Record<string, unknown>;
+  /** An explicit sign-in replaces credentials even when ordinary discovery needs none. */
+  reauthenticate?: boolean;
   /** The adopt request's abort: a client cancel while the driver waits on a browser. */
   signal?: AbortSignal;
   /** Secrets the caller already holds (`connect/adopt` with `secrets`): a driver does not ask for them again. */

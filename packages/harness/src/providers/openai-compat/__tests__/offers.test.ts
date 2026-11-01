@@ -3,6 +3,8 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { adoptDriver } from "@/connections/adopt";
+
 import { OpenAiCompatDriverConnection } from "../connection.js";
 import { REMOTE_OFFERS } from "../presence.js";
 import { WELL_KNOWN_ENDPOINTS } from "../well-known.js";
@@ -40,14 +42,24 @@ describe("OpenAiCompatDriverConnection.adopt", () => {
     return { bodies, callback };
   }
 
-  it("a loopback offer asks nothing and keeps no key", async () => {
-    const ask = asking();
-    const bags = await OpenAiCompatDriverConnection.adopt(
-      { name: "LM Studio", settings: { baseUrl: "http://127.0.0.1:1234/v1" } },
-      ask.callback,
+  it("loopback discovery asks nothing, while explicit reauthentication asks for a replacement key", async () => {
+    const local = { name: "LM Studio", settings: { baseUrl: "http://127.0.0.1:1234/v1" } };
+    const discovery = asking();
+    const discovered = await adoptDriver(OpenAiCompatDriverConnection, local, discovery.callback);
+    expect({ questions: discovery.bodies, discovered }).toEqual({
+      questions: [],
+      discovered: { ...local, secrets: {} },
+    });
+    const login = asking("new-local-key");
+    const renewed = await adoptDriver(
+      OpenAiCompatDriverConnection,
+      { ...local, reauthenticate: true, secrets: { apiKey: "old-local-key" } },
+      login.callback,
     );
-    expect(ask.bodies).toEqual([]);
-    expect(bags).toEqual({ name: "LM Studio", settings: { baseUrl: "http://127.0.0.1:1234/v1" }, secrets: {} });
+    expect({ questions: login.bodies, renewed }).toEqual({
+      questions: ['(harness/input :name "API key" :description "LM Studio API key" :secret #t)'],
+      renewed: { ...local, secrets: { apiKey: "new-local-key" } },
+    });
   });
 
   it("a remote offer asks one required key, named for the offer", async () => {
@@ -75,14 +87,14 @@ describe("OpenAiCompatDriverConnection.adopt", () => {
     expect(bags.secrets).toEqual({});
   });
 
-  it("a remote offer with an empty key refuses", async () => {
+  it.each([
+    { name: "Groq", settings: { baseUrl: "https://api.groq.com/openai/v1" } },
+    { name: "LM Studio", settings: { baseUrl: "http://127.0.0.1:1234/v1" }, reauthenticate: true },
+  ])("$name refuses an empty required replacement key", async (args) => {
     const ask = asking("  ");
-    await expect(
-      OpenAiCompatDriverConnection.adopt(
-        { name: "Groq", settings: { baseUrl: "https://api.groq.com/openai/v1" } },
-        ask.callback,
-      ),
-    ).rejects.toThrow("Groq needs an API key");
+    await expect(adoptDriver(OpenAiCompatDriverConnection, args, ask.callback)).rejects.toThrow(
+      `${args.name} needs an API key`,
+    );
   });
 
   it("the custom door still asks for the URL, then an optional key", async () => {

@@ -138,6 +138,7 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
   /**
    * Loopback baseUrl: no questions. Remote baseUrl (a catalog offer): one
    * required key. No baseUrl (custom): ask for it, key optional.
+   * Explicit reauthentication always asks for a required replacement key.
    */
   static async adopt(args: DriverAdoptArgs, callback: AdoptCallback): Promise<DriverAdoptBags> {
     const settings = { ...(args.settings ?? {}) };
@@ -157,14 +158,17 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
         ? (nameFromBaseUrl(baseUrl) ?? (fallback || "openai-compat"))
         : fallback;
     const secrets: Record<string, string> = {};
-    if (custom) {
+    if (custom && args.reauthenticate !== true) {
       const { input: apiKey } = await callback(
         "UI",
         '(harness/input :name "API key" :description "Optional. Empty to skip." :secret #t)',
       );
       const key = asAdoptString(apiKey);
       if (key !== "") secrets.apiKey = key;
-    } else if (!isLoopbackBaseUrl(baseUrl) && asAdoptString(args.secrets?.apiKey) === "") {
+    } else if (
+      args.reauthenticate === true ||
+      (!isLoopbackBaseUrl(baseUrl) && asAdoptString(args.secrets?.apiKey) === "")
+    ) {
       const quotedHint = `"${`${name} API key`.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`)}"`;
       const { input: apiKey } = await callback(
         "UI",

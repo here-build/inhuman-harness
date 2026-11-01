@@ -42,10 +42,14 @@ const HOME_DRAWERS = [
   ".pi/agent/skills",
 ] as const;
 
-export function listSkillFiles(project: string | null, home: string | null): SkillFile[] {
+export function listSkillFiles(
+  project: string | null,
+  home: string | null,
+  reserved?: ReadonlySet<string>,
+): SkillFile[] {
   const start = project ?? home;
   if (start == null || start === "") return [];
-  return discoverProjectSkills(start, home).map((row) => ({
+  return discoverProjectSkills(start, home, reserved).map((row) => ({
     ...row,
     scope: underHome(row.location, home) ? "home" : "project",
   }));

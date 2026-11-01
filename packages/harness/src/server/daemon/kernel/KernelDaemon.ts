@@ -12,12 +12,12 @@ import { mkdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { Writable } from "node:stream";
+import { isDeepStrictEqual } from "node:util";
 
 import { DefaultedMap } from "@here.build/collections";
 import { asUserPrompt } from "@inhuman.tools/harness-commons";
 import { contract } from "@inhuman.tools/harness-contract";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
-import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import {
   AskAgentSpec,
   type AgentNature,
@@ -30,6 +30,7 @@ import {
   bindSessionProjections,
   PluginProjectionRegistry,
   KernelPlexus,
+  HOST_QUEUE_VERBS,
   ProjectPlexus,
   SessionPlexus,
   sessionIsOccupied,
@@ -43,6 +44,7 @@ import {
   type SessionRoot,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
+import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import { disposeKernelConnections, dropConnection } from "@inhuman.tools/plexus-expectations/executor";
 import fs from "fs-extra";
 import { autorun, comparer, observable, reaction, runInAction, type IReactionDisposer } from "mobx";
@@ -66,10 +68,10 @@ import { DocumentService, AwarenessRoom, attachLens, type PlaneSocket } from "@/
 
 import { internLookedAt, probeCompletionCatalog } from "./completion-catalog.js";
 import { loginConnection, requireConnection, settingsBag, toListRow } from "./connection-rpc.js";
+import { healKernelDependencies, KERNEL_SEED_PACKAGES } from "./kernel-package.js";
 import { RemoteAccess, remoteLoggedIn } from "./remote-access.js";
 import { RemoteConnector } from "./remote-connector.js";
 import { WEB_STATIC_DIR_ENV } from "./remote-http.js";
-import { healKernelDependencies, KERNEL_SEED_PACKAGES } from "./kernel-package.js";
 import { applyConfigSet, applyPluginSet } from "./settings-config.js";
 import {
   listSkillFiles,
@@ -83,11 +85,11 @@ import {
 } from "./settings-files.js";
 import { adjustJson } from "../../adjust-json.js";
 import { bindBlobStore } from "../../blobs/store.js";
+import { PRODUCT_PROVIDERS } from "../../composition.js";
 import { DaemonRpcMethod, isAbortError, isUiCancelled, RequestHost, RpcInvalidParams } from "../../contract.js";
 import { KernelReflector } from "./fs-reflection/KernelReflector.js";
 import { reflectKernel } from "./fs-reflection/reflectKernel.js";
 import { glanceAskLine } from "./glance-ask-line.js";
-import { PRODUCT_PROVIDERS } from "../../composition.js";
 import { defaultCompactSource } from "../../defaults/index.js";
 import { parseConfigJson, parseKvBag, connectionSliceSchema, type ConfigJson } from "../../schemas/well-known.js";
 import { deleteConnectionSecrets, readConnectionSecrets, writeConnectionSecrets } from "../../secrets.js";
@@ -207,6 +209,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
    * otherwise `term-continue/set` on the next TUI boot waits forever.
    */
   #writeChain: Promise<void> = Promise.resolve();
+  readonly #loginAttempts = new Map<string, object>();
   override rpcMethods = [
     DaemonRpcMethod.fromContract(contract.kernel.termContinue.set, (args) => {
       this.plexus.root.termContinue[args.key] = args.sessionId;
@@ -385,21 +388,73 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     DaemonRpcMethod.fromContract(contract.kernel.connect.login, async (args) => {
       step(`connect/login ${args.id}`);
       const signal = this.requestSignal();
+      let attempt: object | undefined;
       try {
+        const spec = requireConnection(this.connections, args.id, "connect/login");
+        attempt = {};
+        this.#loginAttempts.set(args.id, attempt);
+        const driver = spec.driver.name;
+        const settings = settingsBag(spec);
+        const beforeSettings = structuredClone(settings);
+        const assertCurrent = (config = this.#config()): void => {
+          if (signal.aborted) throw new DOMException("Sign-in cancelled", "AbortError");
+          RpcInvalidParams.invariant(
+            this.#loginAttempts.get(args.id) === attempt,
+            "A newer sign-in attempt replaced this one. Try again.",
+          );
+          const row = config.connections[args.id];
+          RpcInvalidParams.invariant(
+            row?.driver === driver &&
+              this.connections[args.id] === spec &&
+              isDeepStrictEqual(row.settings, beforeSettings),
+            "Connection changed during sign-in. Try again.",
+          );
+        };
+        if (spec.driver.abilityClaim.includes("completion")) {
+          // Re-run the driver's sign-in ceremony without allocating another connection.
+          // Do not pass old secrets: key-based drivers must ask for a replacement too.
+          const bags = await this.runtime.adopt(
+            driver,
+            this.plexus.root.drivers,
+            { name: spec.name, settings, signal, reauthenticate: true },
+            (kind, body) => {
+              RpcInvalidParams.invariant(kind === "UI", `unknown callback ${kind}`);
+              return this.ui(body);
+            },
+          );
+          if (signal.aborted) return { ok: false as const };
+          this.adjustConfig((config) => {
+            assertCurrent(config);
+            const row = config.connections[args.id]!;
+            row.settings = { ...row.settings, ...bags.settings };
+          });
+          writeConnectionSecrets(this.root, args.id, { ...bags.secrets });
+          await dropConnection(this.plexus.root, args.id);
+          // The picker is still looking at the same id, so awareness does not
+          // change. Warm the replacement handle explicitly after dropping it.
+          await probeCompletionCatalog(this, this, args.id);
+          return { ok: true as const };
+        }
         const result = await loginConnection(args.id, this.connections, {
           signal,
           ui: (body) => this.ui(body),
-          writeSecrets: (id, secrets) => writeConnectionSecrets(this.root, id, { ...secrets }),
+          writeSecrets: (id, secrets) => {
+            assertCurrent();
+            writeConnectionSecrets(this.root, id, { ...secrets });
+          },
           readSecrets: (id) => readConnectionSecrets(this.root, id),
         });
+        assertCurrent();
         step(`memo-clear: connection=${args.id}`);
         await dropConnection(this.plexus.root, args.id);
         return result;
       } catch (error) {
-        if (isAbortError(error)) return { ok: false as const };
+        if (isUiCancelled(error) || isAbortError(error)) return { ok: false as const };
         if (error instanceof RpcInvalidParams) throw error;
         fail("connect/login", error);
         RpcInvalidParams.invariant(false, error instanceof Error ? error.message : "connect/login failed");
+      } finally {
+        if (attempt != null && this.#loginAttempts.get(args.id) === attempt) this.#loginAttempts.delete(args.id);
       }
     }),
     DaemonRpcMethod.fromContract(contract.kernel.connect.logout, (args) => {
@@ -467,7 +522,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     }),
     DaemonRpcMethod.fromContract(contract.kernel.skill.list, (args) => {
       const project = this.#knownProject(args.project);
-      return { skills: listSkillFiles(project, skillsHome()) };
+      return { skills: listSkillFiles(project, skillsHome(), this.#reservedSkillCommands()) };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.skill.write, (args) => {
       const root = args.scope === "home" ? this.#skillsHome() : this.#knownProject(args.project);
@@ -476,9 +531,18 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       const listed = listSkillFiles(
         args.scope === "project" ? root : null,
         args.scope === "home" ? root : skillsHome(),
+        this.#reservedSkillCommands(),
       );
       const row = listed.find((skill) => skill.location === location || skill.name === args.name);
-      return row ?? { name: args.name, description: args.description, location, invoke: args.name, scope: args.scope };
+      return (
+        row ?? {
+          name: args.name,
+          description: args.description,
+          location,
+          invoke: this.#reservedSkillCommands().has(args.name) ? `skill:${args.name}` : args.name,
+          scope: args.scope,
+        }
+      );
     }),
     DaemonRpcMethod.fromContract(contract.kernel.skill.remove, (args) => {
       const root = args.scope === "home" ? this.#skillsHome() : this.#knownProject(args.project);
@@ -492,6 +556,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       const listed = listSkillFiles(
         args.scope === "project" ? root : null,
         args.scope === "home" ? root : skillsHome(),
+        this.#reservedSkillCommands(),
       );
       const row = listed.find((skill) => skill.name === args.name && skill.scope === args.scope);
       RpcInvalidParams.invariant(row != null, `skill/read: unknown skill ${args.name}`);
@@ -884,6 +949,19 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     const path = project.trim();
     RpcInvalidParams.invariant(Object.hasOwn(this.plexus.root.projects, path), `unknown project ${path}`);
     return path;
+  }
+
+  #reservedSkillCommands(): ReadonlySet<string> {
+    const reserved = new Set<string>(HOST_QUEUE_VERBS);
+    for (const [key, spec] of Object.entries(this.plexus.root.commands)) {
+      if (key !== "") reserved.add(key);
+      if (spec == null) continue;
+      if (spec.verb !== "") reserved.add(spec.verb);
+      for (const alias of spec.aliases) {
+        if (alias !== "") reserved.add(alias);
+      }
+    }
+    return reserved;
   }
 
   #skillsHome(): string | null {
