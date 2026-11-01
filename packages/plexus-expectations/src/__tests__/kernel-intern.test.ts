@@ -1,10 +1,11 @@
+import { observable } from "mobx";
 import { describe, expect, it } from "vitest";
 
 import { ConnectionMiss } from "../driver/connection-miss.js";
 import { ExpectationActor } from "../driver/ExpectationActor.js";
 import { PEWDriver } from "../driver/PEWDriver.js";
 import { dropConnection } from "../executor/kernel-intern.js";
-import { makeHost, PewTestHost } from "./_helpers/test-host.js";
+import { makeHost, PewTestHost, TestExpectation } from "./_helpers/test-host.js";
 import { DriverSpec } from "../shared/models/DriverSpec.js";
 
 describe("kernel connection intern", () => {
@@ -20,7 +21,11 @@ describe("kernel connection intern", () => {
       bag.loader.failLoad = null;
       const reminted = await bag.host.ensure(bag.connectionId);
       const remintedOther = await other.ensure(bag.connectionId);
-      expect({ sameAsFirst: reminted === first, shared: remintedOther === reminted, ready: reminted.readyState }).toEqual({
+      expect({
+        sameAsFirst: reminted === first,
+        shared: remintedOther === reminted,
+        ready: reminted.readyState,
+      }).toEqual({
         sameAsFirst: false,
         shared: true,
         ready: "ready",
@@ -46,38 +51,69 @@ describe("kernel connection intern", () => {
     }
   });
 
-  it("dropConnection during pending construct still asyncDisposes; next ensure remints", async () => {
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let disposed = 0;
+  it("a dropped pending lease rejects its old owner and cannot mirror over or evict its replacement", async () => {
+    const loading = Promise.withResolvers<void>();
+    const disposal = Promise.withResolvers<void>();
+    const instances: Pin[] = [];
+    const disposed: number[] = [];
     class Pin extends PEWDriver {
+      readonly generation = instances.push(this);
+      override accessor state = observable({ generation: this.generation });
       async bootstrap(): Promise<void> {}
       protected resolve(): ExpectationActor<never> {
         throw new Error("unused");
       }
       override async [Symbol.asyncDispose](): Promise<void> {
-        disposed += 1;
+        disposed.push(this.generation);
+        if (this.generation === 1) await disposal.promise;
       }
     }
     class Host extends PewTestHost {
       override async loadDriverModule(_spec: DriverSpec) {
-        await gate;
+        await loading.promise;
         return Pin;
       }
     }
     const host = new Host();
     try {
       host.register("row", null);
-      const pending = host.ensure("row");
+      const old = host.ensure("row").then(
+        () => ({ outcome: "resolved" }),
+        (error: unknown) => ({
+          outcome: "rejected",
+          code: error instanceof ConnectionMiss ? error.code : String(error),
+        }),
+      );
       const dropped = dropConnection(host.kernel.root, "row");
-      release();
-      const first = await pending;
+      const next = host.ensure("row");
+      loading.resolve();
+      const replacement = await next;
+      expect({
+        old: await old,
+        generation: replacement.state.generation,
+        disposed: [...disposed],
+        face: host.connections.row?.live,
+      }).toEqual({
+        old: { outcome: "rejected", code: "connection-dropped" },
+        generation: 2,
+        disposed: [1],
+        face: { generation: 2 },
+      });
+      disposal.resolve();
       await dropped;
-      const reminted = await host.ensure("row");
-      expect({ disposed, reminted: reminted === first }).toEqual({ disposed: 1, reminted: false });
+      instances[0]!.failReady(new Error("late old handle failure"));
+      const kept = await host.ensure("row");
+      expect({
+        same: kept === replacement,
+        attached: host.connectionOf(new TestExpectation({ connectionId: "row" })) === replacement,
+        face: host.connections.row?.live,
+        error: host.connections.row?.error,
+        disposed: [...disposed],
+      }).toEqual({ same: true, attached: true, face: { generation: 2 }, error: "", disposed: [1] });
     } finally {
+      loading.resolve();
+      disposal.resolve();
+      await dropConnection(host.kernel.root, "row");
       host[Symbol.dispose]();
     }
   });
@@ -112,7 +148,10 @@ describe("kernel connection intern", () => {
         miss: instance.reasons[0],
         disposed: instance.disposed,
       }).toEqual({
-        miss: expect.objectContaining({ name: "ConnectionMiss", code: "connection-dropped" } satisfies Partial<ConnectionMiss>),
+        miss: expect.objectContaining({
+          name: "ConnectionMiss",
+          code: "connection-dropped",
+        } satisfies Partial<ConnectionMiss>),
         disposed: 1,
       });
     } finally {

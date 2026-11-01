@@ -22,6 +22,8 @@ function internOwnerOf(owner: object): InternOwner | undefined {
 type KernelRoot = { readonly connections: Record<string, ConnectionSpec | undefined> };
 type ConnectionHold = {
   readonly refs: Set<object>;
+  /** Raw construction remains disposable even when the consumer lease is revoked. */
+  readonly created: Promise<PEWDriver>;
   readonly pending: Promise<PEWDriver>;
   mirror: IReactionDisposer | undefined;
 };
@@ -41,11 +43,16 @@ export function acquireConnection(
     existing.refs.add(owner);
     return existing.pending;
   }
+  const created = Promise.resolve().then(construct);
   const lease: ConnectionHold = {
     refs: new Set([owner]),
-    pending: Promise.resolve().then(construct).then((instance) => {
+    created,
+    pending: created.then((instance) => {
+      if (bag.connections.get(connectionId) !== lease)
+        throw new ConnectionMiss("connection-dropped", `connection ${connectionId} dropped during construction`);
       lease.mirror = reaction(
         () => {
+          if (bag.connections.get(connectionId) !== lease) return null;
           const spec = kernel.connections[connectionId];
           if (spec === undefined) return null;
           const ready = asReadyState(instance.readyState);
@@ -54,7 +61,7 @@ export function acquireConnection(
           return { ready, error: instance.error, live: extraLiveFromState(instance.state) };
         },
         (snap) => {
-          if (snap == null) return;
+          if (snap == null || bag.connections.get(connectionId) !== lease) return;
           kernel.connections[connectionId]?.stampProcess({
             readyState: snap.ready,
             error: snap.error,
@@ -69,7 +76,7 @@ export function acquireConnection(
   };
   bag.connections.set(connectionId, lease);
   void lease.pending.then(undefined, () => {
-    if (lease.refs.size === 0) bag.connections.delete(connectionId);
+    if (lease.refs.size === 0 && bag.connections.get(connectionId) === lease) bag.connections.delete(connectionId);
   });
   return lease.pending;
 }
@@ -93,7 +100,7 @@ export async function dropConnection(kernel: KernelRoot, connectionId: string): 
   const owners = [...lease.refs];
   lease.refs.clear();
   const miss = new ConnectionMiss("connection-dropped", `connection ${connectionId} dropped`);
-  const disposing = lease.pending.then(
+  const disposing = lease.created.then(
     (instance) => {
       instance.abortOnDrop(miss);
       return instance[Symbol.asyncDispose]();
@@ -112,7 +119,7 @@ export function disposeKernelConnections(kernel: object): void {
   for (const lease of bag.connections.values()) {
     lease.refs.clear();
     lease.mirror?.();
-    void lease.pending.then(
+    void lease.created.then(
       (instance) => instance[Symbol.asyncDispose](),
       () => {},
     );
