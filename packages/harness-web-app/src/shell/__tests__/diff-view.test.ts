@@ -88,6 +88,8 @@ it("mounts Pierre's real shadow DOM with both sides of an edit", async () => {
       expect(shadow?.textContent).toContain("1");
       expect(shadow?.textContent).toContain("2");
       expect(shadow?.querySelector('[data-line="46"]')).not.toBeNull();
+      expect(shadow?.textContent).toContain("--diffs-font-family: var(--font-mono, 'Monaspace Krypton', monospace)");
+      expect(shadow?.textContent).not.toContain("JetBrains Mono");
     });
     expect(container.querySelector("details")).toBeNull();
     expect(container.querySelector(".diff-path")?.textContent).toBe("src/value.ts");

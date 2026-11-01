@@ -5,6 +5,7 @@ import {
   CONTEXT_NEED_TOOL_NAME,
   CompletionJob,
   FailureOutcome,
+  SuccessfulOutcome,
   ProgrammaticJob,
   SESSION_DESCRIPTION_MAX_CHARS,
   SCHEME_REPL_TOOL_NAME,
@@ -98,6 +99,8 @@ export type AgentCell = {
   /** A background call returns at once; its result comes back later as a notification. */
   readonly background: boolean;
   readonly outcome: AgentOutcome;
+  /** Exact terminal result or failure reason, separate from the delegated brief. */
+  readonly detail?: string;
 };
 
 export type ProgressItem = {
@@ -164,7 +167,6 @@ export function projectTurn(turn: SessionTurn, projectPath: string, blobs?: Blob
     cells.push({ kind: "user", id: `${turn.uuid}:user`, text: prompt, visuals });
   }
   const tools: ToolCallJob[] = [];
-  const subjects = new Map<string, string>();
   let roundId = `${turn.uuid}:round`;
   let roundModel = "";
   let roundConnection = "";
@@ -219,10 +221,10 @@ export function projectTurn(turn: SessionTurn, projectPath: string, blobs?: Blob
         roundCells.push({ kind: "speech", id: chunk.uuid, text, thought });
       }
     } else if (chunk instanceof ToolCallJob) {
-      pushTool(roundCells, chunk, tools, projectPath, subjects, blobs);
+      pushTool(roundCells, chunk, tools, projectPath, blobs);
     } else if (chunk instanceof ProgrammaticJob) {
       const nested: TapeCell[] = [];
-      for (const tool of chunk.toolCalls) pushTool(nested, tool, tools, projectPath, subjects, blobs);
+      for (const tool of chunk.toolCalls) pushTool(nested, tool, tools, projectPath, blobs);
       // A program that only signals context_need has no tape row.
       if (chunk.toolCalls.length > 0 && chunk.toolCalls.every((tool) => tool.name === CONTEXT_NEED_TOOL_NAME)) {
         return;
@@ -257,7 +259,7 @@ export function tapeCells(root: SessionRoot, blobs?: BlobPeek): TapeCell[] {
   return turnsOldestFirst(root).flatMap((turn) => projectTurn(turn, root.path, blobs));
 }
 
-/** Title, task, and goal updates share one progress mark. Empty updates stay off the tape. */
+/** Metadata annotates its round. Task and goal transitions come from plugin state in sessionBeats. */
 export function metadataMark(job: ToolCallJob): {
   readonly title: string;
   readonly description: string;
@@ -276,46 +278,7 @@ export function metadataMark(job: ToolCallJob): {
 const TASK_TOOLS = new Set(["task__create", "task__start", "task__drop", "task__after", "task__validate"]);
 const GOAL_TOOLS = new Set(["goal__set", "goal__clear"]);
 
-/** A task or goal call is a progress item. Anything else stays a tape row. */
-export function progressItem(job: ToolCallJob, subjects: ReadonlyMap<string, string> = new Map()): ProgressItem | null {
-  if (TASK_TOOLS.has(job.name)) return taskItem(job, subjects);
-  if (GOAL_TOOLS.has(job.name)) return goalItem(job);
-  return null;
-}
-
-function taskItem(job: ToolCallJob, subjects: ReadonlyMap<string, string>): ProgressItem | null {
-  const id = job.argString("taskId").trim();
-  const subject = textArg(job, "subject");
-  const named = subject !== "" ? subject : (subjects.get(id) ?? "");
-  const label = named !== "" ? named : id;
-  if (label === "") return null;
-  if (job.name === "task__create") return { id: job.uuid, label, detail: textArg(job, "description") };
-  if (job.name === "task__start") return { id: job.uuid, label, detail: "in progress" };
-  if (job.name === "task__drop") return { id: job.uuid, label, detail: dropped(textArg(job, "reason")) };
-  if (job.name === "task__after") {
-    const after = job.argString("after").trim();
-    return { id: job.uuid, label, detail: after === "" ? "waiting" : `after ${after}` };
-  }
-  return { id: job.uuid, label, detail: "done" };
-}
-
-function goalItem(job: ToolCallJob): ProgressItem | null {
-  if (job.name === "goal__clear") return { id: job.uuid, label: "Goal", detail: "cleared" };
-  const text = textArg(job, "text");
-  if (text === "") return null;
-  return { id: job.uuid, label: "Goal", detail: text };
-}
-
-function dropped(reason: string): string {
-  return reason === "" ? "dropped" : `dropped · ${reason}`;
-}
-
-function textArg(job: ToolCallJob, key: string): string {
-  const value = job.args?.[key];
-  return typeof value === "string" ? value.trim() : "";
-}
-
-/** One note per round. The latest title wins; task and goal lines accumulate in call order. */
+/** One note per round. The latest title wins. */
 export function mergeProgress(
   marks: readonly Extract<TapeCell, { kind: "progress" }>[],
 ): Extract<TapeCell, { kind: "progress" }> | null {
@@ -425,7 +388,6 @@ function pushTool(
   job: ToolCallJob,
   tools: ToolCallJob[],
   projectPath: string,
-  subjects: Map<string, string>,
   blobs?: BlobPeek,
 ): void {
   if (job instanceof CallJob) {
@@ -437,19 +399,11 @@ function pushTool(
     cells.push({ kind: "progress", id: job.uuid, ...mark });
     return;
   }
-  const item = progressItem(job, subjects);
-  if (item != null) {
-    const id = job.argString("taskId").trim();
-    const subject = textArg(job, "subject");
-    if (id !== "" && subject !== "") subjects.set(id, subject);
-    cells.push({ kind: "progress", id: job.uuid, title: "", description: "", items: [item] });
-    return;
-  }
   if (
     job.name === UPDATE_METADATA_TOOL_NAME ||
     job.name === CONTEXT_NEED_TOOL_NAME ||
-    TASK_TOOLS.has(job.name) ||
-    GOAL_TOOLS.has(job.name)
+    ((TASK_TOOLS.has(job.name) || GOAL_TOOLS.has(job.name)) &&
+      !["failed", "cancelled"].includes(outcomeOf(job.completed, job.outcomeSnap)))
   ) {
     return;
   }
@@ -486,6 +440,15 @@ export { type ToolBody } from "./tool-receipt.js";
 
 export function agentCell(job: CallJob): AgentCell {
   const message = job.argString("message");
+  const failure = job.outcome instanceof FailureOutcome ? job.outcome : null;
+  const success = job.outcome instanceof SuccessfulOutcome ? job.outcome : null;
+  const detail =
+    failure?.message.trim() ||
+    (success?.value == null
+      ? ""
+      : typeof success.value === "string"
+        ? success.value
+        : JSON.stringify(success.value, null, 2));
   return {
     kind: "agent",
     id: job.uuid,
@@ -497,9 +460,10 @@ export function agentCell(job: CallJob): AgentCell {
         .find((line) => line.trim() !== "")
         ?.trim() ?? "",
     background: job.background,
+    ...(detail === "" ? {} : { detail }),
     outcome: !job.completed
       ? "live"
-      : job.cancelled
+      : job.cancelled || failure?.code === "cancelled"
         ? "cancelled"
         : job.outcome instanceof FailureOutcome
           ? "failed"
@@ -524,15 +488,19 @@ export function agentFace(cell: AgentCell, glance: SessionOverview | null): Agen
     glance != null &&
     (glance.asking || glance.unfinished === "ask" || glance.unfinished === "question");
   const state: AgentState = asking ? "asking" : cell.outcome;
-  // A settled agent says nothing more: its bar is the outcome.
+  // State is written in words as well as shown by the note marker.
   const status =
     state === "asking"
       ? glance?.unfinished === "question"
         ? glance.questionLine.trim() || "has a question"
         : glance?.askLine.trim() || "awaiting approval"
       : state === "live"
-        ? (glance?.status.trim() ?? "")
-        : "";
+        ? glance?.status.trim() || "Working"
+        : state === "cancelled"
+          ? "Cancelled"
+          : state === "failed"
+            ? "Failed"
+            : "Completed";
   return {
     name: cell.spec || glance?.specName.trim() || "agent",
     model: glance?.model.trim() ?? "",

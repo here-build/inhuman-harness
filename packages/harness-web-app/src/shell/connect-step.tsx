@@ -1,10 +1,11 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { connectError } from "./connect-error.js";
 import { openUrlFieldType, parsePark, type ParkForm } from "./connect-park.js";
 import type { ConnectStart } from "./provider-list.js";
 import { Button, buttonVariants } from "../components/ui/button.js";
-import { Input } from "../components/ui/input.js";
+import { Disclosure, DisclosurePanel, FieldButton, Link } from "../components/ui/navigation.js";
+import { TextField, type TextFieldProps } from "../components/ui/text-field.js";
 
 export type Request = (method: string, params: unknown) => Promise<unknown>;
 
@@ -85,7 +86,7 @@ export function ConnectStep({
       return;
     }
     held.current = null;
-    const id = idOf(result);
+    const id = idOf(result) ?? (start.reconnect != null && isSuccess(result) ? start.reconnect : null);
     if (id != null) latest.current.onDone(id);
     else if (isRefusal(result)) latest.current.onCancel();
     else setStep({ phase: "error", ...connectError(start.name, "The daemon gave an answer this page does not know.") });
@@ -96,14 +97,14 @@ export function ConnectStep({
     void (async () => {
       try {
         const result = await send();
-        if (mine !== call.current) {
+        if (mine !== call.current || !mounted.current) {
           const late = parkOf(result);
           if (late != null) drop(late.pending);
           return;
         }
         await advance(result, mine);
       } catch (error) {
-        if (mine !== call.current) return;
+        if (mine !== call.current || !mounted.current) return;
         release();
         setStep({
           phase: "error",
@@ -115,7 +116,9 @@ export function ConnectStep({
 
   const begin = (): void => {
     setStep({ phase: "starting" });
-    run(() => request("connect/adopt", start));
+    run(() =>
+      start.reconnect == null ? request("connect/adopt", start) : request("connect/login", { id: start.reconnect }),
+    );
   };
 
   function answer(pending: string, form: ParkForm, reply: Answer): void {
@@ -161,7 +164,7 @@ export function ConnectStep({
         cancel();
       }}
     >
-      <h2 className="connect-title">{start.name}</h2>
+      <h2 className="text-xl leading-[26px]">{start.name}</h2>
       {step.phase === "starting" ? <Pending>Connecting…</Pending> : null}
       {step.phase === "form" ? (
         <Form form={step.form} onAnswer={(reply) => answer(step.pending, step.form, reply)} />
@@ -174,10 +177,12 @@ export function ConnectStep({
           <div className="link-text">
             <span>{step.summary}</span>
             {step.detail == null ? null : (
-              <details className="connect-detail">
-                <summary>Details</summary>
-                <p className="mono text-sm">{step.detail}</p>
-              </details>
+              <Disclosure className="connect-detail border-0 p-0">
+                <FieldButton slot="trigger" className="min-h-0 justify-start border-0 p-0 text-sm">
+                  Details
+                </FieldButton>
+                <DisclosurePanel className="connect-detail-panel px-0 py-1 mono text-sm">{step.detail}</DisclosurePanel>
+              </Disclosure>
             )}
           </div>
           <Button variant="secondary" data-first onClick={begin}>
@@ -210,7 +215,9 @@ function Form({ form, onAnswer }: { readonly form: ParkForm; readonly onAnswer: 
   const submit = (): void => {
     if (text !== "" || form.kind === "input") onAnswer({ kind: "text", input: text });
   };
-  const enter = (event: KeyboardEvent<HTMLInputElement>): void => {
+  const enter: NonNullable<TextFieldProps["onKeyDown"]> = (event) => {
+    // RAC keyboard handlers stop propagation unless asked; Escape still belongs to the flow.
+    event.continuePropagation();
     if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
     event.preventDefault();
     submit();
@@ -220,8 +227,9 @@ function Form({ form, onAnswer }: { readonly form: ParkForm; readonly onAnswer: 
       return (
         <>
           {form.description === "" ? null : <p className="connect-note">{form.description}</p>}
-          <a
-            className={buttonVariants()}
+          <Link
+            isCommand
+            className={`${buttonVariants()} no-underline`}
             data-first
             href={form.url}
             target="_blank"
@@ -229,18 +237,19 @@ function Form({ form, onAnswer }: { readonly form: ParkForm; readonly onAnswer: 
             onClick={() => onAnswer({ kind: "opened", url: form.url })}
           >
             Open
-          </a>
+          </Link>
           {form.paste ? (
             <div className="connect-field">
-              <label htmlFor={`${id}-paste`}>{form.paste}</label>
-              <div className="connect-row">
-                <Input
+              <div className="connect-row items-end">
+                <TextField
                   id={`${id}-paste`}
+                  label={form.paste}
+                  className="min-w-0 flex-1"
                   type={openUrlFieldType(form.paste, form.input)}
                   autoComplete="off"
                   spellCheck={false}
                   value={text}
-                  onChange={(event) => setText(event.target.value)}
+                  onChange={setText}
                   onKeyDown={enter}
                 />
                 <Button disabled={text === ""} onClick={submit}>
@@ -254,22 +263,26 @@ function Form({ form, onAnswer }: { readonly form: ParkForm; readonly onAnswer: 
     case "input":
       return (
         <div className="connect-field">
-          <label htmlFor={`${id}-input`}>{form.name}</label>
           {form.description === "" ? null : (
             <p className="connect-note" id={`${id}-note`}>
               {form.description}
             </p>
           )}
-          <div className="connect-row">
-            <Input
+          <div className="connect-row items-end">
+            <TextField
               id={`${id}-input`}
-              data-first
+              label={form.name}
+              className="min-w-0 flex-1"
+              ref={(node) => {
+                // The flow focuses the native control, not the composed field wrapper.
+                node?.setAttribute("data-first", "");
+              }}
               type={form.secret ? "password" : "text"}
               autoComplete="off"
               spellCheck={false}
               aria-describedby={form.description === "" ? undefined : `${id}-note`}
               value={text}
-              onChange={(event) => setText(event.target.value)}
+              onChange={setText}
               onKeyDown={enter}
             />
             <Button onClick={submit}>Connect</Button>
@@ -307,4 +320,8 @@ function idOf(result: unknown): string | null {
 
 function isRefusal(result: unknown): boolean {
   return typeof result === "object" && result != null && (result as Record<string, unknown>).ok === false;
+}
+
+function isSuccess(result: unknown): boolean {
+  return typeof result === "object" && result != null && (result as Record<string, unknown>).ok === true;
 }

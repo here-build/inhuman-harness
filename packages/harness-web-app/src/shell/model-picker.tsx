@@ -5,7 +5,9 @@ import { ConnectStep, type Request } from "./connect-step.js";
 import { modelChoiceValue, naturalName, type ModelChoice, type ModelWire } from "./model-choice.js";
 import { GROUP_LABELS, type ConnectStart, type ProviderRow } from "./provider-list.js";
 import { accountAnnotation, accountWindowLines } from "./wire-account.js";
+import { Button } from "../components/ui/button.js";
 import { glyph } from "../components/ui/glyph.js";
+import { Input } from "../components/ui/input.js";
 
 /** Hover opens a provider's models only after the pointer settles, so a diagonal path to an open submenu does not switch it. */
 const HOVER_OPEN_MS = 120;
@@ -48,12 +50,16 @@ export function ModelPicker({
   const search = useRef<HTMLInputElement>(null);
   const submenus = useRef(new Map<string, HTMLDivElement>());
   const hover = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Closing ends the current interaction, even when an RPC completes later.
+  const interaction = useRef(0);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
   const [subActive, setSubActive] = useState(0);
   const [view, setView] = useState<View>("models");
   const [visible, setVisible] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [removing, setRemoving] = useState<string | null>(null);
   // Quota countdowns are read at open; a menu is up for seconds, the windows for hours.
   const [now, setNow] = useState(() => Date.now());
 
@@ -80,6 +86,11 @@ export function ModelPicker({
         .filter((wire) => wire.choices.length > 0)
     : [];
   const resultRows = results.flatMap((wire) => wire.choices);
+  const authResults = searching
+    ? wires.filter(
+        (wire) => wire.account.needsAuth && `${wire.name} ${wire.account.name}`.toLowerCase().includes(needle),
+      )
+    : [];
   const openWire = searching ? undefined : wires.find((wire) => wire.connection === open);
   const wireId = (index: number): string => `${id}-wire-${index}`;
   const optionId = (scope: string, index: number): string => `${id}-${scope}-${index}`;
@@ -90,6 +101,7 @@ export function ModelPicker({
   });
 
   const showModels = (wire: ModelWire): void => {
+    if (wire.account.needsAuth) setQuery("");
     clearTimeout(hover.current);
     const submenu = submenus.current.get(wire.connection);
     // Showing one provider's popover hides a sibling's: they nest under the same root.
@@ -97,12 +109,14 @@ export function ModelPicker({
   };
 
   const pick = (choice: ModelChoice | undefined): void => {
-    if (choice == null) return;
+    if (choice == null || wires.find((wire) => wire.connection === choice.connection)?.account.needsAuth) return;
     root.current?.hidePopover();
     onChoose(choice);
   };
 
-  const wiresKey = wires.map((wire) => wire.connection).join("\0");
+  const wiresKey = wires
+    .map((wire) => `${wire.connection}:${wire.account.needsAuth}:${wire.choices.length}`)
+    .join("\0");
   const drivers = [...new Set(connectable.map((row) => row.driver))];
   const driversKey = drivers.join("\0");
   useEffect(() => {
@@ -125,6 +139,11 @@ export function ModelPicker({
     requestAnimationFrame(() => showModels(wire));
   }, [landing, wiresKey]);
 
+  useEffect(() => {
+    if (openWire?.account.needsAuth) setSubActive(0);
+    if (open != null && !wires.some((wire) => wire.connection === open)) setOpen(null);
+  }, [open, openWire?.account.needsAuth, wiresKey]);
+
   // Back in the list, the search field has the keys again.
   useEffect(() => {
     if (flow == null) search.current?.focus();
@@ -133,6 +152,35 @@ export function ModelPicker({
   const connect = (row: ProviderRow | undefined): void => {
     if (row?.start == null) return;
     setView({ start: row.start });
+  };
+
+  const reconnect = (wire: ModelWire): void => {
+    if (request == null || removing != null) return;
+    submenus.current.get(wire.connection)?.hidePopover();
+    setOpen(null);
+    setView({ start: { driver: "", name: wire.name, reconnect: wire.connection } });
+  };
+
+  const remove = async (wire: ModelWire): Promise<void> => {
+    if (request == null || removing != null) return;
+    const mine = interaction.current;
+    setRemoving(wire.connection);
+    setNotice("");
+    try {
+      const result = await request("connect/drop", { id: wire.connection, confirm: true });
+      if (typeof result !== "object" || result == null || !("ok" in result) || result.ok !== true) {
+        throw new Error("Could not delete the provider. Try again.");
+      }
+      if (mine !== interaction.current) return;
+      submenus.current.get(wire.connection)?.hidePopover();
+      setOpen(null);
+      setActive(0);
+    } catch (error) {
+      if (mine !== interaction.current) return;
+      setNotice(error instanceof Error ? error.message : "Could not delete the provider. Try again.");
+    } finally {
+      setRemoving(null);
+    }
   };
 
   const onKey = (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -145,8 +193,12 @@ export function ModelPicker({
       return;
     }
     const length =
-      openWire?.choices.length ??
-      (listing ? hits.length : searching ? resultRows.length + hits.length : wires.length + (canAdd ? 1 : 0));
+      (openWire == null ? undefined : openWire.account.needsAuth ? 2 : openWire.choices.length) ??
+      (listing
+        ? hits.length
+        : searching
+          ? resultRows.length + authResults.length + hits.length
+          : wires.length + (canAdd ? 1 : 0));
     const at = openWire == null ? active : subActive;
     const moves: Partial<Record<string, number>> = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: length - 1 };
     const move = moves[event.key];
@@ -156,7 +208,12 @@ export function ModelPicker({
       return;
     }
     if (openWire != null) {
-      if (event.key === "Enter") pick(openWire.choices.at(subActive));
+      if (event.key === "Enter") {
+        if (openWire.account.needsAuth) {
+          if (subActive === 0) reconnect(openWire);
+          else void remove(openWire);
+        } else pick(openWire.choices.at(subActive));
+      }
       if (event.key === "ArrowLeft") submenus.current.get(openWire.connection)?.hidePopover();
     } else if (listing) {
       if (event.key === "Enter") connect(hits.at(active));
@@ -165,7 +222,10 @@ export function ModelPicker({
     } else if (searching) {
       if (event.key === "Enter") {
         if (active < resultRows.length) pick(resultRows.at(active));
-        else connect(hits.at(active - resultRows.length));
+        else if (active < resultRows.length + authResults.length) {
+          const wire = authResults.at(active - resultRows.length);
+          if (wire != null) showModels(wire);
+        } else connect(hits.at(active - resultRows.length - authResults.length));
       }
     } else if (event.key === "Enter" || event.key === "ArrowRight") {
       const wire = wires.at(active);
@@ -187,9 +247,11 @@ export function ModelPicker({
         : searching
           ? active < resultRows.length
             ? optionId("result", active)
-            : hits.length === 0
-              ? undefined
-              : optionId("provider", active - resultRows.length)
+            : active < resultRows.length + authResults.length
+              ? optionId("auth", active - resultRows.length)
+              : hits.length === 0
+                ? undefined
+                : optionId("provider", active - resultRows.length - authResults.length)
           : active < wires.length
             ? wireId(active)
             : `${id}-add`;
@@ -227,18 +289,22 @@ export function ModelPicker({
   const named = current.model.trim() === "" ? "" : naturalName(current.model);
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         className="model-trigger"
         popoverTarget={`${id}-root`}
         disabled={disabled}
         aria-label={`Model: ${named === "" ? "none chosen" : named}`}
       >
-        <span className="truncate">{named === "" ? "Choose a model" : named}</span>
+        <span className={named === "" ? "truncate" : "truncate [font-variant-caps:normal] tracking-normal"}>
+          {named === "" ? "Choose a model" : named}
+        </span>
         {wires.length > 1 && current.connection !== "" ? (
-          <span className="text-muted">{currentWire?.name ?? current.connection}</span>
+          <span className="text-muted [font-variant-caps:normal] tracking-normal">
+            {currentWire?.name ?? current.connection}
+          </span>
         ) : null}
-      </button>
+      </Button>
       <div
         ref={root}
         id={`${id}-root`}
@@ -249,9 +315,16 @@ export function ModelPicker({
           if (event.target !== event.currentTarget) return;
           clearTimeout(hover.current);
           setVisible(event.newState === "open");
-          if (event.newState !== "open") return;
+          if (event.newState !== "open") {
+            interaction.current += 1;
+            setOpen(null);
+            // Unmounting ConnectStep releases its held park immediately.
+            setView("models");
+            return;
+          }
           setView("models");
           setQuery("");
+          setNotice("");
           setNow(Date.now());
           setActive(currentWire == null ? 0 : Math.max(0, wires.indexOf(currentWire)));
           search.current?.focus();
@@ -260,14 +333,14 @@ export function ModelPicker({
         <div className="model-sheet">
           {flow != null && request != null ? (
             <ConnectStep
-              key={`${flow.driver}:${flow.name}`}
+              key={`${flow.reconnect ?? flow.driver}:${flow.name}`}
               start={flow}
               request={request}
               onDone={(connection) => {
                 setQuery("");
                 setView({ landing: connection });
               }}
-              onCancel={() => setView("providers")}
+              onCancel={() => setView(flow.reconnect == null ? "providers" : "models")}
             />
           ) : (
             <>
@@ -283,19 +356,23 @@ export function ModelPicker({
                   </p>
                 ) : listing ? (
                   hits.length === 0 ? (
-                    <p className="model-empty">No providers match</p>
+                    <p className="model-empty" role="status">
+                      No providers match
+                    </p>
                   ) : (
                     providerRows(0)
                   )
                 ) : searching ? (
-                  results.length === 0 && hits.length === 0 ? (
-                    <p className="model-empty">No models match</p>
+                  results.length === 0 && authResults.length === 0 && hits.length === 0 ? (
+                    <p className="model-empty" role="status">
+                      No models match
+                    </p>
                   ) : (
                     <>
                       {results.map((wire) => (
                         <div className="model-group" key={wire.connection} role="group" aria-label={wire.name}>
                           {results.length > 1 ? (
-                            <div className="model-group-label label" aria-hidden>
+                            <div className="model-group-label" aria-hidden>
                               {wire.name}
                             </div>
                           ) : null}
@@ -316,7 +393,28 @@ export function ModelPicker({
                           })}
                         </div>
                       ))}
-                      {hits.length === 0 ? null : providerRows(resultRows.length, "Add a provider")}
+                      {authResults.map((wire, at) => (
+                        <div
+                          key={wire.connection}
+                          className="model-option provider-option"
+                          role="option"
+                          id={optionId("auth", at)}
+                          aria-selected={false}
+                          data-active={active === resultRows.length + at ? "" : undefined}
+                          onPointerDown={(event) => event.preventDefault()}
+                          onPointerMove={() => setActive(resultRows.length + at)}
+                          onClick={() => showModels(wire)}
+                        >
+                          <span className="truncate">{wire.name}</span>
+                          <IconChevronRight {...glyph} aria-hidden />
+                          <span className="provider-note">
+                            {[wire.account.name, "Please sign in again."].filter(Boolean).join(" · ")}
+                          </span>
+                        </div>
+                      ))}
+                      {hits.length === 0
+                        ? null
+                        : providerRows(resultRows.length + authResults.length, "Add a provider")}
                     </>
                   )
                 ) : (
@@ -334,8 +432,9 @@ export function ModelPicker({
                           key={wire.connection}
                           role="option"
                           aria-selected={wire === currentWire}
-                          aria-haspopup="listbox"
+                          aria-haspopup={wire.account.needsAuth ? "menu" : "listbox"}
                           aria-expanded={open === wire.connection}
+                          aria-controls={`${id}-submenu-${index}`}
                           data-active={open == null && index === active ? "" : undefined}
                           data-open={open === wire.connection ? "" : undefined}
                           style={anchor(index)}
@@ -349,13 +448,18 @@ export function ModelPicker({
                           onClick={() => showModels(wire)}
                         >
                           <span className="truncate">{wire.name}</span>
-                          <span className="model-wire-value truncate">{wire === currentWire ? named : ""}</span>
+                          <span className="model-wire-value truncate">
+                            {wire === currentWire && !wire.account.needsAuth ? named : ""}
+                          </span>
                           <IconChevronRight {...glyph} aria-hidden className="model-wire-chevron text-muted" />
                           {showAccount ? (
                             <span className="model-wire-account" title={accountTitle === "" ? undefined : accountTitle}>
-                              {wire.account.description === "" ? null : (
+                              {wire.account.needsAuth && wire.account.name !== "" ? (
+                                <span>{wire.account.name}</span>
+                              ) : null}
+                              {wire.account.description === "" && !wire.account.needsAuth ? null : (
                                 <span data-failed={wire.account.failed ? "" : undefined}>
-                                  {wire.account.description}
+                                  {wire.account.needsAuth ? "Please sign in again." : wire.account.description}
                                 </span>
                               )}
                               {wire.account.balance === "" ? null : <span>{wire.account.balance}</span>}
@@ -385,31 +489,49 @@ export function ModelPicker({
                         onPointerMove={() => setActive(wires.length)}
                         onClick={() => setView("providers")}
                       >
-                        <span className="truncate">Add a provider</span>
+                        <span className="label truncate">Add a provider</span>
                         <IconPlus {...glyph} aria-hidden className="shrink-0 text-muted" />
                       </div>
                     ) : null,
                   ]
                 )}
               </div>
-              <input
-                ref={search}
-                type="text"
-                role="combobox"
-                className="model-search"
-                placeholder={listing ? "Search providers" : "Search models"}
-                aria-label={listing ? "Search providers" : "Search models"}
-                aria-expanded="true"
-                aria-controls={`${id}-list`}
-                aria-activedescendant={activeId}
-                value={query}
-                onChange={(event) => {
-                  if (open != null) submenus.current.get(open)?.hidePopover();
-                  setQuery(event.target.value);
-                  setActive(0);
-                }}
-                onKeyDown={onKey}
-              />
+              {notice === "" ? null : (
+                <p className="model-empty" id={`${id}-notice`} role="alert">
+                  {notice}
+                </p>
+              )}
+              {/* Keep the native combobox event contract: SearchField adds Escape-to-clear
+                  behavior, while this composite reserves Escape for nested dismissal. */}
+              <div className="flex shrink-0 flex-col gap-1 p-3 text-sm">
+                <label htmlFor={`${id}-search`}>{listing ? "Search providers" : "Search models"}</label>
+                <Input
+                  id={`${id}-search`}
+                  ref={search}
+                  type="text"
+                  role="combobox"
+                  className="model-search"
+                  placeholder={listing ? "Search providers" : "Search models"}
+                  aria-label={listing ? "Search providers" : "Search models"}
+                  aria-describedby={`${id}-help${notice === "" ? "" : ` ${id}-notice`}`}
+                  aria-expanded="true"
+                  aria-haspopup={openWire?.account.needsAuth ? "menu" : "listbox"}
+                  aria-controls={openWire == null ? `${id}-list` : `${id}-submenu-${wires.indexOf(openWire)}`}
+                  aria-activedescendant={activeId}
+                  value={query}
+                  onChange={(event) => {
+                    if (open != null) submenus.current.get(open)?.hidePopover();
+                    setQuery(event.target.value);
+                    setActive(0);
+                  }}
+                  onKeyDown={onKey}
+                />
+                <p id={`${id}-help`} className="text-xs text-muted">
+                  {listing
+                    ? "Search providers. Use Up and Down to browse, Enter to connect, and Escape to return to models."
+                    : "Search models and providers. Use Up and Down to browse, Right to open a provider, and Enter to choose."}
+                </p>
+              </div>
             </>
           )}
         </div>
@@ -420,11 +542,26 @@ export function ModelPicker({
               if (node == null) submenus.current.delete(wire.connection);
               else submenus.current.set(wire.connection, node);
             }}
+            id={`${id}-submenu-${index}`}
             popover="auto"
             className="model-menu model-submenu"
-            role="listbox"
+            role={wire.account.needsAuth ? "menu" : "listbox"}
             aria-label={wire.name}
             style={anchor(index)}
+            onKeyDown={(event) => {
+              if (!wire.account.needsAuth) return;
+              const next =
+                event.key === "ArrowDown" || event.key === "End"
+                  ? 1
+                  : event.key === "ArrowUp" || event.key === "Home"
+                    ? 0
+                    : null;
+              if (next == null) return;
+              event.preventDefault();
+              event.stopPropagation();
+              setSubActive(next);
+              event.currentTarget.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
+            }}
             onToggle={(event) => {
               if (event.newState === "open") {
                 // ← returns to the provider these models came from.
@@ -441,19 +578,47 @@ export function ModelPicker({
               }
             }}
           >
-            {open === wire.connection
-              ? wire.choices.map((choice, at) => (
-                  <ModelOption
-                    key={modelChoiceValue(choice)}
-                    id={optionId(wire.connection, at)}
-                    choice={choice}
-                    selected={modelChoiceValue(choice) === currentValue}
-                    active={at === subActive}
-                    onPoint={() => setSubActive(at)}
-                    onPick={() => pick(choice)}
-                  />
-                ))
-              : null}
+            {open === wire.connection && wire.account.needsAuth ? (
+              <>
+                <Button
+                  variant="ghost"
+                  className="model-option justify-start"
+                  role="menuitem"
+                  id={optionId(wire.connection, 0)}
+                  data-active={subActive === 0 ? "" : undefined}
+                  disabled={request == null || removing != null}
+                  onPointerMove={() => setSubActive(0)}
+                  onClick={() => reconnect(wire)}
+                >
+                  Sign in again
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="model-option justify-start"
+                  data-destructive=""
+                  role="menuitem"
+                  id={optionId(wire.connection, 1)}
+                  data-active={subActive === 1 ? "" : undefined}
+                  disabled={request == null || removing != null}
+                  onPointerMove={() => setSubActive(1)}
+                  onClick={() => void remove(wire)}
+                >
+                  {removing === wire.connection ? "Deleting…" : "Delete"}
+                </Button>
+              </>
+            ) : open === wire.connection ? (
+              wire.choices.map((choice, at) => (
+                <ModelOption
+                  key={modelChoiceValue(choice)}
+                  id={optionId(wire.connection, at)}
+                  choice={choice}
+                  selected={modelChoiceValue(choice) === currentValue}
+                  active={at === subActive}
+                  onPoint={() => setSubActive(at)}
+                  onPick={() => pick(choice)}
+                />
+              ))
+            ) : null}
           </div>
         ))}
       </div>

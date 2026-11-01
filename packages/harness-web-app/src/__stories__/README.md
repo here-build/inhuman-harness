@@ -14,7 +14,24 @@ document, so scenes build fresh jobs on every call.
 The toolbar's **Scheme** pins `data-scheme` on the root; every token is a
 `light-dark()` pair, so the page follows.
 
-## Brandbook
+## Graphic Precision
+
+The normative system is [`docs/graphic-precision.md`](../../../../docs/graphic-precision.md).
+The **Graphic Precision › System › Guidelines** story renders that file directly;
+Meaning and Typography, Visual and Verbal Language, and Implementation Contract
+show its application using the same primitives and tokens as the product.
+The phased rebuild and acceptance gates live in
+[`docs/graphic-precision-web-rebuild.md`](../../../../docs/graphic-precision-web-rebuild.md).
+React Aria supplies reusable control semantics; floating blocks retain native
+Popover API + CSS Anchor Positioning.
+
+The expanded catalog includes **Forms**, **Collections**, **Dates and times**,
+**Date pickers**, **Choice fields**, **Navigation**, **Anchored**, **Advanced**,
+**Composition**, and **Working editor** (actual staged agent/skill flows). See the [component coverage matrix](../../../../docs/graphic-precision-component-coverage.md)
+and [UI authoring guide](../components/ui/README.md) for public APIs, intentional
+native adapters, and version-sensitive anchor integration.
+
+## Brandbook (historical product examples)
 
 `brand-*.stories.tsx` are pages, not scenes: the visual identity drawn in the app's own tokens and classes.
 `brand-kit.tsx` reads the color pairs from `styles.css`, so a token change shows here without an edit.

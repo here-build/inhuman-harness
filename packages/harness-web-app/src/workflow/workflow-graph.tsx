@@ -105,7 +105,8 @@ const FrameBox = observer(function FrameView({
         />
       )}
       <div className="wf-frame-head" style={{ zIndex: zCard(depth), ...geometry(placed, 0, HEAD_H) }}>
-        <button
+        <Button
+          variant="content"
           type="button"
           className="wf-toggle"
           aria-expanded={!collapsed}
@@ -113,7 +114,7 @@ const FrameBox = observer(function FrameView({
           onClick={() => onToggle(region.id)}
         >
           <IconChevronRight {...glyph} aria-hidden className="wf-chevron" />
-        </button>
+        </Button>
         <span className="label wf-crumb">{fanoutOrder(region)}</span>
         {region.incoming > n ? (
           <span className="mono wf-count">
@@ -123,7 +124,7 @@ const FrameBox = observer(function FrameView({
           <span className="mono wf-count">×{n}</span>
         ) : null}
         {collapsed || n < 2 ? null : n <= (merged ? MERGED_TAB_CAP : TAB_CAP) ? (
-          <div role="tablist" aria-label="Iterations" className="wf-tabs">
+          <div role="group" aria-label="Iterations" className="wf-tabs">
             {region.iterations.map((body, i) => (
               <Tab
                 key={i}
@@ -136,7 +137,8 @@ const FrameBox = observer(function FrameView({
           </div>
         ) : (
           <div role="group" aria-label="Iterations" className="wf-tabs">
-            <button
+            <Button
+              variant="content"
               type="button"
               className="wf-tab mono"
               disabled={sel <= 0}
@@ -144,9 +146,10 @@ const FrameBox = observer(function FrameView({
               onClick={() => pick(sel - 1)}
             >
               ‹
-            </button>
-            <Tab label={`#${sel + 1}/${n}`} selected mark={iterState(region.iterations[sel] ?? [], cells)} />
-            <button
+            </Button>
+            <span className="wf-tab mono" aria-live="polite">{`#${sel + 1}/${n}`}</span>
+            <Button
+              variant="content"
               type="button"
               className="wf-tab mono"
               disabled={sel >= n - 1}
@@ -154,7 +157,7 @@ const FrameBox = observer(function FrameView({
               onClick={() => pick(sel + 1)}
             >
               ›
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -174,12 +177,12 @@ function Tab({
   onClick?: () => void;
 }) {
   return (
-    <button type="button" role="tab" className="wf-tab mono" aria-selected={selected} onClick={onClick}>
+    <Button variant="content" type="button" className="wf-tab mono" aria-pressed={selected} onClick={onClick}>
       {label}
       {mark === undefined ? null : (
         <span className="wf-dot" data-state={mark} role="img" aria-label={mark === "live" ? "running" : mark} />
       )}
-    </button>
+    </Button>
   );
 }
 

@@ -29,6 +29,7 @@ import { glanceOf, LOOK_VERB, lookSentences, sessionBeats } from "./session-beat
 import { useDial } from "../../harness-web-app/src/client/context.js";
 import { Button } from "../../harness-web-app/src/components/ui/button.js";
 import { glyph } from "../../harness-web-app/src/components/ui/glyph.js";
+import { Disclosure, FieldButton } from "../../harness-web-app/src/components/ui/navigation.js";
 import { CodeView } from "../../harness-web-app/src/shell/code-view.js";
 import { DiffView } from "../../harness-web-app/src/shell/diff-view.js";
 import { canEditMessages, editMessage } from "../../harness-web-app/src/shell/edit-message.js";
@@ -66,6 +67,7 @@ import {
   schemeSummary,
   type ToolOutcome,
 } from "../../harness-web-app/src/shell/tool-receipt.js";
+import { TranscriptDisclosurePanel } from "../../harness-web-app/src/shell/transcript-disclosure.js";
 import { jobCells } from "../../harness-web-app/src/workflow/cell.js";
 import { useWorkflowGraph } from "../../harness-web-app/src/workflow/use-workflow-graph.js";
 import { WorkflowGraph } from "../../harness-web-app/src/workflow/workflow-graph.js";
@@ -108,21 +110,26 @@ function CellView({
   cell,
   onOpen,
   onEdit,
+  delegatedBrief = false,
+  delegatedBriefText,
 }: {
+  readonly delegatedBrief?: boolean;
+  readonly delegatedBriefText?: string;
   readonly cell: TapeBodyCell;
   readonly onOpen: (file: OpenFile) => void;
   readonly onEdit?: () => void;
 }) {
   if (cell.kind === "user") {
+    if (delegatedBrief) return <DelegatedBrief cell={{ ...cell, text: delegatedBriefText ?? cell.text }} />;
     const visuals = cell.visuals ?? [];
     return (
       <section className="tape-message tape-user" aria-label="Your message" data-copy={cell.text}>
         {cell.text === "" ? null : <p className="user-text">{cell.text}</p>}
         {visuals.length === 0 ? null : <UserPictures visuals={visuals} />}
         {onEdit == null ? null : (
-          <button type="button" className="message-edit" onClick={onEdit}>
+          <Button variant="ghost" type="button" className="message-edit" onClick={onEdit}>
             Edit
-          </button>
+          </Button>
         )}
       </section>
     );
@@ -139,12 +146,12 @@ function CellView({
     return <ToolBodyView body={cell.body} onOpen={onOpen} outcome={cell.outcome} />;
   }
   return (
-    <details className="tape-tool">
-      <summary>
+    <Disclosure className="tape-tool">
+      <FieldButton slot="trigger" className="tool-disclosure-trigger">
         <ToolSummary summary={cell.summary} />
         <Outcome outcome={cell.outcome} />
-      </summary>
-      <Findable>
+      </FieldButton>
+      <TranscriptDisclosurePanel className="tool-disclosure" data-hidden="until-found">
         {cell.program == null ? null : <GraphButton program={cell.program} />}
         <ToolBodyView body={cell.body} />
         {cell.nested == null || cell.nested.length === 0
@@ -156,8 +163,42 @@ function CellView({
                   <CellView cell={inner} onOpen={onOpen} />
                 </CellFence>
               ))}
-      </Findable>
-    </details>
+      </TranscriptDisclosurePanel>
+    </Disclosure>
+  );
+}
+
+/** Only the initial agent instruction folds; ordinary conversation messages stay in sequence. */
+function DelegatedBrief({ cell }: { readonly cell: Extract<TapeBodyCell, { kind: "user" }> }) {
+  const [copy, setCopy] = useState("");
+  return (
+    <Disclosure className="agent-brief">
+      <FieldButton slot="trigger" className="agent-brief-trigger">
+        Delegated brief
+      </FieldButton>
+      <TranscriptDisclosurePanel className="agent-brief-panel">
+        <Button
+          variant="ghost"
+          onClick={() => {
+            void (async () => {
+              try {
+                await navigator.clipboard.writeText(cell.text);
+                setCopy("Brief copied.");
+              } catch {
+                setCopy("Could not copy. Select the brief text to copy it.");
+              }
+            })();
+          }}
+        >
+          Copy brief
+        </Button>
+        <span role="status">{copy}</span>
+        <section className="tape-message tape-user" aria-label="Delegated brief" data-copy={cell.text}>
+          <p className="user-text">{cell.text}</p>
+          {(cell.visuals?.length ?? 0) === 0 ? null : <UserPictures visuals={cell.visuals!} />}
+        </section>
+      </TranscriptDisclosurePanel>
+    </Disclosure>
   );
 }
 
@@ -222,9 +263,15 @@ const UserPicture = observer(function UserPictureView({
       {failed ? <p className="user-picture-miss">The picture could not be loaded.</p> : null}
       {src == null ? null : (
         <>
-          <button type="button" className="user-picture-open" aria-label={label} onClick={() => setOpen(true)}>
+          <Button
+            variant="ghost"
+            type="button"
+            className="user-picture-open"
+            aria-label={label}
+            onClick={() => setOpen(true)}
+          >
             <img alt="" src={src} />
-          </button>
+          </Button>
           {open ? <PicturePreview url={src} label={label} onClose={() => setOpen(false)} /> : null}
         </>
       )}
@@ -259,14 +306,6 @@ function PicturePreview({
     >
       <img src={url} alt={label} />
     </dialog>
-  );
-}
-
-function Findable({ children }: { readonly children: ReactNode }) {
-  return (
-    <div className="tool-disclosure" data-hidden="until-found">
-      {children}
-    </div>
   );
 }
 
@@ -329,7 +368,7 @@ function LookTarget({ item, onOpen }: { readonly item: LookItem; readonly onOpen
           {item.label}
         </span>
         {scope}
-        <FailInfo detail={item.text ?? "The call failed."} />
+        <FailInfo label={`Why this failed: ${item.label}`} detail={item.text ?? "The call failed."} />
       </span>
     );
   }
@@ -347,12 +386,13 @@ function LookTarget({ item, onOpen }: { readonly item: LookItem; readonly onOpen
   }
   return (
     <span className="look-target">
-      <button
+      <Button
+        variant="content"
         className="read-path"
         disabled={binary || missing}
         type="button"
         title={binary ? `${item.path} (binary)` : item.verb === "read" ? item.path : undefined}
-        onClick={() =>
+        onPress={() =>
           onOpen({
             path: item.path,
             label: item.verb === "read" ? item.label : `${LOOK_VERB[item.verb]} ${item.label}`,
@@ -361,7 +401,7 @@ function LookTarget({ item, onOpen }: { readonly item: LookItem; readonly onOpen
         }
       >
         {item.label}
-      </button>
+      </Button>
       {scope}
       {item.outcome === "live" ? <Outcome outcome="live" /> : null}
     </span>
@@ -395,19 +435,24 @@ function FailLine({
     body.label === "" ? null : onOpen == null ? (
       <span className="read-path">{body.label}</span>
     ) : (
-      <button
+      <Button
+        variant="content"
         className="read-path"
         type="button"
         title={body.path}
-        onClick={() => onOpen({ path: body.path, label: body.label })}
+        onPress={() => onOpen({ path: body.path, label: body.label })}
       >
         {body.label}
-      </button>
+      </Button>
     );
   return (
     <p className="fail-line">
       Failed to {body.verb}
-      {path == null ? null : <> {path}</>} <FailInfo detail={body.detail} />
+      {path == null ? null : <> {path}</>}{" "}
+      <FailInfo
+        label={`Why this failed: ${body.verb}${body.label === "" ? "" : ` ${body.label}`}`}
+        detail={body.detail}
+      />
     </p>
   );
 }
@@ -416,13 +461,27 @@ function FailLine({
 const TIP_HIDE_MS = 120;
 
 /** Why a call failed, one hover or focus away. A popover, so the tape's scrollport cannot clip it. */
-function FailInfo({ detail }: { readonly detail: string }) {
+function FailInfo({ label, detail }: { readonly label: string; readonly detail: string }) {
   const tipId = useId();
   const anchor = `--fail-${tipId.replaceAll(/[^\w-]/g, "")}`;
   const tip = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(hideTimer.current), []);
+  useEffect(() => {
+    // Manual popovers do not get the browser's Escape dismissal. Leave native
+    // positioning and pointer/focus ownership intact, including the crossing delay.
+    const escape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape" || !tip.current?.matches(":popover-open")) return;
+      clearTimeout(hideTimer.current);
+      tip.current.hidePopover();
+      event.preventDefault();
+    };
+    document.addEventListener("keydown", escape);
+    return () => {
+      clearTimeout(hideTimer.current);
+      document.removeEventListener("keydown", escape);
+    };
+  }, []);
   const show = (): void => {
     clearTimeout(hideTimer.current);
     const node = tip.current;
@@ -448,18 +507,21 @@ function FailInfo({ detail }: { readonly detail: string }) {
   };
   return (
     <span className="fail-info" style={{ "--fail-anchor": anchor } as CSSProperties}>
-      <button
+      <Button
+        variant="content"
         ref={trigger}
+        className=""
         type="button"
-        aria-label="Why this failed"
+        aria-label={label}
         aria-describedby={tipId}
         onPointerEnter={show}
         onPointerLeave={hide}
         onFocus={show}
         onBlur={hide}
+        onPress={show}
       >
         <IconInfoCircle {...glyph} aria-hidden />
-      </button>
+      </Button>
       <span
         className="fail-info-bubble"
         id={tipId}
@@ -468,6 +530,8 @@ function FailInfo({ detail }: { readonly detail: string }) {
         ref={tip}
         onPointerEnter={show}
         onPointerLeave={hide}
+        onFocus={show}
+        onBlur={hide}
       >
         {detail}
       </span>
@@ -536,7 +600,7 @@ export function ToolBodyView({
   );
 }
 
-function TitleNote({ beat }: { readonly beat: TapeBeat }) {
+function TitleNote({ beat }: { readonly beat: Pick<TapeBeat, "id" | "mark"> }) {
   if (beat.mark == null) return null;
   const titled = beat.mark.title !== "";
   return (
@@ -562,16 +626,39 @@ function TitleNote({ beat }: { readonly beat: TapeBeat }) {
 }
 
 function ThoughtNotes({ beat }: { readonly beat: TapeBeat }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    const container = ref.current?.closest(".tape");
+    if (container == null || typeof ResizeObserver === "undefined") return;
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      if (entry == null) return;
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setWide(entry.contentRect.width > 52 * rem);
+    });
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, []);
   return (
     // The fold only shows on a narrow page; beside a wide one the reasoning is always laid out.
-    <details className="beat-thoughts side-note">
-      <summary>Reasoning</summary>
-      {beat.thoughts.map((thought) => (
-        <aside className="tape-thought" key={thought.id}>
-          <Markdown text={thought.text} />
-        </aside>
-      ))}
-    </details>
+    <Disclosure
+      ref={ref}
+      className="beat-thoughts side-note"
+      isExpanded={wide || expanded}
+      onExpandedChange={setExpanded}
+    >
+      <FieldButton slot="trigger" className="thoughts-disclosure-trigger">
+        Reasoning
+      </FieldButton>
+      <TranscriptDisclosurePanel className="thoughts-disclosure-panel">
+        {beat.thoughts.map((thought) => (
+          <aside className="tape-thought" key={thought.id}>
+            <Markdown text={thought.text} />
+          </aside>
+        ))}
+      </TranscriptDisclosurePanel>
+    </Disclosure>
   );
 }
 
@@ -584,18 +671,19 @@ function AgentNote({ cell, glance }: { readonly cell: AgentCell; readonly glance
   const [peeking, setPeeking] = useState(false);
   return (
     <>
-      <button
+      <Button
+        variant="content"
         type="button"
         className="agent-note"
         data-state={face.state}
         aria-haspopup="dialog"
         // A call the daemon has not interned yet has no session to open.
         disabled={cell.sessionId === ""}
-        onClick={() => setPeeking(true)}
+        onPress={() => setPeeking(true)}
       >
         <span className="agent-who">
           <span className="agent-name">{face.name}</span>
-          {face.model === "" ? null : <span className="mono text-muted">{naturalName(face.model)}</span>}
+          {face.model === "" ? null : <span className="text-muted">{naturalName(face.model)}</span>}
         </span>
         <span className="agent-task">{face.task}</span>
         {face.status === "" ? null : (
@@ -603,7 +691,7 @@ function AgentNote({ cell, glance }: { readonly cell: AgentCell; readonly glance
             <span>{face.status}</span>
           </span>
         )}
-      </button>
+      </Button>
       {/* Out of the lane: a note's slot is a positioned, click-through box, and its anchors are the page's. */}
       {peeking ? createPortal(<AgentPeek cell={cell} onClose={() => setPeeking(false)} />, document.body) : null}
     </>
@@ -734,16 +822,25 @@ const AgentPeek = observer(function AgentPeekView({
       state={face.state}
       who={
         <>
-          <span className="label">{face.name}</span>
-          {face.model === "" ? null : <span className="mono">{naturalName(face.model)}</span>}
+          <span>{face.name}</span>
+          {face.model === "" ? null : <span>{naturalName(face.model)}</span>}
         </>
       }
       title={face.task}
-      status={face.status}
+      status={cell.outcome === "ok" || cell.detail == null ? face.status : `${face.status}: ${cell.detail}`}
       onClose={onClose}
     >
       <div ref={tape} className="tape agent-peek-tape" tabIndex={-1}>
         <div className="transcript">
+          {cell.detail == null || cell.outcome !== "ok" ? null : (
+            <section
+              className="agent-peek-result transcript-column"
+              aria-label={face.state === "ok" ? "Agent result" : "Agent reason"}
+            >
+              <h3>{face.state === "ok" ? "Result" : "Reason"}</h3>
+              <p className="agent-peek-result-text">{cell.detail}</p>
+            </section>
+          )}
           {peeked === "failed" ? (
             <p className="transcript-empty transcript-column">This agent's session could not be opened.</p>
           ) : root == null ? (
@@ -756,6 +853,7 @@ const AgentPeek = observer(function AgentPeekView({
             <SessionTimeline
               beats={beats}
               root={root}
+              delegatedBriefId={beats[0] == null ? undefined : `${beats[0].turn.uuid}:user`}
               // The file pane sits behind the modal; open the file there.
               onOpen={(file) => {
                 dialog.current?.close();
@@ -868,7 +966,7 @@ type TimelineItem = {
 function ModelNote({ span, wire }: { readonly span: ModelSpan; readonly wire: string }) {
   return (
     <aside className="model-note side-note">
-      <span className="mono">{naturalName(span.model)}</span>
+      <span>{naturalName(span.model)}</span>
       <span className="text-muted">{wire}</span>
     </aside>
   );
@@ -1044,10 +1142,14 @@ function BeatSection({
   beat,
   row,
   onOpen,
+  delegatedBriefId,
+  delegatedBriefText,
   onEdit,
 }: {
   readonly beat: TapeBeat;
   readonly row: number;
+  readonly delegatedBriefId?: string;
+  readonly delegatedBriefText?: string;
   readonly onOpen: (file: OpenFile) => void;
   readonly onEdit?: (cellId: string) => void;
 }) {
@@ -1062,6 +1164,8 @@ function BeatSection({
           <CellFence key={cell.id}>
             <CellView
               cell={cell}
+              delegatedBrief={cell.id === delegatedBriefId}
+              delegatedBriefText={delegatedBriefText}
               onOpen={onOpen}
               {...(onEdit == null || cell.kind !== "user" ? {} : { onEdit: () => onEdit(cell.id) })}
             />
@@ -1109,33 +1213,45 @@ const LiveBeat = observer(function LiveBeatView({
   turn,
   projectPath,
   beatId,
+  mark,
   row,
   part,
   agent,
   onOpen,
+  delegatedBriefId,
 }: {
   readonly turn: SessionTurn;
   readonly projectPath: string;
   readonly beatId: string;
+  readonly mark: TapeBeat["mark"];
   readonly row: number;
   readonly part: BeatPart;
   readonly agent?: string;
+  readonly delegatedBriefId?: string;
   readonly onOpen: (file: OpenFile) => void;
 }) {
   const dial = useDial();
   const beat = turnBeats(turn, projectPath).find((item) => item.id === beatId);
   const editable = canEditMessages(dial);
-  if (beat == null) return null;
+  if (part === "title") return <TitleNote beat={{ id: beatId, mark }} />;
+  if (beat == null) {
+    // A plugin can change before the first completion. Its status-only round
+    // still needs a body anchor for the desktop annotation layout.
+    return part === "body" && mark != null ? (
+      <section className="beat" style={{ "--beat-row": row, "--beat-anchor": `--beat-${row}` } as CSSProperties} />
+    ) : null;
+  }
   if (part === "agent") {
     const cell = beat.agents.find((item) => item.id === agent);
     if (cell == null) return null;
     return <AgentNote cell={cell} glance={glanceOf(dial, cell.sessionId)} />;
   }
-  if (part === "title") return <TitleNote beat={beat} />;
   if (part === "thoughts") return <ThoughtNotes beat={beat} />;
   return (
     <BeatSection
       beat={beat}
+      delegatedBriefId={delegatedBriefId}
+      delegatedBriefText={String(turn.prompt)}
       onOpen={onOpen}
       row={row}
       {...(editable
@@ -1174,10 +1290,12 @@ function SessionTimeline({
   root,
   live,
   onOpen,
+  delegatedBriefId,
 }: {
   readonly beats: ReturnType<typeof sessionBeats>;
   readonly root: SessionRoot;
   readonly live?: { readonly model: string; readonly connection: string };
+  readonly delegatedBriefId?: string;
   readonly onOpen: (file: OpenFile) => void;
 }) {
   const dial = useDial();
@@ -1192,7 +1310,9 @@ function SessionTimeline({
           <CellFence>
             <LiveBeat
               agent={agent}
+              delegatedBriefId={delegatedBriefId}
               beatId={beat.id}
+              mark={beat.mark}
               onOpen={onOpen}
               projectPath={root.path}
               row={beat.row}

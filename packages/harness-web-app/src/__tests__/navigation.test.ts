@@ -4,6 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { makeObservable, observable, runInAction } from "mobx";
+import { userEvent, within } from "storybook/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppRouter } from "../app.js";
@@ -119,7 +120,7 @@ class NavigationDial {
       runInAction(() => {
         this.target = target;
         // Preserve the exact directory resource across sibling sessions.
-        this.project = "path" in target ? this.projectSnapshot : null;
+        this.project = "path" in target ? (this.projects.get(target.path) ?? this.projectSnapshot) : null;
         this.session = sessionId == null ? null : sessionSnapshot(sessionId);
         this.sessionRpc = sessionId == null ? null : { request: this.request };
         this.attaching = false;
@@ -220,6 +221,84 @@ afterEach(async () => {
 });
 
 describe("live application navigation", () => {
+  it("restores each project's last session when switching project tabs", async () => {
+    const dial = new NavigationDial();
+    const otherPath = "/work/other";
+    Object.assign(dial.kernel.root.projects, { [otherPath]: "" });
+    dial.projects.set(otherPath, {
+      root: { path: otherPath, sessions: { alpha: "", beta: "" }, botsRoster: {} },
+    });
+    await mount(dial);
+    await open("other");
+    await settled();
+    expect(dial.target).toEqual({ kind: "project", path: otherPath });
+    await open("Session beta");
+    await settled();
+    expect(dial.target).toEqual(sessionTarget("beta", otherPath));
+    await open("navigation");
+    await settled();
+    expect(dial.target).toEqual(sessionTarget("alpha"));
+    expect(link("navigation").getAttribute("href")).toBe(sessionHref(projectPath, "alpha"));
+    await open("other");
+    await settled();
+    expect(dial.target).toEqual(sessionTarget("beta", otherPath));
+  });
+
+  it("does not remember failed selections or reset the kept transcript's scroll during attachment", async () => {
+    const dial = new NavigationDial();
+    await mount(dial);
+    const port = element<HTMLElement>("main.tape");
+    Object.defineProperties(port, {
+      scrollHeight: { configurable: true, value: 2000 },
+      clientHeight: { configurable: true, value: 500 },
+    });
+    await act(async () => {
+      port.scrollTop = 420;
+      port.dispatchEvent(new Event("scroll"));
+    });
+    const gate = dial.hold("beta");
+    await open("Session beta");
+    expect(port.scrollTop).toBe(420);
+    expect(link("navigation").getAttribute("href")).toBe(sessionHref(projectPath, "alpha"));
+    await act(async () => gate.reject(new Error("offline")));
+    await settled();
+    expect(port.scrollTop).toBe(420);
+    await open("Overview");
+    await settled();
+    await open("navigation");
+    await settled();
+    expect(dial.target).toEqual(sessionTarget("alpha"));
+    expect(port.scrollTop).toBe(420);
+  });
+
+  it("restores the reading position per session and keeps tail-following sessions at the tail", async () => {
+    const dial = new NavigationDial();
+    await mount(dial);
+    const port = element<HTMLElement>("main.tape");
+    Object.defineProperties(port, {
+      scrollHeight: { configurable: true, value: 2000 },
+      clientHeight: { configurable: true, value: 500 },
+    });
+    await act(async () => {
+      port.scrollTop = 420;
+      port.dispatchEvent(new Event("scroll"));
+    });
+    await open("Session beta");
+    await settled();
+    expect(port.scrollTop).toBe(2000);
+    await act(async () => {
+      port.scrollTop = 1500;
+      port.dispatchEvent(new Event("scroll"));
+    });
+    await open("Session alpha");
+    await settled();
+    expect(port.scrollTop).toBe(420);
+    Object.defineProperty(port, "scrollHeight", { configurable: true, value: 2400 });
+    await open("Session beta");
+    await settled();
+    expect(port.scrollTop).toBe(2400);
+  });
+
   it("places the Inhuman heading in the sidebar without a title bar and keeps navigation collapsible", async () => {
     await mount(new NavigationDial());
     element<HTMLElement>("aside");
@@ -255,6 +334,22 @@ describe("live application navigation", () => {
     const port = element<HTMLElement>('main[aria-label="Conversation"]');
     const textarea = draft();
     const directory = dial.project;
+    const retainedDom = () => ({
+      sidebar: element("aside") === sidebar,
+      navigation: element('nav[aria-label="All projects"]') === navigation,
+      sessionRow: link("Session beta") === row,
+      sessionList: row.closest("ul") === list,
+      transcriptPort: element("main") === port,
+      editor: draft() === textarea,
+    });
+    const allRetained = {
+      sidebar: true,
+      navigation: true,
+      sessionRow: true,
+      sessionList: true,
+      transcriptPort: true,
+      editor: true,
+    };
     await typeDraft("a draft must not be sent during attachment");
     expect(button("Send").disabled).toBe(false);
     port.scrollTop = 81;
@@ -266,23 +361,26 @@ describe("live application navigation", () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
     });
-    expect(dial.requestedTarget).toEqual(sessionTarget("beta"));
-    expect(dial.target).toEqual(sessionTarget("alpha"));
-    expect(dial.attaching).toBe(true);
+    expect({ requested: dial.requestedTarget, committed: dial.target, attaching: dial.attaching }).toEqual({
+      requested: sessionTarget("beta"),
+      committed: sessionTarget("alpha"),
+      attaching: true,
+    });
     expect(navigation.textContent).not.toContain("Opening the session");
     expect(transcript().textContent).toContain("Session alpha");
-    expect(element("aside")).toBe(sidebar);
-    expect(element('nav[aria-label="All projects"]')).toBe(navigation);
-    expect(link("Session beta")).toBe(row);
-    expect(row.closest("ul")).toBe(list);
-    expect(element("main")).toBe(port);
-    expect(port.scrollTop).toBe(81);
-    expect(draft()).toBe(textarea);
+    expect({ dom: retainedDom(), scroll: port.scrollTop }).toEqual({ dom: allRetained, scroll: 81 });
     // Draft editing is local and remains available; only remote actions lock.
-    expect(textarea.disabled).toBe(false);
-    expect(button("Send").disabled).toBe(true);
-    expect(container.querySelector('button[aria-label="Stop"]')).toBeNull();
-    expect(dial.sessionRpc).toBeNull();
+    expect({
+      editable: !textarea.disabled,
+      sendDisabled: button("Send").disabled,
+      stop: container.querySelector('button[aria-label="Stop"]'),
+      port: dial.sessionRpc,
+    }).toEqual({
+      editable: true,
+      sendDisabled: true,
+      stop: null,
+      port: null,
+    });
 
     await act(async () => gate.resolve());
     await settled();
@@ -291,12 +389,7 @@ describe("live application navigation", () => {
     expect(dial.target).toEqual(sessionTarget("beta"));
     expect(transcript().textContent).toContain("Session beta");
     expect(transcript().textContent).not.toContain("Session alpha");
-    expect(element("aside")).toBe(sidebar);
-    expect(element('nav[aria-label="All projects"]')).toBe(navigation);
-    expect(link("Session beta")).toBe(row);
-    expect(row.closest("ul")).toBe(list);
-    expect(element("main")).toBe(port);
-    expect(draft()).toBe(textarea);
+    expect(retainedDom()).toEqual(allRetained);
     expect(textarea.disabled).toBe(false);
   });
 
@@ -450,12 +543,23 @@ describe("live application navigation", () => {
     await pickListed("grok-4.7", "Grok 4.7");
     expect(element<HTMLButtonElement>(".model-trigger").getAttribute("aria-label")).toBe("Model: Grok 4.7");
     expect(dial.request).not.toHaveBeenCalled();
-    await click("always approve");
+    const user = userEvent.setup({ document });
+    await act(async () => {
+      await user.click(element<HTMLButtonElement>(".permission-trigger"));
+    });
+    await act(async () => {
+      await user.click(within(container).getByRole("menuitemradio", { name: "always approve" }));
+    });
     expect(element<HTMLButtonElement>(".permission-trigger").getAttribute("aria-label")).toBe(
       "Permission mode: always approve",
     );
     expect(container.textContent).not.toContain("broken-bot");
-    await click("explore");
+    await act(async () => {
+      await user.click(element<HTMLButtonElement>(".agent-trigger"));
+    });
+    await act(async () => {
+      await user.click(within(container).getByRole("menuitemradio", { name: "explore" }));
+    });
     expect(element<HTMLButtonElement>(".agent-trigger").getAttribute("aria-label")).toBe("Agent: explore");
     expect(dial.request).not.toHaveBeenCalled();
     await typeDraft("hello stage");
@@ -505,7 +609,7 @@ async function pickListed(model: string, label: string) {
   const option = [...container.querySelectorAll('[role="option"]')].find((node) => node.textContent.includes(label));
   expect(option, label).toBeDefined();
   await act(async () => {
-    if (!(option instanceof HTMLElement)) throw new Error(`no option ${label}`);
+    if (!(option instanceof HTMLElement)) throw new TypeError(`no option ${label}`);
     option.click();
   });
 }

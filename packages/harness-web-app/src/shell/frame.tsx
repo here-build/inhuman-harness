@@ -19,6 +19,7 @@ import { useDial } from "../client/context.js";
 import { appLocation } from "../client/location.js";
 import { Button } from "../components/ui/button.js";
 import { glyph } from "../components/ui/glyph.js";
+import { Link } from "../components/ui/navigation.js";
 
 const remote = appLocation(globalThis.location).remote;
 
@@ -38,13 +39,37 @@ export const Frame = observer(function Shell() {
   const sessionId = routed.kind === "session" || routed.kind === "project-session" ? routed.sessionId : null;
   const attached = sessionId != null && dial.session?.root.sessionId === sessionId ? dial.session.root : null;
   const scrollport = useRef<HTMLElement>(null);
-  const attachedId = attached?.sessionId;
+  const [projectSessions, setProjectSessions] = useState<ReadonlyMap<string, string>>(() => new Map());
   useLayoutEffect(() => {
-    // Establish the tail once on attach. Native anchoring owns subsequent
-    // streaming updates, so reading earlier history never forces a jump.
+    // Remember only successful attachments, never a pending or failed selection.
+    if (committed.kind !== "project-session") return;
+    if (dial.kernel != null && botIdsOf(dial.kernel, dial.projects).has(committed.sessionId)) return;
+    setProjectSessions((previous) => {
+      if (previous.get(committed.path) === committed.sessionId) return previous;
+      return new Map(previous).set(committed.path, committed.sessionId);
+    });
+  }, [committed, dial]);
+  const positions = useRef(new Map<string, { top: number; tail: boolean }>());
+  // Keep the old view's identity during a pending/failed attachment.
+  const scrollKey =
+    committed.kind === "project-session" || committed.kind === "session"
+      ? JSON.stringify(["path" in committed ? committed.path : null, committed.sessionId])
+      : null;
+  const saveScroll = (): void => {
     const port = scrollport.current;
-    if (attachedId != null && port != null) port.scrollTop = port.scrollHeight;
-  }, [attachedId]);
+    if (scrollKey == null || port == null) return;
+    positions.current.set(scrollKey, {
+      top: port.scrollTop,
+      tail: port.scrollHeight - port.clientHeight - port.scrollTop <= 2,
+    });
+  };
+  useLayoutEffect(() => {
+    // Native anchoring owns streaming updates after this initial restoration.
+    const port = scrollport.current;
+    if (scrollKey == null || port == null) return;
+    const saved = positions.current.get(scrollKey);
+    port.scrollTop = saved == null || saved.tail ? port.scrollHeight : saved.top;
+  }, [scrollKey]);
   const routeKey = `${routed.kind}:${"path" in routed ? routed.path : ""}:${"sessionId" in routed ? routed.sessionId : ""}`;
   useEffect(() => {
     setBrowsingBots(false);
@@ -68,7 +93,7 @@ export const Frame = observer(function Shell() {
     return (
       <FilePreviewProvider resetKey={sessionId}>
         <div className="frame" data-embed="" style={inset}>
-          <main ref={scrollport} className="tape" aria-label="Conversation">
+          <main ref={scrollport} onScroll={saveScroll} className="tape" aria-label="Conversation">
             {sessionId != null && attached == null ? (
               <div className="transcript">
                 <section className="transcript-empty transcript-column">
@@ -102,15 +127,15 @@ export const Frame = observer(function Shell() {
           >
             <h1 className="rail-brand">Inhuman</h1>
             {remote ? (
-              <a className="rail-machines" href="/">
+              <Link className="rail-machines" href="/">
                 All machines
-              </a>
+              </Link>
             ) : null}
             <div className="flex flex-col min-[64rem]:min-h-0 min-[64rem]:flex-1">
               <SessionRail go={go} pane={pane} selectedSessionId={sessionId} onMint={openStage} />
             </div>
           </aside>
-          <main ref={scrollport} className="tape" aria-label="Conversation">
+          <main ref={scrollport} onScroll={saveScroll} className="tape" aria-label="Conversation">
             <Outlet />
             <div className="anchor" />
             <Composer />
@@ -118,10 +143,15 @@ export const Frame = observer(function Shell() {
           <FilePreviewPane projectPath={attached?.path ?? targetPath ?? ""} />
         </div>
         <div className="project-strip">
-          <button type="button" className="project-corner touch-target" onClick={() => setSettingsOpen(true)}>
+          <Button
+            variant="content"
+            type="button"
+            className="project-corner touch-target"
+            onClick={() => setSettingsOpen(true)}
+          >
             <IconSettings {...glyph} aria-hidden />
             Settings
-          </button>
+          </Button>
           <Button
             variant="ghost"
             className="min-[64rem]:hidden"
@@ -133,6 +163,7 @@ export const Frame = observer(function Shell() {
             {railOpen ? "Close" : "Browse"}
           </Button>
           <ProjectTabs
+            projectSessions={projectSessions}
             go={go}
             pane={pane}
             onBrowseBots={() => {

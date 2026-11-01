@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { observer } from "mobx-react-lite";
 
 import {
@@ -13,7 +13,7 @@ import {
 } from "./permissions-view.js";
 import { useDial } from "../client/context.js";
 import { Button } from "../components/ui/button.js";
-import { Input } from "../components/ui/input.js";
+import { TextField } from "../components/ui/text-field.js";
 
 function Badge({ layer }: { readonly layer: string }) {
   return (
@@ -37,8 +37,8 @@ function StoredList({
   readonly onRevoke: (row: StoredRow) => void;
 }) {
   return (
-    <section className="settings-list" aria-label={title}>
-      <h3 className="text-sm font-strong">{title}</h3>
+    <section className="flex flex-col gap-2" aria-label={title}>
+      <h3 className="text-xl leading-[26px]">{title}</h3>
       {rows.length === 0 ? <p className="text-sm text-subtle">{empty}</p> : null}
       {rows.map((row) => (
         <article key={row.id} className="settings-row">
@@ -88,7 +88,7 @@ export function PermissionsBody({
         </p>
       ))}
       <section aria-label="Mode and classes">
-        <h3 className="text-sm font-strong">
+        <h3 className="text-xl leading-[26px]">
           Mode: <span className="permissions-mode">{view.mode}</span>
         </h3>
         <table className="permissions-table">
@@ -117,8 +117,8 @@ export function PermissionsBody({
         </table>
       </section>
       <StoredList title="Stored grants" rows={view.grants} empty="No stored grants." busy={busy} onRevoke={onRevoke} />
-      <section className="settings-list" aria-label="Flags in force">
-        <h3 className="text-sm font-strong">Needs acknowledgement</h3>
+      <section className="flex flex-col gap-2" aria-label="Flags in force">
+        <h3 className="text-xl leading-[26px]">Needs acknowledgement</h3>
         {view.flags.length === 0 ? <p className="text-sm text-subtle">No flags in force.</p> : null}
         {view.flags.map((flag) => (
           <p key={`${flag.layer}\0${flag.label}`} className="text-sm break-words">
@@ -184,6 +184,9 @@ export const PermissionsPanel = observer(function PermissionsPanelView() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [probe, setProbe] = useState("");
+  const probeId = useId();
+  const probeHelpId = useId();
+  const noticeId = useId();
   const [lines, setLines] = useState<ExplainLines | null>(null);
   const mode = root?.permissionMode ?? root?.standingPermissionMode ?? dial.kernel?.root.defaultPermissionMode;
 
@@ -208,7 +211,7 @@ export const PermissionsPanel = observer(function PermissionsPanelView() {
   return (
     <>
       {notice === "" ? null : (
-        <p className="text-sm text-warning" role="status">
+        <p id={noticeId} className="text-sm text-danger" role="status">
           {notice}
         </p>
       )}
@@ -225,9 +228,9 @@ export const PermissionsPanel = observer(function PermissionsPanelView() {
         }}
       >
         <section aria-label="Explain">
-          <h3 className="text-sm font-strong">What would happen?</h3>
+          <h3 className="text-xl leading-[26px]">What would happen?</h3>
           <form
-            className="flex gap-2"
+            className="mt-2 flex items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               if (session == null) return;
@@ -237,17 +240,28 @@ export const PermissionsPanel = observer(function PermissionsPanelView() {
                 .catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Could not explain."));
             }}
           >
-            <Input
-              aria-label="Command, path or mcp:server/tool"
+            <TextField
+              id={probeId}
+              label="Command, path or mcp:server/tool"
+              className="min-w-0 flex-1"
+              inputClassName="mono"
+              aria-describedby={
+                [session == null ? probeHelpId : null, notice === "" ? null : noticeId].filter(Boolean).join(" ") ||
+                undefined
+              }
               placeholder="git push, ~/.ssh/config, mcp:gmail/send_email"
               value={probe}
-              onChange={(event) => setProbe(event.target.value)}
+              onChange={setProbe}
             />
             <Button type="submit" variant="secondary" disabled={session == null || probe.trim() === ""}>
               Explain
             </Button>
           </form>
-          {session == null ? <p className="text-sm text-subtle">Open a session to explain a call.</p> : null}
+          {session == null ? (
+            <p id={probeHelpId} className="text-sm text-subtle">
+              Open a session to explain a call.
+            </p>
+          ) : null}
           {lines == null ? null : <ExplainResult lines={lines} />}
         </section>
       </PermissionsBody>

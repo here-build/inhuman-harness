@@ -26,6 +26,8 @@ export type ProviderGroup = "subscription" | "gateway" | "local" | "key" | "cust
 
 /** What `connect/adopt` is asked for. The daemon parks whatever it still needs. */
 export type ConnectStart = {
+  /** Reauthorize this existing connection instead of adopting a new one. */
+  readonly reconnect?: string;
   readonly driver: string;
   readonly name: string;
   readonly settings?: Readonly<Record<string, unknown>>;

@@ -5,7 +5,7 @@ import { Label, Mono, Page, Rules, Schemes, Section, StoryLink, Swatch } from ".
 import { Button } from "../components/ui/button.js";
 
 const meta = {
-  title: "Brandbook/Foundations",
+  title: "Historical Brandbook/Foundations",
   parameters: { layout: "fullscreen" },
 } satisfies Meta;
 
@@ -110,7 +110,10 @@ export const Principles: Story = {
           />
         </div>
       </Section>
-      <Section title="Laws" note="These hold on every surface. The pages after this one are their detail.">
+      <Section
+        title="Historical principles"
+        note="These describe the earlier product rationale; Graphic Precision is the current design specification."
+      >
         <ol className="grid gap-x-10 gap-y-5 md:grid-cols-2">
           <Law n={1} title="Human concepts are readings">
             Agents, workflows, rounds, and steps on screen are drawn from what actually ran: spawned sessions, a
@@ -125,9 +128,10 @@ export const Principles: Story = {
             The chrome speaks as the interface, never as the model. The model’s words are shown as written and
             attributed by its id. It gets no face, color, or name it did not take.
           </Law>
-          <Law n={4} title="Color is state">
-            The chrome is achromatic (hue 286, chroma 0.005). Blue is working, amber is waiting on you, green is live or
-            added, red is failed or removed. No hue stands for the AI or for the person.
+          <Law n={4} title="Color has distinct roles">
+            Working surfaces remain neutral. Lime marks the primary command and small active-context indicators;
+            selection uses a muted surface and an explicit marker, focus uses an outline, and semantic hues describe
+            state.
           </Law>
           <Law n={5} title="Shape carries it too">
             No state is hue alone: running fills a dot, waiting rings it, failed adds a word. The page must read in
@@ -140,9 +144,9 @@ export const Principles: Story = {
             A sent message is a fill with no edge. Anything you type into or press has an edge that holds 3:1. The field
             you write on is the strongest outline on the page.
           </Law>
-          <Law n={8} title="One scale per quantity, AA in both schemes">
-            Type, space, radius, and motion each have one scale. Every color is a <Mono>light-dark()</Mono> pair, and{" "}
-            <Mono>contrast.test.ts</Mono> holds each text tier to 4.5:1 on every surface.
+          <Law n={8} title="Graphic Precision foundations">
+            Role-based type, a 4px spacing grid, and zero-radius rectangles establish hierarchy. Paired color tokens
+            follow the element’s scheme; <Mono>contrast.test.ts</Mono> holds text to AA in both schemes.
           </Law>
         </ol>
       </Section>
@@ -333,7 +337,7 @@ export const Color: Story = {
       </Section>
       <Section
         title="Structure and interaction"
-        note="Hover and selection are ink laid over whatever is under them (7% and 11%), so one token works on every surface."
+        note="Hover and selection use neutral overlays (7% and 11%). Selection also needs an explicit marker; keyboard focus uses a separate outline."
       >
         <Schemes>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -350,7 +354,7 @@ export const Color: Story = {
             />
             <Swatch
               name="selected"
-              role="Ink at 11%: the current row, an open provider."
+              role="Muted selected surface; pair it with a visible selection marker."
               style={{
                 backgroundColor: "var(--wash)",
                 backgroundImage: "linear-gradient(var(--selected), var(--selected))",
@@ -435,17 +439,11 @@ export const Color: Story = {
 
 const HEADING = "font-heading font-strong";
 const SCALE = [
-  [
-    "2xl",
-    "28 / 1.2",
-    `text-2xl tracking-[-0.025em] ${HEADING}`,
-    "Empty states, first-run heading, a fresh session's place.",
-  ],
-  ["xl", "23 / 1.25", `text-xl tracking-[-0.02em] ${HEADING}`, "Display size. The tape does not use it."],
-  ["lg", "19 / 1.3", `text-lg ${HEADING}`, "Answer h1, peek titles, large tiles."],
-  ["base", "16 / 1.5", "text-base", "Prose, the composer, rail header."],
-  ["sm", "13 / 1.45", "text-sm", "Rows, tool summaries, menus, notes, buttons."],
-  ["xs", "11 / 1.45", "text-xs", "Lane notes, account lines, workflow cards, paths."],
+  ["2xl", "28 / 34", `text-2xl ${HEADING}`, "Page titles."],
+  ["lg / xl", "20 / 26", `text-lg ${HEADING}`, "Section headings; xl remains a compatibility alias."],
+  ["base", "16 / 24", "text-base", "Body text and extended reading."],
+  ["sm", "14 / 20", "text-sm", "Compact interface, tables, and textual symbols."],
+  ["xs", "13 / 18", "text-xs", "Supporting information."],
 ] as const;
 
 export const Typography: Story = {
@@ -454,8 +452,8 @@ export const Typography: Story = {
       title="Typography"
       lede={
         <p>
-          Four roles on three self-hosted families, and a minor-third scale (×1.2) on a 16px base. Nothing loads from a
-          font host.
+          Graphic Precision assigns type by role: Source Sans 3 for content and petite-cap textual symbols, Nunito Sans
+          for structure, and Monaspace Krypton for literal technical values. All three are self-hosted.
         </p>
       }
     >
@@ -470,7 +468,11 @@ export const Typography: Story = {
         }
       >
         <div className="grid gap-4 md:grid-cols-2">
-          <Role name="Text" face="Source Sans 3" use="Tape prose, the composer, button verbs, rows.">
+          <Role
+            name="Content"
+            face="Source Sans 3"
+            use="Object names, field labels and values, messages, prose, and table content in natural case."
+          >
             <p className="text-lg">The agent read three files and proposed one edit.</p>
           </Role>
           <Role
@@ -482,15 +484,15 @@ export const Typography: Story = {
           </Role>
           <Role
             name="Code and paths"
-            face="JetBrains Mono, roman"
-            use="Code, argv, paths, model ids. Roman inside code; no faux styles."
+            face="Monaspace Krypton"
+            use="Code, commands, paths, identifiers, versions, logs, and shortcuts. Preserve literal case and spacing."
           >
             <p className="mono text-sm">$ pnpm test -- packages/harness-web-app</p>
           </Role>
           <Role
-            name="Labels"
+            name="Textual symbols"
             face="Source Sans 3, all-petite-caps"
-            use="Field names, section names, mode chips. Written lowercase; never a heading or a button verb."
+            use="Commands, navigation, modes, and statuses: if it could be an icon, use petite caps. Store ordinary text."
           >
             <p className="label text-base text-muted">sessions · bots · subscriptions</p>
           </Role>

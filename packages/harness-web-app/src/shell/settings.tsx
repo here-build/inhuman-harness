@@ -22,8 +22,12 @@ import { providerRows, type ConnectStart } from "./provider-list.js";
 import { closeOpenSwipes, SwipeRow, type SwipeAction } from "./swipe-row.js";
 import { wireAccount } from "./wire-account.js";
 import { useDial } from "../client/context.js";
+import { DropdownSelect } from "../components/ui/anchored.js";
 import { Button } from "../components/ui/button.js";
-import { Input, Textarea } from "../components/ui/input.js";
+import { Checkbox } from "../components/ui/checkbox.js";
+import { NativeDialog } from "../components/ui/native-dialog.js";
+import { Link } from "../components/ui/navigation.js";
+import { TextField } from "../components/ui/text-field.js";
 
 const SECTIONS = [
   ["connections", "Connections"],
@@ -92,7 +96,7 @@ export function SettingsDialog({ onDismiss }: { readonly onDismiss: () => void }
     else node.setAttribute("open", "");
   }, [node]);
   return (
-    <dialog
+    <NativeDialog
       ref={setNode}
       className="settings-dialog"
       aria-labelledby={titleId}
@@ -104,20 +108,20 @@ export function SettingsDialog({ onDismiss }: { readonly onDismiss: () => void }
       <div className="settings-layout">
         <nav className="settings-nav" aria-label="Settings">
           {SECTIONS.map(([id, label]) => (
-            <button
+            <Button
               key={id}
-              type="button"
-              className="touch-target"
+              variant="ghost"
+              className="justify-start"
               aria-current={section === id ? "true" : undefined}
               onClick={() => setSection(id)}
             >
               {label}
-            </button>
+            </Button>
           ))}
         </nav>
         <div className="settings-body" onScroll={() => closeOpenSwipes()}>
           <header className="settings-head">
-            <h2 id={titleId} className="text-lg">
+            <h2 id={titleId} className="text-xl leading-[26px]">
               {SECTIONS.find(([id]) => id === section)?.[1]}
             </h2>
             <form method="dialog">
@@ -135,7 +139,7 @@ export function SettingsDialog({ onDismiss }: { readonly onDismiss: () => void }
           {section === "runtime" ? <Runtime /> : null}
         </div>
       </div>
-    </dialog>
+    </NativeDialog>
   );
 }
 
@@ -167,6 +171,7 @@ const Connections = observer(function ConnectionsView() {
 
 const McpServers = observer(function McpView() {
   const dial = useDial();
+  const noticeId = useId();
   const { request, notice, setNotice, run } = useConnectionRun();
   const [adding, setAdding] = useState(false);
   const [adopting, setAdopting] = useState(false);
@@ -215,8 +220,9 @@ const McpServers = observer(function McpView() {
   }
   return (
     <>
-      <Notice message={notice} />
+      <Notice id={noticeId} message={notice} />
       <RegistrySearch
+        noticeId={notice === "" ? undefined : noticeId}
         request={request}
         rows={servers}
         disabled={request == null || adopting}
@@ -230,16 +236,15 @@ const McpServers = observer(function McpView() {
       </div>
       {adding ? (
         <div className="text-sm">
-          <label className="block">
-            URL or command
-            <Input
-              className="mt-1"
-              value={endpoint}
-              placeholder="https://… or npx @scope/server"
-              spellCheck={false}
-              onChange={(event) => setEndpoint(event.target.value)}
-            />
-          </label>
+          <TextField
+            label="URL or command"
+            value={endpoint}
+            inputClassName="mono"
+            aria-describedby={notice === "" ? undefined : noticeId}
+            placeholder="https://… or npx @scope/server"
+            spellCheck={false}
+            onChange={setEndpoint}
+          />
           <Button
             className="mt-2"
             variant="secondary"
@@ -370,10 +375,10 @@ const AddModel = observer(function AddModelView({ onDone }: { readonly onDone: (
       </Button>
       {rows.length === 0 ? <Empty>Every offered model is already connected.</Empty> : null}
       {rows.map((row) => (
-        <button
+        <Button
           key={row.key}
-          type="button"
-          className="settings-row text-start"
+          variant="ghost"
+          className="settings-row items-start text-start [font-variant-caps:normal] tracking-normal"
           disabled={row.start == null || request == null}
           onClick={() => {
             if (row.start != null) setStart(row.start);
@@ -381,7 +386,7 @@ const AddModel = observer(function AddModelView({ onDone }: { readonly onDone: (
         >
           <span className="text-sm font-strong">{row.name}</span>
           <span className="text-sm text-muted">{shownName(row.hint, row.description)}</span>
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -414,26 +419,22 @@ const Plugins = observer(function PluginsView() {
                   {plugin.problem ? <p className="text-sm text-warning">{plugin.problem}</p> : null}
                 </div>
               </div>
-              <label className="settings-check">
-                <input
-                  type="checkbox"
-                  checked={plugin.enabled !== false}
-                  disabled={request == null || name === ""}
-                  aria-label={`${name} enabled`}
-                  onChange={(event) => run(name, { enabled: event.target.checked })}
-                />
+              <Checkbox
+                isSelected={plugin.enabled !== false}
+                isDisabled={request == null || name === ""}
+                aria-label={`${name} enabled`}
+                onChange={(enabled) => run(name, { enabled })}
+              >
                 Enabled
-              </label>
-              <label className="settings-check">
-                <input
-                  type="checkbox"
-                  checked={plugin.foreground !== false}
-                  disabled={request == null || name === ""}
-                  aria-label={`${name} foreground bot`}
-                  onChange={(event) => run(name, { foreground: event.target.checked })}
-                />
+              </Checkbox>
+              <Checkbox
+                isSelected={plugin.foreground !== false}
+                isDisabled={request == null || name === ""}
+                aria-label={`${name} foreground bot`}
+                onChange={(foreground) => run(name, { foreground })}
+              >
                 Foreground bot
-              </label>
+              </Checkbox>
             </article>
           );
         })}
@@ -448,8 +449,8 @@ const Skills = observer(function SkillsView() {
   const project = openProject(dial);
   const [rows, setRows] = useState<readonly SkillRow[]>([]);
   const [notice, setNotice] = useState("");
+  const [saved, setSaved] = useState(false);
   const [revision, setRevision] = useState(0);
-  const whereId = useId();
   const [draft, setDraft] = useState({ scope: "project" as "project" | "home", name: "", description: "", body: "" });
   useEffect(() => {
     const port = dial.kernelRpc;
@@ -469,6 +470,7 @@ const Skills = observer(function SkillsView() {
     };
   }, [dial.kernelRpc, project, revision]);
   const save = () => {
+    setSaved(false);
     setNotice("");
     void ask(request, "skill/write", {
       scope: draft.scope,
@@ -478,6 +480,7 @@ const Skills = observer(function SkillsView() {
       body: draft.body,
     }).then((error) => {
       setNotice(error);
+      setSaved(error === "");
       if (error === "") {
         setDraft({ scope: draft.scope, name: "", description: "", body: "" });
         setRevision((value) => value + 1);
@@ -512,6 +515,7 @@ const Skills = observer(function SkillsView() {
                 disabled={request == null}
                 aria-label={`Remove ${skill.name}`}
                 onClick={() => {
+                  setSaved(false);
                   setNotice("");
                   void ask(request, "skill/remove", {
                     scope: skill.scope,
@@ -530,50 +534,51 @@ const Skills = observer(function SkillsView() {
           </article>
         ))}
       </div>
-      <div className="settings-grid">
-        <label className="text-sm" htmlFor={whereId}>
-          Where
-        </label>
-        <select
-          id={whereId}
-          className="settings-select"
+      <div className="settings-grid" onChangeCapture={() => setSaved(false)}>
+        <DropdownSelect
+          label="Where"
+          className="col-span-full"
           value={draft.scope}
-          onChange={(event) => setDraft({ ...draft, scope: event.target.value === "home" ? "home" : "project" })}
-        >
-          <option value="project">This project</option>
-          <option value="home">Home</option>
-        </select>
-        <label className="text-sm" htmlFor="skill-name">
-          Name
-        </label>
-        <Input
-          id="skill-name"
+          onChange={(value) => {
+            setSaved(false);
+            setDraft({ ...draft, scope: value === "home" ? "home" : "project" });
+          }}
+          options={[
+            { id: "project", label: "This project" },
+            { id: "home", label: "Home" },
+          ]}
+        />
+        <TextField
+          label="Name"
+          className="col-span-full"
           value={draft.name}
           spellCheck={false}
           placeholder="review"
-          onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+          onChange={(value) => setDraft({ ...draft, name: value })}
         />
-        <label className="text-sm" htmlFor="skill-description">
-          Description
-        </label>
-        <Input
-          id="skill-description"
+        <TextField
+          label="Description"
+          className="col-span-full"
           value={draft.description}
-          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+          onChange={(value) => setDraft({ ...draft, description: value })}
         />
-        <label className="text-sm" htmlFor="skill-body">
-          Body
-        </label>
-        <Textarea
-          id="skill-body"
+        <TextField
+          label="Body"
+          className="col-span-full"
+          multiline
           rows={5}
           value={draft.body}
-          onChange={(event) => setDraft({ ...draft, body: event.target.value })}
+          onChange={(value) => setDraft({ ...draft, body: value })}
         />
       </div>
       <Button variant="secondary" disabled={request == null || draft.name.trim() === ""} onClick={save}>
         Save skill
       </Button>
+      {saved ? (
+        <p className="text-sm text-ink" role="status">
+          Skill saved.
+        </p>
+      ) : null}
     </>
   );
 });
@@ -583,7 +588,12 @@ const Bots = observer(function BotsView() {
   const request = kernelRequest(dial);
   const project = openProject(dial);
   const [notice, setNotice] = useState("");
+  const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState<BotDraft | null>(null);
+  const edit = (draft: BotDraft | null) => {
+    setSaved(false);
+    setEditing(draft);
+  };
   const home = Object.entries(botsOf(dial.kernel?.root)).map(([name, bot]) => ({ name, bot, scope: "home" as const }));
   const projectBots =
     project == null
@@ -594,6 +604,7 @@ const Bots = observer(function BotsView() {
           scope: "project" as const,
         }));
   const save = (draft: BotDraft) => {
+    setSaved(false);
     setNotice("");
     void ask(request, "bot/write", {
       scope: draft.scope,
@@ -606,7 +617,11 @@ const Bots = observer(function BotsView() {
       skills: splitList(draft.skills),
       keepAlive: draft.keepAlive,
       mcp: mcpPayload(draft.mcp),
-    }).then(setNotice);
+    }).then((error) => {
+      setNotice(error);
+      setSaved(error === "");
+      return undefined;
+    });
   };
   return (
     <>
@@ -614,17 +629,19 @@ const Bots = observer(function BotsView() {
       <BotGroup
         title="Home"
         rows={home}
-        onEdit={(name, bot) => setEditing(draftFrom(name, bot, "home"))}
+        onEdit={(name, bot) => edit(draftFrom(name, bot, "home"))}
         onRemove={(name) => {
+          setSaved(false);
           void ask(request, "bot/remove", { scope: "home", name }).then(setNotice);
         }}
       />
       <BotGroup
         title="This project"
         rows={projectBots}
-        onEdit={(name, bot) => setEditing(draftFrom(name, bot, "project"))}
+        onEdit={(name, bot) => edit(draftFrom(name, bot, "project"))}
         onRemove={(name) => {
           if (project == null) return;
+          setSaved(false);
           void ask(request, "bot/remove", { scope: "project", project, name }).then(setNotice);
         }}
       />
@@ -633,7 +650,7 @@ const Bots = observer(function BotsView() {
           variant="secondary"
           disabled={request == null}
           onClick={() =>
-            setEditing({
+            edit({
               scope: project == null ? "home" : "project",
               name: "",
               description: "",
@@ -654,11 +671,16 @@ const Bots = observer(function BotsView() {
           draft={editing}
           project={project}
           servers={mcpServerOptions(connectionsOf(dial), editing.recipeScope, project ?? "")}
-          onChange={setEditing}
-          onCancel={() => setEditing(null)}
+          onChange={edit}
+          onCancel={() => edit(null)}
           onSave={() => save(editing)}
         />
       )}
+      {saved ? (
+        <p className="text-sm text-ink" role="status">
+          Bot saved.
+        </p>
+      ) : null}
     </>
   );
 });
@@ -668,12 +690,13 @@ const Runtime = observer(function RuntimeView() {
   const request = kernelRequest(dial);
   const root = dial.kernel?.root;
   const [notice, setNotice] = useState("");
+  const [saved, setSaved] = useState(false);
   const [draft, setDraft] = useState(() => runtimeDraft(root));
   useEffect(() => setDraft(runtimeDraft(root)), [root]);
   return (
     <>
       <Notice message={notice} />
-      <div className="settings-grid">
+      <div className="settings-grid" onChangeCapture={() => setSaved(false)}>
         <Field label="Compact strategy" value={draft.compact} onChange={(compact) => setDraft({ ...draft, compact })} />
         <Field label="Hard trigger" value={draft.hard} onChange={(hard) => setDraft({ ...draft, hard })} />
         <Field label="Soft trigger" value={draft.soft} onChange={(soft) => setDraft({ ...draft, soft })} />
@@ -701,33 +724,38 @@ const Runtime = observer(function RuntimeView() {
           onChange={(statusline) => setDraft({ ...draft, statusline })}
         />
         <Field label="Status refresh" value={draft.refresh} onChange={(refresh) => setDraft({ ...draft, refresh })} />
-        <label className="text-sm" htmlFor="settings-super-key">
-          Super key
-        </label>
-        <select
-          id="settings-super-key"
-          className="settings-select"
+        <DropdownSelect
+          label="Super key"
+          className="col-span-full"
           value={draft.superKey}
-          onChange={(event) => setDraft({ ...draft, superKey: event.target.value === "cmd" ? "cmd" : "ctrl" })}
-        >
-          <option value="ctrl">Ctrl</option>
-          <option value="cmd">Command</option>
-        </select>
+          onChange={(value) => setDraft({ ...draft, superKey: value === "cmd" ? "cmd" : "ctrl" })}
+          options={[
+            { id: "ctrl", label: "Ctrl" },
+            { id: "cmd", label: "Command" },
+          ]}
+        />
       </div>
       <Check
         label="Hide floor-allow calls on the compact tape"
         checked={draft.hideFloor}
-        onChange={(hideFloor) => setDraft({ ...draft, hideFloor })}
+        onChange={(hideFloor) => {
+          setSaved(false);
+          setDraft({ ...draft, hideFloor });
+        }}
       />
       <Check
         label="Text-only continuation"
         checked={draft.textOnly}
-        onChange={(textOnly) => setDraft({ ...draft, textOnly })}
+        onChange={(textOnly) => {
+          setSaved(false);
+          setDraft({ ...draft, textOnly });
+        }}
       />
       <Button
         variant="secondary"
         disabled={request == null}
         onClick={() => {
+          setSaved(false);
           const keep = Number(draft.keep);
           const throttle = Number(draft.throttle);
           const speculative = Number(draft.speculative);
@@ -751,11 +779,20 @@ const Runtime = observer(function RuntimeView() {
             superKey: draft.superKey,
             hideFloorTools: draft.hideFloor,
             textOnlyContinue: draft.textOnly,
-          }).then(setNotice);
+          }).then((error) => {
+            setNotice(error);
+            setSaved(error === "");
+            return undefined;
+          });
         }}
       >
         Save
       </Button>
+      {saved ? (
+        <p className="text-sm text-ink" role="status">
+          Runtime settings saved.
+        </p>
+      ) : null}
     </>
   );
 });
@@ -775,6 +812,7 @@ function ParkFollow({
 }) {
   const [form, setForm] = useState<ParkForm | null>(null);
   const [pasted, setPasted] = useState("");
+  const noticeId = useId();
   const [notice, setNotice] = useState("");
   useEffect(() => {
     let live = true;
@@ -806,38 +844,39 @@ function ParkFollow({
   // A follow-up park replaces this one through the parent. This step finishes the current park.
   return (
     <div className="settings-list">
-      <Notice message={notice} />
+      <Notice id={noticeId} message={notice} />
       {form == null ? <Empty>Reading the next step…</Empty> : null}
       {form?.kind === "unknown" ? <Empty>Finish this step in the terminal, then close Settings.</Empty> : null}
       {form?.kind === "open-url" ? (
         <>
-          <a className="text-sm underline" href={form.url} target="_blank" rel="noreferrer">
+          <Link className="text-sm underline" href={form.url} target="_blank" rel="noreferrer">
             {shownName(form.description, form.url)}
-          </a>
+          </Link>
           {form.paste === "" ? (
             <Button variant="secondary" onClick={() => answer({ kind: "opened", url: form.url })}>
               I opened it
             </Button>
           ) : (
-            <Input
+            <TextField
+              label={form.paste}
+              inputClassName="mono"
               type={openUrlFieldType(form.paste, form.input)}
               value={pasted}
+              aria-describedby={notice === "" ? undefined : noticeId}
               placeholder={form.paste}
-              onChange={(event) => setPasted(event.target.value)}
+              onChange={setPasted}
             />
           )}
         </>
       ) : null}
       {form?.kind === "input" ? (
-        <label className="text-sm">
-          {form.name}
-          <Input
-            className="mt-1"
-            type={form.secret ? "password" : "text"}
-            value={pasted}
-            onChange={(event) => setPasted(event.target.value)}
-          />
-        </label>
+        <TextField
+          label={form.name}
+          type={form.secret ? "password" : "text"}
+          aria-describedby={notice === "" ? undefined : noticeId}
+          value={pasted}
+          onChange={setPasted}
+        />
       ) : null}
       {form?.kind === "confirm" ? <p className="text-sm">{form.name}</p> : null}
       <div className="settings-actions">
@@ -871,8 +910,8 @@ function ParkFollow({
 
 function Group({ title, children }: { readonly title: string; readonly children: ReactNode }) {
   return (
-    <section className="settings-list">
-      <h3 className="label">{title}</h3>
+    <section className="flex flex-col gap-2">
+      <h3 className="text-xl leading-[26px]">{title}</h3>
       {children}
     </section>
   );
@@ -949,89 +988,68 @@ function BotForm({
   readonly onCancel: () => void;
   readonly onSave: () => void;
 }) {
-  const whereId = useId();
-  const scopeId = useId();
   return (
     <div className="settings-grid">
-      <label className="text-sm" htmlFor={whereId}>
-        Where
-      </label>
-      <select
-        id={whereId}
-        className="settings-select"
+      <DropdownSelect
+        label="Where"
+        className="col-span-full"
         value={draft.scope}
-        disabled={!draft.fresh}
-        onChange={(event) => onChange({ ...draft, scope: event.target.value === "home" ? "home" : "project" })}
-      >
-        <option value="home">Home</option>
-        <option value="project" disabled={project == null}>
-          This project
-        </option>
-      </select>
-      <label className="text-sm" htmlFor="bot-name">
-        Name
-      </label>
-      <Input
-        id="bot-name"
+        isDisabled={!draft.fresh}
+        onChange={(value) => onChange({ ...draft, scope: value === "home" ? "home" : "project" })}
+        options={[
+          { id: "home", label: "Home" },
+          { id: "project", label: "This project", isDisabled: project == null },
+        ]}
+      />
+      <TextField
+        label="Name"
+        className="col-span-full"
         value={draft.name}
-        disabled={!draft.fresh}
+        isDisabled={!draft.fresh}
         spellCheck={false}
-        onChange={(event) => onChange({ ...draft, name: event.target.value })}
+        onChange={(value) => onChange({ ...draft, name: value })}
       />
-      <label className="text-sm" htmlFor="bot-description">
-        Description
-      </label>
-      <Input
-        id="bot-description"
+      <TextField
+        label="Description"
+        className="col-span-full"
         value={draft.description}
-        onChange={(event) => onChange({ ...draft, description: event.target.value })}
+        onChange={(value) => onChange({ ...draft, description: value })}
       />
-      <label className="text-sm" htmlFor="bot-instructions">
-        Instructions
-      </label>
-      <Textarea
-        id="bot-instructions"
+      <TextField
+        label="Instructions"
+        className="col-span-full"
+        multiline
         rows={6}
         value={draft.instructions}
-        onChange={(event) => onChange({ ...draft, instructions: event.target.value })}
+        onChange={(value) => onChange({ ...draft, instructions: value })}
       />
-      <label className="text-sm" htmlFor={scopeId}>
-        Scope
-      </label>
-      <select
-        id={scopeId}
-        className="settings-select"
+      <DropdownSelect
+        label="Scope"
+        className="col-span-full"
         value={draft.recipeScope}
-        onChange={(event) =>
-          onChange({
-            ...draft,
-            recipeScope:
-              event.target.value === "project" || event.target.value === "global" ? event.target.value : "session",
-          })
+        onChange={(value) =>
+          onChange({ ...draft, recipeScope: value === "project" || value === "global" ? value : "session" })
         }
-      >
-        <option value="session">Session</option>
-        <option value="project">Project</option>
-        <option value="global">Global</option>
-      </select>
-      <label className="text-sm" htmlFor="bot-tools">
-        Tools
-      </label>
-      <Input
-        id="bot-tools"
+        options={[
+          { id: "session", label: "Session" },
+          { id: "project", label: "Project" },
+          { id: "global", label: "Global" },
+        ]}
+      />
+      <TextField
+        label="Tools"
+        className="col-span-full"
         value={draft.tools}
         spellCheck={false}
         placeholder="read_file, shell"
-        onChange={(event) => onChange({ ...draft, tools: event.target.value })}
+        onChange={(value) => onChange({ ...draft, tools: value })}
       />
-      <label className="text-sm" htmlFor="bot-skills">
-        Skills
-      </label>
-      <Input
-        id="bot-skills"
+      <TextField
+        label="Skills"
+        className="col-span-full"
         value={draft.skills}
         spellCheck={false}
-        onChange={(event) => onChange({ ...draft, skills: event.target.value })}
+        onChange={(value) => onChange({ ...draft, skills: value })}
       />
       <span />
       <Check label="Keep alive" checked={draft.keepAlive} onChange={(keepAlive) => onChange({ ...draft, keepAlive })} />
@@ -1057,15 +1075,7 @@ function Field({
   readonly value: string;
   readonly onChange: (value: string) => void;
 }) {
-  const id = useId();
-  return (
-    <>
-      <label className="text-sm" htmlFor={id}>
-        {label}
-      </label>
-      <Input id={id} value={value} spellCheck={false} onChange={(event) => onChange(event.target.value)} />
-    </>
-  );
+  return <TextField className="col-span-full" label={label} value={value} spellCheck={false} onChange={onChange} />;
 }
 
 function Check({
@@ -1078,17 +1088,16 @@ function Check({
   readonly onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="settings-check">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+    <Checkbox isSelected={checked} onChange={onChange}>
       {label}
-    </label>
+    </Checkbox>
   );
 }
 
-function Notice({ message }: { readonly message: string }) {
+function Notice({ id, message }: { readonly id?: string; readonly message: string }) {
   if (message === "") return null;
   return (
-    <p className="text-sm text-warning" role="status">
+    <p id={id} className="text-sm text-danger" role="status">
       {message}
     </p>
   );
@@ -1200,52 +1209,37 @@ function McpGrants({
         const option = mcpOption(servers, grant.server);
         const choices = serverChoices(servers, grant.server);
         return (
-          <fieldset key={`${grant.server}:${index}`} className="settings-mcp-grant">
+          <fieldset key={`${grant.server}:${index}`} className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
             <legend className="text-sm">{grant.server === "" ? "Server" : grant.server}</legend>
-            <label className="text-sm" htmlFor={`mcp-server-${index}`}>
-              Server
-            </label>
-            <select
-              id={`mcp-server-${index}`}
-              className="settings-select"
+            <DropdownSelect
+              label="Server"
               value={grant.server}
-              onChange={(event) => replace(index, { ...grant, server: event.target.value })}
-            >
-              {choices.map((choice) => (
-                <option key={choice.server} value={choice.server}>
-                  {choice.server}
-                </option>
-              ))}
-            </select>
-            <label className="text-sm" htmlFor={`mcp-tools-${index}`}>
-              Server tools
-            </label>
-            <Input
-              id={`mcp-tools-${index}`}
+              onChange={(value) => replace(index, { ...grant, server: String(value ?? "") })}
+              options={choices.map((choice) => ({ id: choice.server, label: choice.server }))}
+            />
+            <TextField
+              label="Server tools"
+              className="col-span-full"
               value={grant.tools}
               spellCheck={false}
               placeholder={mcpHint(option, "tools")}
-              onChange={(event) => replace(index, { ...grant, tools: event.target.value })}
+              onChange={(value) => replace(index, { ...grant, tools: value })}
             />
-            <label className="text-sm" htmlFor={`mcp-account-${index}`}>
-              Account
-            </label>
-            <Input
-              id={`mcp-account-${index}`}
+            <TextField
+              label="Account"
+              className="col-span-full"
               value={grant.account}
               spellCheck={false}
               placeholder={mcpHint(option, "account")}
-              onChange={(event) => replace(index, { ...grant, account: event.target.value })}
+              onChange={(value) => replace(index, { ...grant, account: value })}
             />
-            <label className="text-sm" htmlFor={`mcp-session-${index}`}>
-              Session
-            </label>
-            <Input
-              id={`mcp-session-${index}`}
+            <TextField
+              label="Session"
+              className="col-span-full"
               value={grant.session}
               spellCheck={false}
               placeholder={mcpHint(option, "session")}
-              onChange={(event) => replace(index, { ...grant, session: event.target.value })}
+              onChange={(value) => replace(index, { ...grant, session: value })}
             />
             <Button
               variant="ghost"

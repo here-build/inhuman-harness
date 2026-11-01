@@ -129,7 +129,7 @@ describe("Tape", () => {
     expect(html).toContain("Reading ");
     expect(html).toContain("src/tui/paint-source.ts");
     expect(html).toContain("src/tui/paint-dom.ts");
-    expect(html).toContain('class="read-path"');
+    expect(html).toMatch(/class="[^"]*\bread-path\b[^"]*"/);
     expect(html).toContain("pack.wasm (binary)");
     expect(html).toMatch(/disabled/);
     expect(html).not.toContain("<details");
@@ -166,10 +166,10 @@ describe("Tape", () => {
     expect(html).toContain('popover="manual"');
     expect(html).toContain('role="tooltip">unknown mode</span>');
     // A listing that has not arrived has nothing to open yet.
-    expect(html).toMatch(/<button class="read-path" disabled="" type="button" title="docs">docs\/<\/button>/);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*class="[^"]*read-path"[^>]*>docs\/<\/button>/);
   });
 
-  it("labels roles and preserves exact tool identity in native disclosures", () => {
+  it("labels roles and preserves exact tool identity in shared disclosures", () => {
     const html = renderCells([
       { kind: "user", id: "user", text: "keep\nthese lines" },
       { kind: "speech", id: "assistant", text: "An **answer**.", thought: "Some reasoning." },
@@ -189,17 +189,17 @@ describe("Tape", () => {
     expect(html).toContain('<div class="assistant-body">');
     expect(html).not.toContain("message-role");
     expect(html).toContain('class="annotation-slot side-right"');
-    expect(html).toContain('class="beat-thoughts side-note"');
+    expect(html).toMatch(/class="[^"]*beat-thoughts side-note"/);
     expect(html).not.toContain("side-anchor");
     expect(html.indexOf("An <strong>answer</strong>.")).toBeLessThan(html.indexOf('<aside class="tape-thought">'));
     expect(html).toContain(
-      '<summary><span class="tool-summary" title="read_file">read file <span class="mono">src/exact-file.ts</span></span></summary>',
+      '<span class="tool-summary" title="read_file">read file <span class="mono">src/exact-file.ts</span></span>',
     );
     expect(html).not.toContain('data-outcome="ok"');
     expect(html).toContain('<pre class="tool-body"><code>');
     // The tool and the reasoning fold, which only folds on a narrow page.
-    expect(html.match(/<details\b/g)).toHaveLength(2);
-    expect(html).toContain('<details class="beat-thoughts side-note"><summary>Reasoning</summary>');
+    expect(html.match(/slot="trigger"/g)).toHaveLength(2);
+    expect(html).toMatch(/thoughts-disclosure-trigger[\s\S]*?>Reasoning<\/button>/);
     expect(html).not.toContain('<details class="tape-thought"');
     expect(html).toContain('data-hidden="until-found"');
   });
@@ -249,12 +249,13 @@ describe("Tape", () => {
         },
       },
     ]);
-    expect(html).toContain('class="shell-term"');
+    expect(html).toMatch(/class="[^"]*\bshell-term\b[^"]*"/);
+    expect(html).toMatch(/data-outcome="ok" class="[^"]*shell-term/);
     expect(html).toContain('class="shell-sigil">$</span>');
     expect(html).toContain("pnpm exec vitest run src/__tests__/navigation.test.ts");
     expect(html).not.toContain("shell-cwd");
     expect(html).not.toContain("exit code");
-    expect(html).not.toContain(" open");
+    expect(html).not.toContain('data-expanded="true"');
     expect(html).toContain('class="shell-chevron"');
     expect(html).toContain(">RUN<");
     expect(html).toContain("color:var(--vt-2)");
@@ -278,6 +279,8 @@ describe("Tape", () => {
         },
       },
     ]);
+    // A non-zero exit must reveal the frame even when the receipt says "ok".
+    expect(html).toMatch(/data-outcome="failed" class="[^"]*shell-term"[^>]*data-expanded="true"/);
     expect(html).toContain('style="color:var(--canvas);background-color:var(--vt-1)"> FAIL ');
     expect(html).toContain('style="background-color:var(--vt-3);color:var(--canvas)"> RUN ');
     expect(html).toContain('style="color:rgb(1 2 3);background-color:var(--vt-1)"> own ');
@@ -303,7 +306,7 @@ describe("Tape", () => {
     expect(html).toContain("one lift row dropped");
     expect(html).not.toContain('class="shell-sigil"');
     expect(html).not.toContain("python3 -");
-    expect(html).not.toContain(" open");
+    expect(html).not.toContain('data-expanded="true"');
   });
 
   it("puts a non-project directory above the prompt and a nonzero exit code on the right", () => {
@@ -325,8 +328,9 @@ describe("Tape", () => {
     expect(html.indexOf('class="shell-cwd"')).toBeLessThan(html.indexOf('class="shell-sigil"'));
     expect(html).toContain("packages/harness-web");
     expect(html).toContain('class="shell-exit">exit code 1</p>');
-    expect(html).not.toContain("failed");
-    expect(html).toContain(" open");
+    expect(html).not.toContain(">failed<");
+    expect(html).toContain('data-outcome="failed"');
+    expect(html).toContain('data-expanded="true"');
     expect(html).toContain('class="shell-out"');
   });
 
@@ -425,9 +429,7 @@ describe("Tape", () => {
     ]);
     expect(
       [
-        ...html.matchAll(
-          /<aside class="model-note side-note"><span class="mono">([^<]*)<\/span><span class="text-muted">([^<]*)</g,
-        ),
+        ...html.matchAll(/<aside class="model-note side-note"><span>([^<]*)<\/span><span class="text-muted">([^<]*)</g),
       ].map((match) => [match[1], match[2]]),
     ).toEqual([
       ["Grok 4.7", "grok"],

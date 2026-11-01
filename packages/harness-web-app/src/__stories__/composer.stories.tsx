@@ -112,3 +112,33 @@ export const PickerProvider: Story = {
 export const NoCatalog: Story = {
   args: { stage: sessionStage(conversation, { kernel: { wires: [{ id: "chatgpt", name: "ChatGPT", models: [] }] } }) },
 };
+
+/** An unauthorized account stays in the picker with sign-in and delete actions. */
+export const PickerNeedsSignIn: Story = {
+  args: {
+    stage: sessionStage(conversation, {
+      kernel: {
+        wires: [
+          {
+            id: "chatgpt",
+            name: "ChatGPT",
+            models: ["stale-model"],
+            failed: "models probe HTTP 401: token_expired",
+            identity: { displayName: "Ada Lovelace", email: "ada@example.com" },
+          },
+        ],
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(trigger(canvasElement));
+    const row = await waitFor(() => {
+      const found = canvasElement.ownerDocument.querySelector<HTMLElement>(".model-wire");
+      if (found == null) throw new Error("no account row");
+      return found;
+    });
+    await userEvent.click(row);
+    await expect(within(canvasElement).queryByText("Stale Model")).toBeNull();
+    await expect(within(canvasElement).getByText("Please sign in again.")).toBeVisible();
+  },
+};

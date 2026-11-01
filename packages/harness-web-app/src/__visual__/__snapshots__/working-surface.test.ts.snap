@@ -1,0 +1,233 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`approves rendered agent appearance and keyboard focus in Chromium 1`] = `
+{
+  "face": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.93 0.004 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "14px",
+      "normal",
+    ],
+    "outline": [
+      "none",
+      "3px",
+      "oklch(0.93 0.004 286)",
+    ],
+  },
+  "name": "Code Reviewer",
+  "trigger": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.76 0.005 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "13px",
+      "normal",
+    ],
+    "outline": [
+      "solid",
+      "2px",
+      "oklch(0.93 0.004 286)",
+    ],
+  },
+}
+`;
+
+exports[`approves rendered approval appearance and keyboard focus in Chromium 1`] = `
+{
+  "shortcut": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.76 0.005 286)",
+    ],
+    "font": [
+      ""Monaspace Krypton", ui-monospace, monospace",
+      "14px",
+      "normal",
+    ],
+    "outline": [
+      "none",
+      "3px",
+      "oklch(0.76 0.005 286)",
+    ],
+  },
+}
+`;
+
+exports[`approves rendered composer appearance and keyboard focus in Chromium 1`] = `
+{
+  "actions": [
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.93 0.004 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "14px",
+        "all-petite-caps",
+      ],
+      "name": "Send",
+      "outline": [
+        "solid",
+        "2px",
+        "oklab(0.93 0.00110255 -0.00384505)",
+      ],
+    },
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.93 0.004 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "14px",
+        "all-petite-caps",
+      ],
+      "name": "Model: Grok 4.7",
+      "outline": [
+        "solid",
+        "2px",
+        "oklab(0.93 0.00110255 -0.00384505)",
+      ],
+    },
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "13px",
+        "all-petite-caps",
+      ],
+      "name": "Permission mode: manual",
+      "outline": [
+        "solid",
+        "2px",
+        "oklch(0.93 0.004 286)",
+      ],
+    },
+  ],
+  "boundary": {
+    "background": "oklch(0.21 0.005 286)",
+    "border": [
+      "solid",
+      "1px",
+      "oklch(0.93 0.004 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "16px",
+      "normal",
+    ],
+    "outline": [
+      "none",
+      "3px",
+      "oklch(0.93 0.004 286)",
+    ],
+  },
+  "editor": {
+    "face": {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.535 0.005 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "16px",
+        "normal",
+      ],
+      "outline": [
+        "none",
+        "3px",
+        "oklch(0.93 0.004 286)",
+      ],
+    },
+    "focused": true,
+    "name": "Message draft",
+  },
+}
+`;
+
+exports[`approves rendered fallback-anchors appearance and keyboard focus in Chromium 1`] = `
+{
+  "anchors": false,
+  "contained": true,
+  "insideModal": true,
+  "manual": false,
+  "position": "fixed",
+  "selected": "Second provider",
+}
+`;
+
+exports[`approves rendered fallback-popover appearance and keyboard focus in Chromium 1`] = `
+{
+  "anchors": true,
+  "contained": true,
+  "insideModal": true,
+  "manual": true,
+  "position": "fixed",
+  "selected": "Second provider",
+}
+`;
+
+exports[`approves rendered transcript appearance and keyboard focus in Chromium 1`] = `
+{
+  "failure": {
+    "background": "oklab(0 0 0 / 0)",
+    "border": [
+      "none",
+      "0px",
+      "oklab(0.76 0.00137819 -0.00480631)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "14px",
+      "normal",
+    ],
+    "outline": [
+      "solid",
+      "2px",
+      "oklab(0.76 0.00137819 -0.00480631)",
+    ],
+  },
+  "note": {
+    "background": "oklch(0.18 0.005 286)",
+    "border": [
+      "solid",
+      "0px 0px 0px 2px",
+      "oklch(0.665 0.005 286) oklch(0.665 0.005 286) oklch(0.665 0.005 286) oklch(0.535 0.005 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "14px",
+      "normal",
+    ],
+    "outline": [
+      "solid",
+      "2px",
+      "oklab(0.665 0.00137819 -0.00480631)",
+    ],
+  },
+}
+`;

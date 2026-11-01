@@ -38,7 +38,7 @@ export function PictureDrop({
     >
       {children}
       {phase === "idle" ? null : (
-        <div className="composer-drop" aria-hidden="true">
+        <div className="composer-drop label" aria-hidden="true">
           Drop here
         </div>
       )}

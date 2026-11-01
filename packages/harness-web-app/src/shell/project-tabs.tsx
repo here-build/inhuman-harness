@@ -1,12 +1,14 @@
-import { useEffect, useId, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from "react";
 import { IconChevronDown, IconCopy, IconFolder, IconLayoutGrid, IconPlus, IconRobot } from "@tabler/icons-react";
 import { observer } from "mobx-react-lite";
 
 import { projectPulse, rowLight } from "./light.js";
-import { projectHref, projectNames, type RouteTarget } from "./path.js";
+import { projectHref, projectNames, sessionHref, type RouteTarget } from "./path.js";
 import { useDial } from "../client/context.js";
+import { Menu, MenuItem, MenuTrigger, NativePopover } from "../components/ui/anchored.js";
 import { Button } from "../components/ui/button.js";
 import { glyph } from "../components/ui/glyph.js";
+import { FieldButton, Link } from "../components/ui/navigation.js";
 
 export type RailPane =
   { readonly kind: "overview" } | { readonly kind: "project"; readonly path: string } | { readonly kind: "bots" };
@@ -40,12 +42,14 @@ export function botIdsOf(
 }
 
 export const ProjectTabs = observer(function ProjectTabsView({
+  projectSessions,
   go,
   pane,
   onBrowseBots,
   onAdd,
   onMint,
 }: {
+  readonly projectSessions?: ReadonlyMap<string, string>;
   readonly go: (href: string) => void;
   readonly pane: RailPane;
   readonly onBrowseBots: () => void;
@@ -68,7 +72,7 @@ export const ProjectTabs = observer(function ProjectTabsView({
     paths.some((path) => Object.keys(dial.projects.get(path)?.root.botsRoster ?? {}).length > 0);
   return (
     <div className="flex min-w-0 flex-1">
-      <div ref={listRef} className="project-tablist" role="tablist" aria-label="Projects">
+      <nav ref={listRef} className="project-tablist" aria-label="Projects">
         <Tab
           kind="overview"
           active={pane.kind === "overview"}
@@ -82,6 +86,7 @@ export const ProjectTabs = observer(function ProjectTabsView({
           <ProjectTab
             key={path}
             path={path}
+            sessionId={projectSessions?.get(path)}
             name={names.get(path) ?? path}
             active={pane.kind === "project" && pane.path === path}
             go={go}
@@ -99,7 +104,7 @@ export const ProjectTabs = observer(function ProjectTabsView({
             tabRef={pane.kind === "bots" ? activeRef : undefined}
           />
         ) : null}
-      </div>
+      </nav>
       <div className="project-add">
         <Button variant="secondary" onClick={onAdd}>
           <IconPlus {...glyph} aria-hidden />
@@ -112,6 +117,7 @@ export const ProjectTabs = observer(function ProjectTabsView({
 
 const ProjectTab = observer(function ProjectTabView({
   path,
+  sessionId,
   name,
   active,
   go,
@@ -119,6 +125,7 @@ const ProjectTab = observer(function ProjectTabView({
   tabRef,
 }: {
   readonly path: string;
+  readonly sessionId?: string;
   readonly name: string;
   readonly active: boolean;
   readonly go: (href: string) => void;
@@ -143,7 +150,9 @@ const ProjectTab = observer(function ProjectTabView({
     <Tab
       kind="project"
       active={active}
-      href={projectHref(path)}
+      href={
+        sessionId != null && held?.root.sessions[sessionId] != null ? sessionHref(path, sessionId) : projectHref(path)
+      }
       go={go}
       icon={<IconFolder {...glyph} aria-hidden />}
       label={name}
@@ -186,32 +195,40 @@ function Tab({
   readonly onSelect?: () => void;
   readonly tabRef?: Ref<HTMLDivElement>;
 }) {
-  const select = (event: MouseEvent<HTMLAnchorElement>): void => {
+  const select: NonNullable<React.ComponentProps<typeof Link>["onClick"]> = (event): void => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     if (href != null && go != null) go(href);
   };
   return (
-    <div
-      ref={tabRef}
-      role="tab"
-      aria-selected={active}
-      className="project-tab touch-target"
-      data-tab={kind}
-      data-active={active ? "" : undefined}
-    >
+    <div ref={tabRef} className="project-tab touch-target" data-tab={kind} data-active={active ? "" : undefined}>
       {href == null ? (
-        <button type="button" className="project-tab-main" aria-label={label} title={title ?? label} onClick={onSelect}>
+        <Button
+          variant="ghost"
+          aria-current={active ? "page" : undefined}
+          className="project-tab-main"
+          aria-label={label}
+          title={title ?? label}
+          onClick={onSelect}
+        >
           {icon}
           <span className="project-tab-label truncate">{label}</span>
           {status}
-        </button>
+        </Button>
       ) : (
-        <a className="project-tab-main" href={href} aria-label={label} title={title ?? label} onClick={select}>
+        <Link
+          isCommand
+          aria-current={active ? "page" : undefined}
+          className="project-tab-main no-underline"
+          href={href}
+          aria-label={label}
+          title={title ?? label}
+          onClick={select}
+        >
           {icon}
           <span className="project-tab-label truncate">{label}</span>
           {status}
-        </a>
+        </Link>
       )}
       {menu}
     </div>
@@ -231,62 +248,81 @@ function ProjectMenu({
   readonly name: string;
   readonly onMint: () => void;
 }) {
-  const menuId = useId();
-  const menu = useRef<HTMLDivElement>(null);
-  const [copied, setCopied] = useState(false);
+  const errorId = useId();
+  const [isOpen, setIsOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "pending" | "copied" | "error">("idle");
+  const copyAttempt = useRef<object>(undefined);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(copiedTimer.current), []);
-  const close = (): void => {
+  useEffect(
+    () => () => {
+      clearTimeout(copiedTimer.current);
+      copyAttempt.current = undefined;
+    },
+    [],
+  );
+  const changeOpen = (open: boolean): void => {
     clearTimeout(copiedTimer.current);
-    // hidePopover throws when the popover is already closed.
-    if (menu.current?.matches(":popover-open")) menu.current.hidePopover();
+    copyAttempt.current = undefined;
+    setCopyStatus("idle");
+    setIsOpen(open);
   };
-  const copy = (): void => {
-    void navigator.clipboard.writeText(path).then(
-      () => {
-        setCopied(true);
-        clearTimeout(copiedTimer.current);
-        copiedTimer.current = setTimeout(close, 600);
-        return undefined;
-      },
-      () => undefined,
-    );
+  const copy = async (): Promise<void> => {
+    if (copyAttempt.current) return;
+    const attempt = {};
+    copyAttempt.current = attempt;
+    setCopyStatus("pending");
+    try {
+      await navigator.clipboard.writeText(path);
+      // A dismissed menu must not update (or close) a later opening.
+      if (copyAttempt.current !== attempt) return;
+      setCopyStatus("copied");
+      copiedTimer.current = setTimeout(() => changeOpen(false), 600);
+    } catch {
+      if (copyAttempt.current !== attempt) return;
+      copyAttempt.current = undefined;
+      setCopyStatus("error");
+    }
   };
   return (
-    <div className="project-tab-menu">
-      <button type="button" className="project-tab-chevron" popoverTarget={menuId} aria-label={`${name} menu`}>
-        <IconChevronDown {...glyph} aria-hidden />
-      </button>
-      <div
-        ref={menu}
-        id={menuId}
-        popover="auto"
-        role="menu"
-        className="project-menu"
-        aria-label={name}
-        onToggle={(event) => {
-          if (event.newState !== "closed") return;
-          clearTimeout(copiedTimer.current);
-          setCopied(false);
-        }}
-      >
-        <button type="button" role="menuitem" className="project-menu-item" onClick={copy}>
-          <IconCopy {...glyph} aria-hidden />
-          {copied ? "Copied" : "Copy path"}
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          className="project-menu-item"
-          onClick={() => {
-            close();
-            onMint();
-          }}
-        >
-          <IconPlus {...glyph} aria-hidden />
-          New session
-        </button>
-      </div>
+    <div className={`project-tab-menu${isOpen ? " [.project-tab:not(:has(.project-tab-main:hover))_&]:bg-hover" : ""}`}>
+      <MenuTrigger isOpen={isOpen} onOpenChange={changeOpen}>
+        <FieldButton className="project-tab-chevron border-0 p-0" aria-label={`${name} menu`}>
+          <IconChevronDown {...glyph} aria-hidden />
+        </FieldButton>
+        <NativePopover>
+          <Menu aria-label={name}>
+            <MenuItem
+              id="copy"
+              textValue="Copy path"
+              className="project-menu-item"
+              shouldCloseOnSelect={false}
+              isDisabled={copyStatus === "pending" || copyStatus === "copied"}
+              aria-describedby={copyStatus === "error" ? errorId : undefined}
+              onAction={() => void copy()}
+            >
+              <IconCopy {...glyph} aria-hidden />
+              {copyStatus === "copied" ? "Copied" : "Copy path"}
+            </MenuItem>
+            <MenuItem
+              id="new-session"
+              textValue="New session"
+              className="project-menu-item"
+              onAction={() => {
+                changeOpen(false);
+                onMint();
+              }}
+            >
+              <IconPlus {...glyph} aria-hidden />
+              New session
+            </MenuItem>
+          </Menu>
+          {copyStatus === "error" ? (
+            <p id={errorId} role="alert" className="px-2 py-1 text-sm text-danger">
+              Could not copy path. Try again or copy it manually: {path}
+            </p>
+          ) : null}
+        </NativePopover>
+      </MenuTrigger>
     </div>
   );
 }

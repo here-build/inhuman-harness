@@ -6,6 +6,7 @@ import { makeObservable, observable, runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Composer } from "../composer.js";
+import type { AccountSource } from "../wire-account.js";
 
 const offer = (name: string, baseUrl: string | null, live: boolean, description = name) => ({
   name,
@@ -32,7 +33,12 @@ const DRIVERS = {
   grok: driver("grok", [offer("Grok", "https://cli-chat-proxy.grok.com/v1", true, "Grok subscription")]),
 };
 
-type Face = { id: string; name: string; driver: { name: string; abilityClaim: string[] }; live: { models: string[] } };
+type Face = AccountSource & {
+  id: string;
+  name: string;
+  driver: { name: string; abilityClaim: string[] };
+  live: { models: string[] };
+};
 const face = (id: string, name: string, models: string[]): Face => ({
   id,
   name,
@@ -155,6 +161,115 @@ afterEach(() => {
 });
 
 describe("adding a provider from the model picker", () => {
+  it("keeps a 401 account visible, hides cached models and offers sign-in and delete", async () => {
+    runInAction(() => {
+      dial().kernel.root.connections.chatgpt = {
+        ...face("chatgpt", "ChatGPT", ["stale-model"]),
+        live: { models: ["stale-model"], auth: "needs-auth", identity: { displayName: "Ada" } },
+      };
+    });
+    await render();
+    await toggle("open");
+    expect(option("ChatGPT").textContent).toContain("Ada");
+    expect(option("ChatGPT").textContent).toContain("Please sign in again.");
+    expect(option("ChatGPT").getAttribute("aria-haspopup")).toBe("menu");
+    await click(option("ChatGPT"));
+    const submenu = container.querySelector('.model-submenu[aria-label="ChatGPT"]');
+    if (submenu == null) throw new Error("no account menu");
+    await act(async () => {
+      submenu.dispatchEvent(Object.assign(new Event("toggle"), { newState: "open" }));
+    });
+    expect(submenu.textContent).not.toContain("Stale Model");
+    const signin = submenu.querySelector('button[role="menuitem"]');
+    if (signin == null) throw new Error("no sign-in action");
+    expect(signin.textContent).toBe("Sign in again");
+    expect(submenu.textContent).toContain("Delete");
+    dial().sessionRpc?.request.mockResolvedValue({
+      form: "ui",
+      pending: "reauth",
+      body: '(harness/open-url :url "https://login.example.test" :description "Sign in")',
+    });
+    await click(signin);
+    expect(dial().sessionRpc?.request).toHaveBeenCalledWith("connect/login", { id: "chatgpt" });
+    expect(dial().sessionRpc?.request).not.toHaveBeenCalledWith("connect/adopt", expect.anything());
+    const cancel = [...container.querySelectorAll("button")].find((node) => node.textContent === "Cancel");
+    if (cancel == null) throw new Error("no cancel");
+    await click(cancel);
+    expect(option("ChatGPT").textContent).toContain("Ada");
+    expect(dial().sessionRpc?.request).toHaveBeenCalledWith("ui/resolve", { pending: "reauth", kind: "cancel" });
+  });
+
+  it("can find an unauthorized account by name and delete it, with retry on failure", async () => {
+    runInAction(() => {
+      dial().kernel.root.connections.grok = face("grok", "Grok", ["grok-4.7"]);
+      dial().kernel.root.connections.chatgpt = {
+        ...face("chatgpt", "ChatGPT", []),
+        readyState: "failed",
+        error: "models probe HTTP 401",
+        live: { models: [], identity: { email: "ada@example.com" } },
+      };
+    });
+    await render();
+    await toggle("open");
+    await type("ada@example.com");
+    expect(option("ChatGPT").textContent).toContain("ada@example.com");
+    await click(option("ChatGPT"));
+    const submenu = container.querySelector('.model-submenu[aria-label="ChatGPT"]');
+    if (submenu == null) throw new Error("no account menu");
+    await act(async () => {
+      submenu.dispatchEvent(Object.assign(new Event("toggle"), { newState: "open" }));
+    });
+    const remove = [...submenu.querySelectorAll("button")].find((node) => node.textContent === "Delete");
+    if (remove == null) throw new Error("no delete");
+    dial().sessionRpc?.request.mockRejectedValueOnce(new Error("Delete failed"));
+    await click(remove);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Delete failed");
+    expect(remove.disabled).toBe(false);
+    dial().sessionRpc?.request.mockImplementation(async (method) => {
+      if (method === "connect/drop")
+        runInAction(() => {
+          delete dial().kernel.root.connections.chatgpt;
+        });
+      return { ok: true };
+    });
+    await click(remove);
+    expect(dial().sessionRpc?.request).toHaveBeenCalledWith("connect/drop", { id: "chatgpt", confirm: true });
+    expect([...container.querySelectorAll(".model-wire")].map((node) => node.firstElementChild?.textContent)).toEqual([
+      "Grok",
+    ]);
+    await click(option("Add a provider"));
+    expect(rows()).toContain("ChatGPT");
+  });
+
+  it("keeps recovery available if sign-in finishes before the refreshed catalog arrives", async () => {
+    runInAction(() => {
+      dial().kernel.root.connections.chatgpt = {
+        ...face("chatgpt", "ChatGPT", []),
+        live: { models: [], auth: "needs-auth" },
+      };
+    });
+    await render();
+    await toggle("open");
+    await click(option("ChatGPT"));
+    const submenu = container.querySelector('.model-submenu[aria-label="ChatGPT"]');
+    if (submenu == null) throw new Error("no account menu");
+    await act(async () => {
+      submenu.dispatchEvent(Object.assign(new Event("toggle"), { newState: "open" }));
+    });
+    const signin = submenu.querySelector("button");
+    if (signin == null) throw new Error("no sign-in");
+    await click(signin);
+    // A server that still refuses the new credentials returns to the recovery row.
+    expect(option("ChatGPT").textContent).toContain("Please sign in again.");
+    await act(async () => {
+      runInAction(() => {
+        dial().kernel.root.connections.chatgpt = face("chatgpt", "ChatGPT", ["new-model"]);
+      });
+    });
+    expect(container.textContent).not.toContain("Loading its models");
+    expect(option("ChatGPT").textContent).not.toContain("Please sign in again.");
+  });
+
   it("keeps the list one row away, minus what is adopted", async () => {
     await render();
     expect(trigger()?.textContent).toContain("Choose a model");
@@ -237,7 +352,9 @@ describe("adding a provider from the model picker", () => {
     await toggle("open");
     await click(option("Add a provider"));
     await click(option("Grok"));
-    expect(container.querySelector('[role="status"]')?.textContent).toContain("Connected. Loading its models");
+    expect(container.querySelector('.model-picker [role="status"]')?.textContent).toContain(
+      "Connected. Loading its models",
+    );
     expect(container.querySelector(".connect-step")).toBeNull();
 
     await act(async () => {

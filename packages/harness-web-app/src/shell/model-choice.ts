@@ -41,14 +41,15 @@ export function completionWires(
   for (const [key, spec] of Object.entries(connections)) {
     if (spec == null || !completes(spec)) continue;
     const connection = spec.id.trim() === "" ? key : spec.id;
-    const models = modelIds(spec.live?.models);
-    if (models.length === 0) continue;
     const name = wireName(spec, connection);
+    const account = wireAccount(spec, name);
+    const models = account.needsAuth ? [] : modelIds(spec.live?.models);
+    if (models.length === 0 && !account.needsAuth) continue;
     const wire = {
       connection,
       name,
       choices: models.map((model) => ({ connection, model })),
-      account: wireAccount(spec, name),
+      account,
     };
     (models.length < SMALL_CATALOG ? small : large).push(wire);
   }

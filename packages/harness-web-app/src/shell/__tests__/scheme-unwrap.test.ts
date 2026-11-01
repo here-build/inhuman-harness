@@ -32,7 +32,7 @@ describe("scheme batch unwrap", () => {
 
   it("renders the calls as tape rows", async () => {
     const html = markup(await project(CALLS, [shellJob(), readJob()]));
-    expect(html).toContain('class="shell-term"');
+    expect(html).toMatch(/class="[^"]*\bshell-term\b[^"]*"/);
     expect(html).toContain('class="shell-sigil">$</span>');
     expect(html).toContain(">cwd</code>");
     expect(html).not.toContain('class="tape-tool"');

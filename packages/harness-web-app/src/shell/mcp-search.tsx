@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import type { Request } from "./connect-step.js";
 import {
@@ -25,13 +25,17 @@ export function RegistrySearch({
   disabled,
   onNotice,
   onAdopt,
+  noticeId,
 }: {
   readonly request: Request | null;
   readonly rows: readonly (readonly [string, McpFace])[];
   readonly disabled: boolean;
   readonly onNotice: (message: string) => void;
   readonly onAdopt: (hit: RegistryHit) => void;
+  readonly noticeId?: string;
 }) {
+  const helpId = useId();
+  const statusId = useId();
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<RegistryHit[]>([]);
   const [pending, setPending] = useState(false);
@@ -86,6 +90,7 @@ export function RegistrySearch({
         Search servers
         <Input
           className="mt-1"
+          aria-describedby={[helpId, status === "" ? null : statusId, noticeId].filter(Boolean).join(" ")}
           value={query}
           placeholder="Name"
           spellCheck={false}
@@ -93,10 +98,14 @@ export function RegistrySearch({
           onChange={(event) => setQuery(event.target.value)}
         />
       </label>
-      <p className="mt-1 text-sm text-muted">
+      <p id={helpId} className="mt-1 text-sm text-muted">
         Searches server names in the official registry. Each server you add signs in on its own.
       </p>
-      {status === "" ? null : <p className="mt-2 text-sm text-muted">{status}</p>}
+      {status === "" ? null : (
+        <p id={statusId} className="mt-2 text-sm text-muted" role="status">
+          {status}
+        </p>
+      )}
       {hits.length === 0 ? null : (
         <div className="settings-list mt-2">
           {hits.map((hit) => {

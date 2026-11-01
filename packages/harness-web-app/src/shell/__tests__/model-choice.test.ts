@@ -38,6 +38,24 @@ describe("completion model choices", () => {
     ]);
   });
 
+  it("keeps unauthorized accounts visible while hiding even cached models", () => {
+    const wires = completionWires({
+      expired: {
+        ...face("expired", ["stale-model"], ["completion"], "ChatGPT"),
+        live: {
+          models: ["stale-model"],
+          auth: "needs-auth",
+          identity: { displayName: "Ada" },
+        },
+      },
+      boot: { ...face("boot", [], ["completion"], "Grok"), readyState: "failed", error: "models probe HTTP 401" },
+    });
+    expect(wires).toHaveLength(2);
+    expect(wires.map((wire) => wire.choices)).toEqual([[], []]);
+    expect(wires[0]?.account).toMatchObject({ needsAuth: true, name: "Ada" });
+    expect(wires[1]?.account.needsAuth).toBe(true);
+  });
+
   it("drops blank ids and non-strings", () => {
     const choices = choicesOf({
       chatgpt: {

@@ -21,10 +21,12 @@ import { PictureChips } from "./picture-chips.js";
 import { adoptPictureFiles, clipboardImageFiles, turnVisualPayload } from "./picture-draft.js";
 import { PictureDrop } from "./picture-drop.js";
 import { providerRows } from "./provider-list.js";
+import { SkillSlashMenu } from "./skill-slash-menu.js";
 import { StageComposer } from "./stage-composer.js";
 import { toolSummary } from "./tape-read.js";
 import { toolLabel } from "./tool-label.js";
 import { toolReceipt, type ToolBody } from "./tool-receipt.js";
+import { useSkillSlash } from "./use-skill-slash.js";
 import { useDial } from "../client/context.js";
 import { Button } from "../components/ui/button.js";
 import { fieldGlyph, glyph } from "../components/ui/glyph.js";
@@ -104,6 +106,10 @@ const SessionComposer = observer(function SessionComposerView({
   const deciding = useRef(false);
   const decideRef = useRef<(allow: boolean) => void>(() => undefined);
   const headingId = useId();
+  const draftId = useId();
+  const noticeId = useId();
+  const commentId = useId();
+  const decisionHelpId = useId();
 
   useEffect(() => {
     if (session == null) return;
@@ -225,6 +231,18 @@ const SessionComposer = observer(function SessionComposerView({
   const restoreId =
     episodeHead instanceof SessionTurn && session != null ? restoreTarget(episodeHead, session.root.tip) : null;
   const canRestore = restoreId != null && !unavailable && !covered && live == null && !state.sending;
+  const slash = useSkillSlash({
+    scope: session?.root.uuid ?? "",
+    rows: session?.root.skills ?? [],
+    value: state.draft,
+    disabled: unavailable || covered || state.sending,
+    fieldRef: draftInputRef,
+    onChange: (value) => {
+      state.draft = value;
+      state.revision += 1;
+      refresh();
+    },
+  });
 
   async function restore(): Promise<void> {
     if (session == null || !(episodeHead instanceof SessionTurn) || !canRestore) return;
@@ -355,6 +373,7 @@ const SessionComposer = observer(function SessionComposerView({
 
   function onDraftKey(event: KeyboardEvent<HTMLTextAreaElement>): void {
     if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    if (slash.onKeyDown(event)) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       if (!covered) void send();
@@ -418,11 +437,13 @@ const SessionComposer = observer(function SessionComposerView({
     >
       <div className="composer-column">
         {dial.kernel == null ? null : <LinkNotice />}
-        {notice === "" ? null : (
-          <output className="mb-2 block text-sm text-muted" role="status">
-            {notice}
-          </output>
-        )}
+        <output
+          id={noticeId}
+          className={notice === "" ? "block text-sm text-muted" : "mb-2 block text-sm text-muted"}
+          role="status"
+        >
+          {notice}
+        </output>
         {canRestore ? (
           <p className="composer-restore">
             <span>Later messages are set aside.</span>
@@ -456,9 +477,14 @@ const SessionComposer = observer(function SessionComposerView({
                 onRemember={(key) => setRemember({ leafId: ask.uuid, key })}
               />
             )}
+            <label htmlFor={commentId} className="mb-1 block text-sm text-ink">
+              Approval comment <span className="text-muted">(optional)</span>
+            </label>
             <Textarea
               key={ask.uuid}
+              id={commentId}
               aria-label="Approval comment"
+              aria-describedby={decisionHelpId}
               placeholder="Optional comment"
               rows={2}
               disabled={unavailable || !armed}
@@ -466,7 +492,7 @@ const SessionComposer = observer(function SessionComposerView({
               onChange={(event) => setComment(event.target.value)}
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted" aria-live="polite">
+              <p id={decisionHelpId} className="text-sm text-muted" aria-live="polite">
                 {armed
                   ? `Choose ${copy.yes} or ${copy.no} explicitly. Your draft is kept.`
                   : "A new request appeared. Decisions unlock after a short pause."}
@@ -492,6 +518,7 @@ const SessionComposer = observer(function SessionComposerView({
         <div className={covered ? "visually-hidden" : undefined} inert={covered}>
           <PictureDrop fieldRef={fieldRef} enabled={!covered && session != null} onDrop={adoptDrop}>
             <PictureChips
+              disabled={session == null || covered || state.sending}
               pictures={state.pictures}
               onRemove={(key) => {
                 state.pictures = state.pictures.filter((picture) => picture.key !== key);
@@ -502,16 +529,23 @@ const SessionComposer = observer(function SessionComposerView({
                 void adoptPictureFiles(state, files, true, refresh);
               }}
             />
+            <SkillSlashMenu menu={slash.menu} />
             <Textarea
+              {...slash.fieldProps}
               ref={draftInputRef}
+              id={draftId}
               aria-label="Message draft"
+              aria-describedby={noticeId}
               className="composer-draft rounded-none border-0 bg-transparent px-4 py-3 pr-12 text-base pointer-coarse:py-4 pointer-coarse:pr-14"
               disabled={session == null}
-              placeholder={session?.root.head == null ? "Ask or describe a change" : "Message"}
+              placeholder={
+                session?.root.head == null ? "Ask or describe a change · / for skills" : "Message · / for skills"
+              }
               rows={1}
               value={state.draft}
               onChange={(event) => {
                 state.draft = event.target.value;
+                slash.track(event.currentTarget);
                 state.revision += 1;
                 refresh();
               }}
@@ -524,7 +558,8 @@ const SessionComposer = observer(function SessionComposerView({
               }}
             />
             {showEnter ? (
-              <button
+              <Button
+                variant="ghost"
                 type="button"
                 aria-label="Send"
                 className={fieldActionClass}
@@ -534,12 +569,18 @@ const SessionComposer = observer(function SessionComposerView({
                 }}
               >
                 <IconCornerDownLeft {...fieldGlyph} aria-hidden />
-              </button>
+              </Button>
             ) : null}
             {showStop ? (
-              <button type="button" aria-label="Stop" className={fieldActionClass} onClick={() => void stop()}>
+              <Button
+                variant="ghost"
+                type="button"
+                aria-label="Stop"
+                className={fieldActionClass}
+                onClick={() => void stop()}
+              >
                 <IconPlayerStopFilled {...glyph} aria-hidden />
-              </button>
+              </Button>
             ) : null}
           </PictureDrop>
         </div>
@@ -599,7 +640,7 @@ export const AskReceipt = observer(function AskReceiptView({
 });
 
 const fieldActionClass =
-  "absolute right-2 bottom-2 inline-flex size-8 items-center justify-center rounded-sm text-ink hover:bg-hover disabled:opacity-40 pointer-coarse:right-1 pointer-coarse:bottom-1 pointer-coarse:size-12";
+  "absolute right-2 bottom-2 inline-flex size-8 min-h-0 p-0 items-center justify-center rounded-sm text-ink hover:bg-hover disabled:opacity-40 pointer-coarse:right-1 pointer-coarse:bottom-1 pointer-coarse:size-12";
 
 function isOk(result: unknown): boolean {
   return typeof result === "object" && result != null && "ok" in result && result.ok === true;

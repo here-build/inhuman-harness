@@ -31,6 +31,8 @@ export const QUOTA_LOW_PERCENT = 20;
 
 export type WireAccount = {
   readonly failed: boolean;
+  readonly needsAuth: boolean;
+  readonly name: string;
   /** The painted failure, the signed-in person, an ellipsis for a key, or the plan. */
   readonly description: string;
   /** The raw failure or key mask when `description` is the painted form. */
@@ -59,6 +61,8 @@ export function wireAccount(spec: AccountSource, provider = ""): WireAccount {
   const detail = auth ? error : (failure?.detail ?? (mask !== "" && description === "…" ? mask : ""));
   return {
     failed,
+    needsAuth: auth,
+    name: who,
     description,
     detail,
     balance: failed ? "" : paintBalance(record(account.balance)),

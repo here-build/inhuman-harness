@@ -111,6 +111,20 @@ afterEach(() => {
 });
 
 describe("first-run splash", () => {
+  it("does not bypass disabled providers by submitting a single search result", async () => {
+    dial().kernelRpc = null;
+    await render();
+    await type(search()!, "Groq");
+    expect(tile("Groq").disabled).toBe(true);
+    await act(async () => {
+      search()!.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(container.querySelector(".splash-clusters")).not.toBeNull();
+    expect(container.textContent).not.toContain("Connected. Opening your workspace");
+    expect(container.querySelector(".connect-step")).toBeNull();
+  });
   it("clusters the providers, subscriptions first", async () => {
     await render();
     expect(labels()).toEqual(["Subscriptions", "Gateways", "On this machine", "Custom endpoint", "With an API key"]);

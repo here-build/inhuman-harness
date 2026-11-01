@@ -1,10 +1,35 @@
-import type { SessionOverview, SessionRoot } from "@inhuman.tools/harness-model";
+import type { SessionOverview, SessionRoot, SessionTurn } from "@inhuman.tools/harness-model";
 
+import { pluginProgress, type PluginSnapshot } from "./plugin-progress.js";
 import type { Dial } from "../../harness-web-app/src/client/dial.js";
 import { readListParts, type ReadPart } from "../../harness-web-app/src/shell/read-line.js";
 import { agentSpans, modelSpans, stickyBeats } from "../../harness-web-app/src/shell/tape-beats.js";
 import { turnOutline } from "../../harness-web-app/src/shell/tape-live.js";
 import { turnsOldestFirst, type LookItem, type LookVerb } from "../../harness-web-app/src/shell/tape-read.js";
+
+// Keep cumulative historical logs out of the streaming render hot path. Cache only
+// strings and projected items; this must not retain the session document.
+const progressByTurn = new WeakMap<
+  SessionTurn,
+  {
+    readonly keys: readonly (string | undefined)[];
+    readonly items: ReturnType<typeof pluginProgress>;
+  }
+>();
+
+function turnProgress(turn: SessionTurn, previous: PluginSnapshot, current: PluginSnapshot) {
+  const keys = [
+    previous["tasks:state"],
+    previous["inhuman-plugin-goal:state"],
+    current["tasks:state"],
+    current["inhuman-plugin-goal:state"],
+  ];
+  const cached = progressByTurn.get(turn);
+  if (cached != null && keys.every((key, index) => key === cached.keys[index])) return cached.items;
+  const items = pluginProgress(previous, current);
+  progressByTurn.set(turn, { keys, items });
+  return items;
+}
 
 function outlineThoughts(id: string, hasThoughts: boolean): { readonly id: string; readonly text: string }[] {
   if (!hasThoughts) return [];
@@ -13,11 +38,42 @@ function outlineThoughts(id: string, hasThoughts: boolean): { readonly id: strin
 
 /** A session's rounds laid out for both lanes. Spans cross turns; a turn alone cannot see the round before it. */
 export function sessionBeats(root: SessionRoot) {
+  let previous: PluginSnapshot = {};
   return stickyBeats(
     agentSpans(
       modelSpans(
-        turnsOldestFirst(root).flatMap((turn) =>
-          turnOutline(turn, root.path).map((outline) => ({
+        turnsOldestFirst(root).flatMap((turn) => {
+          // End snapshots cannot locate actions within historical rounds. Keep every
+          // transition, but place this turn's delta on its last round. The head uses
+          // live state so hooks and /goal update even without a tool or completion.
+          const snapshot = turn === root.head ? root.pluginState : turn.pluginState;
+          const items = snapshot == null ? [] : turnProgress(turn, previous, snapshot);
+          if (snapshot != null) previous = snapshot;
+          const outlines = [...turnOutline(turn, root.path)];
+          if (items.length > 0) {
+            let last = outlines.at(-1);
+            if (last == null || last.id === `${turn.uuid}:user`) {
+              last = {
+                id: `${turn.uuid}:round`,
+                mark: null,
+                model: "",
+                connection: "",
+                hasThoughts: false,
+                agents: [],
+                settles: [],
+              };
+              outlines.push(last);
+            }
+            outlines[outlines.length - 1] = {
+              ...last,
+              mark: {
+                title: last.mark?.title ?? "",
+                description: last.mark?.description ?? "",
+                items: [...(last.mark?.items ?? []), ...items],
+              },
+            };
+          }
+          return outlines.map((outline) => ({
             id: outline.id,
             mark: outline.mark,
             model: outline.model,
@@ -26,8 +82,8 @@ export function sessionBeats(root: SessionRoot) {
             agents: outline.agents,
             settles: outline.settles,
             turn,
-          })),
-        ),
+          }));
+        }),
       ),
     ),
   );

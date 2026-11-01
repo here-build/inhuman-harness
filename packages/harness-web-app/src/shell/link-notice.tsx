@@ -9,7 +9,7 @@ import { Button } from "../components/ui/button.js";
 
 /**
  * The line to the daemon, in one sentence and at most one action. A state the
- * system resolves on its own breathes; a state that needs you rings, as a
+ * system resolves on its own keeps a steady marker; a state that needs you has a boundary, as a
  * sidebar row does when it waits on you. Opening shows only past a beat, and
  * a redial says it is still trying only when it is.
  */
@@ -118,7 +118,7 @@ function needs(
       return {
         text: (
           <>
-            This session belongs to <span className="mono">{name}</span>.
+            This session belongs to <span>{name}</span>.
           </>
         ),
         action: "Open it there",

@@ -8,7 +8,9 @@ import type { WorkflowCell } from "./cell.js";
 import type { Leaf } from "./region-nesting.js";
 import { isStructured, valueJson, valueSummary } from "./value-summary.js";
 import { verbLabel } from "./verb-label.js";
+import { Button } from "../components/ui/button.js";
 import { glyph } from "../components/ui/glyph.js";
+import { Disclosure, DisclosurePanel, FieldButton } from "../components/ui/navigation.js";
 import { naturalName } from "../shell/model-choice.js";
 import type { AgentState } from "../shell/tape-read.js";
 import { toolLabel } from "../shell/tool-label.js";
@@ -35,13 +37,15 @@ function ValueView({ value, code }: { readonly value: unknown; readonly code?: b
   if (!isStructured(value))
     return <p className={code === true ? "wf-preview mono" : "wf-value"}>{valueSummary(value)}</p>;
   return (
-    <details className="wf-json">
-      <summary>
+    <Disclosure className="wf-json border-0 p-0">
+      <FieldButton slot="trigger" className="wf-json-trigger border-0 p-0 font-normal">
         <IconChevronRight {...glyph} aria-hidden className="wf-chevron" />
         <span className="wf-summary">{valueSummary(value)}</span>
-      </summary>
-      <pre className="wf-json-body">{valueJson(value)}</pre>
-    </details>
+      </FieldButton>
+      <DisclosurePanel className="p-0">
+        <pre className="wf-json-body">{valueJson(value)}</pre>
+      </DisclosurePanel>
+    </Disclosure>
   );
 }
 
@@ -83,9 +87,15 @@ export function LeafCard({ leaf, id = leaf.id, cell, onPick }: CardProps) {
             {shownName}
           </span>
         ) : (
-          <button type="button" className="wf-name wf-pick" title={meta.name} onClick={() => onPick(leaf)}>
+          <Button
+            variant="content"
+            type="button"
+            className="wf-name wf-pick"
+            title={meta.name}
+            onClick={() => onPick(leaf)}
+          >
             {shownName}
-          </button>
+          </Button>
         )}
         {meta.model === undefined ? null : <span className="mono wf-model">{naturalName(meta.model)}</span>}
         {meta.verb === meta.name ? null : (

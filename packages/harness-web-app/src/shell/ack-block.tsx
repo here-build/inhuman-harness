@@ -1,6 +1,5 @@
-import { useId } from "react";
-
 import { choiceByKey, type AckFlagFace, type StoreChoice } from "./ack-prompt.js";
+import { DropdownSelect } from "../components/ui/anchored.js";
 
 /**
  * The acknowledgement part of a prompt: the flags that hold the call, and what to remember. Flag text is
@@ -19,7 +18,6 @@ export function AckBlock({
   readonly disabled: boolean;
   readonly onRemember: (key: string) => void;
 }) {
-  const selectId = useId();
   const picked = choiceByKey(choices, remember);
   return (
     <div className="ack-block mb-3" aria-label="Acknowledgement">
@@ -35,23 +33,17 @@ export function AckBlock({
       </ul>
       {choices.length === 0 ? null : (
         <div className="ack-remember mt-2 flex flex-wrap items-center gap-2">
-          <label className="text-sm" htmlFor={selectId}>
-            Remember
-          </label>
-          <select
-            id={selectId}
-            className="settings-select ack-remember-select"
-            disabled={disabled}
-            value={picked?.key ?? ""}
-            onChange={(event) => onRemember(event.target.value)}
-          >
-            <option value="">Just this once</option>
-            {choices.map((choice) => (
-              <option key={choice.key} value={choice.key}>
-                {choice.text}
-              </option>
-            ))}
-          </select>
+          <DropdownSelect
+            label="Remember"
+            className="ack-remember-select"
+            isDisabled={disabled}
+            value={picked?.key ?? "just-once"}
+            onChange={(value) => onRemember(value === "just-once" ? "" : String(value ?? ""))}
+            options={[
+              { id: "just-once", label: "Just this once" },
+              ...choices.map((choice) => ({ id: choice.key, label: choice.text })),
+            ]}
+          />
         </div>
       )}
     </div>

@@ -15,6 +15,27 @@ import { groupBeats } from "../tape-beats.js";
 import { metadataMark, tapeCells, type TapeCell } from "../tape-read.js";
 
 describe("progress marks", () => {
+  it("keeps failed task receipts visible without inventing a status transition", () => {
+    const job = new SystemToolJob({
+      name: "task__start",
+      argsJson: JSON.stringify({ taskId: "missing" }),
+      completed: true,
+      outcomeJson: JSON.stringify({ ok: false, error: "task not found" }),
+    });
+    const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], doneWork: [job] });
+    turn.pushChild(job);
+    const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
+    root.head = turn;
+    const doc = Plexus.bootstrap(root);
+    try {
+      const cells = tapeCells(root);
+      expect(cells.some((cell) => cell.kind === "tool" && cell.outcome === "failed")).toBe(true);
+      expect(cells.some((cell) => cell.kind === "progress")).toBe(false);
+    } finally {
+      doc.destroy();
+    }
+  });
+
   it("reads a title update and ignores an empty one", () => {
     const titled = new SystemToolJob({
       triggersReactLoop: false,
@@ -128,7 +149,7 @@ describe("progress marks", () => {
     plexus.destroy();
   });
 
-  it("puts task and goal calls on the same progress mark as the title", () => {
+  it("does not turn task and goal tool intentions into progress", () => {
     const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
     const spoken = completion("Working.");
     const title = hidden("update_metadata", {
@@ -158,12 +179,7 @@ describe("progress marks", () => {
     root.head = turn;
     const plexus = Plexus.bootstrap(root);
     const cells = tapeCells(root);
-    expect(cells.map(face)).toEqual([
-      "round",
-      "progress:Ship the bar:Left pane|Left bar:Show task progress beside the title|Left bar:in progress|Goal:Keep the left pane current",
-      "speech",
-      "reads",
-    ]);
+    expect(cells.map(face)).toEqual(["round", "progress:Ship the bar:Left pane", "speech", "reads"]);
     expect(cells.some((cell) => cell.kind === "tool" && /task__|goal__/.test(cell.summary))).toBe(false);
     plexus.destroy();
   });

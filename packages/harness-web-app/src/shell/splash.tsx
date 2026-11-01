@@ -12,8 +12,9 @@ import {
   type ProviderRow,
 } from "./provider-list.js";
 import { useDial } from "../client/context.js";
+import { Button } from "../components/ui/button.js";
 import { glyph } from "../components/ui/glyph.js";
-import { Input } from "../components/ui/input.js";
+import { FieldInput, Label, SearchField } from "../components/ui/form-controls.js";
 
 type Panel = { readonly start: ConnectStart; readonly key: string } | { readonly landing: true } | null;
 
@@ -64,7 +65,7 @@ export const Splash = observer(function SplashView() {
   }, [panel]);
 
   const start = (row: ProviderRow): void => {
-    if (row.start == null) return;
+    if (request == null || row.start == null) return;
     opener.current = row.key;
     setPanel({ start: row.start, key: row.key });
   };
@@ -107,24 +108,24 @@ export const Splash = observer(function SplashView() {
                   tiles={keyed}
                   empty="No provider matches."
                   extra={
-                    <Input
-                      type="search"
+                    <SearchField
                       className="splash-search"
-                      aria-label="Search providers that take an API key"
-                      placeholder="Search"
-                      autoComplete="off"
-                      spellCheck={false}
                       value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      onKeyDown={(event) => {
+                      onChange={setQuery}
+                      onSubmit={() => {
                         const matches = by("key");
                         const only = matches.length === 1 ? matches.at(0) : undefined;
-                        if (event.key === "Enter" && only != null) {
-                          event.preventDefault();
-                          start(only);
-                        }
+                        if (only != null) start(only);
                       }}
-                    />
+                    >
+                      <Label>Search API-key providers</Label>
+                      <FieldInput
+                        aria-label="Search providers that take an API key"
+                        placeholder="Search"
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </SearchField>
                   }
                 />
               </div>
@@ -170,9 +171,7 @@ function Cluster({
   return (
     <section className="cluster" data-group={group} aria-labelledby={id}>
       <div className="cluster-head">
-        <h2 className="label" id={id}>
-          {GROUP_LABELS[group]}
-        </h2>
+        <h2 id={id}>{GROUP_LABELS[group]}</h2>
         {extra}
       </div>
       {tiles.length === 0 ? (
@@ -200,9 +199,10 @@ function Tile({
   const note = tileNote(row);
   return (
     <li className="tile-item">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         className="tile"
+        style={{ fontVariantCaps: "normal", letterSpacing: "normal" }}
         data-size={size}
         data-tile={row.key}
         disabled={!enabled || row.start == null}
@@ -211,7 +211,7 @@ function Tile({
       >
         <span className="tile-top">
           {row.group === "local" ? <span className="visually-hidden">Running: </span> : null}
-          <span className="tile-name">
+          <span className="tile-name" style={{ fontFamily: "var(--font-sans)" }}>
             {row.group === "local" ? <span className="live-dot" aria-hidden /> : null}
             {row.name}
           </span>
@@ -220,12 +220,12 @@ function Tile({
           <span className={row.group === "local" ? "tile-copy mono" : "tile-copy"}>{note}</span>
         )}
         {size === "large" ? (
-          <span className="tile-cue">
+          <span className="tile-cue label">
             Sign in through the browser
             <IconArrowRight {...glyph} aria-hidden />
           </span>
         ) : null}
-      </button>
+      </Button>
     </li>
   );
 }

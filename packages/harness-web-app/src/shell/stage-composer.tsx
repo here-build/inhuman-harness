@@ -3,6 +3,7 @@ import { sessionMintPermissionMode } from "@inhuman.tools/harness-model";
 import { IconCornerDownLeft } from "@tabler/icons-react";
 import { useRouter } from "@tanstack/react-router";
 import { observer } from "mobx-react-lite";
+import { Button as MenuButton } from "react-aria-components";
 
 import { connectPort } from "./connect-step.js";
 import { cloneDraftPicture } from "./draft-slot.js";
@@ -23,13 +24,18 @@ import { PermissionMode } from "./permission-mode.js";
 import { PictureChips } from "./picture-chips.js";
 import { adoptPictureFiles, clipboardImageFiles } from "./picture-draft.js";
 import { PictureDrop } from "./picture-drop.js";
+import { useProjectSkills } from "./project-skills.js";
 import { providerRows } from "./provider-list.js";
+import { SkillSlashMenu } from "./skill-slash-menu.js";
+import { useSkillSlash } from "./use-skill-slash.js";
 import { useDial } from "../client/context.js";
+import { Menu, MenuItem, MenuTrigger, NativePopover } from "../components/ui/anchored.js";
+import { Button } from "../components/ui/button.js";
 import { fieldGlyph } from "../components/ui/glyph.js";
 import { Textarea } from "../components/ui/input.js";
 
 const fieldActionClass =
-  "absolute right-2 bottom-2 inline-flex size-8 items-center justify-center rounded-sm text-ink hover:bg-hover disabled:opacity-40 pointer-coarse:right-1 pointer-coarse:bottom-1 pointer-coarse:size-12";
+  "absolute right-2 bottom-2 inline-flex size-8 min-h-0 p-0 items-center justify-center rounded-sm text-ink hover:bg-hover disabled:opacity-40 pointer-coarse:right-1 pointer-coarse:bottom-1 pointer-coarse:size-12";
 
 /**
  * The project page before a session exists. The field, model, agent, and
@@ -52,13 +58,16 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
     [stage],
   );
   const [focusTick, setFocusTick] = useState(0);
-  const menuId = useId();
+  const draftId = useId();
+  const statusId = useId();
   const held = dial.project?.root.path === path ? dial.project.root : dial.projects.get(path)?.root;
   const seeded = mintedModel(dial.kernel?.root.kvs, held?.kvs);
   const shown = stage.model ?? seeded;
   const wires = completionWires(dial.kernel?.root.connections);
   const providers = providerRows(dial.kernel?.root.drivers, dial.kernel?.root.connections);
   const agents = stagedAgents(dial.kernel?.root.bots, held?.bots);
+  const agentOptions =
+    stage.agent !== "" && !agents.some((row) => row.name === stage.agent) ? [{ name: stage.agent }, ...agents] : agents;
   const agentLabel = stage.agent === "" ? "Default" : stage.agent;
   const seedPermission = sessionMintPermissionMode(
     dial.kernel?.root.defaultPermissionMode ?? "",
@@ -67,6 +76,19 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
   const blocked = dial.link != null;
   const hasBody = stage.draft.trim() !== "" || stage.pictures.length > 0;
   const canSend = !blocked && !stage.sending && hasBody;
+  const skills = useProjectSkills(path, stage.draft.startsWith("/"));
+  const slash = useSkillSlash({
+    scope: path,
+    rows: skills,
+    value: stage.draft,
+    disabled: blocked || stage.sending,
+    fieldRef,
+    onChange: (value) => {
+      stage.draft = value;
+      stage.revision += 1;
+      refresh();
+    },
+  });
 
   useEffect(() => subscribeStageFocus(() => setFocusTick((value) => value + 1)), []);
   // After the model menu's own focus effect, so the draft keeps the caret.
@@ -123,6 +145,7 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
   }
 
   function onDraftKey(event: KeyboardEvent<HTMLTextAreaElement>): void {
+    if (slash.onKeyDown(event)) return;
     if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -140,13 +163,16 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
     >
       <div className="composer-column">
         {dial.kernel == null ? null : <LinkNotice />}
-        {stage.status === "" ? null : (
-          <output className="mb-2 block text-sm text-muted" role="status">
-            {stage.status}
-          </output>
-        )}
-        <PictureDrop fieldRef={pillRef} enabled onDrop={adoptDrop}>
+        <output
+          id={statusId}
+          className={stage.status === "" ? "block text-sm text-muted" : "mb-2 block text-sm text-muted"}
+          role="status"
+        >
+          {stage.status}
+        </output>
+        <PictureDrop fieldRef={pillRef} enabled={!blocked && !stage.sending} onDrop={adoptDrop}>
           <PictureChips
+            disabled={blocked || stage.sending}
             pictures={stage.pictures}
             onRemove={(key) => {
               stage.pictures = stage.pictures.filter((picture) => picture.key !== key);
@@ -157,16 +183,21 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
               void adoptPictureFiles(stage, files, true, refresh);
             }}
           />
+          <SkillSlashMenu menu={slash.menu} />
           <Textarea
+            {...slash.fieldProps}
             ref={fieldRef}
+            id={draftId}
             aria-label="Message draft"
+            aria-describedby={statusId}
             className="composer-draft rounded-none border-0 bg-transparent px-4 py-3 pr-12 text-base pointer-coarse:py-4 pointer-coarse:pr-14"
-            placeholder="Ask or describe a change"
+            placeholder="Ask or describe a change. / for skills"
             rows={1}
             value={stage.draft}
             onChange={(event) => {
               stage.draft = event.target.value;
               stage.revision += 1;
+              slash.track(event.currentTarget);
               refresh();
             }}
             onKeyDown={onDraftKey}
@@ -178,7 +209,8 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
             }}
           />
           {!hasBody ? null : (
-            <button
+            <Button
+              variant="ghost"
               type="button"
               aria-label="Send"
               className={fieldActionClass}
@@ -188,7 +220,7 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
               }}
             >
               <IconCornerDownLeft {...fieldGlyph} aria-hidden />
-            </button>
+            </Button>
           )}
         </PictureDrop>
       </div>
@@ -209,37 +241,33 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
               onLook={(connectionIds, driverNames) => dial.look(connectionIds, driverNames)}
             />
           )}
-          <button
-            type="button"
-            className="agent-trigger touch-target"
-            popoverTarget={menuId}
-            aria-label={`Agent: ${agentLabel}`}
-          >
-            {agentLabel}
-          </button>
-          <div id={menuId} popover="auto" role="menu" className="agent-menu" aria-label="Agent">
-            <button
-              type="button"
-              role="menuitemradio"
-              className="permission-row"
-              aria-checked={stage.agent === ""}
-              onClick={() => chooseAgent("")}
-            >
-              Default
-            </button>
-            {agents.map((row) => (
-              <button
-                key={row.name}
-                type="button"
-                role="menuitemradio"
-                className="permission-row"
-                aria-checked={stage.agent === row.name}
-                onClick={() => chooseAgent(row.name)}
+          <MenuTrigger>
+            <MenuButton className="agent-trigger touch-target" aria-label={`Agent: ${agentLabel}`}>
+              <span className={stage.agent === "" ? "label" : "tracking-normal [font-variant-caps:normal]"}>
+                {agentLabel}
+              </span>
+            </MenuButton>
+            <NativePopover style={{ positionArea: "top span-left" }}>
+              <Menu
+                aria-label="Agent"
+                selectionMode="single"
+                disallowEmptySelection
+                selectedKeys={new Set([stage.agent])}
+                onAction={(key) => {
+                  if (key === "" || agentOptions.some((row) => row.name === key)) chooseAgent(String(key));
+                }}
               >
-                {row.name}
-              </button>
-            ))}
-          </div>
+                <MenuItem id="" shouldCloseOnSelect>
+                  Default
+                </MenuItem>
+                {agentOptions.map((row) => (
+                  <MenuItem key={row.name} id={row.name} textValue={row.name} shouldCloseOnSelect>
+                    <span className="tracking-normal [font-variant-caps:normal]">{row.name}</span>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </NativePopover>
+          </MenuTrigger>
           <PermissionMode staged={stage.permission} seed={seedPermission} onStage={choosePermission} />
         </div>
       </div>

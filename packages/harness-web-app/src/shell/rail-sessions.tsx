@@ -10,15 +10,15 @@ import { looseSessionHref, projectNames, sessionHref } from "./path.js";
 import { orderSessions, overviewList, shortAge } from "./session-order.js";
 import { NEW_CONVERSATION, rowTitle } from "./tape-read.js";
 import { useDial } from "../client/context.js";
+import { Button } from "../components/ui/button.js";
+import { FieldInput, Label, SearchField } from "../components/ui/form-controls.js";
 import { glyph } from "../components/ui/glyph.js";
+import { Link } from "../components/ui/navigation.js";
 
 export { orderSessions, OVERVIEW_RECENT_CAP, overviewList, shortAge } from "./session-order.js";
 
 const rowClass =
-  "touch-target flex min-h-8 w-full items-center gap-2 rounded-sm px-3 py-1 text-left text-sm hover:bg-hover focus-visible:outline-offset-0 aria-[current=page]:bg-selected aria-[current=page]:font-strong";
-
-const filterClass =
-  "h-9 w-full rounded-sm border border-edge bg-field px-3 py-1 text-sm text-ink placeholder:text-subtle";
+  "touch-target flex min-h-8 w-full items-center gap-2 rounded-none border-l-2 border-transparent px-6 py-1 text-left text-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus aria-[current=page]:border-selection-marker aria-[current=page]:bg-selected aria-[current=page]:font-strong";
 
 export const SessionRail = observer(function SessionRailView({
   go,
@@ -113,19 +113,15 @@ const OverviewSessions = observer(function OverviewSessionsView({
           <header className="flex min-h-12 shrink-0 items-center px-4 py-3">
             <h2 className="text-base">{needsAttention ? "Needs attention" : "Recent"}</h2>
           </header>
-          <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 pb-3">
             {ordered.length > 8 ? (
-              <input
-                type="search"
-                aria-label="Filter sessions"
-                className={filterClass}
-                placeholder="Filter"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
+              <SearchField className="mx-3" value={query} onChange={setQuery}>
+                <Label>Filter sessions</Label>
+                <FieldInput />
+              </SearchField>
             ) : null}
             {shown.length === 0 ? (
-              <p className="px-3 py-1 text-sm text-subtle">No sessions match.</p>
+              <p className="px-6 py-1 text-sm text-subtle">No sessions match.</p>
             ) : (
               <ul className="min-h-0 flex-1 overflow-y-auto">
                 {shown.map((sessionId) => {
@@ -189,15 +185,15 @@ const ProjectSessions = observer(function ProjectSessionsView({
         <h2 className="min-w-0 truncate text-base" title={path}>
           {name}
         </h2>
-        <button
-          type="button"
-          className="touch-target grid size-7 shrink-0 place-items-center rounded-xs text-muted hover:bg-hover hover:text-ink"
+        <Button
+          variant="ghost"
+          className="size-8 shrink-0 p-0 text-muted hover:text-ink"
           aria-label={`New session in ${name}`}
           disabled={held == null}
           onClick={() => onMint(path)}
         >
           <IconPlus {...glyph} aria-hidden />
-        </button>
+        </Button>
       </header>
       {dial.session == null && dial.link != null ? <LinkNotice /> : null}
       {held == null ? (
@@ -207,21 +203,17 @@ const ProjectSessions = observer(function ProjectSessionsView({
             : "Attaching…"}
         </p>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 pb-3">
           {sessions.length > 8 ? (
-            <input
-              type="search"
-              aria-label="Filter sessions"
-              className={filterClass}
-              placeholder="Filter"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
+            <SearchField className="mx-3" value={query} onChange={setQuery}>
+              <Label>Filter sessions</Label>
+              <FieldInput />
+            </SearchField>
           ) : null}
           {sessions.length === 0 ? (
-            <p className="px-3 py-1 text-sm text-subtle">No sessions yet.</p>
+            <p className="px-6 py-1 text-sm text-subtle">No sessions yet.</p>
           ) : shown.length === 0 ? (
-            <p className="px-3 py-1 text-sm text-subtle">No sessions match.</p>
+            <p className="px-6 py-1 text-sm text-subtle">No sessions match.</p>
           ) : (
             <ul className="min-h-0 flex-1 overflow-y-auto">
               {shown.map((sessionId) => (
@@ -275,10 +267,10 @@ const BotList = observer(function BotListView({
       {groups.length === 0 ? (
         <p className="px-4 py-2 text-sm text-subtle">No bots.</p>
       ) : (
-        <ul className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <ul className="min-h-0 flex-1 overflow-y-auto pb-3">
           {groups.map((group) => (
             <li key={group.key}>
-              <p className="truncate px-3 py-1 text-sm font-strong text-muted" title={group.key || undefined}>
+              <p className="truncate px-6 py-1 text-sm font-strong text-muted" title={group.key || undefined}>
                 {group.name}
               </p>
               <ul>
@@ -410,8 +402,8 @@ function RailRow({
 }) {
   return (
     <li>
-      <a
-        className={rowClass}
+      <Link
+        className={`${rowClass} no-underline`}
         href={href}
         aria-current={selected ? "page" : undefined}
         title={detail === "" ? title : `${title} — ${detail}`}
@@ -425,7 +417,7 @@ function RailRow({
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {detail === "" ? null : <span className="max-w-32 shrink-0 truncate text-muted">{detail}</span>}
         {age === "" ? null : <time className="shrink-0 text-xs tabular-nums text-subtle">{age}</time>}
-      </a>
+      </Link>
     </li>
   );
 }

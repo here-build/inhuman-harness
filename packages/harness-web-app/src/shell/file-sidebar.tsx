@@ -79,6 +79,7 @@ export function FileSidebar({
   readonly onClose: () => void;
 }) {
   const face = fileFace(file.path);
+  const [retry, setRetry] = useState(0);
   const absolute = file.path.startsWith("/") ? file.path : `${projectPath.replace(/\/$/, "")}/${file.path}`;
   const [load, setLoad] = useState<Load>(
     file.text != null ? { path: file.path, kind: "text", text: file.text } : { path: file.path, kind: "pending" },
@@ -115,7 +116,7 @@ export function FileSidebar({
       live = false;
       controller.abort();
     };
-  }, [absolute, face, file.path, file.text]);
+  }, [absolute, face, file.path, file.text, retry]);
   const current = load.path === file.path ? load : { path: file.path, kind: "pending" as const };
   const src = fileUrl(absolute);
   return (
@@ -128,8 +129,14 @@ export function FileSidebar({
           Close
         </Button>
       </header>
-      <div className="file-sidebar-body">
-        <FileBody face={face} src={src} load={current} path={file.path} />
+      <div className="file-sidebar-body" aria-busy={face === "text" && current.kind === "pending"}>
+        <FileBody
+          face={face}
+          src={src}
+          load={current}
+          path={file.path}
+          onRetry={() => setRetry((count) => count + 1)}
+        />
       </div>
     </aside>
   );
@@ -140,17 +147,33 @@ function FileBody({
   src,
   load,
   path,
+  onRetry,
 }: {
   readonly face: FileFace;
   readonly src: string;
   readonly load: Load;
   readonly path: string;
+  readonly onRetry: () => void;
 }) {
   if (face === "image") return <img className="file-image" alt={path} src={src} />;
   if (face === "pdf") return <iframe className="file-pdf" title={path} src={src} />;
   if (face === "binary" || load.kind === "binary") return null;
-  if (load.kind === "pending") return <p className="tool-empty">Opening…</p>;
-  if (load.kind === "error") return <p className="tool-empty">{load.message}</p>;
+  if (load.kind === "pending")
+    return (
+      <p className="tool-empty" role="status">
+        Opening…
+      </p>
+    );
+  if (load.kind === "error") {
+    return (
+      <div className="tool-empty flex flex-col items-start gap-2">
+        <p role="alert">{load.message}</p>
+        <Button variant="secondary" onClick={onRetry}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
   const lang = langFromPath(path);
   if (lang === "markdown") return <Markdown text={load.text} />;
   if (lang === undefined || lang === "text") {

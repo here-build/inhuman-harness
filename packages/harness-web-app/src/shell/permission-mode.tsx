@@ -1,13 +1,15 @@
-import { useId } from "react";
 import { observer } from "mobx-react-lite";
+import { Button } from "react-aria-components";
 
 import { useDial } from "../client/context.js";
+import { Menu, MenuItem, MenuTrigger, NativePopover } from "../components/ui/anchored.js";
 
 type Mode = "manual" | "auto" | "yolo";
 
 const MODES = [
   ["manual", "manual"],
   ["yolo", "always approve"],
+  ["auto", "auto"],
 ] as const satisfies readonly (readonly [Mode, string])[];
 
 /**
@@ -25,7 +27,6 @@ export const PermissionMode = observer(function PermissionModeView({
   readonly onStage?: ((mode: Mode) => void) | null;
 }) {
   const dial = useDial();
-  const menuId = useId();
   const mode = onStage == null ? modeOf(dial) : (staged ?? seed ?? "manual");
   const modePort = dial.sessionRpc ?? dial.kernelRpc;
   const setMode = (policy: Mode): void => {
@@ -40,40 +41,32 @@ export const PermissionMode = observer(function PermissionModeView({
     void modePort.request(method, params);
   };
   return (
-    <>
-      <button
-        type="button"
-        className="permission-trigger touch-target"
-        popoverTarget={menuId}
-        disabled={onStage == null && modePort == null}
+    <MenuTrigger>
+      <Button
+        className="permission-trigger label touch-target"
+        isDisabled={onStage == null && modePort == null}
         aria-label={`Permission mode: ${wordOf(mode)}`}
       >
         {wordOf(mode)}
-      </button>
-      <div id={menuId} popover="auto" role="menu" className="permission-menu" aria-label="Permission mode">
-        {MODES.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="menuitemradio"
-            className="permission-row"
-            aria-checked={mode === id}
-            onClick={() => setMode(id)}
-          >
-            {label}
-          </button>
-        ))}
-        <button
-          type="button"
-          role="menuitemradio"
-          className="permission-row"
-          aria-checked={mode === "auto"}
-          onClick={() => setMode("auto")}
+      </Button>
+      <NativePopover style={{ positionArea: "top span-left" }}>
+        <Menu
+          aria-label="Permission mode"
+          selectionMode="single"
+          disallowEmptySelection
+          selectedKeys={new Set<Mode>([mode])}
+          onAction={(key) => {
+            if (key === "manual" || key === "auto" || key === "yolo") setMode(key);
+          }}
         >
-          auto
-        </button>
-      </div>
-    </>
+          {MODES.map(([id, label]) => (
+            <MenuItem key={id} id={id} shouldCloseOnSelect>
+              {label}
+            </MenuItem>
+          ))}
+        </Menu>
+      </NativePopover>
+    </MenuTrigger>
   );
 });
 

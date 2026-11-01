@@ -5,7 +5,9 @@ import { IconChevronRight } from "@tabler/icons-react";
 import { CodeView } from "./code-view.js";
 import { detectInlineScript } from "./inline-script.js";
 import type { ToolBody, ToolOutcome } from "./tool-receipt.js";
+import { TranscriptDisclosurePanel } from "./transcript-disclosure.js";
 import { glyph } from "../components/ui/glyph.js";
+import { Disclosure, FieldButton } from "../components/ui/navigation.js";
 
 const CUBE = [0, 95, 135, 175, 215, 255] as const;
 
@@ -31,14 +33,16 @@ export function ShellTerm({
     setOpen(live || failed || reveal);
   }, [failed, live, reveal]);
   return (
-    <details className="shell-term" open={open}>
-      <summary
-        onClick={(event) => {
-          event.preventDefault();
-          pinned.current = true;
-          setOpen((value) => !value);
-        }}
-      >
+    <Disclosure
+      className="shell-term"
+      data-outcome={failed ? "failed" : outcome}
+      isExpanded={open}
+      onExpandedChange={(value) => {
+        pinned.current = true;
+        setOpen(value);
+      }}
+    >
+      <FieldButton slot="trigger" className="shell-disclosure-trigger">
         <span className="shell-chevron" aria-hidden>
           <IconChevronRight {...glyph} />
         </span>
@@ -56,14 +60,16 @@ export function ShellTerm({
           )}
         </div>
         {exit === undefined ? null : <p className="shell-exit">exit code {exit}</p>}
-      </summary>
-      {script === null || script.source === "" ? null : (
-        <div className="shell-script">
-          <CodeView lang={script.lang} plain text={script.source} />
-        </div>
-      )}
-      {body.output === "" ? null : <ShellOutput live={live} text={body.output} />}
-    </details>
+      </FieldButton>
+      <TranscriptDisclosurePanel className="shell-disclosure-panel">
+        {script === null || script.source === "" ? null : (
+          <div className="shell-script">
+            <CodeView lang={script.lang} plain text={script.source} />
+          </div>
+        )}
+        {body.output === "" ? null : <ShellOutput live={live} text={body.output} />}
+      </TranscriptDisclosurePanel>
+    </Disclosure>
   );
 }
 

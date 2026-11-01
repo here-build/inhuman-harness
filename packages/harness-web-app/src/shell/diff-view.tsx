@@ -11,8 +11,26 @@ const THEME = { light: "github-light-high-contrast", dark: "github-dark-default"
 // The theme's own background reads as a second surface on the page. The page canvas inherits into the shadow root.
 // Pierre mixes a changed line's color into the background again; at 0% the page's line tokens paint as they are.
 // Context lines keep the mix, which lands them on the canvas.
-const DIFF_CSS =
-  ":host { --diffs-font-family: 'JetBrains Mono', monospace; --diffs-font-size: 13px; } * { --diffs-bg: var(--canvas) !important; --diffs-light-bg: var(--canvas) !important; --diffs-dark-bg: var(--canvas) !important; } [data-line-type^=change-] { --mix-light: 0% !important; --mix-dark: 0% !important; }";
+const DIFF_CSS = `
+  :host { --diffs-font-family: var(--font-mono, 'Monaspace Krypton', monospace); --diffs-font-size: 14px; --diffs-line-height: 20px; }
+  * { --diffs-bg: var(--canvas) !important; --diffs-light-bg: var(--canvas) !important; --diffs-dark-bg: var(--canvas) !important; }
+  [data-line-type^=change-] { --mix-light: 0% !important; --mix-dark: 0% !important; }
+  /* Keep Pierre's shared row sizing, but hang the intrinsic-width gutter off
+     a zero-width track so code owns the full content width. */
+  [data-code] { grid-template-columns: 0 minmax(0, 1fr); contain: none; overflow: visible; }
+  [data-gutter] { grid-template-columns: minmax(0, 1fr); width: var(--gutter-width); justify-self: end; }
+  [data-line], [data-no-newline] { padding-inline: 0; }
+  /* One continuous separator spans the number gutter and code measure.
+     Do not paint an extra trailing gutter beyond the code's right edge. */
+  [data-unified] [data-separator=line-info] [data-separator-wrapper] {
+    width: calc(100cqi + var(--gutter-width));
+    padding-inline: 0;
+    background-color: var(--diffs-bg-separator);
+  }
+  [data-separator-wrapper], [data-separator-content], [data-expand-button], [data-diff-span] {
+    border-radius: 0 !important;
+  }
+`;
 
 /** Color variables only. Weight, style, and background would change the line box. */
 const TOKEN_COLOR = ["--diffs-token-light", "--diffs-token-dark"] as const;

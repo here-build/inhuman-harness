@@ -3,23 +3,32 @@ import { createContext, useContext, type CSSProperties, type ReactNode } from "r
 import css from "../styles.css?raw";
 
 /**
- * The brandbook's page furniture. It is drawn in the app's own tokens and
- * classes, so a page here changes when `styles.css` does; nothing is restated.
+ * Historical brandbook furniture, drawn in the app's current tokens.
+ * New Graphic Precision pages can opt out of the archive notice.
  */
 export function Page({
   title,
   lede,
   children,
+  historical = true,
 }: {
   readonly title: string;
   readonly lede: ReactNode;
   readonly children: ReactNode;
+  readonly historical?: boolean;
 }) {
   return (
     <div className="h-dvh overflow-y-auto bg-canvas text-ink">
       <article className="mx-auto flex max-w-[68rem] flex-col gap-16 px-6 py-14 md:px-10">
         <header>
-          <p className="label text-sm text-muted">brandbook</p>
+          <p className="label text-sm text-muted">{historical ? "historical brandbook" : "Graphic Precision"}</p>
+          {historical ? (
+            <aside className="mt-3 border-l-2 border-selection-marker pl-3 text-sm text-muted">
+              Historical reference, not current design rules. The normative guide is{" "}
+              <Mono>docs/graphic-precision.md</Mono>; use the Graphic Precision stories for current foundations and
+              examples.
+            </aside>
+          ) : null}
           <h1 className="mt-1 text-2xl tracking-[-0.025em]">{title}</h1>
           <div className="prose-wrap mt-3 max-w-[62ch] text-muted">{lede}</div>
         </header>
@@ -49,7 +58,7 @@ export function Section({
   );
 }
 
-/** A caption in the label role: a field or section name, never a heading. */
+/** A petite-cap textual symbol, not content, a field label, or a structural heading. */
 export function Label({ children }: { readonly children: ReactNode }) {
   return <p className="label text-sm text-muted">{children}</p>;
 }

@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -8,6 +9,7 @@ import {
 } from "react";
 
 import { resist, swipeRelease, type SwipeDecision } from "./row-swipe.js";
+import { Button } from "../components/ui/button.js";
 
 /** Resting width of a swipe button. "Delete" and "Log out" fit. */
 const ACTION = 84;
@@ -74,6 +76,14 @@ export function SwipeRow({
   onToggleRef.current = onToggle;
 
   const settle = useCallback((to: number, after?: () => void) => {
+    if (
+      to === 0 &&
+      clip.current?.contains(document.activeElement) &&
+      (document.activeElement as Element | null)?.closest(".swipe-action") != null
+    ) {
+      const main = clip.current.querySelector<HTMLButtonElement>(".swipe-main");
+      (main != null && !main.disabled ? main : clip.current).focus({ preventScroll: true });
+    }
     const mine = ++gen.current;
     rest.current = to;
     setDragging(false);
@@ -106,6 +116,21 @@ export function SwipeRow({
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, []);
+
+  // A connection action can disable its focused control while awaiting RPC.
+  // Keep focus on the surviving row until its switch becomes available again,
+  // but never recapture it after the person moves elsewhere.
+  useLayoutEffect(() => {
+    const node = clip.current;
+    if (node == null) return;
+    const active = document.activeElement;
+    const main = node.querySelector<HTMLButtonElement>(".swipe-main");
+    if (disabled && active instanceof HTMLButtonElement && node.contains(active) && active.disabled) {
+      node.focus({ preventScroll: true });
+    } else if (!disabled && active === node && main != null) {
+      main.focus({ preventScroll: true });
+    }
+  }, [disabled]);
 
   const run = useCallback(
     (action: SwipeAction) => {
@@ -174,7 +199,14 @@ export function SwipeRow({
   const leadingWidth = x <= 0 ? 0 : Math.min(span, x);
 
   return (
-    <div ref={clip} className="swipe-clip" data-dragging={dragging ? "true" : "false"}>
+    <div
+      ref={clip}
+      tabIndex={-1}
+      role="group"
+      aria-label={label}
+      className="swipe-clip focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--focus)]"
+      data-dragging={dragging ? "true" : "false"}
+    >
       {leading == null ? null : (
         <Action
           action={leading}
@@ -195,10 +227,11 @@ export function SwipeRow({
           onRun={() => run(trailing)}
         />
       )}
-      <button
+      <Button
+        variant="content"
         type="button"
         role="switch"
-        className="swipe-main touch-target"
+        className="swipe-main touch-target focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--focus)]"
         aria-checked={checked}
         aria-label={label}
         disabled={disabled}
@@ -269,7 +302,7 @@ export function SwipeRow({
           <span className={`block truncate text-sm ${failed ? "text-danger" : "text-muted"}`}>{detail}</span>
         </span>
         <span className="settings-switch" data-on={checked ? "true" : "false"} />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -290,9 +323,9 @@ function Action({
   readonly onRun: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className="swipe-action"
+    <Button
+      variant="ghost"
+      className="swipe-action focus-visible:-outline-offset-2 data-[focus-visible]:-outline-offset-2"
       data-tone={action.tone}
       data-side={side}
       data-live={width > 24 ? "true" : "false"}
@@ -303,8 +336,8 @@ function Action({
       disabled={disabled}
       onClick={onRun}
     >
-      {action.label}
-    </button>
+      <span className="label">{action.label}</span>
+    </Button>
   );
 }
 

@@ -1,8 +1,9 @@
-import { SessionOverview } from "@inhuman.tools/harness-model";
+import { AgentCallJob, FailureOutcome, SessionOverview, SuccessfulOutcome } from "@inhuman.tools/harness-model";
 import { describe, expect, it } from "vitest";
 
+import { session } from "../../__stories__/world.js";
 import { agentSpans, groupBeats, modelSpans, stickyBeats, type TapeBeat } from "../tape-beats.js";
-import { agentFace, type AgentCell } from "../tape-read.js";
+import { agentCell, agentFace, type AgentCell } from "../tape-read.js";
 
 function beat(id: string, title = false, thought = false, model = ""): TapeBeat {
   return {
@@ -150,13 +151,45 @@ describe("agent face", () => {
   });
 
   it("falls back to the spawn message before the worker has a title", () => {
-    expect(agentFace(cell("live"), null)).toMatchObject({ task: "Map the paint path", status: "" });
+    expect(agentFace(cell("live"), null)).toMatchObject({ task: "Map the paint path", status: "Working" });
   });
 
-  it("says what a live worker asks, and nothing once it is done", () => {
+  it("says what a live worker asks and names each settled state", () => {
     const glance = new SessionOverview({ asking: true, unfinished: "ask", askLine: "run pnpm test" });
     expect(agentFace(cell("live"), glance)).toMatchObject({ state: "asking", status: "run pnpm test" });
-    expect(agentFace(cell("ok"), glance)).toMatchObject({ state: "ok", status: "" });
-    expect(agentFace(cell("cancelled"), glance)).toMatchObject({ state: "cancelled", status: "" });
+    expect(agentFace(cell("ok"), glance)).toMatchObject({ state: "ok", status: "Completed" });
+    expect(agentFace(cell("cancelled"), glance)).toMatchObject({ state: "cancelled", status: "Cancelled" });
+  });
+});
+
+describe("agent receipts", () => {
+  it("reads stored cancellation code even when the legacy cancelled flag is false", () => {
+    const job = new AgentCallJob({
+      completed: true,
+      cancelled: false,
+      outcome: new FailureOutcome({ code: "cancelled", message: "Stopped because the parent finished." }),
+    });
+    const root = session({ id: "cancelled-receipt", turns: [{ prompt: "", work: [job] }] });
+    expect(agentCell(job)).toMatchObject({ outcome: "cancelled", detail: "Stopped because the parent finished." });
+    expect(agentFace(agentCell(job), null)).toMatchObject({ state: "cancelled", status: "Cancelled" });
+    expect(job.cancelled).toBe(false);
+    root.destroy();
+  });
+  it("preserves failure reasons and successful values independently of the brief", () => {
+    const failed = new AgentCallJob({
+      completed: true,
+      outcome: new FailureOutcome({ code: "denied", message: "Access was declined." }),
+    });
+    const root = session({ id: "failure-receipt", turns: [{ prompt: "", work: [failed] }] });
+    expect(agentCell(failed)).toMatchObject({ outcome: "failed", detail: "Access was declined." });
+    const completed = new AgentCallJob({
+      completed: true,
+      outcome: new SuccessfulOutcome({ valueJson: JSON.stringify("Found the cause.") }),
+    });
+    const successRoot = session({ id: "success-receipt", turns: [{ prompt: "", work: [completed] }] });
+    expect(agentCell(completed)).toMatchObject({ outcome: "ok", detail: "Found the cause." });
+    expect(agentFace(agentCell(completed), null).status).toBe("Completed");
+    root.destroy();
+    successRoot.destroy();
   });
 });

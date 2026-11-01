@@ -3,6 +3,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { makeObservable, observable, runInAction } from "mobx";
+import { userEvent, within } from "storybook/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Composer } from "../composer.js";
@@ -171,23 +172,22 @@ describe("composer model choice", () => {
     await render();
     const word = element<HTMLButtonElement>(".permission-trigger");
     expect(word.textContent).toBe("auto");
-    const row = (label: string): HTMLButtonElement => {
-      const node = [...container.querySelectorAll<HTMLButtonElement>(".permission-row")].find(
-        (candidate) => candidate.textContent.trim() === label,
-      );
-      if (node == null) throw new Error(`missing ${label}`);
-      return node;
-    };
+    const user = userEvent.setup({ document });
     await act(async () => {
-      row("manual").click();
+      await user.click(word);
+    });
+    const menu = within(container).getByRole("menu", { name: /^Permission mode/ });
+    // The menu mounts on open; test its public semantics, not hidden legacy rows.
+    expect(
+      within(menu)
+        .getAllByRole("menuitemradio")
+        .map((node) => node.textContent.trim()),
+    ).toEqual(["manual", "always approve", "auto"]);
+    await act(async () => {
+      await user.click(within(menu).getByRole("menuitemradio", { name: "manual" }));
     });
     expect(state.request).toHaveBeenCalledWith("policy/set", { policy: "manual" });
-    // the old per-cluster auto switches are gone: the menu is the mode alone
-    expect([...container.querySelectorAll(".permission-row")].map((node) => node.textContent.trim())).toEqual([
-      "manual",
-      "always approve",
-      "auto",
-    ]);
+    expect(within(container).queryByRole("menu", { name: /^Permission mode/ })).toBeNull();
   });
 
   it("sits under the draft and names each wire when more than one is listed", async () => {

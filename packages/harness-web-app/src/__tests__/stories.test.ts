@@ -5,6 +5,10 @@
  * A story that throws, or a tape cell that falls back to its fence, fails here
  * before anyone opens Storybook.
  */
+import { readdirSync } from "node:fs";
+import { dirname, resolve as resolvePath } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { composeStories, setProjectAnnotations } from "@storybook/react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
@@ -34,6 +38,15 @@ let canvases: HTMLElement[] = [];
 afterEach(() => {
   for (const canvas of canvases) canvas.remove();
   canvases = [];
+});
+
+// Keep the inventory check beside the eager glob: changing the catalog must
+// invalidate cached glob transforms before mounting newly added stories (including Markdown alignment).
+it("includes every story file in the current catalog", () => {
+  const files = readdirSync(resolvePath(dirname(fileURLToPath(import.meta.url)), "../__stories__")).filter((path) =>
+    path.endsWith(".stories.tsx"),
+  );
+  expect(Object.keys(modules)).toEqual(expect.arrayContaining(files.map((path) => `../__stories__/${path}`)));
 });
 
 describe.each(Object.entries(modules))("%s", (_, module) => {

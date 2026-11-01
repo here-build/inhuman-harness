@@ -73,7 +73,7 @@ const button = (name: string) => {
 };
 async function click(node: Element) {
   // A link's default action is to navigate: the page under test reaches no network.
-  document.addEventListener("click", (event) => event.preventDefault(), { once: true });
+  node.addEventListener("click", (event) => event.preventDefault(), { once: true });
   await act(async () => {
     node.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
   });
@@ -267,8 +267,11 @@ describe("connect step", () => {
     const copy = connectError("Groq", "connect ECONNREFUSED");
     const status = container.querySelector('[role="status"]');
     expect(status?.textContent).toContain(copy.summary);
-    expect(status?.querySelector(".connect-detail p")?.textContent).toBe(copy.detail);
-    expect(status?.querySelector("summary")?.textContent).toBe("Details");
+    const details = button("Details");
+    expect(details.getAttribute("aria-expanded")).toBe("false");
+    await click(details);
+    expect(details.getAttribute("aria-expanded")).toBe("true");
+    expect(document.querySelector(`[id="${details.getAttribute("aria-controls")}"]`)?.textContent).toBe(copy.detail);
     await click(button("Retry"));
     expect(d.calls.map((call) => call.method)).toEqual(["connect/adopt", "connect/adopt"]);
     await d.answer(park("p1", KEY));
@@ -310,6 +313,17 @@ describe("connect step", () => {
     });
     expect(d.calls.at(-1)).toEqual({ method: "ui/resolve", params: { pending: "p1", kind: "cancel" } });
   });
+
+  it.each([{ id: "connected-after-dismissal" }, { ok: false }])(
+    "ignores a terminal reply after the step is gone (%j)",
+    async (reply) => {
+      const d = daemon();
+      await render(d.request);
+      await act(async () => root.render(createElement("div")));
+      await d.answer(reply);
+      expect({ done: onDone.mock.calls, cancelled: onCancel.mock.calls }).toEqual({ done: [], cancelled: [] });
+    },
+  );
 
   it("cancels a park that arrives after the step is gone", async () => {
     const d = daemon();

@@ -13,7 +13,7 @@ describe("ask cover receipt", () => {
     const html = renderToStaticMarkup(
       createElement(AskReceipt, { ask: pending("shell", { command: "rm -rf dist" }), projectPath: "/work" }),
     );
-    expect(html).toContain('class="shell-term"');
+    expect(html).toMatch(/class="[^"]*\bshell-term\b[^"]*"/);
     expect(html).toContain("rm -rf dist");
     expect(html).not.toContain("&quot;command&quot;");
   });

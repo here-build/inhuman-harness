@@ -1,0 +1,206 @@
+.gp-anchored-field {
+  anchor-scope: all;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-inline-size: 12rem;
+  font-size: 0.875rem;
+  color: var(--ink);
+}
+
+.gp-anchored-label {
+  color: var(--ink);
+}
+.gp-anchored-description {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.gp-anchored-error {
+  font-size: 0.75rem;
+  color: var(--danger);
+}
+.gp-anchored-field[data-disabled] {
+  opacity: 0.5;
+}
+.gp-anchored-trigger,
+.gp-anchored-input-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-block-size: 2.25rem;
+  border: 1px solid var(--edge);
+  border-radius: 0;
+  background: var(--surface, var(--canvas));
+  color: var(--ink);
+}
+.gp-anchored-trigger {
+  padding: 0.375rem 0.75rem;
+  cursor: pointer;
+}
+.gp-anchored-trigger[data-hovered] {
+  background: var(--hover);
+}
+.gp-anchored-input-group .gp-anchored-trigger {
+  border: 0;
+  border-inline-start: 1px solid var(--edge);
+}
+.gp-anchored-input {
+  min-inline-size: 0;
+  inline-size: 100%;
+  padding: 0.375rem 0.75rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+}
+.gp-anchored-trigger[data-disabled],
+.gp-anchored-input:disabled {
+  cursor: not-allowed;
+}
+.gp-anchored-trigger[data-focus-visible],
+.gp-anchored-input:focus-visible,
+.gp-anchored-item[data-focus-visible],
+.gp-anchored-list:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.gp-anchored-field[data-invalid] .gp-anchored-trigger,
+.gp-anchored-field[data-invalid] .gp-anchored-input-group {
+  border-color: var(--danger);
+}
+
+.gp-native-popover {
+  /* The trigger lives outside this element. A local anchor-scope would hide
+     its named anchor from this positioned surface. */
+  position: fixed;
+  inset: auto;
+  position-area: block-end span-inline-end;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem;
+  min-inline-size: anchor-size(inline);
+  max-inline-size: min(28rem, calc(100vw - 1rem));
+  max-block-size: min(20rem, calc(100dvh - 1rem));
+  overflow: auto;
+  border: 1px solid var(--edge);
+  border-radius: 0;
+  background: var(--surface, var(--canvas));
+  color: var(--ink);
+  font-size: 0.875rem;
+  box-shadow: 0 4px 16px #0002;
+}
+.gp-native-popover[data-placement="end"] {
+  position-area: inline-end span-block-end;
+  margin: 0 0.25rem;
+}
+/* Older browsers retain a usable viewport-contained panel. Native anchors
+   still own placement wherever available; this is not a JS layout engine. */
+@supports not ((position-anchor: --gp-anchor) and (position-area: block-end)) {
+  .gp-native-popover,
+  .gp-native-popover[data-placement="end"] {
+    inset: auto 1rem max(1rem, env(safe-area-inset-bottom));
+    inline-size: min(28rem, calc(100vw - 2rem));
+    min-inline-size: 0;
+    max-block-size: min(20rem, calc(100dvh - 2rem));
+    margin: 0 auto;
+  }
+}
+/* The manual lifecycle fallback uses the same panel even if anchors exist. */
+.gp-native-popover[data-native-fallback] { display: block; z-index: 1000; }
+.gp-native-popover[data-native-fallback],
+.gp-native-popover[data-anchor-fallback] {
+  position-anchor: auto !important;
+  position-area: none !important;
+  inset: auto 1rem max(1rem, env(safe-area-inset-bottom));
+  inline-size: min(28rem, calc(100vw - 2rem));
+  min-inline-size: 0;
+  max-block-size: min(20rem, calc(100dvh - 2rem));
+  margin: 0 auto;
+}
+.gp-anchored-list {
+  outline: none;
+  min-inline-size: 10rem;
+}
+.gp-anchored-item {
+  padding: 0.5rem 0.75rem;
+  cursor: default;
+  border-radius: 0;
+  outline: none;
+}
+.gp-anchored-item[data-focused],
+.gp-anchored-item[data-hovered] {
+  background: var(--hover);
+}
+.gp-anchored-item[data-selected] {
+  box-shadow: inset 2px 0 var(--selection-marker, var(--ink));
+  font-weight: 600;
+}
+.gp-anchored-item[data-disabled] {
+  opacity: 0.5;
+}
+.gp-anchored-item[aria-haspopup]::after {
+  content: "›";
+  float: inline-end;
+  margin-inline-start: 1.5rem;
+}
+.gp-anchored-section + .gp-anchored-section {
+  border-block-start: 1px solid var(--edge);
+  margin-block-start: 0.25rem;
+  padding-block-start: 0.25rem;
+}
+.gp-anchored-section > header {
+  padding: 0.375rem 0.75rem;
+  font-family: var(--font-heading);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--muted);
+}
+.gp-anchored-empty {
+  padding: 0.75rem;
+  color: var(--muted);
+}
+.gp-anchored-tooltip-trigger {
+  anchor-scope: all;
+  display: inline-flex;
+}
+.gp-anchored-tooltip {
+  min-inline-size: 0;
+  max-inline-size: 20rem;
+  padding: 0.5rem 0.75rem;
+  pointer-events: none;
+}
+.gp-anchored-sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.gp-native-dialog {
+  max-inline-size: min(32rem, calc(100vw - 2rem));
+  padding: 1.5rem;
+  border: 1px solid var(--edge);
+  border-radius: 0;
+  background: var(--surface, var(--canvas));
+  color: var(--ink);
+}
+.gp-native-dialog::backdrop {
+  background: #0008;
+}
+.gp-native-dialog h2 {
+  margin-block: 0 1rem;
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  line-height: 1.625rem;
+}
+.gp-native-dialog :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}

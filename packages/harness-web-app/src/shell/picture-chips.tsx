@@ -3,17 +3,21 @@ import { IconX } from "@tabler/icons-react";
 
 import type { DraftPicture } from "./draft-slot.js";
 import { chipLabel, picturePreviewUrl } from "./picture-draft.js";
+import { Button } from "../components/ui/button.js";
 import { glyph } from "../components/ui/glyph.js";
+import { NativeDialog } from "../components/ui/native-dialog.js";
 
 /** The file input and the chips that sit with the field. */
 export function PictureChips({
   pictures,
   onRemove,
   onPick,
+  disabled = false,
 }: {
   readonly pictures: readonly DraftPicture[];
   readonly onRemove: (key: string) => void;
   readonly onPick: (files: readonly File[]) => void;
+  readonly disabled?: boolean;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const open = pictures.find((picture) => picture.key === openKey) ?? null;
@@ -28,6 +32,7 @@ export function PictureChips({
         aria-label="Add image"
         tabIndex={-1}
         multiple
+        disabled={disabled}
         onChange={(event) => {
           const chosen = event.currentTarget.files;
           const files = chosen == null ? [] : [...chosen];
@@ -42,23 +47,24 @@ export function PictureChips({
             const label = chipLabel(picture);
             return (
               <li key={picture.key} className="composer-chip" title={label}>
-                <button
-                  type="button"
-                  className="composer-chip-open"
+                <Button
+                  variant="ghost"
+                  className="composer-chip-open focus-visible:-outline-offset-2 data-[focus-visible]:-outline-offset-2"
                   aria-label={label}
-                  disabled={preview == null}
+                  disabled={disabled || preview == null}
                   onClick={() => setOpenKey(picture.key)}
                 >
                   {preview == null ? null : <img className="composer-chip-preview" src={preview} alt="" />}
-                </button>
-                <button
-                  type="button"
-                  className="composer-chip-remove"
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="composer-chip-remove p-0 focus-visible:-outline-offset-2 data-[focus-visible]:-outline-offset-2"
                   aria-label={`Remove ${label}`}
+                  disabled={disabled}
                   onClick={() => onRemove(picture.key)}
                 >
                   <IconX {...glyph} aria-hidden />
-                </button>
+                </Button>
               </li>
             );
           })}
@@ -87,7 +93,7 @@ function PicturePreview({
     else node.setAttribute("open", "");
   }, [node]);
   return (
-    <dialog
+    <NativeDialog
       ref={setNode}
       className="picture-preview"
       aria-label={label}
@@ -97,6 +103,6 @@ function PicturePreview({
       }}
     >
       <img src={url} alt={label} />
-    </dialog>
+    </NativeDialog>
   );
 }

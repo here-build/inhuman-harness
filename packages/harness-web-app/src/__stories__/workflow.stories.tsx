@@ -122,7 +122,7 @@ const card = (page: ReturnType<typeof within>, who: string, state: AgentState) =
 /** An iteration's tab, with the dot it wears when named. */
 const tab = (page: ReturnType<typeof within>, n: number, dot?: string) =>
   page.findByRole(
-    "tab",
+    "button",
     { name: (name: string) => (dot === undefined ? name.split(" ")[0] === `#${n}` : name === `#${n} ${dot}`) },
     WAIT,
   );

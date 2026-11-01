@@ -96,7 +96,7 @@ export const ProgramGraph: Story = {
   },
   play: async ({ canvasElement }) => {
     const summary = await within(canvasElement).findByTitle("scheme_repl");
-    const row = summary.closest("details")!;
+    const row = summary.closest<HTMLElement>(".tape-tool")!;
     await userEvent.click(summary);
     await userEvent.click(await within(row).findByRole("button", { name: "Graph" }));
     const dialog = await within(document.body).findByRole("dialog", { name: /workflow/ });

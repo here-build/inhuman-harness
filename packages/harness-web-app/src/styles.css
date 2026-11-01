@@ -1,13 +1,12 @@
 @import "tailwindcss";
 
 /*
- * One scale per quantity, so a value off the scale cannot be written.
- *
- * Type: a minor third (×1.2) on a 16px base: 11 / 13 / 16 / 19 / 23 / 28.
- * Weight: regular, and 620 for every emphasis, heading or not.
+ * Graphic Precision foundations; docs/graphic-precision.md is the source.
+ * Type: page 28/34, section 20/26, body 16/24, compact 14/20, supporting 13/18.
+ * Source Sans 3 carries content and petite-cap symbols; Nunito Sans carries
+ * structure; Monaspace Krypton preserves literal technical values.
  * Space: the 4px grid, written as `--spacing(n)` with whole n.
- * Radius: 4 for chips and dots, 8 for rows inside a 12 container (outer = inner + inset),
- * 12 for containers; all drawn as squircles. Nothing is a pill.
+ * Geometry: zero-radius rectangles; circles only where function calls for them.
  * Motion: ease-out; 150ms for feedback.
  */
 @theme {
@@ -16,23 +15,24 @@
   --font-weight-strong: 620;
 
   --text-*: initial;
-  --text-xs: 0.6875rem;
-  --text-xs--line-height: 1.45;
-  --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.45;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
   --text-base: 1rem;
-  --text-base--line-height: 1.5;
-  --text-lg: 1.1875rem;
-  --text-lg--line-height: 1.3;
-  --text-xl: 1.4375rem;
-  --text-xl--line-height: 1.25;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.625rem;
+  /* Keep the existing xl reader/utility as an alias for section headings. */
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.625rem;
   --text-2xl: 1.75rem;
-  --text-2xl--line-height: 1.2;
+  --text-2xl--line-height: 2.125rem;
 
   --radius-*: initial;
-  --radius-xs: 0.25rem;
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
 
   /* Enter and exit ease out, strongly; constant motion is linear; nothing eases in. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -48,9 +48,9 @@
   font-display: swap;
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
-    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
-    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF, U+0301,
-    U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF, U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
 }
 
 @font-face {
@@ -61,9 +61,9 @@
   font-display: swap;
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
-    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
-    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF, U+0301,
-    U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF, U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
 }
 
 @font-face {
@@ -74,9 +74,9 @@
   font-display: swap;
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
-    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
-    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF, U+0301,
-    U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF, U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
 }
 
 @font-face {
@@ -87,16 +87,16 @@
   font-display: swap;
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
-    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
-    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF, U+0301,
-    U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD, U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF, U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
 }
 
 @theme inline {
   /* Self-hosted full-feature files under the bare family name. Petite caps need those features. */
   --font-sans: "Source Sans 3", ui-sans-serif, sans-serif;
   --font-heading: "Nunito Sans", ui-sans-serif, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "Monaspace Krypton", ui-monospace, monospace;
   --color-canvas: var(--canvas);
   --color-wash: var(--wash);
   --color-raised: var(--raised);
@@ -112,6 +112,10 @@
   --color-working: var(--working);
   --color-hover: var(--hover);
   --color-selected: var(--selected);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-selection-marker: var(--selection-marker);
+  --color-focus: var(--focus);
 }
 
 /*
@@ -121,8 +125,10 @@
  * `__tests__/contrast.test.ts` holds every pair to WCAG AA in both schemes.
  *
  * Surfaces rise by lightness: canvas → wash (containers, sidebar) → raised
- * (menus, popovers). Hover and selection are ink laid over whatever surface
- * is under them, so one token works on all three.
+ * (menus, popovers). These working surfaces are neutral and opaque. Hover
+ * and selection use muted ink overlays; selection also has an explicit marker.
+ * Lime marks primary commands and small active-context indicators, not status.
+ * Focus is an outline, distinct from the selected row's inset marker.
  * Text has three tiers: ink, muted (secondary), subtle (tertiary); each is
  * AA on every surface. `line` divides and decorates; `edge` bounds a control
  * and holds 3:1 against what is around it.
@@ -142,6 +148,10 @@
   --warning: light-dark(oklch(0.53 0.13 65), oklch(0.8 0.15 80));
   --success: light-dark(oklch(0.5 0.13 152), oklch(0.76 0.15 152));
   --working: light-dark(oklch(0.53 0.15 255), oklch(0.74 0.13 250));
+  --accent: light-dark(oklch(0.88 0.2 125), oklch(0.84 0.2 125));
+  --accent-ink: light-dark(oklch(0.21 0.005 286), oklch(0.21 0.005 286));
+  --selection-marker: light-dark(oklch(0.44 0.005 286), oklch(0.76 0.005 286));
+  --focus: light-dark(oklch(0.21 0.005 286), oklch(0.93 0.004 286));
   /* A changed line: lightness held near the surface, so syntax colors keep AA; hue alone marks it. */
   --added-line: light-dark(oklch(0.965 0.04 152), oklch(0.235 0.035 152));
   --removed-line: light-dark(oklch(0.975 0.032 25), oklch(0.235 0.035 25));
@@ -159,12 +169,6 @@
   color-scheme: dark;
 }
 
-*,
-::before,
-::after {
-  corner-shape: squircle;
-}
-
 html,
 body,
 #root {
@@ -175,6 +179,8 @@ body {
   background: var(--canvas);
   color: var(--ink);
   font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
   font-synthesis: none;
 }
 
@@ -200,7 +206,6 @@ pre,
 .shiki-host,
 .shiki-host pre {
   font-family: var(--font-mono);
-  font-style: normal;
   font-synthesis: none;
 }
 
@@ -358,6 +363,7 @@ pre,
 .settings-nav button[aria-current="true"],
 .settings-nav button[aria-current="true"]:hover {
   background: var(--color-selected);
+  box-shadow: inset 3px 0 0 var(--selection-marker);
   font-weight: var(--font-weight-strong);
 }
 
@@ -828,10 +834,14 @@ pre,
 }
 
 .tape {
-  --transcript-center: min(48rem, 54cqw);
+  /* One geometry for transcript, annotations, sent messages and drafting.
+     The body owns its measure; equal gutters hold numbers and actions. */
+  --gutter-width: 3.5rem;
+  --status-gap: --spacing(4);
+  --body-width: min(48rem, 54cqw);
   /* The selector row under the model lane; held model notes rest above it. */
   --model-rest: 3.75rem;
-  --transcript-gutter: clamp(1rem, 4vw, 2.5rem);
+
   /* Proximity is the grouping: a tool run touches, cells in a round sit apart, rounds sit further. */
   --cell-gap: --spacing(4);
   --round-gap: --spacing(8);
@@ -862,11 +872,17 @@ pre,
   max-block-size: 12lh;
 }
 
-/* Three lanes, as the tape: the selector beside the input, the right lane void. */
+/* Configuration occupies the status lane; the field spans both gutters and the body. */
+.composer,
+.transcript {
+  --conversation-grid: minmax(0, 1fr) var(--gutter-width) minmax(0, var(--body-width)) var(--gutter-width)
+    minmax(0, 1fr);
+}
+
 .composer {
   --composer-input-h: 3rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--transcript-center) minmax(0, 1fr);
+  grid-template-columns: var(--conversation-grid);
   align-items: end;
   pointer-events: none;
   background: none;
@@ -883,6 +899,7 @@ pre,
   justify-content: flex-end;
   align-items: center;
   min-width: 0;
+  margin-inline-end: var(--status-gap);
   height: var(--model-rest);
   padding: 0 --spacing(3) --spacing(3);
   background: var(--canvas);
@@ -898,15 +915,28 @@ pre,
 }
 
 .composer-column {
-  grid-column: 2;
+  position: relative;
+  isolation: isolate;
+  grid-column: 2 / 5;
   grid-row: 1;
   pointer-events: auto;
-  width: calc(var(--transcript-center) - 2 * var(--transcript-gutter));
-  max-width: calc(100% - 2 * var(--transcript-gutter));
+  width: 100%;
+  max-width: 100%;
   margin-inline: auto;
+  padding-inline: 0;
   --composer-fade-h: calc(var(--composer-input-h) * 0.5);
   padding-top: calc(var(--composer-fade-h) + --spacing(3));
   padding-bottom: --spacing(3);
+}
+
+/* Blend the blurred transcript into the clear transcript, leaving the field
+   and its outsets sharp. Canvas fill is the fallback without backdrop filters. */
+.composer-column::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-color: var(--canvas);
   /* log10(1+9t) across the top strip. A two-stop mask is linear between its ends. */
   --composer-mask: linear-gradient(
@@ -934,6 +964,14 @@ pre,
   mask-repeat: no-repeat;
 }
 
+@supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
+  .composer-column::before {
+    background-color: transparent;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+
 /* One line of 16/24 centered on the grid: 48 with a 32 action, 56 with a 48 action under a finger. */
 .composer-draft {
   display: block;
@@ -946,8 +984,33 @@ pre,
   }
 }
 
+.composer-draft {
+  padding-inline: calc(var(--gutter-width) - 1px);
+}
+
+.composer-column > label,
+.composer-column > output,
+.composer-column > p,
+.composer-column > div > label,
+.composer-column > div > p {
+  margin-inline: var(--gutter-width);
+}
+
+.composer-pill > button[aria-label="Send"],
+.composer-pill > button[aria-label="Stop"] {
+  inset-inline-end: calc((var(--gutter-width) - 2rem) / 2 - 1px);
+}
+
+@media (pointer: coarse) {
+  .composer-pill > button[aria-label="Send"],
+  .composer-pill > button[aria-label="Stop"] {
+    inset-inline-end: calc((var(--gutter-width) - 3rem) / 2 - 1px);
+  }
+}
+
 /* The control you type into is the strongest outline on the page. */
 .composer-pill {
+  margin-inline: 0;
   border: 1px solid var(--edge);
   border-radius: var(--radius-md);
   background: var(--field);
@@ -958,6 +1021,13 @@ pre,
 }
 
 .composer-pill :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The drafting field uses the enclosing editing boundary; action controls
+   inside it still need their own distinguishable keyboard focus. */
+.composer-pill textarea:focus-visible {
   outline: none;
 }
 
@@ -966,8 +1036,27 @@ pre,
   outline-offset: 2px;
 }
 
+/* Agent names are content even on a shared command-shaped button. These
+   overrides are unlayered like .label, so Tailwind layer ordering cannot
+   silently turn configured names back into petite caps. */
+.agent-trigger.label,
+.agent-menu .permission-row[data-agent-name] {
+  font-variant-caps: normal;
+  letter-spacing: normal;
+}
+
+/* Slash completion belongs to the drafting field but must escape its clipping
+   editing boundary. Native top-layer placement remains anchored to the field. */
+.gp-native-popover.skill-slash-popover {
+  position-area: block-start span-inline-end;
+  margin: 0 0 0.25rem;
+  min-inline-size: min(anchor-size(inline), calc(100vw - 1rem));
+  max-inline-size: calc(100vw - 1rem);
+  max-block-size: min(15rem, calc(100dvh - 1rem));
+}
+
 .composer kbd {
-  font-family: inherit;
+  font-family: var(--font-mono);
   font-size: inherit;
   font-weight: var(--font-weight-strong);
 }
@@ -1303,6 +1392,15 @@ html:has(.composer-pill[data-drop]) {
   padding-block: --spacing(1);
 }
 
+/* Account actions stay above their row on a phone, keeping the identity visible. */
+@media (max-width: 40rem) {
+  .model-submenu[role="menu"] {
+    position-area: top span-right;
+    position-try-fallbacks: flip-block, flip-inline;
+    margin: --spacing(2) 0;
+  }
+}
+
 @position-try --model-wire-below {
   position-area: bottom span-left;
   margin: --spacing(1) 0;
@@ -1318,6 +1416,7 @@ html:has(.composer-pill[data-drop]) {
 
 .model-wire[data-open] {
   background: var(--selected);
+  box-shadow: inset 3px 0 0 var(--selection-marker);
 }
 
 .model-wire-value {
@@ -1415,6 +1514,20 @@ html:has(.composer-pill[data-drop]) {
   font-size: var(--text-sm);
 }
 
+.model-option[data-destructive] {
+  color: var(--danger);
+}
+
+.model-option:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.model-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .model-option[data-active] {
   background: var(--hover);
 }
@@ -1490,18 +1603,18 @@ html:has(.composer-pill[data-drop]) {
   margin-top: --spacing(1);
 }
 
-.connect-detail > summary {
+.connect-detail > button {
   width: fit-content;
   color: var(--subtle);
   cursor: pointer;
   list-style: none;
 }
 
-.connect-detail > summary::-webkit-details-marker {
+.connect-detail > button::-webkit-details-marker {
   display: none;
 }
 
-.connect-detail > p {
+.connect-detail > .connect-detail-panel {
   margin: --spacing(1) 0 0;
   color: var(--muted);
   overflow-wrap: anywhere;
@@ -1512,7 +1625,7 @@ html:has(.composer-pill[data-drop]) {
 }
 
 :focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--focus);
   outline-offset: 4px;
 }
 
@@ -1524,7 +1637,7 @@ html:has(.composer-pill[data-drop]) {
 .transcript {
   width: 100%;
   min-width: 0;
-  padding: --spacing(8) clamp(1.5rem, 3vw, 3rem) --spacing(12);
+  padding: --spacing(8) 0 --spacing(12);
   display: flex;
   flex: 1 0 auto;
   flex-direction: column;
@@ -1533,27 +1646,27 @@ html:has(.composer-pill[data-drop]) {
   overflow-wrap: anywhere;
 }
 
-/* Header, cells, and composer share one content edge: the center column less one gutter per side. */
+/* Standalone transcript states use the same body edges as timeline content. */
 .transcript-column,
 .beat-body {
-  width: var(--transcript-center);
+  width: var(--body-width);
   margin-inline: auto;
-  padding-inline: var(--transcript-gutter);
+  padding-inline: 0;
 }
 
 .timeline {
   position: relative;
   anchor-scope: all;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: var(--conversation-grid);
   align-items: stretch;
 }
 
 .timeline-main {
   anchor-name: --timeline-main;
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
-  width: var(--transcript-center);
+  width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1577,7 +1690,7 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .side-pane.side-right {
-  grid-column: 3;
+  grid-column: 5;
 }
 
 .side-notes {
@@ -1611,11 +1724,11 @@ html:has(.composer-pill[data-drop]) {
 
 .annotation-slot.side-left {
   left: max(0px, calc(anchor(--timeline-main left) - 22rem));
-  right: anchor(--timeline-main left);
+  right: calc(anchor(--timeline-main left) + var(--gutter-width) + var(--status-gap));
 }
 
 .annotation-slot.side-right {
-  left: anchor(--timeline-main right);
+  left: calc(anchor(--timeline-main right) + var(--gutter-width) + var(--status-gap));
   right: max(0px, calc(anchor(--timeline-main right) - 22rem));
 }
 
@@ -1645,8 +1758,7 @@ html:has(.composer-pill[data-drop]) {
   z-index: 1;
   padding: --spacing(6) --spacing(4) --spacing(6) --spacing(3);
   border-right: 2px solid var(--line);
-  background: color-mix(in oklab, var(--canvas) 70%, transparent);
-  backdrop-filter: blur(4px);
+  background: var(--canvas);
   font-size: var(--text-sm);
   line-height: 1.45;
   text-align: right;
@@ -1662,6 +1774,10 @@ html:has(.composer-pill[data-drop]) {
    still out share the tape's end: one stack, held to the bottom beside the
    model note's rest. A settled stack stays where it came back. */
 .agent-slot {
+  /* The lower anchor wins when preceding notes leave no room. Let the stack
+     grow upward rather than extending the tape's scrollable overflow. */
+  top: min(max(anchor(top), var(--previous-note)), calc(100% - var(--annotation-end)));
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -1669,6 +1785,7 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .agent-stack {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: var(--cell-gap);
@@ -1709,8 +1826,7 @@ html:has(.composer-pill[data-drop]) {
   width: 100%;
   padding: --spacing(2) --spacing(3) --spacing(2) --spacing(4);
   border-left: 2px solid var(--agent-bar);
-  background: color-mix(in oklab, var(--canvas) 70%, transparent);
-  backdrop-filter: blur(4px);
+  background: var(--canvas);
   color: var(--subtle);
   font-size: var(--text-sm);
   line-height: 1.45;
@@ -1718,13 +1834,14 @@ html:has(.composer-pill[data-drop]) {
   cursor: pointer;
 }
 
-/* Focus wears the hover tint, not the ring: the bar already draws the note's edge. */
+/* Hover indicates availability; keyboard focus is separate from the status bar. */
 .agent-note:is(:hover, :focus-visible):not(:disabled) {
   background-image: linear-gradient(var(--hover), var(--hover));
 }
 
 .agent-note:focus-visible {
-  outline: none;
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 .agent-note:disabled {
@@ -1864,8 +1981,9 @@ html:has(.composer-pill[data-drop]) {
 .agent-peek-title > h2 {
   display: -webkit-box;
   overflow: hidden;
+  font-family: var(--font-heading);
   font-size: var(--text-lg);
-  line-height: 1.3;
+  line-height: var(--text-lg--line-height);
   text-wrap: balance;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -1873,11 +1991,59 @@ html:has(.composer-pill[data-drop]) {
 
 .agent-peek-status {
   margin: 0;
-  overflow: hidden;
   color: var(--muted);
   font-size: var(--text-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-brief {
+  border: 0;
+  padding: 0;
+}
+
+.agent-brief-trigger {
+  position: relative;
+  justify-content: flex-start;
+  width: 100%;
+  padding-block: --spacing(2);
+  padding-inline: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  text-align: start;
+  font: inherit;
+  font-variant-caps: normal;
+  letter-spacing: normal;
+}
+
+.agent-brief-panel {
+  padding: --spacing(2) 0 0;
+}
+
+.agent-brief-panel > [role="status"] {
+  margin-inline-start: --spacing(2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.agent-brief-panel > .tape-message {
+  margin-block-start: --spacing(2);
+}
+
+.agent-peek-result {
+  padding-block-end: --spacing(4);
+  border-bottom: 1px solid var(--line);
+}
+
+.agent-peek-result > h3 {
+  margin-block-end: --spacing(2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.agent-peek-result-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .agent-peek-close {
@@ -1943,17 +2109,50 @@ html:has(.composer-pill[data-drop]) {
   padding-inline: 0;
 }
 
+/* Shared disclosure behavior keeps the transcript's content geometry and type. */
+.tape-tool,
+.beat-thoughts,
+.shell-term {
+  padding-block: 0;
+}
+
+.tool-disclosure-trigger,
+.thoughts-disclosure-trigger,
+.shell-disclosure-trigger,
+.wf-json-trigger {
+  width: 100%;
+  min-block-size: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-variant-caps: normal;
+  letter-spacing: normal;
+  text-align: start;
+}
+
+.tool-disclosure,
+.thoughts-disclosure-panel,
+.shell-disclosure-panel {
+  padding: 0;
+  font: inherit;
+}
+
+.beat-thoughts {
+  border: 0;
+}
+
 /* Reasoning is shown beside the round on a wide page; the fold only exists on a narrow one. */
 .beat-thoughts {
   width: min(22rem, 100%);
   min-width: 0;
 }
 
-.beat-thoughts > summary {
+.beat-thoughts > .thoughts-disclosure-trigger {
   display: none;
 }
 
-.beat-thoughts::details-content {
+.beat-thoughts > .thoughts-disclosure-panel {
   display: flex;
   flex-direction: column;
   gap: var(--note-gap);
@@ -2038,21 +2237,26 @@ html:has(.composer-pill[data-drop]) {
   }
 }
 
-/* Three lanes hold down to 52rem. A 1280 page with an 18rem rail leaves the tape
+/* Status lanes hold down to 52rem. A 1280 page with an 18rem rail leaves the tape
    about 62rem, so the lanes stay open there. Narrower than that — a phone, or
    the tape beside a collapsed rail on a small window — folds reasoning into a
    disclosure. The file preview sheets rather than docking through this floor. */
 @container (max-width: 52rem) {
+  .transcript,
+  .composer {
+    --status-gap: 0px;
+    --body-width: calc(100cqw - 2 * var(--gutter-width));
+  }
   .transcript {
     padding-inline: 0;
   }
 
   .transcript-column {
-    width: min(52rem, 100%);
+    width: var(--body-width);
   }
 
   .timeline {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: var(--conversation-grid);
   }
 
   .timeline-main,
@@ -2073,13 +2277,13 @@ html:has(.composer-pill[data-drop]) {
 
   .annotation-slot,
   .beat-body {
-    grid-column: 1;
-    width: min(52rem, 100%);
+    grid-column: 3;
+    width: 100%;
     margin-inline: auto;
   }
 
   .composer-column {
-    width: calc(min(52rem, 100%) - 2 * var(--transcript-gutter));
+    width: 100%;
   }
 
   .annotation-slot.side-left {
@@ -2089,10 +2293,11 @@ html:has(.composer-pill[data-drop]) {
   /* Reasoning precedes the round it motivated, folded: the answer is what you came for. */
   .annotation-slot.side-right {
     grid-row: calc(var(--beat-row) * 5 + 2);
-    padding: 0 var(--transcript-gutter) var(--cell-gap);
+    padding: 0 0 var(--cell-gap);
   }
 
-  .beat-thoughts > summary {
+  .beat-thoughts > .thoughts-disclosure-trigger {
+    position: relative;
     display: flex;
     align-items: center;
     gap: --spacing(2);
@@ -2103,13 +2308,15 @@ html:has(.composer-pill[data-drop]) {
     list-style: none;
   }
 
-  .beat-thoughts > summary::-webkit-details-marker {
+  .beat-thoughts > .thoughts-disclosure-trigger::-webkit-details-marker {
     display: none;
   }
 
   /* Tabler's chevron-right at the shared glyph size and stroke, so this disclosure matches the rail's. */
-  .beat-thoughts > summary::before {
+  .beat-thoughts > .thoughts-disclosure-trigger::before {
     content: "";
+    position: absolute;
+    inset-inline-end: calc(100% + --spacing(2));
     flex: none;
     width: 1rem;
     height: 1rem;
@@ -2119,15 +2326,16 @@ html:has(.composer-pill[data-drop]) {
     transition: transform 150ms var(--ease-out);
   }
 
-  .beat-thoughts[open] > summary::before {
+  .beat-thoughts[data-expanded] > .thoughts-disclosure-trigger::before {
     transform: rotate(90deg);
   }
 
-  .beat-thoughts:not([open])::details-content {
+  .beat-thoughts:not([data-expanded]) > .thoughts-disclosure-panel {
+    display: none;
     content-visibility: hidden;
   }
 
-  .beat-thoughts[open]::details-content {
+  .beat-thoughts[data-expanded] > .thoughts-disclosure-panel {
     padding-top: --spacing(2);
   }
 
@@ -2139,7 +2347,7 @@ html:has(.composer-pill[data-drop]) {
   .progress-mark {
     grid-row: 1;
     max-width: none;
-    padding: --spacing(2) var(--transcript-gutter);
+    padding: --spacing(2) var(--gutter-width);
     border-right: 0;
     border-bottom: 1px solid var(--line);
     text-align: left;
@@ -2169,25 +2377,25 @@ html:has(.composer-pill[data-drop]) {
   .model-note {
     flex-direction: row;
     gap: --spacing(2);
-    padding: 0 var(--transcript-gutter);
+    padding: 0 var(--gutter-width);
     border-right: 0;
   }
 
   .composer {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: var(--conversation-grid);
   }
 
   .composer-column {
-    grid-column: 1;
+    grid-column: 2 / 5;
     padding-bottom: 0;
   }
 
   .composer-lane {
-    grid-column: 1;
+    grid-column: 3;
     grid-row: 2;
     justify-content: flex-start;
     height: auto;
-    padding: --spacing(2) var(--transcript-gutter) --spacing(3);
+    padding: --spacing(2) 0 --spacing(3);
   }
 
   .composer-picks {
@@ -2202,8 +2410,8 @@ html:has(.composer-pill[data-drop]) {
 
 /*
  * The line to the daemon: one sentence and at most one action, no box. A
- * wait breathes (opacity, the sidebar dot's size) and shows only past a beat;
- * a state that needs you rings, as a row waiting on you does.
+ * wait keeps a steady marker and shows only past a beat;
+ * a state that needs you has a boundary as well as explanatory text.
  */
 .link-notice {
   display: flex;
@@ -2237,7 +2445,6 @@ html:has(.composer-pill[data-drop]) {
 
 .link-glyph[data-waiting] {
   background: var(--subtle);
-  animation: link-breathe 1600ms linear infinite;
 }
 
 .link-glyph[data-settled] {
@@ -2254,18 +2461,6 @@ html:has(.composer-pill[data-drop]) {
 
 .link-later {
   animation: connecting-in 300ms var(--ease-out) 8s both;
-}
-
-@keyframes link-breathe {
-  50% {
-    opacity: 0.35;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .link-glyph[data-waiting] {
-    animation: none;
-  }
 }
 
 /* The measure narrows the text, not the column, so the empty state keeps the content edge. */
@@ -2290,13 +2485,8 @@ html:has(.composer-pill[data-drop]) {
   margin-top: --spacing(2);
 }
 
-/*
- * Connecting: three bars the width of a heading and two lines draw in, hold,
- * and fade, staggered, where the greeting will land. Nothing shows for the
- * first 400ms, the usual connect; the hint arrives only after 4s. A clip
- * reveal keeps each bar's rounded ends while it draws (a scale would squash
- * them); with opacity, nothing here touches layout.
- */
+/* Connecting keeps a stable placeholder without scanning or repeated pulses.
+ * It appears after 400ms; the hint arrives only after 4s. */
 .connecting {
   animation: connecting-in 200ms var(--ease-out) 400ms both;
 }
@@ -2312,7 +2502,7 @@ html:has(.composer-pill[data-drop]) {
   height: --spacing(2);
   border-radius: var(--radius-xs);
   background: var(--line);
-  animation: connecting-draw 1800ms var(--ease-out) infinite both;
+  opacity: 0.7;
 }
 
 .connecting-lines > span:nth-child(1) {
@@ -2322,12 +2512,10 @@ html:has(.composer-pill[data-drop]) {
 
 .connecting-lines > span:nth-child(2) {
   width: min(26rem, 85%);
-  animation-delay: 50ms;
 }
 
 .connecting-lines > span:nth-child(3) {
   width: min(18rem, 60%);
-  animation-delay: 100ms;
 }
 
 .connecting .connecting-hint {
@@ -2340,30 +2528,6 @@ html:has(.composer-pill[data-drop]) {
 @keyframes connecting-in {
   from {
     opacity: 0;
-  }
-}
-
-@keyframes connecting-draw {
-  0% {
-    opacity: 0;
-    clip-path: inset(0 100% 0 0 round var(--radius-xs));
-  }
-  40%,
-  75% {
-    opacity: 1;
-    clip-path: inset(0 0 0 0 round var(--radius-xs));
-  }
-  100% {
-    opacity: 0;
-    clip-path: inset(0 0 0 0 round var(--radius-xs));
-  }
-}
-
-/* Still bars: the place is held, nothing draws. The fades keep, as opacity is not movement. */
-@media (prefers-reduced-motion: reduce) {
-  .connecting-lines > span {
-    animation: none;
-    opacity: 0.7;
   }
 }
 
@@ -2403,14 +2567,16 @@ html:has(.composer-pill[data-drop]) {
 
 /* A sent message is a container, not a field: a fill and no edge. */
 .tape-user {
+  margin-inline: calc(-1 * var(--gutter-width));
   position: relative;
-  padding: --spacing(4) --spacing(5);
+  padding: --spacing(4) var(--gutter-width);
   border-radius: var(--radius-md);
   background: var(--wash);
 }
 
 .tape-user:has(.message-edit) {
-  padding-inline-end: --spacing(16);
+  margin-inline-end: calc(-1 * var(--gutter-width));
+  padding-inline-end: var(--gutter-width);
 }
 
 .message-edit {
@@ -2516,7 +2682,7 @@ html:has(.composer-pill[data-drop]) {
   align-items: flex-end;
   inline-size: fit-content;
   max-inline-size: min(80%, 34rem);
-  margin-inline-start: auto;
+  margin-inline: auto 0;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -2530,13 +2696,14 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .frame[data-embed] .tape-user:has(.message-edit) {
+  margin-inline-end: 0;
   padding-inline-end: 0;
 }
 
 /* The fill sits on the text, so the edit caption can rest outside it. */
 .frame[data-embed] .tape-user .user-text {
   padding: 8px 14px;
-  border-radius: 20px;
+  border-radius: 0;
   background: var(--bubble);
   color: #fff;
   white-space: pre-wrap;
@@ -2555,7 +2722,7 @@ html:has(.composer-pill[data-drop]) {
 
 .frame[data-embed] .tape-user .user-picture {
   max-inline-size: 100%;
-  border-radius: 14px;
+  border-radius: 0;
 }
 
 .frame[data-embed] .tape-user .user-pictures:not(:last-child) {
@@ -2605,10 +2772,18 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .tape-tool {
+  /* Reserve the marker's lane inside the frame, outside the text measure. */
+  --tool-marker-lane: calc(1rem + --spacing(2));
+  margin-inline: calc(-1 * (var(--tool-marker-lane) + --spacing(3) + 1px)) calc(-1 * (--spacing(3) + 1px));
+  padding-inline-start: var(--tool-marker-lane);
   min-width: 0;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
+}
+
+.tape-tool:has(> .tool-disclosure-trigger [data-outcome="failed"]) {
+  border-color: var(--line);
 }
 
 /* Consecutive tools are one list: shared edges, no gap, outer corners only. */
@@ -2633,7 +2808,7 @@ html:has(.composer-pill[data-drop]) {
 .diff {
   min-width: 0;
   max-width: 100%;
-  overflow-x: auto;
+  overflow: visible;
   background: var(--canvas);
   font-size: var(--text-sm);
   line-height: 1.6;
@@ -2722,6 +2897,12 @@ html:has(.composer-pill[data-drop]) {
   border: 0;
   padding: 0;
   cursor: pointer;
+}
+
+.read-path:focus-visible,
+.fail-info > button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .read-path:hover {
@@ -2873,7 +3054,9 @@ html:has(.composer-pill[data-drop]) {
 }
 
 /* A tool row is an action that opens its receipt, not a field: shorter than an input, no fill. */
-.tape-tool summary {
+.tape-tool .tool-disclosure-trigger {
+  position: relative;
+  list-style: none;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -2884,17 +3067,45 @@ html:has(.composer-pill[data-drop]) {
   cursor: pointer;
 }
 
+.tape-tool > .tool-disclosure-trigger::-webkit-details-marker {
+  display: none;
+}
+
+/* The marker hangs in the gutter, never taking width from the receipt label. */
+.tape-tool > .tool-disclosure-trigger::before,
+.agent-brief > .agent-brief-trigger::before {
+  content: "";
+  position: absolute;
+  inset-inline-end: calc(100% + --spacing(2) - --spacing(3));
+  top: calc(--spacing(2) + 0.3em);
+  width: 1rem;
+  height: 1rem;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6l-6 6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  transition: transform 150ms var(--ease-out);
+}
+
+.agent-brief > .agent-brief-trigger::before {
+  inset-inline-end: calc(100% + --spacing(2));
+}
+
+.tape-tool[data-expanded] > .tool-disclosure-trigger::before,
+.agent-brief[data-expanded] > .agent-brief-trigger::before {
+  transform: rotate(90deg);
+}
+
 .tool-summary {
   min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.tape-tool summary:hover {
+.tape-tool .tool-disclosure-trigger:hover {
   background: var(--hover);
 }
 
-.tape-tool[open] summary {
+.tape-tool[data-expanded] .tool-disclosure-trigger {
   border-bottom: 1px solid var(--line);
   border-end-start-radius: 0;
   border-end-end-radius: 0;
@@ -2963,6 +3174,8 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .prose {
+  --prose-marker-space: --spacing(6);
+  --prose-table-inset: calc(--spacing(3) + 1px);
   min-width: 0;
 }
 
@@ -2970,7 +3183,8 @@ html:has(.composer-pill[data-drop]) {
   margin-top: --spacing(4);
 }
 
-/* Answer headings: 19 / 16 / 16 / 13. */
+/* Content headings follow the system's 20/26 section and 16/24 compact
+   hierarchy. h1 inside a transcript is not the workspace page title. */
 .prose :is(h1, h2, h3, h4, h5, h6) {
   margin-top: --spacing(7);
   margin-bottom: --spacing(2);
@@ -3012,7 +3226,13 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .prose :is(ul, ol) {
-  padding-left: --spacing(6);
+  padding-inline-start: var(--prose-marker-space);
+  list-style-position: outside;
+}
+
+/* The first level shares the text edge; nesting still expresses hierarchy. */
+.prose > :is(ul, ol) {
+  padding-inline-start: 0;
 }
 
 .prose ul {
@@ -3032,17 +3252,28 @@ html:has(.composer-pill[data-drop]) {
 }
 .prose .contains-task-list {
   list-style: none;
-  padding-left: 0;
+}
+.prose .task-list-item {
+  position: relative;
 }
 .prose .task-list-item input {
-  margin-right: --spacing(2);
+  position: absolute;
+  inset-inline-start: calc(-1 * var(--prose-marker-space));
+  inset-block-start: 0.25em;
+  inline-size: --spacing(4);
+  block-size: --spacing(4);
+  margin: 0;
   accent-color: var(--ink);
 }
 
 .prose blockquote {
-  border-left: 2px solid var(--line);
-  padding-left: --spacing(4);
+  border-inline-start: 1px solid var(--line);
+  padding-inline-start: --spacing(4);
   color: var(--muted);
+}
+
+.prose > blockquote {
+  margin-inline-start: calc(-1 * (--spacing(4) + 1px));
 }
 
 .prose blockquote > * + * {
@@ -3123,6 +3354,10 @@ html:has(.composer-pill[data-drop]) {
 
 /* The 16 terminal colors, each AA on the output's wash in both schemes. Grays are the page's own tiers. */
 .shell-term {
+  /* Reserve the hanging symbol lane without framing the command. */
+  --shell-marker-lane: calc(1rem + 1.6ch + --spacing(4));
+  margin-inline: calc(-1 * var(--shell-marker-lane)) 0;
+  padding-inline-start: var(--shell-marker-lane);
   background: none;
   border: 0;
   --vt-0: light-dark(var(--ink), var(--subtle));
@@ -3146,7 +3381,8 @@ html:has(.composer-pill[data-drop]) {
   line-height: 1.6;
 }
 
-.shell-term > summary {
+.shell-term > .shell-disclosure-trigger {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: --spacing(2);
@@ -3155,18 +3391,20 @@ html:has(.composer-pill[data-drop]) {
   padding: --spacing(1) 0;
 }
 
-.shell-term > summary::-webkit-details-marker {
+.shell-term > .shell-disclosure-trigger::-webkit-details-marker {
   display: none;
 }
 
 .shell-chevron {
+  position: absolute;
+  inset-inline-end: calc(100% + 1.6ch + --spacing(2));
   display: grid;
   flex: none;
   margin-top: --spacing(1);
   color: var(--muted);
 }
 
-.shell-term[open] > summary .shell-chevron {
+.shell-term[data-expanded] > .shell-disclosure-trigger .shell-chevron {
   transform: rotate(90deg);
 }
 
@@ -3198,14 +3436,15 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .shell-cmd {
+  position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 0.6ch;
   min-width: 0;
 }
 
 .shell-sigil {
-  flex: none;
+  position: absolute;
+  inset-inline-end: calc(100% + 0.6ch);
 }
 
 .shell-script-name {
@@ -3272,7 +3511,8 @@ html:has(.composer-pill[data-drop]) {
 .prose table {
   display: block;
   width: max-content;
-  max-width: 100%;
+  max-width: calc(100% + 2 * var(--prose-table-inset));
+  margin-inline: calc(-1 * var(--prose-table-inset));
   overflow-x: auto;
   border-collapse: collapse;
   font-size: var(--text-sm);
@@ -3598,6 +3838,7 @@ html:has(.composer-pill[data-drop]) {
 
   &[aria-pressed="true"] {
     background: var(--selected);
+    box-shadow: inset 0 -3px 0 var(--selection-marker);
     color: var(--ink);
   }
 }
@@ -3811,7 +4052,7 @@ html:has(.composer-pill[data-drop]) {
   z-index: 1;
 }
 
-.wf-json > summary {
+.wf-json > .wf-json-trigger {
   display: flex;
   align-items: center;
   gap: --spacing(1);
@@ -3820,15 +4061,15 @@ html:has(.composer-pill[data-drop]) {
   list-style: none;
 }
 
-.wf-json > summary::-webkit-details-marker {
+.wf-json > .wf-json-trigger::-webkit-details-marker {
   display: none;
 }
 
-.wf-json > summary::marker {
+.wf-json > .wf-json-trigger::marker {
   content: none;
 }
 
-.wf-json > summary:focus-visible {
+.wf-json > .wf-json-trigger:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
@@ -3890,7 +4131,7 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .wf-toggle[aria-expanded="true"] .wf-chevron,
-.wf-json[open] > summary .wf-chevron {
+.wf-json[data-expanded] > .wf-json-trigger .wf-chevron {
   transform: rotate(90deg);
 }
 
@@ -3905,8 +4146,9 @@ html:has(.composer-pill[data-drop]) {
   background: var(--hover);
 }
 
-.wf-tab[aria-selected="true"] {
+.wf-tab[aria-pressed="true"] {
   background: var(--selected);
+  box-shadow: inset 0 -3px 0 var(--selection-marker);
   color: var(--ink);
 }
 

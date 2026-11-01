@@ -156,19 +156,23 @@ export const Bots: Story = {
     await userEvent.click(dialog.getByRole("button", { name: "Edit scribe" }));
     await userEvent.click(dialog.getByRole("button", { name: "Add server" }));
     await expect(dialog.getByText("MCP servers pinned to this project")).toBeVisible();
+    await userEvent.click(dialog.getByLabelText("Server", { selector: "button" }));
     await expect(dialog.getByRole("option", { name: "notes" })).toBeVisible();
     await expect(dialog.queryByRole("option", { name: "Sentry" })).toBeNull();
-    await userEvent.selectOptions(dialog.getByLabelText("Scope"), "global");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(dialog.getByLabelText("Scope", { selector: "button" }));
+    await userEvent.click(dialog.getByRole("option", { name: "Global" }));
     await expect(dialog.getByText("Global MCP servers")).toBeVisible();
-    await userEvent.selectOptions(dialog.getByLabelText("Server"), "Sentry");
+    await userEvent.click(dialog.getByLabelText("Server", { selector: "button" }));
+    await userEvent.click(dialog.getByRole("option", { name: "Sentry" }));
     await userEvent.type(dialog.getByLabelText("Server tools"), "list_issues");
     await userEvent.type(dialog.getByLabelText("Account"), "desk");
     await userEvent.click(dialog.getByRole("button", { name: "Save bot" }));
     await userEvent.click(dialog.getByRole("button", { name: "Cancel" }));
     await expect(dialog.getByText("Sentry")).toBeVisible();
     await userEvent.click(dialog.getByRole("button", { name: "Edit scribe" }));
-    await expect(dialog.getByLabelText("Scope")).toHaveValue("global");
-    await expect(dialog.getByLabelText("Server")).toHaveValue("Sentry");
+    await expect(dialog.getByLabelText("Scope", { selector: "button" })).toHaveTextContent("Global");
+    await expect(dialog.getByLabelText("Server", { selector: "button" })).toHaveTextContent("Sentry");
     await expect(dialog.getByLabelText("Server tools")).toHaveValue("list_issues");
     await expect(dialog.getByLabelText("Account")).toHaveValue("desk");
   },

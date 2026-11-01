@@ -97,7 +97,19 @@ const SURFACES = ["canvas", "wash", "raised", "field"];
 
 describe.each(Object.entries(schemes))("%s scheme", (_, s) => {
   it("reads every token as a pair", () => {
-    expect([...s.lab.keys()]).toEqual(expect.arrayContaining(["canvas", "ink", "edge", "added-line", "removed-line"]));
+    expect([...s.lab.keys()]).toEqual(
+      expect.arrayContaining([
+        "canvas",
+        "ink",
+        "edge",
+        "added-line",
+        "removed-line",
+        "accent",
+        "accent-ink",
+        "selection-marker",
+        "focus",
+      ]),
+    );
     expect([...s.overlay.keys()]).toEqual(["hover", "selected"]);
   });
 
@@ -123,6 +135,21 @@ describe.each(Object.entries(schemes))("%s scheme", (_, s) => {
       }
     }
     expect(failing).toEqual([]);
+  });
+
+  it("keeps primary-command text AA on the lime accent", () => {
+    expect(contrast(color(s, "accent-ink"), color(s, "accent"))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("distinguishes selection markers and focus outlines from their surfaces", () => {
+    for (const bg of SURFACES) {
+      expect(contrast(color(s, "focus"), color(s, bg)), `focus on ${bg}`).toBeGreaterThanOrEqual(3);
+      expect(contrast(color(s, "selection-marker"), color(s, bg)), `marker on ${bg}`).toBeGreaterThanOrEqual(3);
+      expect(
+        contrast(color(s, "selection-marker"), laid(s, "selected", bg)),
+        `marker on selected ${bg}`,
+      ).toBeGreaterThanOrEqual(3);
+    }
   });
 
   it("bounds a control with 3:1 against everything around it", () => {

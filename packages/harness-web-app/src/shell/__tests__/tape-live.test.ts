@@ -75,6 +75,63 @@ describe("tape projection", () => {
     release = null;
   });
 
+  it("updates goal notes from plugin state without another completion", async () => {
+    const speech = completion("Working");
+    const turn = new SessionTurn({
+      turnTail: new SessionSystemPrompt(),
+      queue: [],
+      doneWork: [speech],
+    });
+    seat(turn, [speech]);
+    const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
+    root.head = turn;
+    const booted = Plexus.bootstrap(root);
+    release = () => booted.destroy();
+    state.dial.session = { root };
+    await act(async () => {
+      view.render(createElement(FilePreviewProvider, { resetKey: "s" }, createElement(Tape)));
+    });
+
+    const actions: object[] = [{ type: "set", text: "Ship the sidebar", loops: 1 }];
+    await act(async () => {
+      runInAction(() => {
+        root.pluginState["inhuman-plugin-goal:state"] = JSON.stringify(actions);
+      });
+    });
+    expect(container.querySelector(".side-left .progress-items")?.textContent).toContain("Ship the sidebar");
+
+    actions.push({ type: "tick" });
+    await act(async () => {
+      runInAction(() => {
+        root.pluginState["inhuman-plugin-goal:state"] = JSON.stringify(actions);
+      });
+    });
+    expect(container.querySelector(".side-left .progress-items")?.textContent).toMatch(/exhausted|limit reached/i);
+    expect(container.textContent).toContain("Working");
+
+    await act(async () => {
+      runInAction(() => {
+        root.pluginState["inhuman-plugin-goal:state"] = "[]";
+      });
+    });
+    expect(container.querySelector(".side-left .progress-items")?.textContent ?? "").not.toContain("Ship the sidebar");
+  });
+
+  it("gives a status-only round a body anchor before any completion", async () => {
+    const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], doneWork: [] });
+    const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
+    root.head = turn;
+    root.pluginState["inhuman-plugin-goal:state"] = JSON.stringify([{ type: "set", text: "Early goal", loops: 2 }]);
+    const booted = Plexus.bootstrap(root);
+    release = () => booted.destroy();
+    state.dial.session = { root };
+    await act(async () => {
+      view.render(createElement(FilePreviewProvider, { resetKey: "s" }, createElement(Tape)));
+    });
+    expect(container.querySelector(".side-left .progress-items")?.textContent).toContain("Early goal");
+    expect(container.querySelector(".timeline-main .beat")?.getAttribute("style")).toContain("--beat-anchor");
+  });
+
   it("reparses only the speech whose text changed", async () => {
     const olderSpeech = completion("old");
     const stable = completion("stable");
