@@ -1,0 +1,22 @@
+name: Bug report
+description: Report something that does not work as expected.
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: What happened, and how can we reproduce it?
+      description: Include the command or steps, expected behavior, and actual behavior. A small example helps.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Version and environment
+      description: Package/version or commit, OS, Node version, and web or terminal client if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Optional. Remove credentials, private prompts, and other sensitive data before posting. For vulnerabilities, use SECURITY.md instead of a public issue.

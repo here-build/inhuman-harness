@@ -1,0 +1,6 @@
+{
+  "name": "inhuman-example-hello",
+  "version": "0.0.1",
+  "private": true,
+  "files": ["plugin.json", "tools.scm"]
+}

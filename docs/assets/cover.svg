@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="440" viewBox="0 0 1280 440" role="img" aria-labelledby="title desc">
+  <title id="title">inhuman — Close the window. Keep the work.</title>
+  <desc id="desc">A local agent workspace. Browser and terminal clients attach to a daemon that keeps sessions running on your machine.</desc>
+  <rect width="1280" height="440" fill="#f1f0e9"/>
+  <g fill="#1e382d" font-family="Arial, Helvetica, sans-serif">
+    <text x="56" y="68" font-size="32" font-weight="700" letter-spacing="-1.4">inhuman</text>
+    <text x="1224" y="64" text-anchor="end" font-family="monospace" font-size="13" letter-spacing="2">LOCAL AGENT WORKSPACE</text>
+    <path d="M56 96H1224" stroke="#1e382d" stroke-opacity=".2"/>
+    <text x="52" y="194" font-size="68" font-weight="700" letter-spacing="-3">Close the window.</text>
+    <text x="52" y="271" font-size="68" font-weight="700" letter-spacing="-3">Keep the work.</text>
+    <text x="56" y="321" font-size="20" fill="#4c5e54">Your sessions live on your machine.</text>
+    <text x="56" y="351" font-size="20" fill="#4c5e54">Come back through the browser or terminal.</text>
+  </g>
+  <g font-family="monospace" font-size="14" text-anchor="middle">
+    <rect x="846" y="141" width="154" height="54" fill="none" stroke="#87998d"/>
+    <rect x="1054" y="141" width="154" height="54" fill="none" stroke="#87998d"/>
+    <text x="923" y="174" fill="#334c3e">browser</text>
+    <text x="1131" y="174" fill="#334c3e">terminal</text>
+    <path d="M923 195V236H1131V195M1027 236V272" fill="none" stroke="#87998d" stroke-width="2" stroke-dasharray="4 6"/>
+    <rect x="846" y="272" width="362" height="74" fill="#1e382d"/>
+    <circle cx="874" cy="309" r="5" fill="#d9f495"/>
+    <text x="1039" y="314" fill="#f1f0e9" font-size="16">daemon / sessions</text>
+    <text x="1027" y="377" fill="#4c5e54" font-size="13">clients detach · work stays</text>
+  </g>
+  <path d="M0 428H1280" stroke="#d45431" stroke-width="24"/>
+</svg>

@@ -1,12 +1,52 @@
 # `@inhuman.tools/plugin-sdk`
 
-Tools, actions, bots, and bundled MCP. Not the host, not `plugin.json`.
+Build validated JavaScript tools, actions, bots, and bundled MCP definitions for programmatic host integrations. Use Node.js 22 or newer, matching the CLI and repository baseline.
+
+For an installable plugin that works with the current CLI, start with the [hello plugin](https://github.com/here-build/inhuman-harness/blob/HEAD/examples/hello-plugin/README.md). The daemon loads Scheme tools through `extensions["tools.inhuman"].abi`; it currently does **not** import JavaScript modules advertised through `plugins[].importPath`. Installing a package containing an `InhumanPlugin` export alone will not register its tools.
+
+## First SDK tool
+
+In a new directory, install the SDK:
+
+```sh
+npm init -y
+npm install @inhuman.tools/plugin-sdk
+```
+
+Save this as `hello.mjs` (the `.mjs` extension enables ES modules):
+
+```js
+import { InhumanPlugin, InhumanTool, z } from "@inhuman.tools/plugin-sdk";
+
+const hello = new InhumanTool({
+  name: "hello",
+  description: "Return a friendly greeting",
+  class: "read",
+  representation: "both",
+  input: z.object({ name: z.string() }),
+  output: z.object({ greeting: z.string() }),
+  run: ({ name }) => ({ greeting: `Hello, ${name}!` }),
+});
+
+export default new InhumanPlugin({ tools: [hello] });
+
+console.log(await hello.execute({ name: "Ada" }, { root: process.cwd() }));
+```
+
+Run `node hello.mjs`. It prints `{ greeting: 'Hello, Ada!' }`. This calls the tool directly; no daemon, model connection, or API key is needed. `execute` validates both input and output. Read/write tools require `ctx.root`; the host supplies that context during normal execution.
+
+`representation: "both"` requests a model tool and a Scheme symbol. Function tools default to `"symbol"`; use `"tool"` for model exposure only. Defining a tool does not install it into a running host.
+
+## Installing and loading a CLI plugin
+
+The [hello example](https://github.com/here-build/inhuman-harness/blob/HEAD/examples/hello-plugin/README.md) includes the complete `package.json`, `plugin.json`, and Scheme tool source, with install and invocation commands. `inhuman install` installs a package into the selected kernel and enables its `plugin.json` name. The manifest points the current host at its supported behavior surface. See [exemplar packs](https://github.com/here-build/inhuman-harness/blob/HEAD/plugins/README.md) for bots, scoped state, and MCP integrations.
 
 ## Public surface
 
 Bot `instructions` is `SystemPrompt` from `@inhuman.tools/harness-commons` — `` prompt.system`…` ``. User-turn text is `UserPrompt`.
 
 ```ts
+import { prompt } from "@inhuman.tools/harness-commons";
 import {
   InhumanAction,
   InhumanPlugin,
@@ -49,7 +89,7 @@ const recall = new InhumanTool({
 export default new InhumanPlugin({
   apiVersion: 1,
   tools: [search, recall],
-  bots: [{ name: "scout", scope: "invocation", instructions: "…" }],
+  bots: [{ name: "scout", recipeScope: "session", instructions: prompt.system`Find relevant facts.` }],
   actions: [new InhumanAction({ name: "simplify", run: async () => ({ ok: true }) })],
 });
 ```
@@ -102,4 +142,4 @@ validateSupportedVersion → normalizeDefinitions → resolveReferences → inst
 
 Also: `defineTool` / `defineAction`, brand guards, re-export of `z`. `envCapabilities` is optional (`@here.build/arrival` peer).
 
-The daemon parses `extensions.tools.inhuman` and `import`s this module. This package does not import harness-server or harness-sdk at runtime.
+The current daemon reads the `extensions["tools.inhuman"]` manifest surface, including Scheme `abi` programs. It does not automatically import SDK modules from `plugins[].importPath`. This package does not import the host or harness-sdk at runtime.

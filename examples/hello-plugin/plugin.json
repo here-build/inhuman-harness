@@ -1,0 +1,10 @@
+{
+  "name": "hello-example",
+  "version": "0.0.1",
+  "description": "A minimal greeting tool",
+  "extensions": {
+    "tools.inhuman": {
+      "abi": "./tools.scm"
+    }
+  }
+}
