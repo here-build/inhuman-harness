@@ -673,6 +673,10 @@ export async function deliverAgentMessage(
     job.outcomeSnap = { ok: false, text: "undeliverable" };
     return;
   }
+  if (target.root.agent.spec instanceof AskAgentSpec && Object.keys(target.root.agentCallbacks).length === 0) {
+    job.outcomeSnap = { ok: false, text: "undeliverable" };
+    return;
+  }
   if (host.kernel.liveSession(targetId) == null) {
     if (target.root.agent.spec.recipeScope === "global") await host.kernel.globalSession(targetId);
     else await host.project.session(targetId);

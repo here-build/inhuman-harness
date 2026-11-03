@@ -13,6 +13,7 @@ import {
   AgentMessageJob,
   AgentNotifyJob,
   ApprovableJob,
+  AskAgentSpec,
   cancelOutcomeText,
   CompletionExpectation,
   type IntentAssessment,
@@ -29,6 +30,7 @@ import {
   permissionDeskSessionId,
   ProgrammaticJob,
   projectWorkerPermissions,
+  ReACTChunk,
   type SessionPlexus,
   SessionRoot,
   SessionTurn,
@@ -1496,8 +1498,8 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 
   /**
-   * Stream stall failed this turn's completion. A keepAlive worker can still
-   * respond after any other close, and eval timeout cancels the call itself.
+   * Release the caller's open Call when a worker turn closes without answering:
+   * on any non-cancelled completion failure, turn error, or one-shot worker loop exit.
    * The turn is already closed, so force-stop does not abort this executor.
    */
   #releaseUnansweredCall(turn: SessionTurn): void {
@@ -1506,14 +1508,33 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     const call = loadOpenCall(this.sessionDaemon.kernel, this.session.root, requestId);
     if (call == null || call.completed) return;
     let detail = "";
+    let hasCompletion = false;
+    let hasOpenChildCall = false;
+    let stopDetail = "";
     for (const node of walkWork(turn)) {
+      if (node instanceof CallJob && !node.completed) {
+        hasOpenChildCall = true;
+      }
+      if (node instanceof ReACTChunk && node.decision?.kind === "blocked") {
+        const reason = node.decision.detail?.trim() || "";
+        if (reason !== "") stopDetail = reason;
+      }
       const pew = node instanceof CompletionExpectation ? node : tapeCompletion(node);
-      if (pew == null) continue;
-      if (pew.outcome !== "failed") continue;
-      const text = pew.endDetail?.trim() || pew.failReason?.trim() || "";
-      if (!text.startsWith("stream stalled after ")) continue;
+      if (pew == null || pew.startedAtMs == null) continue;
+      hasCompletion = true;
+      if (pew.outcome !== "failed" || pew.endCause === "cancel") continue;
+      const text = pew.endDetail?.trim() || pew.failReason?.trim() || "model round failed";
       detail = text;
       break;
+    }
+    if (
+      detail === "" &&
+      hasCompletion &&
+      !hasOpenChildCall &&
+      !this.session.root.agent.spec.keepAlive &&
+      this.session.root.agent.spec instanceof AskAgentSpec
+    ) {
+      detail = turn.broke.trim() || stopDetail || "worker turn ended without calling agent__respond";
     }
     if (detail === "") return;
     completeCallExceptionally(call, this.#agentHost(), "error", detail);

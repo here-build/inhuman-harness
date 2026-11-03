@@ -1891,4 +1891,92 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
       distinct: true,
     });
   });
+
+  it("releases open Call when a started worker completion fails or a one-shot worker exits without answering, and rejects messages to settled one-shot workers", async () => {
+    const { project, session } = await openHarness();
+
+    const stalledCall = new AgentCallJob({
+      toolCallId: "c-req-stall",
+      name: "agent__ask",
+      argsJson: JSON.stringify({ spec: "flash", message: "work" }),
+      voidLegal: false,
+      humanApprove: true,
+    });
+    session.root.head = closedTurn(stalledCall);
+    await when(
+      () =>
+        stalledCall.workerSessionId !== "" &&
+        project.sessions[stalledCall.workerSessionId]?.root.findTurnByAgentRequestId(stalledCall.uuid)?.reducerExited ===
+          true,
+      { timeout: TIMEOUT },
+    );
+    const stalledWorker = project.sessions[stalledCall.workerSessionId]!;
+    const failedPew = new CompletionExpectation({
+      connectionId: "c1",
+      model: "gpt-5",
+      promptText: prompt.user`work`,
+    });
+    failedPew.startedAtMs = Date.now();
+    failedPew.fail("crash", "completion request stalled after 180000ms", "null");
+    const failedTurn = new SessionTurn({
+      turnTail: stalledWorker.root.head!,
+      agentRequestId: stalledCall.uuid,
+      doneWork: [new CompletionJob({ expectation: failedPew })],
+      queue: [],
+      reducerExited: false,
+    });
+    stalledWorker.root.head = failedTurn;
+    await when(() => stalledCall.completed, { timeout: TIMEOUT });
+    expect(failOf(stalledCall)).toEqual({
+      code: "error",
+      message: "completion request stalled after 180000ms",
+    });
+
+    // Sending agent__message to a settled one-shot (AskAgentSpec) worker is rejected as undeliverable.
+    const lateMsg = new AgentMessageJob({
+      toolCallId: "m-dead-ask",
+      name: "agent__message",
+      argsJson: JSON.stringify({ targetId: stalledCall.workerSessionId, message: "still there?" }),
+      humanApprove: true,
+    });
+    session.root.head = closedTurn(lateMsg);
+    await when(() => lateMsg.completed, { timeout: TIMEOUT });
+    expect(lateMsg.receiptJson).toBe(JSON.stringify({ ok: false, text: "undeliverable" }));
+
+    // A one-shot worker that completed a model round and exited without calling agent__respond releases the parent call.
+    const silentCall = new AgentCallJob({
+      toolCallId: "c-silent-ask",
+      name: "agent__ask",
+      argsJson: JSON.stringify({ spec: "flash", message: "answer me" }),
+      voidLegal: false,
+      humanApprove: true,
+    });
+    session.root.head = closedTurn(silentCall);
+    await when(
+      () =>
+        silentCall.workerSessionId !== "" &&
+        project.sessions[silentCall.workerSessionId]?.root.findTurnByAgentRequestId(silentCall.uuid)?.reducerExited ===
+          true,
+      { timeout: TIMEOUT },
+    );
+    const silentWorker = project.sessions[silentCall.workerSessionId]!;
+    const completedPew = new CompletionExpectation({
+      connectionId: "c1",
+      model: "gpt-5",
+      promptText: prompt.user`answer me`,
+    });
+    completedPew.startedAtMs = Date.now();
+    completedPew.responseText = "plain text without tool call";
+    completedPew.succeed("settled", "", "null");
+    const silentTurn = new SessionTurn({
+      turnTail: silentWorker.root.head!,
+      agentRequestId: silentCall.uuid,
+      doneWork: [new CompletionJob({ expectation: completedPew })],
+      queue: [],
+      reducerExited: false,
+    });
+    silentWorker.root.head = silentTurn;
+    await when(() => silentCall.completed, { timeout: TIMEOUT });
+    expect(failOf(silentCall)?.code).toBe("error");
+  });
 });
