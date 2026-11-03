@@ -582,4 +582,49 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
       if (row.role === "assistant") expect(row.content === null && row.toolCalls === undefined).toBe(false);
     }
   });
+
+  it("holds the retention clock on a recovery turn after a failed round and preserves warmUntilMs from the last good round", () => {
+    const f = new Fixture();
+    const read = (id: string) => sys(id, "read_file", '{"path":"p.ts"}', { ok: true, text: KB(4, "z") });
+    const t1 = f.mint("first");
+    f.round("R1", t1, { calls: [{ job: read("a"), name: "read_file" }] });
+    // R2 fails mid-turn without stamping warmUntilMs.
+    t1.enqueue(new ReACTChunk());
+    t1.take();
+    const failed = new CompletionExpectation({
+      connectionId: "c1",
+      model: "gpt-5",
+      promptText: prompt.user``,
+      messages: historyBehind(t1, { kv: {} }),
+    });
+    t1.enqueue(new CompletionJob({ expectation: failed }));
+    stampRetentionClock(failed, f.clock);
+    failed.fail("crash", "stream stalled after 180000ms", "null");
+    t1.take();
+    f.clock += 1000;
+
+    // Recovery turn t2 opens while R1's cache is still warm.
+    const t2 = f.mint("continue");
+    f.round("R3", t2, { text: "recovered" });
+    expect(parseClock(f.completions.get("R3")!.retentionClockJson)?.reason).toBe("hold");
+    expect(text(f.requests.get("R3")!)).toContain("z".repeat(100));
+  });
+
+  it("defers mid-turn every/freed retention steps on rounds carrying a transient systemNote", () => {
+    const f = new Fixture();
+    const grep = (id: string) => sys(id, "grep", '{"pattern":"x"}', { ok: true, text: KB(6, "g") });
+    const t1 = f.mint("run");
+    f.round("R1", t1, {
+      calls: Array.from({ length: 8 }, (_, idx) => ({ job: grep(`g${idx + 1}`), name: "grep" })),
+    });
+    f.round("R2", t1, { text: "step 2" });
+    f.round("R3", t1, { text: "step 3" });
+    // At R4 (pos 3), R1's 8 grep results (consumed at pos 1, keep: 2 rounds) expire and free >8000 tokens,
+    // but R4 carries a transient systemNote -> holds the retention clock to keep prefix stable.
+    f.round("R4", t1, { text: "noted", systemNote: "Call update_metadata before finishing." });
+    expect(parseClock(f.completions.get("R4")!.retentionClockJson)?.reason).toBe("hold");
+    // R5 has no systemNote -> steps the clock for freed tokens.
+    f.round("R5", t1, { text: "done" });
+    expect(parseClock(f.completions.get("R5")!.retentionClockJson)?.reason).toBe("freed");
+  });
 });

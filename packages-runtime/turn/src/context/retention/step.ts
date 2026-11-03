@@ -64,11 +64,14 @@ export function stampRetentionClock(tip: CompletionExpectation, now: number = Da
   const prior = index > 0 ? spine[index - 1]! : null;
   const priorAt = prior === null ? null : (parseClock(prior.retentionClockJson)?.at ?? null);
   const priorPos = priorAt === null ? -1 : spine.findIndex((c) => c.uuid === priorAt);
+  const warmPrior = spine.slice(0, index).findLast((c) => c.warmUntilMs !== null) ?? prior;
+  const hasTransientSystemNote = (tip.systemNote?.trim() ?? "") !== "";
+  const step = hasTransientSystemNote ? { ...policy.step, everyRounds: null, minFreedTokens: 0 } : policy.step;
   const clock = decideRetentionStep({
     self: tip.uuid,
-    step: policy.step,
-    prior: prior === null ? null : { at: priorPos < 0 ? null : priorAt, warmUntilMs: prior.warmUntilMs },
-    turnFirstRound: prior === null || owningTurn(prior) !== turn,
+    step,
+    prior: prior === null ? null : { at: priorPos < 0 ? null : priorAt, warmUntilMs: warmPrior?.warmUntilMs ?? null },
+    turnFirstRound: prior === null || (owningTurn(prior) !== turn && prior.outcome !== "failed"),
     afterCutoff: prior === null && turn !== null && latestCompactCutoff(turn) !== null,
     roundsSinceAt: priorPos < 0 ? 0 : index - priorPos,
     now,

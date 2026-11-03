@@ -9,7 +9,7 @@ import type { ContextRetention } from "./schema.js";
 export const DEFAULT_CONTEXT_RETENTION: ContextRetention = {
   version: 1,
   defaults: { minChars: 800 },
-  step: { turnBoundary: true, everyRounds: 4, minFreedTokens: 8000, whenCacheCold: true, atCompaction: true },
+  step: { turnBoundary: true, everyRounds: null, minFreedTokens: 8000, whenCacheCold: true, atCompaction: true },
   kinds: {
     "image.user": { keep: ["turn", { newest: 4 }], leave: "stub", minChars: 0 },
     "image.tool": { keep: ["turn", { newest: 2 }], leave: "stub", minChars: 0 },

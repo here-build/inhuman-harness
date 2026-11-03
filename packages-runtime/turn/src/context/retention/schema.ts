@@ -76,7 +76,7 @@ export type RuleInput = z.output<typeof ruleSchema>;
 
 export const stepSchema = z.object({
   turnBoundary: z.boolean().default(true),
-  everyRounds: z.number().int().min(1).nullable().default(4),
+  everyRounds: z.number().int().min(1).nullable().default(null),
   minFreedTokens: z.number().int().min(0).default(8000),
   whenCacheCold: z.boolean().default(true),
   atCompaction: z.literal(true).default(true),
