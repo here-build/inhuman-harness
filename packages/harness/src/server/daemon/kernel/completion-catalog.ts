@@ -71,6 +71,23 @@ export async function probeCompletionCatalog(
 }
 
 /**
+ * The model list only renders a completion connection once `live.models` is
+ * non-empty, and it only publishes demand for rows it renders. A just-adopted
+ * connection therefore never becomes looked-at, and its catalog stays empty.
+ * Warm it after the row and its secrets are on disk, and again at boot for
+ * rows adopted by an older process.
+ */
+export function warmCompletionCatalog(host: CompletionCatalogHost, internOwner: object, id?: string): void {
+  if (id !== undefined) {
+    const spec = host.plexus.root.connections[id];
+    if (spec == null || !spec.driver.abilityClaim.includes("completion") || spec.configuration.enabled === false) {
+      return;
+    }
+  }
+  void probeCompletionCatalog(host, internOwner, id);
+}
+
+/**
  * A completion connection a client is looking at (a picker, `/connect`) is
  * interned, so its catalog and account poll before any turn names it.
  */

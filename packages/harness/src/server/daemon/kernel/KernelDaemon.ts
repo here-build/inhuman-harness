@@ -63,7 +63,7 @@ import {
 import { graphEligibleSessionIds, ProductionRuntime } from "@/runtime";
 import { DocumentService, AwarenessRoom, attachLens, type PlaneSocket } from "@/yjs";
 
-import { internLookedAt, probeCompletionCatalog } from "./completion-catalog.js";
+import { internLookedAt, probeCompletionCatalog, warmCompletionCatalog } from "./completion-catalog.js";
 import { loginConnection, requireConnection, settingsBag, toListRow } from "./connection-rpc.js";
 import { healKernelDependencies, KERNEL_SEED_PACKAGES } from "./kernel-package.js";
 import { RemoteAccess, remoteLoggedIn } from "./remote-access.js";
@@ -272,6 +272,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       });
       const secretBag = { ...bags.secrets, ...(secrets ?? {}) };
       if (Object.keys(secretBag).length > 0) writeConnectionSecrets(this.root, id, secretBag);
+      warmCompletionCatalog(this, this, id);
       return { id };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.mcpServer.adopt, async ({ name, input, settings, secrets }) => {
@@ -745,6 +746,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     this.#reflector = new KernelReflector(this.root, plexus.root, this.runtime.registry);
     await this.#reflector.ready;
     if (this.#closed) return;
+    warmCompletionCatalog(this, this);
     this.#homeWatcher = new BotsWatcher(defaultBotsHome(this.root), () => this.#syncHomeBots(true));
     this.#globalHost = new ProjectDaemon(this, this.root, true);
     await this.#globalHost.ready;

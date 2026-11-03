@@ -4,7 +4,9 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { liveModelsOf } from "@inhuman.tools/harness-scheme";
 import { mkdtemp } from "fs-extra";
+import { when } from "mobx";
 import { expect, test } from "vitest";
 
 import { RpcInvalidParams } from "../../../contract.js";
@@ -73,5 +75,32 @@ test("connect/models intern-probes live ids and rejects non-completion", async (
   } finally {
     await alpha.close();
     await beta.close();
+  }
+}, 20_000);
+
+test("adopt warms a completion catalog, and the next boot warms a row already on disk", async () => {
+  const root = await mkdtemp(join(tmpdir(), "harness-adopt-warm-"));
+  const alpha = await listenCompat({ models: [{ id: "alpha-1" }], reply: sequenceReply });
+  const listed = (daemon: KernelDaemon): boolean => {
+    const spec = daemon.connections.alpha;
+    return spec != null && liveModelsOf(spec).includes("alpha-1");
+  };
+  try {
+    {
+      using daemon = new KernelDaemon(root);
+      await daemon.ready;
+      const adopted = (await daemon.handleRequest("connect/adopt", {
+        driver: "openai-compat",
+        name: "Alpha",
+        settings: { baseUrl: alpha.baseUrl },
+      })) as { id: string };
+      expect(adopted.id).toBe("alpha");
+      await when(() => listed(daemon), { timeout: 5_000 });
+    }
+    using again = new KernelDaemon(root);
+    await again.ready;
+    await when(() => listed(again), { timeout: 5_000 });
+  } finally {
+    await alpha.close();
   }
 }, 20_000);
