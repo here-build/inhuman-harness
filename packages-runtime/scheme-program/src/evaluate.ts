@@ -229,8 +229,9 @@ function handleEvaluationStop(
 ): Extract<EvalOutcome, { kind: "park" | "halt" }> | undefined {
   if (!canApplyProgramResults(host) || parked(host) || isParkAbort(signal)) return { kind: "park" };
   if (cancelled(host)) {
-    cancelLiveInvocations(chunk, host, hostAbortReason(host));
-    return { kind: "halt", result: fail("Error: Scheme REPL call cancelled") };
+    const reason = hostAbortReason(host);
+    cancelLiveInvocations(chunk, host, reason);
+    return { kind: "halt", result: fail(reason == null ? "Error: Scheme REPL call cancelled" : errorText(reason)) };
   }
   const halt = haltResult(signal, timeoutMs, error);
   if (halt) {
@@ -399,9 +400,10 @@ export async function guardProgram(
     }
   } finally {
     if (canApplyProgramResults(host) && !chunk.completed && !parked(host)) {
-      cancelLiveInvocations(chunk, host, hostAbortReason(host));
+      const reason = hostAbortReason(host);
+      cancelLiveInvocations(chunk, host, reason);
       if (cancelled(host)) chunk.cancelled = true;
-      sealChunk(chunk, fail("Error: Scheme REPL call cancelled"));
+      sealChunk(chunk, fail(reason == null ? "Error: Scheme REPL call cancelled" : errorText(reason)));
     }
   }
 }
