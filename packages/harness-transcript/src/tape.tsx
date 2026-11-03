@@ -600,27 +600,105 @@ export function ToolBodyView({
   );
 }
 
+/** Leave the compact note untouched and render a separate anchored hover preview. */
+function AuxiliaryPreview({ children }: { readonly children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [openPreview, setOpenPreview] = useState(false);
+  const anchor = `--auxiliary-${useId().replaceAll(":", "")}`;
+  const cancelClose = () => {
+    if (closeTimer.current != null) clearTimeout(closeTimer.current);
+  };
+  const open = () => {
+    cancelClose();
+    document.dispatchEvent(new CustomEvent("auxiliary-preview-enter", { detail: ref.current }));
+    const content = ref.current?.querySelector<HTMLElement>(".auxiliary-content");
+    // Check nested ellipsis regions too (for example, agent task/status labels).
+    // Measure on entry so streamed text and responsive sizing are up to date.
+    const regions = content ? [content, ...content.querySelectorAll<HTMLElement>("*")] : [];
+    setOpenPreview(
+      regions.some(
+        (region) =>
+          (region.clientHeight > 0 && region.scrollHeight > region.clientHeight + 1) ||
+          (region.clientWidth > 0 && region.scrollWidth > region.clientWidth + 1),
+      ),
+    );
+  };
+  const close = () => {
+    cancelClose();
+    // Let the pointer cross the gutter to the full-width preview.
+    closeTimer.current = setTimeout(() => {
+      if (!ref.current?.contains(document.activeElement)) setOpenPreview(false);
+    }, 180);
+  };
+  useEffect(() => {
+    const onOtherPreview = (event: Event) => {
+      if ((event as CustomEvent<HTMLElement>).detail === ref.current) return;
+      if (closeTimer.current != null) clearTimeout(closeTimer.current);
+      setOpenPreview(false);
+    };
+    document.addEventListener("auxiliary-preview-enter", onOtherPreview);
+    return () => {
+      document.removeEventListener("auxiliary-preview-enter", onOtherPreview);
+      if (closeTimer.current != null) clearTimeout(closeTimer.current);
+    };
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className="auxiliary-preview"
+      tabIndex={0}
+      data-preview-open={openPreview ? "" : undefined}
+      style={{ anchorName: anchor } as CSSProperties}
+      onMouseEnter={open}
+      onMouseLeave={close}
+      onFocus={open}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          cancelClose();
+          setOpenPreview(false);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          cancelClose();
+          setOpenPreview(false);
+        }
+      }}
+    >
+      <div className="auxiliary-content">{children}</div>
+      {openPreview ? (
+        <div className="auxiliary-popup" style={{ positionAnchor: anchor } as CSSProperties}>
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function TitleNote({ beat }: { readonly beat: Pick<TapeBeat, "id" | "mark"> }) {
   if (beat.mark == null) return null;
   const titled = beat.mark.title !== "";
   return (
     <aside className="progress-mark side-note">
-      {titled ? (
-        <h3 className="progress-title" id={`${beat.id}-title`}>
-          {beat.mark.title}
-        </h3>
-      ) : null}
-      {beat.mark.description === "" ? null : <p className="progress-description">{beat.mark.description}</p>}
-      {beat.mark.items.length === 0 ? null : (
-        <ul className="progress-items">
-          {beat.mark.items.map((item) => (
-            <li key={item.id}>
-              <span className="progress-item-label">{item.label}</span>
-              {item.detail === "" ? null : <span className="progress-item-detail">{item.detail}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
+      <AuxiliaryPreview>
+        {titled ? (
+          <h3 className="progress-title" id={`${beat.id}-title`}>
+            {beat.mark.title}
+          </h3>
+        ) : null}
+        {beat.mark.description === "" ? null : <p className="progress-description">{beat.mark.description}</p>}
+        {beat.mark.items.length === 0 ? null : (
+          <ul className="progress-items">
+            {beat.mark.items.map((item) => (
+              <li key={item.id}>
+                <span className="progress-item-label">{item.label}</span>
+                {item.detail === "" ? null : <span className="progress-item-detail">{item.detail}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </AuxiliaryPreview>
     </aside>
   );
 }
@@ -652,11 +730,13 @@ function ThoughtNotes({ beat }: { readonly beat: TapeBeat }) {
         Reasoning
       </FieldButton>
       <TranscriptDisclosurePanel className="thoughts-disclosure-panel">
-        {beat.thoughts.map((thought) => (
-          <aside className="tape-thought" key={thought.id}>
-            <Markdown text={thought.text} />
-          </aside>
-        ))}
+        <AuxiliaryPreview>
+          {beat.thoughts.map((thought) => (
+            <aside className="tape-thought" key={thought.id}>
+              <Markdown text={thought.text} />
+            </aside>
+          ))}
+        </AuxiliaryPreview>
       </TranscriptDisclosurePanel>
     </Disclosure>
   );
@@ -671,27 +751,29 @@ function AgentNote({ cell, glance }: { readonly cell: AgentCell; readonly glance
   const [peeking, setPeeking] = useState(false);
   return (
     <>
-      <Button
-        variant="content"
-        type="button"
-        className="agent-note"
-        data-state={face.state}
-        aria-haspopup="dialog"
-        // A call the daemon has not interned yet has no session to open.
-        disabled={cell.sessionId === ""}
-        onPress={() => setPeeking(true)}
-      >
-        <span className="agent-who">
-          <span className="agent-name">{face.name}</span>
-          {face.model === "" ? null : <span className="text-muted">{naturalName(face.model)}</span>}
-        </span>
-        <span className="agent-task">{face.task}</span>
-        {face.status === "" ? null : (
-          <span className="agent-status">
-            <span>{face.status}</span>
+      <AuxiliaryPreview>
+        <Button
+          variant="content"
+          type="button"
+          className="agent-note"
+          data-state={face.state}
+          aria-haspopup="dialog"
+          // A call the daemon has not interned yet has no session to open.
+          disabled={cell.sessionId === ""}
+          onPress={() => setPeeking(true)}
+        >
+          <span className="agent-who">
+            <span className="agent-name">{face.name}</span>
+            {face.model === "" ? null : <span className="text-muted">{naturalName(face.model)}</span>}
           </span>
-        )}
-      </Button>
+          <span className="agent-task">{face.task}</span>
+          {face.status === "" ? null : (
+            <span className="agent-status">
+              <span>{face.status}</span>
+            </span>
+          )}
+        </Button>
+      </AuxiliaryPreview>
       {/* Out of the lane: a note's slot is a positioned, click-through box, and its anchors are the page's. */}
       {peeking ? createPortal(<AgentPeek cell={cell} onClose={() => setPeeking(false)} />, document.body) : null}
     </>

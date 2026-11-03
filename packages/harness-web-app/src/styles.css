@@ -2159,6 +2159,95 @@ html:has(.composer-pill[data-drop]) {
   content-visibility: visible;
 }
 
+/* Bound the entire auxiliary note, not each paragraph or streamed thought.
+   The prefixed form supplies multiline ellipsis until line-clamp is universal. */
+.auxiliary-preview {
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.auxiliary-content {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  max-block-size: 9lh;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.auxiliary-content > .tape-thought + .tape-thought {
+  margin-block-start: var(--note-gap);
+}
+
+/* Only emphasize the source; the independent popup never changes its layout. */
+.auxiliary-preview[data-preview-open] > .auxiliary-content {
+  color: var(--ink);
+  filter: brightness(1.15);
+}
+
+.auxiliary-popup {
+  position: fixed;
+  inset: auto;
+  inset-inline-start: anchor(--timeline-main left, 1rem);
+  inset-inline-end: anchor(--timeline-main right, 1rem);
+  inset-block-start: max(1rem, anchor(top, 1rem));
+  position-try-fallbacks: --auxiliary-bottom;
+  box-sizing: border-box;
+  z-index: 20;
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: none;
+  max-block-size: min(40rem, calc(100dvh - 2rem));
+  padding: --spacing(5);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  box-shadow: 0 --spacing(3) --spacing(8) rgb(0 0 0 / 20%);
+  color: var(--ink);
+  text-align: start;
+}
+
+/* If the anchored position crosses the viewport bottom, lift the entire
+   popup instead of merely cropping its content at the original position. */
+@position-try --auxiliary-bottom {
+  inset-block-start: auto;
+  inset-block-end: 1rem;
+}
+
+.auxiliary-popup .agent-note > span {
+  display: block;
+  overflow: visible;
+  white-space: normal;
+}
+
+.auxiliary-popup .agent-note > span > span {
+  overflow: visible;
+}
+
+/* The popup has plain content, not the side-note's decorative bar. */
+.auxiliary-popup .tape-thought,
+.auxiliary-popup .agent-note {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.auxiliary-popup .tape-thought::before,
+.auxiliary-popup .agent-note::before {
+  display: none;
+}
+
+/* Narrow layouts flatten timeline-main, so use the transcript's body edges. */
+@container (max-width: 52rem) {
+  .auxiliary-popup {
+    inset-inline: var(--gutter-width);
+  }
+}
+
 .assistant-body {
   min-width: 0;
 }

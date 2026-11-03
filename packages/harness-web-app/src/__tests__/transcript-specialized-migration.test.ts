@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Tape } from "../../../harness-transcript/src/tape.js";
 import { sessionStage } from "../__stories__/story-app.js";
-import { agent, read, session, speech, tool, write, type StoryDial } from "../__stories__/world.js";
+import { agent, read, session, speech, title, tool, write, type StoryDial } from "../__stories__/world.js";
 import { DialProvider } from "../client/context.js";
 import { FilePreviewProvider, useFilePreview } from "../shell/file-sidebar.js";
 import { readTarget } from "../shell/path.js";
@@ -116,6 +116,7 @@ async function fixture(withAgent = false, cancelled = false) {
               read("Missing.ts", "Permission denied while reading.", { failed: true }),
               write("Locked.ts", "replacement", { failed: "The file is read-only." }),
               speech("Finished inspecting.", { model: "grok-4.7-build-fast", thought: "Reasoning remains readable." }),
+              title("Progress note", "The stretch stays readable."),
             ],
       },
     ],
