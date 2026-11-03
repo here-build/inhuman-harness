@@ -11,10 +11,11 @@
 import { Agent, fetch as undiciFetch, setGlobalDispatcher } from "undici";
 
 export const REQUEST_TIMEOUT_MS = 60_000;
+export const HEADERS_TIMEOUT_MS = 180_000;
 
 const agent = new Agent({
   connectTimeout: REQUEST_TIMEOUT_MS,
-  headersTimeout: REQUEST_TIMEOUT_MS,
+  headersTimeout: HEADERS_TIMEOUT_MS,
 });
 setGlobalDispatcher(agent);
 globalThis.fetch = undiciFetch as unknown as typeof fetch;

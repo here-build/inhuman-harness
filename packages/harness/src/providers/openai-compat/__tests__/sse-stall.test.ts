@@ -48,7 +48,14 @@ describe("SSE progress and cancellation", () => {
     const frames = [
       { choices: [{ delta: { content: "hello" } }] },
       { choices: [{ delta: { reasoning_content: "consider" } }] },
+      { choices: [{ delta: { thinking: "ponder" } }] },
+      { choices: [{ delta: { reasoning_details: [{ type: "reasoning.text", text: "detail" }] } }] },
+      { choices: [{ delta: { content: "<think>" } }] },
       { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: "{}" } }] } }] },
+      {
+        type: "response.output_item.done",
+        item: { type: "reasoning", summary: [{ type: "summary_text", text: "summary" }] },
+      },
       { type: "response.reasoning_summary_text.delta", delta: "reason" },
       { type: "response.function_call_arguments.delta", delta: "{}" },
       { type: "response.completed" },

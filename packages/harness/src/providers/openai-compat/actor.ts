@@ -84,7 +84,7 @@ const TRANSIENT_TEXT =
   /fetch failed|Failed to fetch|ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|EAI_AGAIN|Connect Timeout|Headers Timeout|other side closed|UND_ERR_|socket hang up/i;
 
 /** Parsed SSE `data:` only. Socket bytes reset undici's body timer, including pings (`request-timeout.ts`). */
-const STREAM_STALL_MS = 60_000;
+const STREAM_STALL_MS = 180_000;
 
 /** Longest wait between attempts, whether it comes from our backoff or from the server. */
 const BACKOFF_CAP_MS = 5 * 60 * 1000;
@@ -586,6 +586,8 @@ function streamFrameProgress(frame: unknown): boolean {
       text(readField(item, "name")) ||
       text(readField(item, "arguments")) ||
       text(readField(item, "encrypted_content")) ||
+      text(reasoningPartText(readField(item, "summary"))) ||
+      text(reasoningPartText(readField(item, "content"))) ||
       text(content.text) ||
       text(content.thought)
     );
@@ -601,8 +603,21 @@ function streamFrameProgress(frame: unknown): boolean {
     if (
       text(content.text) ||
       text(content.thought) ||
+      content.sawThinking ||
       text(readField(delta, "reasoning_content")) ||
-      text(readField(delta, "reasoning"))
+      text(readField(delta, "reasoning")) ||
+      text(readField(delta, "thinking"))
+    )
+      return true;
+    const reasoningDetails = readField(delta, "reasoning_details");
+    if (
+      Array.isArray(reasoningDetails) &&
+      reasoningDetails.some(
+        (entry: unknown) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          (text(readField(entry, "text")) || text(readField(entry, "summary")) || text(readField(entry, "data"))),
+      )
     )
       return true;
     const calls = readField(delta, "tool_calls");
