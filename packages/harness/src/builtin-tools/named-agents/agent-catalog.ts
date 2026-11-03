@@ -170,9 +170,6 @@ export function peelAgentCallArgs(argsJson: string): {
   const rec = parsed.data;
   const rest: Record<string, unknown> = { ...rec };
   for (const key of PEELED_KEYS) delete rest[key];
-  const tools = Array.isArray(rec.tools)
-    ? rec.tools.filter((row): row is string => typeof row === "string" && row.trim() !== "").map((row) => row.trim())
-    : [];
   return {
     argsJson: JSON.stringify(rest),
     voidLegal: rec.voidLegal !== false,
@@ -181,7 +178,9 @@ export function peelAgentCallArgs(argsJson: string): {
     oneShot: rec.oneShot === true,
     constitution: asSystemPrompt(typeof rec.constitution === "string" ? rec.constitution : ""),
     faceName: typeof rec.name === "string" ? rec.name.trim() : "",
-    tools,
+    tools: Array.isArray(rec.tools)
+      ? rec.tools.filter((row): row is string => typeof row === "string" && row.trim() !== "").map((row) => row.trim())
+      : [],
     inheritCallerTools: rec.inheritCallerTools === true,
     reasoningEffort: reasoningEffortOf(rec.reasoningEffort),
   };

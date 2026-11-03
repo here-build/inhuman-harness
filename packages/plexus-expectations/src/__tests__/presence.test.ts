@@ -68,7 +68,7 @@ describe("catalog presence", () => {
     let boot = new Promise<string[]>((resolve) => {
       releaseBoot = resolve;
     });
-    class NamedDriver extends PEWDriver<WorkExpectation, Readonly<Record<string, unknown>>> {
+    class NamedDriver extends PEWDriver<WorkExpectation> {
       @observable.shallow override accessor state = namedLiveState();
       async bootstrap(): Promise<void> {
         this.state.models = await boot;

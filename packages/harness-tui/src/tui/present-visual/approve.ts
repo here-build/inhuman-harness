@@ -99,7 +99,7 @@ async function attachReview(
   actual: Dump,
   expected: Dump | undefined,
 ): Promise<void> {
-  let note = "";
+  let note: string;
   try {
     const paths = await writeReview(name, cols, rows, actual, expected);
     note = `\n${paths.join("\n")}`;

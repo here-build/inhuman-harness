@@ -32,7 +32,7 @@ export function createRefresher(options: RefresherOptions): Refresher {
   let stopped = false;
 
   const once = async () => {
-    let next = "";
+    let next: string;
     try {
       next = await run(dir, abort.signal);
     } catch {

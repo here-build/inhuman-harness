@@ -645,17 +645,6 @@ export function dumpTexts(blocks: TranscriptBlock[]): string {
   return blocks.flatMap((block) => block.texts).join("\n");
 }
 
-export function normalizeDump(frame: FrameDump) {
-  const cell = findDisclosure(frame.transcript);
-  return {
-    kinds: dumpKinds(frame.transcript),
-    collapsed: cell?.collapsed ?? null,
-    gutter: cell?.gutter ?? null,
-    role: cell?.role ?? null,
-    annotation: frame.composer.annotation,
-  };
-}
-
 export function pickerOf(node: unknown): {
   selectedKey: string | null;
   scrollOffset: number;

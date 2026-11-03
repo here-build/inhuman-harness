@@ -130,7 +130,7 @@ export const LEGACY_POLICY: ResolvedPolicy = seal({ ...LEGACY_CONTEXT_RETENTION,
 function sessionHorizon(raw: string): Horizon[] | null {
   const text = raw.trim();
   if (text === "") return null;
-  let value: unknown = text;
+  let value: any;
   try {
     value = JSON.parse(text);
   } catch {

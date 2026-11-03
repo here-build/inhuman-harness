@@ -182,7 +182,7 @@ function admitExam(call: ToolCall, ctx: AdmitContext, entry: CatalogEntry): Prog
   }
   ctx.originTurn?.pushChild(bag);
   const admittedAction = exam.admit(prefix, input);
-  let jobUuid = "";
+  let jobUuid: string;
   try {
     jobUuid = bag.uuid;
   } catch {
