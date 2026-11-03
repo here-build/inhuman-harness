@@ -10,10 +10,11 @@ import {
   type Client,
 } from "@inhuman.tools/harness-sdk";
 import { titleAgentSpec } from "@inhuman.tools/harness-sdk/text";
-import { INDICATION_VOID_GLYPH, type LayoutNode } from "@inhuman.tools/quickdraw/layout";
+import { chromeFrameTextWidth, INDICATION_VOID_GLYPH, type LayoutNode } from "@inhuman.tools/quickdraw/layout";
 import { BgP, FgP } from "@inhuman.tools/quickdraw/lexicon";
 import {
   AGENTS_PEEK_MAX_HEIGHT,
+  agentsPreviewRect,
   APP_AGENTS_PEEK_KEY,
   STATUSLINE_PAD_L,
   STATUSLINE_PAD_R,
@@ -167,6 +168,11 @@ export function prepareAgentsDrawer(face: AgentsReplicaFace, width: number): Lay
 }
 
 const PANEL_FILL = { bgRole: "surface" as const, bgProminence: BgP.panel };
+
+/** Width offered to the peeked tape: modal minus chrome_frame body chrome. */
+export function agentsPreviewInnerWidth(cols: number): number {
+  return Math.max(8, chromeFrameTextWidth(agentsPreviewRect(cols, 24).w));
+}
 
 export function agentsPreviewTitle(face: Pick<AgentsReplicaFace, "previewKey" | "rows">): string {
   if (face.previewKey === "") return "";

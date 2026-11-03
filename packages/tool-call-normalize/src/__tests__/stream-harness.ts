@@ -10,7 +10,6 @@ import { expect } from "vitest";
 
 import {
   createStreamSession,
-  assembleEvents,
   type NormalizeEvent,
   type NormalizeOptions,
   type OpenAiChatChunk,
@@ -263,51 +262,4 @@ export function collectEvents(chunks: Iterable<Chunk>, opts?: NormalizeOptions):
 
 export async function runStream(chunks: Chunk[], opts?: NormalizeOptions): Promise<NormalizeEvent[]> {
   return collectEvents(chunks, opts);
-}
-
-/** tools + finish_reason parity (content seams ignored). */
-export function assertToolsFinishParity(
-  streamEvents: NormalizeEvent[],
-  batch: {
-    tool_calls: Array<{ function: { name: string; arguments: string } }>;
-    finish_reason: string | null;
-  },
-): void {
-  const assembled = assembleEvents(streamEvents);
-  expect(
-    assembled.tool_calls.map((t) => ({
-      name: t.function.name,
-      arguments: JSON.parse(t.function.arguments),
-    })),
-  ).toEqual(
-    batch.tool_calls.map((t) => ({
-      name: t.function.name,
-      arguments: JSON.parse(t.function.arguments),
-    })),
-  );
-  const streamFin = streamEvents.find((e) => e.type === "finish");
-  if (streamFin?.type === "finish" && batch.finish_reason) {
-    // batch null → stop-like
-    const want =
-      batch.finish_reason === "tool_calls" ||
-      batch.finish_reason === "length" ||
-      batch.finish_reason === "content_filter" ||
-      batch.finish_reason === "error" ||
-      batch.finish_reason === "aborted"
-        ? batch.finish_reason
-        : batch.finish_reason === null
-          ? streamFin.finish_reason
-          : "stop";
-    if (
-      want !== streamFin.finish_reason &&
-      batch.finish_reason !== null && // allow stream tool_calls vs batch tool_calls when both have tools
-      !(
-        batch.tool_calls.length > 0 &&
-        streamFin.finish_reason === "tool_calls" &&
-        (batch.finish_reason === "tool_calls" || batch.finish_reason === "stop")
-      )
-    ) {
-      expect(streamFin.finish_reason).toBe(batch.finish_reason);
-    }
-  }
 }

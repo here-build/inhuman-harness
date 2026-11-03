@@ -22,9 +22,6 @@ export type OAuthLoopbackListen = {
   readonly path?: string;
 };
 
-/** Injectable listen. `typeof listenOAuthLoopback` makes `opts` optional because of `= {}`. */
-export type ListenOAuthLoopback = (opts: OAuthLoopbackListen) => Promise<OAuthLoopback>;
-
 export type OAuthCallback = {
   readonly code: string;
   readonly state: string;

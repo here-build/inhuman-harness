@@ -9,15 +9,12 @@ import {
   checkpointOf,
   type DocumentCheckpoint,
   type DocumentKey,
-  type DocumentKind,
   type FlushResult,
-  type InventoryCheckpoint,
-  type InventoryError,
   type InventoryListQuery,
   type InventoryPage,
 } from "@/protocol/document";
 
-import { DocumentRegistry, documentGuid, type DocumentRef, type InventoryWatch } from "./registry/index.js";
+import { DocumentRegistry, documentGuid, type DocumentRef } from "./registry/index.js";
 import { DocumentImageStore } from "./storage.js";
 
 export type MemoryBudgets = {
@@ -150,16 +147,8 @@ export class DocumentService {
     return [...this.#replicas.values()].map(toRef);
   }
 
-  inventoryErrors(): readonly InventoryError[] {
-    return this.#registry.inventoryErrors();
-  }
-
   list(query: InventoryListQuery): Promise<InventoryPage> {
     return this.#registry.list(query);
-  }
-
-  watchChanges(kind: DocumentKind, checkpoint: InventoryCheckpoint): InventoryWatch {
-    return this.#registry.watchChanges(kind, checkpoint);
   }
 
   checkpoint(key: DocumentKey): DocumentCheckpoint | undefined {

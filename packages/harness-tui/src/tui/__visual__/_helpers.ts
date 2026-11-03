@@ -14,7 +14,6 @@ import { Client, ProjectPlexus } from "@inhuman.tools/harness-sdk";
 import { elementAt, layout, layoutChildren, type LayoutNode } from "@inhuman.tools/quickdraw/layout";
 import {
   agentsPanelWidth,
-  agentsPreviewInnerWidth,
   assemblePaintFrame,
   createPaintLocal,
   rasterPng,
@@ -27,7 +26,12 @@ import { expandWidgetPriors } from "@inhuman.tools/quickdraw/widgets";
 import { runInAction } from "mobx";
 import { destroy, getSnapshot } from "mobx-state-tree";
 
-import { agentsPreviewTitle as processPreviewTitle, prepareAgentsMeter, prepareAgentsPeek } from "../agents-drawer.js";
+import {
+  agentsPreviewInnerWidth,
+  agentsPreviewTitle as processPreviewTitle,
+  prepareAgentsMeter,
+  prepareAgentsPeek,
+} from "../agents-drawer.js";
 import {
   type AgentsPaintInstance,
   type ComposerPaintInstance,

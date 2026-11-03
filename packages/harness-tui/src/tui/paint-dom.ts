@@ -45,10 +45,6 @@ const SpeechPaint = types
       if (self.text === next) return;
       self.text = next;
     },
-    setVoice(next: SpeechVoice) {
-      if (self.voice === next) return;
-      self.voice = next;
-    },
     setAtMs(next: number | null) {
       if (self.atMs === next) return;
       self.atMs = next;

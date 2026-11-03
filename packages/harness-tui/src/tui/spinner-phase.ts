@@ -16,8 +16,6 @@ export const SPINNER_PHASE = {
   loadingModels: "loading models...",
 } as const;
 
-export type SpinnerPhase = (typeof SPINNER_PHASE)[keyof typeof SPINNER_PHASE];
-
 /** Cold completion wire: interned, handshake not finished, catalog still empty. */
 export function coldModelCatalog(input: {
   readonly connectionId: string;

@@ -116,4 +116,3 @@ export const supervisionMessageSchema = z.discriminatedUnion("op", [
   lossMessageSchema,
 ]);
 export type SupervisionMessage = z.infer<typeof supervisionMessageSchema>;
-export type SupervisionOp = SupervisionMessage["op"];

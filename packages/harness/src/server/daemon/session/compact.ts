@@ -17,8 +17,6 @@ import {
 
 import { defaultCompactStrategySource, packageStrategyPath, resolveCompactStrategyPath } from "../../defaults/index.js";
 
-export type CompactProgram = LoadedCompactProgram;
-
 const resolve: CompactStrategyResolve = {
   resolvePath: resolveCompactStrategyPath,
   defaultSource: defaultCompactStrategySource,

@@ -12,7 +12,6 @@ import { compilePluginInstall, mergePluginInstallState } from "./plugin-registry
 import { type PluginModuleRow } from "./plugin-tools.js";
 import { parametersFromZod } from "./tool-entry.js";
 import { type KernelToolCatalog } from "./tool-table.js";
-import { argsJsonValue, unknownRecordSchema } from "../schemas/json-record.js";
 import {
   HOST_PLUGINS,
   projectHostPluginSpecs,
@@ -146,9 +145,4 @@ function handleFromTool(pluginName: string, tool: ToolDefinition): PackToolHandl
     tapeHidden: tool.tapeHidden,
     exam: tool.exam,
   };
-}
-
-export function parseArgs(argumentsJson: string): Record<string, unknown> | null {
-  const parsed = unknownRecordSchema.safeParse(argsJsonValue(argumentsJson.trim() === "" ? "{}" : argumentsJson));
-  return parsed.success ? parsed.data : null;
 }

@@ -10,10 +10,6 @@ export function isSyncReady(health: TopologyHealth | PublishedHealth): boolean {
   return isPlaneReady(health, "sync");
 }
 
-export function isStorageReady(health: TopologyHealth | PublishedHealth): boolean {
-  return isPlaneReady(health, "storage");
-}
-
 export function isExecutionReady(health: TopologyHealth | PublishedHealth): boolean {
   return isPlaneReady(health, "execution");
 }

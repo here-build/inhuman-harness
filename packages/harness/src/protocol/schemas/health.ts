@@ -13,7 +13,6 @@ export const healthStateSchema = z.enum([
   "degraded",
   "failed",
 ]);
-export type HealthState = z.infer<typeof healthStateSchema>;
 
 export const planeStatusSchema = z
   .object({
@@ -30,7 +29,6 @@ export const planeStatusSchema = z
       });
     }
   });
-export type PlaneStatus = z.infer<typeof planeStatusSchema>;
 
 /** Hypervisor-aggregated snapshot. Child frames use `publishedHealthSchema`. */
 export const topologyHealthSchema = z

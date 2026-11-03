@@ -11,9 +11,4 @@ export * from "./credentials.js";
 export * from "./identity.js";
 export * from "./intern.js";
 export * from "./registry.js";
-export {
-  type DriverResolveSpec as DriverResolveSpec,
-  type ExternalDriverLoader as ExternalDriverLoader,
-  type ResolveOptions as ResolveOptions,
-  type ResolvePurpose as ResolvePurpose,
-} from "./resolve.js";
+export { type ResolveOptions as ResolveOptions, type ResolvePurpose as ResolvePurpose } from "./resolve.js";

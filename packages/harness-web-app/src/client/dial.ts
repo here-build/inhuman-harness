@@ -149,33 +149,6 @@ export class Dial {
   }
 
   /**
-   * A session's port for one write, without seating it. The open session is reused.
-   * Anything else is a room that closes when the write finishes.
-   */
-  async borrowSession<T>(
-    sessionId: string,
-    path: string,
-    run: (rpc: JsonRpcPort, plexus: SessionPlexus) => Promise<T>,
-  ): Promise<T> {
-    const seated = this.#sessions.get(sessionId);
-    if (seated != null) return run(seated.rpc, seated.plexus);
-    const doc = new Y.Doc({ guid: `harness:session:${sessionId}` });
-    const params: Record<string, string> = { sessionId };
-    if (path !== "") params.path = path;
-    const room = await this.#connect("session", params, doc, () => false, undefined, 60_000);
-    if (room == null) throw new Error("Could not open the session.");
-    const plexus = SessionPlexus.connect(room.doc);
-    const rpc = bindJsonRpc(room.provider);
-    room.rpc = rpc;
-    room.stop = bindProviderAwareness(plexus.awareness, room.provider);
-    try {
-      return await run(rpc, plexus);
-    } finally {
-      this.#destroyRoom(room);
-    }
-  }
-
-  /**
    * Another session's room to read: synced and live, never seated, no port to
    * write through. Route changes do not drop it; the caller releases it.
    */

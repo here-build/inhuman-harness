@@ -95,10 +95,8 @@ export {
   ToolError as ToolError,
   asToolResult as asToolResult,
   constrainQuery as constrainQuery,
-  resolveInRoot as resolveInRoot,
   type ToolResult as ToolResult,
 } from "./toolkit/dist-tools.js";
-export { toolResultSchema as toolResultSchema } from "./schemas/tool-result.js";
 export * from "./toolkit/bounds.js";
 export * from "./toolkit/finder.js";
 export * from "./toolkit/write-gate.js";

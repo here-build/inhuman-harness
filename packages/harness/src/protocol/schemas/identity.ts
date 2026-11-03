@@ -4,7 +4,6 @@ import { z } from "zod";
  * Opaque process identity. There is no pid field: pid reuse is not ownership.
  */
 export const processKindSchema = z.enum(["hypervisor", "yjs", "runtime"]);
-export type ProcessKind = z.infer<typeof processKindSchema>;
 
 export const processIdentitySchema = z
   .object({
@@ -12,13 +11,10 @@ export const processIdentitySchema = z
     id: z.string().trim().min(1),
   })
   .strict();
-export type ProcessIdentity = z.infer<typeof processIdentitySchema>;
 
 export const epochSchema = z.number().int().nonnegative();
-export type Epoch = z.infer<typeof epochSchema>;
 
 export const generationSchema = z.number().int().nonnegative();
-export type Generation = z.infer<typeof generationSchema>;
 
 /**
  * Four clocks the rest of the protocol fences with:

@@ -33,5 +33,3 @@ export const effectRecordSchema = z.discriminatedUnion("phase", [
   z.object({ phase: z.literal("intent"), request: requestSchema }),
   z.object({ phase: z.literal("result"), request: requestSchema, outcome: sessionEffectOutcomeSchema }),
 ]);
-
-export type EffectRecord = z.infer<typeof effectRecordSchema>;

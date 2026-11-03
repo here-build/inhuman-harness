@@ -18,12 +18,3 @@ export function asRecord(value: unknown): Record<string, unknown> | null {
 export function parseJsonUnknown(text: string): unknown {
   return JSON.parse(text);
 }
-
-/** Object JSON or null. Throws stay at the caller when they need fail-open. */
-export function parseJsonRecord(text: string): Record<string, unknown> | null {
-  try {
-    return asRecord(parseJsonUnknown(text));
-  } catch {
-    return null;
-  }
-}

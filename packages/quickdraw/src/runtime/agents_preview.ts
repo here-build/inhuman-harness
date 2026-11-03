@@ -47,11 +47,6 @@ export function agentsPreviewRect(
   };
 }
 
-/** Width offered to the peeked tape: modal minus chrome_frame body chrome. */
-export function agentsPreviewInnerWidth(cols: number): number {
-  return Math.max(8, chromeFrameTextWidth(agentsPreviewRect(cols, 24).w));
-}
-
 export function withAgentsPreview(args: {
   readonly root: LayoutNode;
   readonly tape: LayoutNode;

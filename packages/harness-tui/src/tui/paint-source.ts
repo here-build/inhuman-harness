@@ -7,7 +7,6 @@ import { trace } from "@inhuman.tools/harness-diagnostics";
 import { layoutChildren, mapLayoutChildren, measureNode, type LayoutNode } from "@inhuman.tools/quickdraw/layout";
 import {
   agentsPanelWidth,
-  agentsPreviewInnerWidth,
   assemblePaintFrame,
   EMPTY_PREPARED_COMPOSER,
   emptyPreparedPaint,
@@ -29,7 +28,13 @@ import {
 import { type SyntaxPolarity } from "@inhuman.tools/quickdraw/widgets";
 import { reaction, runInAction, type IReactionDisposer } from "mobx";
 
-import { agentsPreviewTitle, prepareAgentsMeter, prepareAgentsPeek, type AgentsReplicaFace } from "./agents-drawer.js";
+import {
+  agentsPreviewInnerWidth,
+  agentsPreviewTitle,
+  prepareAgentsMeter,
+  prepareAgentsPeek,
+  type AgentsReplicaFace,
+} from "./agents-drawer.js";
 import {
   createWorkCell,
   isPaintRootChrome,

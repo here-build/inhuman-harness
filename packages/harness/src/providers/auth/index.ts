@@ -5,13 +5,7 @@
  */
 
 export * from "./device.js";
-export {
-  authorizeInBrowser as authorizeInBrowser,
-  BROWSER_SIGN_IN_TIMEOUT_MS as BROWSER_SIGN_IN_TIMEOUT_MS,
-  type BrowserAuthorization as BrowserAuthorization,
-  type BrowserAuthorizeOptions as BrowserAuthorizeOptions,
-  type BrowserAuthorizeUi as BrowserAuthorizeUi,
-} from "./authorize.js";
+export { authorizeInBrowser as authorizeInBrowser } from "./authorize.js";
 export {
   accessTokenExpiring as accessTokenExpiring,
   exchangeOidcCode as exchangeOidcCode,
@@ -20,7 +14,6 @@ export {
   jwtPayload as jwtPayload,
   mergeOidcIdentity as mergeOidcIdentity,
   mintOidcPkce as mintOidcPkce,
-  oidcFromVerifier as oidcFromVerifier,
   OidcGrantError as OidcGrantError,
   OIDC_REFRESH_BACKOFF_MS as OIDC_REFRESH_BACKOFF_MS,
   OIDC_REFRESH_MS as OIDC_REFRESH_MS,
@@ -30,7 +23,6 @@ export {
   secretsFromIdentity as secretsFromIdentity,
   secretsFromTokens as secretsFromTokens,
   type OidcIdentity as OidcIdentity,
-  type OidcPkce as OidcPkce,
   type OidcProfile as OidcProfile,
   type OidcTokens as OidcTokens,
 } from "./oidc.js";

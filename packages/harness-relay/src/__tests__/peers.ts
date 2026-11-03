@@ -1,5 +1,4 @@
 import { handleChunked, sendChunked } from "@inhuman.tools/chunked-websocket";
-import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import * as Y from "yjs";
 
@@ -158,7 +157,3 @@ export function awarenessFrame(id: number, clock: number, state: unknown): Uint8
   encoding.writeVarUint8Array(frame, encoding.toUint8Array(payload));
   return encoding.toUint8Array(frame);
 }
-
-export const isBinary = (f: Frame): f is Uint8Array => typeof f !== "string";
-export const typeOf = (f: Frame): number =>
-  typeof f === "string" ? -1 : decoding.readVarUint(decoding.createDecoder(f));

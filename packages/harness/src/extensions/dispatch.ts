@@ -559,14 +559,6 @@ export async function dispatchBoundary(
   }
 }
 
-/** Project a prompt for the upcoming call. The recorded input is left as passed. */
-export function projectPrompt<T>(
-  recorded: T,
-  project: (input: T) => T,
-): { readonly recorded: T; readonly projected: T } {
-  return { recorded, projected: project(recorded) };
-}
-
 export async function callDeclaredTool(
   registry: Registry,
   name: string,
@@ -587,12 +579,6 @@ export async function callDeclaredTool(
   } finally {
     leave();
   }
-}
-
-export function replayDeliveries(
-  deliveries: readonly { readonly id: string; readonly payload: string }[],
-): readonly string[] {
-  return deliveries.map((row) => row.payload);
 }
 
 function messageOf(error: unknown): string {

@@ -14,12 +14,8 @@ export { type OpenAiTool as OpenAiTool } from "./arg-aliases.js";
 export {
   accountFromChatGptUsage as accountFromChatGptUsage,
   chatgptUsageUrl as chatgptUsageUrl,
-  CHATGPT_USAGE_PATH as CHATGPT_USAGE_PATH,
 } from "./api-extensions/chatgpt-usage.js";
-export {
-  accountFromGrokBilling as accountFromGrokBilling,
-  GROK_BILLING_PATH as GROK_BILLING_PATH,
-} from "./api-extensions/grok-billing.js";
+export { accountFromGrokBilling as accountFromGrokBilling } from "./api-extensions/grok-billing.js";
 export {
   getChatGptAccount as getChatGptAccount,
   getGrokAccount as getGrokAccount,

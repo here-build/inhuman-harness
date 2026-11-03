@@ -88,16 +88,6 @@ type Ctx = {
 /** What a node hands its children: the tier it votes by default, the class it votes as, and where it is. */
 type Inherited = { readonly policy: Disposition; readonly cls: ClassId; readonly id: string };
 
-export function checkBash(
-  term: CommandNode,
-  command: string,
-  clusters: PathClusters = {},
-  which?: Which,
-  cwd?: string,
-): Disposition {
-  return explainBash(term, command, clusters, which, cwd).disposition;
-}
-
 export function explainBash(
   term: CommandNode,
   command: string,

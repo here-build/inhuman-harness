@@ -10,7 +10,6 @@ export const lossKindSchema = z.enum([
   "heartbeat-missing",
   "lock-released",
 ]);
-export type LossKind = z.infer<typeof lossKindSchema>;
 
 /**
  * Accumulated facts about a previous owner. Heartbeat-missing and
@@ -44,7 +43,6 @@ export const replacementRefuseReasonSchema = z.enum([
   "exit-unconfirmed",
   "lock-held",
 ]);
-export type ReplacementRefuseReason = z.infer<typeof replacementRefuseReasonSchema>;
 
 export const replacementDecisionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("replace") }).strict(),

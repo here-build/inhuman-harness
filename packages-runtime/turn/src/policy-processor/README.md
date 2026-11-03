@@ -28,7 +28,7 @@ policy.json → compiledPolicy → { bash(command), read(path), write(path) } �
 
 ## Tirith shell floor
 
-`FloorHandle` checks the complete original shell command with the installed Tirith binary before publishing `policyResult`. `checkBash` and the Scheme floor remain pure. The host joins both votes with `block > deny > ask > approve`. Tirith **coverage** (not raw `action`) is the join: concrete allow/warn/block map to `approve`/`ask`/`block`; nested-incomplete-only is remainder `ask`; offline package-intel gaps are not a finding; scanner failure is `block`. Dist ask + `classifier-bash-incomplete.prompt` is the nested-incomplete intern. Classifier evidence is concrete findings only.
+`FloorHandle` checks the complete original shell command with the installed Tirith binary before publishing `policyResult`. `explainBash` and the Scheme floor remain pure. The host joins both votes with `block > deny > ask > approve`. Tirith **coverage** (not raw `action`) is the join: concrete allow/warn/block map to `approve`/`ask`/`block`; nested-incomplete-only is remainder `ask`; offline package-intel gaps are not a finding; scanner failure is `block`. Dist ask + `classifier-bash-incomplete.prompt` is the nested-incomplete intern. Classifier evidence is concrete findings only.
 
 The adapter uses argument-array execution, POSIX parsing (matching the shell tool's `/bin/sh`), offline local analysis, a five-second timeout, a 1 MiB output limit, and cancellation. It validates JSON schema 3 and the verdict/exit-code pair. Program, command, tool name, or workspace changes cancel pending checks; cancelled, released, and closed jobs cannot receive stale votes. No verdict is published until inspection finishes.
 

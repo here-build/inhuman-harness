@@ -114,13 +114,6 @@ export function unbindProjectRecipes(catalog: KernelToolCatalog, workspacePath: 
   catalog.unbindProjectRecipes(workspacePath);
 }
 
-export function projectRecipesOf(
-  catalog: KernelToolCatalog,
-  workspacePath: string | undefined,
-): readonly CatalogRecipe[] {
-  return catalog.projectRecipesOf(workspacePath);
-}
-
 export function sessionCatalog(root: object | undefined | null): KernelToolCatalog | undefined {
   if (root == null) return undefined;
   const catalog = catalogOf(root);

@@ -90,14 +90,6 @@ export function mcpCopies(rows: readonly (readonly [string, McpFace])[], install
   return copies;
 }
 
-/** Description, then each copy's login. No copies yet says so. */
-export function registryDetail(description: string, copies: readonly McpCopy[]): string {
-  const lines = [description.trim()];
-  if (copies.length === 0) lines.push("Not connected");
-  for (const copy of copies) lines.push(`${copy.name} · ${copy.login}`);
-  return lines.filter((line) => line !== "").join("\n");
-}
-
 /** Empty while the field is empty or results are showing. */
 export function registryStatus(query: string, pending: boolean, hits: number): string {
   if (query.trim() === "") return "";

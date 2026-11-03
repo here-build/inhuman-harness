@@ -87,7 +87,6 @@ export const fileCatalogSchema = z.object({
   statusline: z.string().optional(),
   statuslineRefresh: z.string().optional(),
 });
-export type ConnectionSlice = z.output<typeof connectionSliceSchema>;
 export type ConfigJson = z.output<typeof fileCatalogSchema>;
 
 function keepParsedRecord<T>(raw: unknown, schema: z.ZodType<T>): Record<string, T> {
@@ -124,7 +123,6 @@ const kvScalarSchema = z.union([
   z.number().finite().transform(String),
   z.boolean().transform((value) => (value ? "true" : "false")),
 ]);
-export const kvBagSchema = z.record(z.string(), kvScalarSchema);
 
 /** Object JSON bag; skip non-scalar values the way mutate-kv used to. */
 export function parseKvBag(raw: unknown): Record<string, string> {
