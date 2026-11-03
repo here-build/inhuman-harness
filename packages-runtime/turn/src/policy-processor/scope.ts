@@ -16,7 +16,6 @@ import type { PromptComplete } from "@inhuman.tools/env-capability-module-prompt
 import {
   type AckCall,
   type AckState,
-  ACKED_ONCE,
   activeAcks,
   classifyMcpToolName,
   clusterOf,
@@ -566,7 +565,7 @@ export class LicenseScope {
   /** A stored ack came or went, or the mode changed: where does the call stand now? */
   #reconcileAck(job: ToolCallJob): void {
     if (job.policyResult === null || job.policyResult === "block") return;
-    if (job.ackFlagsJson === null || job.ackState === "refused" || job.ackedBy === ACKED_ONCE) return;
+    if (job.ackFlagsJson === null || job.ackState === "refused" || job.ackedBy === "human") return;
     const call: AckCall = { classes: job.policyClasses, mcp: job.grantMcp, tool: job.grantToolName, units: [] };
     const resolution = resolveAcks(activeAcks(job.ackFlags, job.permissionMode), this.visibleAcks(), call);
     job.stampAck(resolution.state, resolution.ackedBy.length === 0 ? null : resolution.ackedBy.join(","));

@@ -17,9 +17,6 @@ import type { LayerName, Layers } from "./resolve.js";
 
 export type AckState = "none" | "pending" | "satisfied" | "refused";
 
-/** Who said yes: `human` is the person who answered this one prompt; otherwise stored ack ids. */
-export const ACKED_ONCE = "human";
-
 export type AckFlag = {
   readonly match: AckMatch;
   readonly why?: string;

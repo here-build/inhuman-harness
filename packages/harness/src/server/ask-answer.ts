@@ -10,7 +10,6 @@
  * - A comment is a reply to the agent, so it widens and stores nothing.
  */
 import {
-  ACKED_ONCE,
   type ApprovableJob,
   DEFAULT_PROMPT_TTL,
   grantLabel,
@@ -131,7 +130,7 @@ export function applyAskAnswer(
     if (grant !== undefined) save(desk, grant, env);
     if (ack !== undefined) save(desk, ack, env);
     // The person who allowed a combined prompt saw the acknowledgement on it: one prompt, not two.
-    if (answer.allow && leaf.ackPending) leaf.stampAck("satisfied", ACKED_ONCE);
+    if (answer.allow && leaf.ackPending) leaf.stampAck("satisfied", "human");
     leaf.humanApprove = answer.allow;
   });
   return grant === undefined ? { ok: true } : { ok: true, grant };
@@ -164,7 +163,7 @@ export function applyAckAnswer(
     if (comment !== "") leaf.approvalComment = comment;
     if (ack !== undefined) save(desk, ack, env);
     if (answer.accept) {
-      leaf.stampAck("satisfied", ACKED_ONCE);
+      leaf.stampAck("satisfied", "human");
       // A prompt that was also an ask: the same yes settles it. An ack-only prompt needs no more.
       if (leaf.baseLicenseDetail.decision !== true) leaf.humanApprove = true;
     } else {

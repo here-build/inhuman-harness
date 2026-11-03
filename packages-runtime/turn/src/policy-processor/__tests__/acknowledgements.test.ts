@@ -4,13 +4,7 @@
  * TTL, never lifts a block or a denial, and in an unattended run denies as `interaction_required`,
  * tells the user and lets the run continue without counting it as a bypass attempt.
  */
-import {
-  ACKED_ONCE,
-  type GrantRow,
-  MCPToolJob,
-  McpToolExpectation,
-  refusalReasonOf,
-} from "@inhuman.tools/harness-model";
+import { type GrantRow, MCPToolJob, McpToolExpectation, refusalReasonOf } from "@inhuman.tools/harness-model";
 import { when } from "mobx";
 import { describe, expect, it } from "vitest";
 
@@ -72,7 +66,7 @@ describe("an acknowledgement is forced on allow", () => {
     });
     expect(ls.orchestrated).toBe(false);
     // The person acknowledges: the call runs.
-    ls.stampAck("satisfied", ACKED_ONCE);
+    ls.stampAck("satisfied", "human");
     await settled(ls);
     expect(ls.orchestrationResult).toBe(true);
   });
