@@ -61,15 +61,15 @@ export const CONTEXT_NEED_TOKENS_MAX = 100_000_000;
 
 /** Tool description shown to the model. */
 export const CONTEXT_NEED_DESCRIPTION =
-  "Declare what the next stretch of work needs from working context. min_remaining_tokens is a conservative request for free tokens, not an estimate of how much context remains. preserve and focus name what should survive if the runtime reshapes older context. Set current_phase_settled when the current reasoning phase has reached a clean boundary. One-way control signal: do not wait for a result, do not infer whether context was reshaped, and do not use this tool to guess runtime capacity.";
+  "State what the next stretch needs for post-compaction context. The default compaction keeps only a summary of older history (roughly 70-90% is compressed); use this to override it: preserve keeps N recent user_turns/rounds verbatim instead of summarizing, focus biases what the compactor keeps, min_remaining_tokens reserves headroom for upcoming work (not a usage estimate), and current_phase_settled marks a clean boundary. One-way hint before compaction; do not wait for a result or try to detect if compaction ran.";
 
 export const CONTEXT_NEED_MIN_REMAINING_DESCRIPTION =
   "Conservative number of free tokens needed for the next stretch of work, not an estimate of tokens currently available.";
 export const CONTEXT_NEED_PRESERVE_DESCRIPTION =
-  "Minimum amounts of recent history to preserve if older context is reorganized.";
+  "Override compaction to keep N recent turns/rounds verbatim (e.g. preserve last 3 rounds) instead of summarizing them.";
 export const CONTEXT_NEED_USER_TURNS_DESCRIPTION = "Keep at least this many recent user turns.";
 export const CONTEXT_NEED_ROUNDS_DESCRIPTION = "Keep at least this many recent tool rounds.";
-export const CONTEXT_NEED_FOCUS_DESCRIPTION = "Information to emphasize if older context is reorganized.";
+export const CONTEXT_NEED_FOCUS_DESCRIPTION = "Hint for the compactor about what to prioritize keeping during summarization.";
 export const CONTEXT_NEED_SETTLED_DESCRIPTION = "Current reasoning phase reached a clean boundary.";
 
 /** JSON Schema of the `context_need` input. */

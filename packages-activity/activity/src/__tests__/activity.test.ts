@@ -96,7 +96,7 @@ describe("context_need", () => {
   it("pins the name and the description byte for byte", () => {
     expect(CONTEXT_NEED_TOOL_NAME).toBe("context_need");
     expect(CONTEXT_NEED_DESCRIPTION).toBe(
-      "Declare what the next stretch of work needs from working context. min_remaining_tokens is a conservative request for free tokens, not an estimate of how much context remains. preserve and focus name what should survive if the runtime reshapes older context. Set current_phase_settled when the current reasoning phase has reached a clean boundary. One-way control signal: do not wait for a result, do not infer whether context was reshaped, and do not use this tool to guess runtime capacity.",
+      "State what the next stretch needs for post-compaction context. The default compaction keeps only a summary of older history (roughly 70-90% is compressed); use this to override it: preserve keeps N recent user_turns/rounds verbatim instead of summarizing, focus biases what the compactor keeps, min_remaining_tokens reserves headroom for upcoming work (not a usage estimate), and current_phase_settled marks a clean boundary. One-way hint before compaction; do not wait for a result or try to detect if compaction ran.",
     );
   });
 
@@ -111,7 +111,7 @@ describe("context_need", () => {
       "Keep at least this many recent tool rounds.",
     );
     expect(CONTEXT_NEED_INPUT_SCHEMA.properties.focus.description).toBe(
-      "Information to emphasize if older context is reorganized.",
+      "Hint for the compactor about what to prioritize keeping during summarization.",
     );
   });
 

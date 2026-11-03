@@ -12,7 +12,7 @@ export const CONTEXT_RECALL_TOOL_NAME = "context_recall";
 export const contextRecallTool = new InhumanTool({
   name: CONTEXT_RECALL_TOOL_NAME,
   description:
-    "Read back a tool result or picture that was elided from your context. Elisions look like `[… elided … — recall job:ab12cd34]` or `recall visual:<id>`; pass that ref. Large results come back in pages: use offset and length (characters) to continue. A `job:<id>#args` ref reads a call's full arguments. Files may have changed since they were read; re-read for current content.",
+    "Fetch a paged tool result or visual via Arrival's smart serializer. Large outputs are not dropped — they are shown as abbreviated pointers like `[… elided … — recall job:ab12cd34]` to prevent data dumps; the full sealed result stays in the session graph and is readable here in pages. Use offset/length to page (default/max 5000 chars). A `job:<id>#args` ref reads the original call args, `visual:<id>` reads an image. For current file content, re-read the file directly.",
   class: "read",
   representation: "both",
   input: z.object({
