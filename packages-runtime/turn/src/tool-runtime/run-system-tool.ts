@@ -27,7 +27,6 @@ import { z } from "zod";
 import { externalizePrior } from "./blob-port.js";
 import { runWithExtraRoot } from "./extra-root.js";
 import { pendingPropose, pluginCallContextOf } from "./plugin-context.js";
-import { CONTEXT_RECALL_TOOL_NAME, recallContext } from "./recall.js";
 import { ToolError } from "./tool-error.js";
 import { workerToolAllowed } from "./worker-tools.js";
 import { lineStartOfSpan } from "./write-admit.js";
@@ -109,6 +108,7 @@ function asToolResult(out: unknown): ToolOutcomeSnap {
       ok?: unknown;
       text?: unknown;
       value?: unknown;
+      json?: unknown;
       truncated?: unknown;
     };
     if (typeof row.ok === "boolean") {
@@ -116,6 +116,7 @@ function asToolResult(out: unknown): ToolOutcomeSnap {
         ok: row.ok,
         ...(typeof row.text === "string" ? { text: row.text } : {}),
         ...("value" in row ? { value: row.value } : {}),
+        ...("json" in row ? { json: row.json } : {}),
         ...(row.truncated === true ? { truncated: true } : {}),
       };
     }
@@ -148,8 +149,9 @@ export async function executeSystemTool(
     if (!canApplyResults()) return;
     sealToolCall(job, outcome);
   };
+  pendingPropose.delete(job);
   try {
-    if (!canApplyResults()) return;
+    if (!canApplyResults() || job.outcomeSnap != null) return;
     if (signal.aborted) {
       seal(cancelledSnap(signal));
       return;
@@ -189,11 +191,6 @@ export async function executeSystemTool(
       return;
     }
 
-    if (name === CONTEXT_RECALL_TOOL_NAME) {
-      seal(recallContext(session, args));
-      return;
-    }
-
     if (name === "job_stop") {
       const jobIdRaw = args.job_id;
       const jobId = typeof jobIdRaw === "string" ? jobIdRaw : "";
@@ -223,7 +220,6 @@ export async function executeSystemTool(
       try {
         dispatched = await runWithExtraRoot(job.licenseAllows, () =>
           entry.execute!(args, {
-            root,
             catalog,
             signal,
             sessionId: session.sessionId,
@@ -242,6 +238,7 @@ export async function executeSystemTool(
             shellTailBytes: tailBytes,
             onTail: live?.push,
             ...pluginCallContextOf(session, job, signal, entry.source.kind === "pack" ? entry.source.pluginName : ""),
+            root,
           }),
         );
       } catch (error) {
@@ -257,7 +254,12 @@ export async function executeSystemTool(
     const proposed = pendingPropose.get(job);
     pendingPropose.delete(job);
     if (!canApplyResults()) return;
-    if (proposed != null) {
+    const outcome = asToolResult(dispatched);
+    if (signal.aborted) {
+      seal(outcome.ok ? cancelledSnap(signal) : outcome);
+      return;
+    }
+    if (proposed != null && outcome.ok) {
       const projection = projectionsOf(job).get(proposed.pluginId);
       if (projection?.hostOnly?.(proposed.action) === true) {
         seal({ ok: false, text: `${proposed.pluginId}: host-only metadata` });
@@ -265,7 +267,7 @@ export async function executeSystemTool(
       }
       writePluginMeta(job, proposed.pluginId, proposed.action, false);
     }
-    seal(asToolResult(dispatched));
+    seal(outcome);
   } catch (error) {
     if (!canApplyResults()) return;
     if (signal.aborted) {
@@ -281,5 +283,7 @@ export async function executeSystemTool(
       return;
     }
     seal({ ok: false, text: `error: ${error instanceof Error ? error.message : String(error)}` });
+  } finally {
+    pendingPropose.delete(job);
   }
 }

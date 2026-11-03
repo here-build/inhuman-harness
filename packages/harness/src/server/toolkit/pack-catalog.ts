@@ -2,7 +2,7 @@
  * Pack fill of the one tool table (enabled plugins).
  * Types + set; storage is tool-table.ts.
  */
-import type { ExamAdmit, ToolDefinition } from "@inhuman.tools/plugin-sdk";
+import type { ExamAdmit, ToolDefinition, ToolContinuation } from "@inhuman.tools/plugin-sdk";
 
 import type { CatalogEntry, PackToolMeta } from "@/tool-catalog";
 
@@ -30,6 +30,7 @@ export type PackToolHandle = {
       invocation?: unknown;
     },
   ) => Promise<unknown>;
+  readonly continuation?: ToolContinuation;
   readonly triggersReactLoop?: boolean;
   readonly isSideChannel?: boolean;
   readonly tapeHidden?: boolean;
@@ -47,6 +48,7 @@ export function setPackToolCatalog(catalog: KernelToolCatalog, handles: readonly
     source: { kind: "pack" as const, pluginName: h.pluginName },
     execute: h.execute,
     packMeta: h.meta,
+    continuation: h.continuation,
     triggersReactLoop: h.triggersReactLoop,
     isSideChannel: h.isSideChannel,
     tapeHidden: h.tapeHidden,

@@ -2,6 +2,8 @@
  * Admit stamps regenerateable from catalog class. Denied reads do not dump.
  */
 
+import invariant from "tiny-invariant";
+
 import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
@@ -195,18 +197,18 @@ describe("ToolCallHandler.admit", () => {
       want: { leftover: true, hiddenVoid: true },
     },
     {
-      name: "context_need ContextNeedToolJob",
+      name: "context_need ordinary SystemToolJob",
       act: () => {
         const job = new ToolCallHandler({ catalog: new KernelToolCatalog() }).admit(
           invocation(CONTEXT_NEED_TOOL_NAME, JSON.stringify({ min_remaining_tokens: 8000 })),
         );
         return {
           kind: job instanceof ContextNeedToolJob,
-          name: job instanceof ContextNeedToolJob ? job.name : "",
+          name: job instanceof SystemToolJob ? job.name : "",
           system: job instanceof SystemToolJob,
         };
       },
-      want: { kind: true, name: CONTEXT_NEED_TOOL_NAME, system: false },
+      want: { kind: false, name: CONTEXT_NEED_TOOL_NAME, system: true },
     },
     {
       name: "MCP identity",
@@ -283,7 +285,7 @@ describe("ToolCallHandler.admit", () => {
     expect(job instanceof BotCallJob).toBe(ownership === "bot");
     expect(job instanceof AgentCallJob).toBe(ownership === "child");
     expect(job).toBeInstanceOf(CallJob);
-    if (!(job instanceof CallJob)) throw new Error("expected a call job");
+    invariant(job instanceof CallJob, "expected a call job");
     expect({
       completed: job.completed,
       background: job.background,
@@ -333,7 +335,7 @@ describe("ToolCallHandler.admit", () => {
       );
       expect(job).toBeInstanceOf(BotCallJob);
       expect(job).not.toBeInstanceOf(AgentCallJob);
-      if (!(job instanceof BotCallJob)) throw new Error("expected a bot call job");
+      invariant(job instanceof BotCallJob, "expected a bot call job");
       expect({
         botName: job.botName,
         plugin: job.contributionPluginName,

@@ -15,8 +15,8 @@ import { comparer, computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
 
 import { deepFreeze, frozenRecord } from "../../json-record.js";
-import { DEFAULT_COMPACT_TRIGGERS, parseCompactTrigger } from "../../shared/compact-settings.js";
 import { updateMetadataArgsSchema } from "../../schemas/update-metadata.js";
+import { DEFAULT_COMPACT_TRIGGERS, parseCompactTrigger } from "../../shared/compact-settings.js";
 import { contextNeedFromChunks, type ContextNeed } from "../context-need.js";
 import type { PermissionMode } from "../eval-context.js";
 import { AgentCallNotification } from "../jobs/AgentCallNotification.js";
@@ -44,6 +44,7 @@ import { ReACTChunk, type RoundContextNote } from "./react-chunk.js";
 import type { RoundDecision } from "./round-decision.js";
 import type { SessionUnit, TurnChunk } from "./types.js";
 import { parseUserVisuals, userVisualsJson, type UserVisualIdentity } from "./user-visual.js";
+import { metadataJobsIn, SESSION_METADATA_PLUGIN_ID, sessionMetadataActionOf } from "../metadata-actions.js";
 
 export type TurnMetadata = {
   readonly title: string;
@@ -51,8 +52,18 @@ export type TurnMetadata = {
 };
 
 function metadataOf(job: ToolCallJob): TurnMetadata | null {
+  const action = sessionMetadataActionOf(job);
+  if (action?.type === "metadata-updated") return { title: action.title, description: action.description };
+  if (
+    job.continuationJson !== "" ||
+    jobTriggersReactLoop(job) ||
+    job.pluginMeta[SESSION_METADATA_PLUGIN_ID] != null ||
+    job.outcomeSnap?.ok !== true
+  )
+    return null;
+  // Successful receipts from before metadata actions were introduced.
   if (job.name !== UPDATE_METADATA_TOOL_NAME) return null;
-  const rec = job.args;
+  const rec = job.outcomeSnap?.value;
   if (rec == null) return null;
   const parsed = updateMetadataArgsSchema.safeParse(rec);
   if (!parsed.success) return null;
@@ -463,18 +474,9 @@ export class SessionTurn extends SequenceJob {
     const chunks = reactChunks(this);
     for (let index = chunks.length - 1; index >= 0; index -= 1) {
       const chunk = chunks[index];
-      if (chunk instanceof ToolCallJob && !jobTriggersReactLoop(chunk)) {
-        const hit = metadataOf(chunk);
+      for (const job of metadataJobsIn(chunk).toReversed()) {
+        const hit = metadataOf(job);
         if (hit !== null) return hit;
-      }
-      if (chunk instanceof ProgrammaticJob) {
-        for (let inner = chunk.toolCalls.length - 1; inner >= 0; inner -= 1) {
-          const job = chunk.toolCalls[inner];
-          if (!jobTriggersReactLoop(job)) {
-            const hit = metadataOf(job);
-            if (hit !== null) return hit;
-          }
-        }
       }
     }
     return null;
@@ -608,7 +610,7 @@ export class SessionTurn extends SequenceJob {
       const chunk = chunks[index];
       if (
         (chunk instanceof ReACTChunk && chunk.skipped) ||
-        (chunk instanceof ToolCallJob && !jobTriggersReactLoop(chunk))
+        ((chunk instanceof ToolCallJob || chunk instanceof ProgrammaticJob) && !jobTriggersReactLoop(chunk))
       ) {
         index -= 1;
         continue;

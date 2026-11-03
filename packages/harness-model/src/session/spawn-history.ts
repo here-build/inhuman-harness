@@ -1,3 +1,5 @@
+import { CONTEXT_NEED_TOOL_NAME } from "@inhuman.tools/activity";
+
 import { AgentCallJob } from "./jobs/AgentCallJob.js";
 import { ContextNeedToolJob } from "./jobs/ContextNeedToolJob.js";
 import { ProgrammaticJob } from "./jobs/ProgrammaticJob.js";
@@ -34,7 +36,8 @@ export function spawnProgramTools(program: ProgrammaticJob | ToolCallJob): ToolC
       tools.push(node);
       return;
     }
-    if (node instanceof ContextNeedToolJob) return;
+    if (node instanceof ContextNeedToolJob || (node instanceof ToolCallJob && node.name === CONTEXT_NEED_TOOL_NAME))
+      return;
     const children = node.children.filter(
       (child): child is ProgrammaticJob | ToolCallJob =>
         child instanceof ProgrammaticJob || child instanceof ToolCallJob,

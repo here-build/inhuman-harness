@@ -40,6 +40,7 @@ function gauge(used: number, limit: number, promptText = "round"): CompletionExp
 
 function need(id: string, args: Record<string, unknown>): ContextNeedToolJob {
   return new ContextNeedToolJob({
+    outcomeJson: JSON.stringify({ ok: true }),
     triggersReactLoop: false,
     tapeHidden: true,
     toolCallId: id,

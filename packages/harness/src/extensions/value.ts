@@ -1,3 +1,5 @@
+import type { ToolContinuation } from "@inhuman.tools/harness-commons";
+
 /** Runtime values for the behavior register and callback ambients. */
 import { PluginSurfaceError } from "./surface-error.js";
 
@@ -119,6 +121,7 @@ export type ToolDecl = {
   readonly question: string | null;
   readonly effect: string | null;
   readonly caption: string | null;
+  readonly continuation: ToolContinuation;
   readonly triggersReactLoop: boolean;
   /** Skips the license floor. Default false. */
   readonly isSideChannel: boolean;

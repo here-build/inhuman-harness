@@ -1,13 +1,12 @@
-/**
- * Side-channel session label. BODY is an ack; display derives from the
- * job args on the surviving turn. Not FS, not approval, not ReACT-alone.
- */
+/** Record a normalized session label on this invocation's trajectory. */
+import invariant from "tiny-invariant";
 import {
   clampChars,
   METADATA_SAME_ROUND_NOTE,
   SESSION_DESCRIPTION_MAX_CHARS,
   SESSION_TITLE_MAX_CHARS,
   UPDATE_METADATA_TOOL_NAME,
+  type SessionMetadataAction,
 } from "@inhuman.tools/harness-model";
 import { InhumanTool } from "@inhuman.tools/plugin-sdk";
 import { z } from "zod";
@@ -19,7 +18,7 @@ export const updateMetadataTool = new InhumanTool({
   description: `Record this turn's title and a short description. ${METADATA_SAME_ROUND_NOTE} Do not address the user.`,
   class: "meta",
   representation: "both",
-  triggersReactLoop: false,
+  continuation: { kind: "auxiliary", note: METADATA_SAME_ROUND_NOTE },
   isSideChannel: true,
   tapeHidden: true,
   input: z.object({
@@ -27,14 +26,12 @@ export const updateMetadataTool = new InhumanTool({
     current_turn_description: z.string().optional().describe("What this turn is doing."),
   }),
   output: toolResultSchema,
-  run: (input) => ({
-    ok: true as const,
-    value: {
-      current_turn_title: clampChars(input.current_turn_title.trim(), SESSION_TITLE_MAX_CHARS),
-      current_turn_description: clampChars(
-        (input.current_turn_description ?? "").trim(),
-        SESSION_DESCRIPTION_MAX_CHARS,
-      ),
-    },
-  }),
+  run: (input, ctx) => {
+    const title = clampChars(input.current_turn_title.trim(), SESSION_TITLE_MAX_CHARS);
+    const description = clampChars((input.current_turn_description ?? "").trim(), SESSION_DESCRIPTION_MAX_CHARS);
+    if (title === "") return { ok: false, text: "current_turn_title must not be blank" };
+    invariant(ctx.storage != null, "update_metadata requires session storage");
+    ctx.storage.propose({ type: "metadata-updated", title, description } satisfies SessionMetadataAction);
+    return { ok: true, value: { current_turn_title: title, current_turn_description: description } };
+  },
 });

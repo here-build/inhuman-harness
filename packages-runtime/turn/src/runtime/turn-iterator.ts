@@ -3,7 +3,6 @@ import {
   CompactJob,
   CompletionExpectation,
   CompletionJob,
-  CONTEXT_NEED_TOOL_NAME,
   DEFAULT_LENGTH_CONTINUATIONS,
   ResponseCallOrder,
   SystemToolJob,
@@ -14,7 +13,6 @@ import {
   SessionTurn,
   ToolCallJob,
   TurnPromptChunk,
-  UPDATE_METADATA_TOOL_NAME,
   type TurnChunk,
   type IntentAssessment,
   type RoundGate,
@@ -47,6 +45,7 @@ import {
   sideChannelReminderNote,
 } from "../session/side-channel-reminder.js";
 import { catalogOf } from "../tool-catalog/bindings.js";
+import { behaviorEntriesOf } from "../tool-catalog/catalog.js";
 
 /** Sequence rules depend on document data and explicit ports, never a daemon. */
 export interface TurnIteratorHost {
@@ -224,6 +223,7 @@ export async function iterateTurn(turn: SessionTurn, host: TurnIteratorHost, sig
                 argsJson: "{}",
                 humanApprove: false,
                 completed: true,
+                continuationJson: JSON.stringify({ kind: "none" }),
                 triggersReactLoop: false,
                 outcomeJson: JSON.stringify({ ok: false, text: refusalText(call.dropReason, filtered) }),
               }),
@@ -231,19 +231,25 @@ export async function iterateTurn(turn: SessionTurn, host: TurnIteratorHost, sig
         }
         // Early metadata must settle before other calls become reachable. The durable cursor
         // makes re-entry safe even when a park happens in this wait.
-        const early = [
-          ...calls.filter((call) => call.function.name === UPDATE_METADATA_TOOL_NAME),
-          ...calls.filter((call) => call.function.name === CONTEXT_NEED_TOOL_NAME),
-        ];
+        const recorded = new Map(chunk.responseWork.map((job, index) => [job.toolCallId, { job, index }]));
+        const isEarly = (call: ToolCall) => {
+          const prior = recorded.get(call.id)?.job;
+          if (prior != null) return prior.isSideChannel;
+          const entry =
+            catalogOf(session)?.catalogEntry(call.function.name) ??
+            behaviorEntriesOf(session).find((row) => row.wireName === call.function.name);
+          return entry?.isSideChannel === true;
+        };
+        const early = calls
+          .filter(isEarly)
+          .sort((a, b) => (recorded.get(a.id)?.index ?? Infinity) - (recorded.get(b.id)?.index ?? Infinity));
+        const ordinary = calls.filter((candidate) => !isEarly(candidate));
         for (const call of early) {
           const tool = record(() => host.admit(call));
           if (!tool.completed && (await host.resolvers.work(tool, signal)) === "aborted") return;
           if (turnLoopStopped(turn, signal)) return;
         }
-        for (const call of calls.filter(
-          (candidate) =>
-            candidate.function.name !== UPDATE_METADATA_TOOL_NAME && candidate.function.name !== CONTEXT_NEED_TOOL_NAME,
-        )) {
+        for (const call of ordinary) {
           record(() => host.admit(call));
         }
         const read = compactRead(host.compactKeepTurns, session.kvs);

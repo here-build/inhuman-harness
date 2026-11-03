@@ -141,6 +141,10 @@ describe("kernel seat machine", () => {
         toolCallId: "m1",
         name: "update_metadata",
         argsJson: JSON.stringify({ current_turn_title: "Fix login" }),
+        outcomeJson: JSON.stringify({
+          ok: true,
+          value: { current_turn_title: "Fix login", current_turn_description: "" },
+        }),
       }),
     );
     expect({

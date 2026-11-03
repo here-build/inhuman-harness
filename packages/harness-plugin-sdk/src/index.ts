@@ -8,6 +8,7 @@
  */
 
 import type { EnvCapability } from "@here.build/arrival";
+import type { ToolContinuation } from "@inhuman.tools/harness-commons";
 import { z } from "zod";
 
 import {
@@ -23,6 +24,7 @@ import { type ExamAdmit, type PluginProjection } from "./projection.js";
 import { inhumanBrand, inhumanShape, NormalizedActionDefinition, type ToolRepresentation } from "./schemas/plugin.js";
 
 export * from "./schemas/index.js";
+export type { ToolContinuation } from "@inhuman.tools/harness-commons";
 export {
   normalizeDefinitions as normalizeDefinitions,
   resolveReferences as resolveReferences,
@@ -69,14 +71,13 @@ export type InhumanToolDef<TIn, TOut> = {
   readonly deadlineMs?: number;
   readonly maxResultTokens?: number;
   readonly supportsNotify?: boolean;
-  /**
-   * When false the call is not a ReACT continuer by itself. Default true.
-   * Not `class`. License skip is `isSideChannel`.
-   */
+  /** Default observation. Auxiliary requests repair only when the completion has no answer or observation work. */
+  readonly continuation?: ToolContinuation;
+  /** @deprecated Use continuation. false maps to none; explicit continuation takes precedence. */
   readonly triggersReactLoop?: boolean;
   /** Skips the license floor. Default false. */
   readonly isSideChannel?: boolean;
-  /** Off the tape. Separate from `triggersReactLoop`. Default false. */
+  /** Off the tape. Separate from continuation. Default false. */
   readonly tapeHidden?: boolean;
   /**
    * Mustache tape faces. Null or omitted is uncovered — the TUI falls
@@ -109,6 +110,7 @@ export class InhumanTool<TIn = unknown, TOut = unknown> {
   readonly deadlineMs?: number;
   readonly maxResultTokens?: number;
   readonly supportsNotify?: boolean;
+  readonly continuation: ToolContinuation;
   readonly triggersReactLoop: boolean;
   readonly tapeHidden: boolean;
   private readonly sideChannel: boolean;
@@ -140,6 +142,7 @@ export class InhumanTool<TIn = unknown, TOut = unknown> {
       this.maxResultTokens = normalized.maxResultTokens;
       this.supportsNotify = normalized.supportsNotify;
     }
+    this.continuation = normalized.continuation;
     this.triggersReactLoop = normalized.triggersReactLoop;
     this.sideChannel = normalized.isSideChannel;
     this.tapeHidden = normalized.tapeHidden;
@@ -178,6 +181,7 @@ export class InhumanTool<TIn = unknown, TOut = unknown> {
         deadlineMs: this.deadlineMs,
         maxResultTokens: this.maxResultTokens,
         supportsNotify: this.supportsNotify,
+        continuation: this.continuation,
         triggersReactLoop: this.triggersReactLoop,
         isSideChannel: this.isSideChannel,
         tapeHidden: this.tapeHidden,
@@ -193,6 +197,7 @@ export class InhumanTool<TIn = unknown, TOut = unknown> {
       input: this.input,
       output: this.output,
       run: this._run!,
+      continuation: this.continuation,
       triggersReactLoop: this.triggersReactLoop,
       isSideChannel: this.isSideChannel,
       tapeHidden: this.tapeHidden,

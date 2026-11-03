@@ -8,7 +8,6 @@
 import {
   CompactJob,
   CompletionExpectation,
-  jobTriggersReactLoop,
   reactChunks,
   ProgrammaticJob,
   SessionTurn,
@@ -21,7 +20,7 @@ import {
   type SessionUnit,
 } from "@inhuman.tools/harness-model/session";
 
-import { Transcript, walkTranscript } from "./transcript.js";
+import { compactToolVisible, Transcript, walkTranscript } from "./transcript.js";
 
 export function compactDue(head: SessionUnit | null, ratio: number | null): boolean {
   if (head == null || ratio == null || !(ratio > 0)) return false;
@@ -137,12 +136,12 @@ function eatSinceCutoff(chunks: readonly unknown[]): CompletionMessage[] | Compa
         break;
       }
       case "tool": {
-        if (jobTriggersReactLoop(event.chunk)) tools.push(event.chunk);
+        if (compactToolVisible(event.chunk)) tools.push(event.chunk);
 
         break;
       }
       case "scheme": {
-        tools.push(event.chunk);
+        if (compactToolVisible(event.chunk)) tools.push(event.chunk);
 
         break;
       }

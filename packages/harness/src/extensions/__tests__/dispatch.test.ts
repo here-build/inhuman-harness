@@ -144,3 +144,23 @@ describe("declared tools", () => {
     );
   });
 });
+
+it("declares continuation mode and recovery note independently of side-channel permissions", async () => {
+  const registry = await load(`(define/tool 'bookkeeping :description "Bookkeeping" :expose 'tool
+    :continuation 'auxiliary :continuation-note "Resume the task" :triggers-react-loop #t
+    :input (s/object) :handler (lambda (input) "ok"))`);
+  const tool = registry.tools.get("bookkeeping");
+  expect({ policy: tool?.continuation, loop: tool?.triggersReactLoop, side: tool?.isSideChannel }).toEqual({
+    policy: { kind: "auxiliary", note: "Resume the task" },
+    loop: false,
+    side: false,
+  });
+  await expect(
+    load(`(define/tool 'bad :continuation 'none :continuation-note "invalid"
+    :handler (lambda (input) "ok"))`),
+  ).rejects.toThrow(/continuation/);
+  await expect(
+    load(`(define/tool 'bad :continuation 'unknown
+    :handler (lambda (input) "ok"))`),
+  ).rejects.toThrow(/continuation/);
+});

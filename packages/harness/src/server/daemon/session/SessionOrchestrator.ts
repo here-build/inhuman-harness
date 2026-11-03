@@ -17,7 +17,6 @@ import {
   CompletionExpectation,
   type IntentAssessment,
   CompletionJob,
-  ContextNeedToolJob,
   delegatesPermissionMode,
   deskPermissionSnap,
   type DeskPermissionSnap,
@@ -96,7 +95,6 @@ import {
 } from "@/session";
 import { behaviorEntriesOf } from "@/tool-catalog";
 import {
-  agentCallFromWire,
   agentGuardedCall,
   distPolicySource,
   executeSystemTool,
@@ -409,13 +407,6 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       },
     );
     this.registerExecutor(
-      ContextNeedToolJob,
-      (job) => this.#license(job),
-      async (job) => {
-        job.outcomeSnap ??= { ok: true };
-      },
-    );
-    this.registerExecutor(
       ProgrammaticJob,
       // Bag is not remainder. Inner System/MCP/agent leaves still `#license`.
       () => true,
@@ -532,9 +523,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
                   parent: turn,
                   loadAgentCall: (uuid: string) => loadOpenCall(this.sessionDaemon.kernel, session, uuid),
                 };
-                return call.function.name === AGENT_ASK || call.function.name === AGENT_SEND
-                  ? agentCallFromWire(call, catalog, ctx)
-                  : toolCalls.admit(call, catalog, ctx);
+                return toolCalls.admit(call, catalog, ctx);
               },
               waitInbound: (abort) => this.#inboundResumed(turn, abort, () => turnLoopStopped(turn, abort)),
               openRound: async (resumed) => {

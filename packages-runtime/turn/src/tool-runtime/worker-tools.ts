@@ -15,7 +15,7 @@ import {
   SessionRoot,
 } from "@inhuman.tools/harness-model";
 
-import { behaviorEntriesOf, catalogTriggersReactLoop, type KernelToolCatalog } from "../tool-catalog/index.js";
+import { behaviorEntriesOf, type KernelToolCatalog } from "../tool-catalog/index.js";
 
 function isAgentComms(wire: string): boolean {
   return (
@@ -67,7 +67,7 @@ export function workerToolAllowed(
   if (
     wire === SCHEME_REPL_TOOL_NAME ||
     wire === SCHEME_WATCH_TOOL_NAME ||
-    !catalogTriggersReactLoop(catalog, wire) ||
+    entry.isSideChannel === true ||
     isAgentComms(wire)
   ) {
     return true;

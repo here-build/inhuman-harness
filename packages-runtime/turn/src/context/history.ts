@@ -13,7 +13,7 @@ import {
   CompactJob,
   CompletionExpectation,
   type CompletionMessage,
-  ContextNeedToolJob,
+  CONTEXT_NEED_TOOL_NAME,
   latestCompactCutoff,
   owningTurn,
   ProgrammaticJob,
@@ -212,7 +212,7 @@ function roundOf(completion: CompletionExpectation, catalog: KernelToolCatalog |
     const cell = tape[index];
     if (tapeCompletion(cell) != null || cell instanceof CompactJob) break;
     if (!(cell instanceof ToolCallJob || cell instanceof ProgrammaticJob)) continue;
-    if (cell instanceof ContextNeedToolJob) {
+    if (cell instanceof ToolCallJob && cell.name === CONTEXT_NEED_TOOL_NAME) {
       round.suppressed.add(cell.toolCallId);
       continue;
     }

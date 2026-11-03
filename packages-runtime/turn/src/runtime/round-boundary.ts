@@ -11,7 +11,7 @@ import {
   SessionTurn,
   TurnSteerChunk,
   jobTriggersReactLoop,
-  METADATA_SAME_ROUND_NOTE,
+  jobContinuationOf,
   type CompletionJob,
   type ContinuationCandidate,
   type ContinuationKind,
@@ -118,7 +118,9 @@ export async function assessBoundary(
     };
   } else if (pew != null) {
     const rejected = new Set(pew.responseCalls.filter((call) => call.dropReason !== "").map((call) => call.toolCallId));
-    const work = source.responseWork.filter((job) => !rejected.has(job.toolCallId) && jobTriggersReactLoop(job));
+    const admitted = source.responseWork.filter((job) => !rejected.has(job.toolCallId));
+    const work = admitted.filter((job) => jobContinuationOf(job).kind === "observation");
+    const auxiliary = admitted.filter((job) => jobContinuationOf(job).kind === "auxiliary");
     const speech = splitThink(pew.responseText).content.trim();
     if (pew.finishReason === CONTENT_FILTER_STOP) {
       gate = {
@@ -143,11 +145,12 @@ export async function assessBoundary(
         else add("length-repair", [source.uuid], turn.lengthContinuations ?? 3);
       } else if (work.length === 0 && rejected.size === 0) {
         if (thoughtWithoutAnswer(pew)) add("thought-repair", [source.uuid], THOUGHT_ATTEMPTS);
-        else if (
-          speech === "" &&
-          pew.responseCalls.some((call) => call.name === "update_metadata" || call.name === "context_need")
-        ) {
-          add("auxiliary-repair", [source.uuid], REPAIR_ATTEMPTS);
+        else if (speech === "" && auxiliary.length > 0) {
+          add(
+            "auxiliary-repair",
+            auxiliary.map((job) => job.uuid),
+            REPAIR_ATTEMPTS,
+          );
         }
       }
       const callbacks = openCallbackRowsForTurn(host.session, turn);
@@ -201,7 +204,20 @@ export function boundaryNote(turn: SessionTurn, boundary: ReACTChunk | null, hos
   if (kinds.has("length-repair")) notes.push(LENGTH_CONTINUE_NOTE);
   if (kinds.has("thought-repair")) notes.push(THOUGHT_CONTINUE_NOTE);
   if (kinds.has("intent")) notes.push(RE_ACT_LOOP_INTENT_DETECTED_TRIGGER_NOTE);
-  if (kinds.has("auxiliary-repair")) notes.push(METADATA_SAME_ROUND_NOTE);
+  if (kinds.has("auxiliary-repair") && boundary?.source != null) {
+    const sources = new Set(
+      boundary.decision?.causes.filter((cause) => cause.kind === "auxiliary-repair").flatMap((cause) => cause.sources),
+    );
+    // Older committed decisions named the completion, rather than its auxiliary jobs.
+    const legacy = sources.has(boundary.source.uuid);
+    const auxiliaryNotes = new Set<string>();
+    for (const job of boundary.source.responseWork) {
+      if (!legacy && !sources.has(job.uuid)) continue;
+      const policy = jobContinuationOf(job);
+      if (policy.kind === "auxiliary" && policy.note != null) auxiliaryNotes.add(policy.note);
+    }
+    for (const note of auxiliaryNotes) notes.push(asSystemPrompt(note));
+  }
   const callbacks = openCallbackRowsForTurn(host.session, turn);
   if (callbacks.length > 0) notes.push(callbackRequiredNote(host.session.agent.spec.voidLegal, callbacks));
   const pending = host.notes.peek(host.session.sessionId).filter((note) => note.text.trim() !== "");

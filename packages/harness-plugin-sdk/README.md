@@ -37,6 +37,22 @@ Run `node hello.mjs`. It prints `{ greeting: 'Hello, Ada!' }`. This calls the to
 
 `representation: "both"` requests a model tool and a Scheme symbol. Function tools default to `"symbol"`; use `"tool"` for model exposure only. Defining a tool does not install it into a running host.
 
+## Continuation policy
+
+Tools declare whether their result requests another model round:
+
+```js
+continuation: { kind: "observation" } // Default: let the model consume the result.
+continuation: { kind: "auxiliary", note: "Continue the user's task." }
+continuation: { kind: "none" }
+```
+
+Auxiliary calls request bounded repair only when the completion has neither a spoken answer nor observation work. Their optional notes are deduplicated on the follow-up. Successful auxiliary calls do not reset repair budgets. `none` makes no continuation request; other tools, incoming input, or session obligations can still request a round.
+
+The host freezes the policy on each admitted invocation. Continuation does not grant tool access or change approval or transcript visibility. `triggersReactLoop` is a deprecated compatibility input: `false` maps to `none`, and an explicit `continuation` takes precedence.
+
+Scheme declarations use `:continuation 'auxiliary :continuation-note "Continue the user's task."`; the other modes are `'observation` and `'none`.
+
 ## Installing and loading a CLI plugin
 
 The [hello example](https://github.com/here-build/inhuman-harness/blob/HEAD/examples/hello-plugin/README.md) includes the complete `package.json`, `plugin.json`, and Scheme tool source, with install and invocation commands. `inhuman install` installs a package into the selected kernel and enables its `plugin.json` name. The manifest points the current host at its supported behavior surface. See [exemplar packs](https://github.com/here-build/inhuman-harness/blob/HEAD/plugins/README.md) for bots, scoped state, and MCP integrations.

@@ -177,3 +177,29 @@ describe("InhumanTool", () => {
     ).toThrow(/name/);
   });
 });
+
+it("round-trips static policies and derives the legacy boolean from the explicit policy", () => {
+  const auxiliary = new InhumanTool({
+    name: "bookkeeping",
+    input: z.object({}),
+    output: z.object({}),
+    run: () => ({}),
+    continuation: { kind: "auxiliary", note: "Continue work" },
+    triggersReactLoop: true,
+  });
+  const roundtrip = new InhumanTool(auxiliary.toToolDefinition());
+  expect({ policy: roundtrip.continuation, loop: roundtrip.triggersReactLoop, side: roundtrip.isSideChannel }).toEqual({
+    policy: { kind: "auxiliary", note: "Continue work" },
+    loop: false,
+    side: false,
+  });
+  expect(echo.continuation).toEqual({ kind: "observation" });
+  const legacy = new InhumanTool({
+    name: "legacy",
+    input: z.object({}),
+    output: z.object({}),
+    run: () => ({}),
+    triggersReactLoop: false,
+  });
+  expect(legacy.continuation).toEqual({ kind: "none" });
+});

@@ -1,3 +1,4 @@
+import invariant from "tiny-invariant";
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,7 +14,7 @@ catalog.replacePack(SYSTEM_ENTRIES);
 
 async function run(name: string, args: Record<string, unknown>, root: string) {
   const execute = catalog.catalogEntry(name)?.execute;
-  if (execute === undefined) throw new Error(`no execute for ${name}`);
+  invariant(execute !== undefined, `no execute for ${name}`);
   return asToolResult(await execute(args, { root, catalog }));
 }
 
@@ -122,19 +123,28 @@ describe("builtin effect bodies", () => {
     });
   });
 
-  it("update_metadata and context_need ack through execute", async () => {
-    const meta = await run(
-      "update_metadata",
-      { current_turn_title: "Title", current_turn_description: "Doing work" },
+  it("update_metadata and context_need propose their effects through execute", async () => {
+    const actions: unknown[] = [];
+    const context = {
       root,
+      storage: { session: {}, invocation: {}, propose: (action: unknown) => actions.push(action) },
+    };
+    const executeMetadata = catalog.catalogEntry("update_metadata")?.execute;
+    const executeNeed = catalog.catalogEntry("context_need")?.execute;
+    invariant(executeMetadata !== undefined, "no execute for update_metadata");
+    invariant(executeNeed !== undefined, "no execute for context_need");
+    const meta = await executeMetadata(
+      { current_turn_title: "  Title  ", current_turn_description: "Doing work" },
+      context,
     );
-    const need = await run("context_need", { min_remaining_tokens: 100 }, root);
-    expect({ meta: meta.value, need: need.value }).toEqual({
-      meta: {
-        current_turn_title: "Title",
-        current_turn_description: "Doing work",
-      },
-      need: { ok: true },
+    const need = await executeNeed({ min_remaining_tokens: 100 }, context);
+    expect({ meta, need, actions }).toEqual({
+      meta: { ok: true, value: { current_turn_title: "Title", current_turn_description: "Doing work" } },
+      need: { ok: true, value: { ok: true } },
+      actions: [
+        { type: "metadata-updated", title: "Title", description: "Doing work" },
+        { type: "context-need", need: { min_remaining_tokens: 100 } },
+      ],
     });
   });
 });

@@ -2,6 +2,8 @@
  * Catalog row identity. wireName is a model-edge projection — never durable
  * routing. Connection tools route by connectionKey + serverToolName.
  */
+import type { ToolContinuation } from "@inhuman.tools/harness-commons";
+
 import type { RuleInput } from "../context/retention/schema.js";
 
 export type CatalogSource =
@@ -23,6 +25,11 @@ export type CatalogExecute = (
     catalog?: unknown;
     onPriorContent?: (text: string | null) => void;
     invocation?: unknown;
+    storage?: {
+      readonly session: unknown;
+      readonly invocation: unknown;
+      propose(action: unknown): void;
+    };
     shellTailBytes?: number;
     onTail?: (frame: { readonly text: string; readonly totalBytes: number }) => void;
   },
@@ -62,6 +69,8 @@ export type CatalogEntry = {
    */
   readonly execute?: CatalogExecute;
   readonly packMeta?: PackToolMeta;
+  readonly continuation?: ToolContinuation;
+  /** @deprecated Use continuation; explicit policy takes precedence. */
   readonly triggersReactLoop?: boolean;
   /** Skips the license floor. Copied from the tool that declared it. */
   readonly isSideChannel?: boolean;

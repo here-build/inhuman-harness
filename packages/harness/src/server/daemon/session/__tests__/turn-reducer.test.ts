@@ -332,7 +332,7 @@ async function runLoopEnd(session: SessionDaemon, row: Row): Promise<{ got: unkn
   if (row.mixed === true) {
     const jobs = turn.work.filter((chunk): chunk is ToolCallJob => chunk instanceof ToolCallJob);
     got.names = jobs.map((job) => job.name);
-    want.names = ["update_metadata", CONTEXT_NEED_TOOL_NAME, "list_dir"];
+    want.names = [CONTEXT_NEED_TOOL_NAME, "update_metadata", "list_dir"];
   }
   return { got, want };
 }

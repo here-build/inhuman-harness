@@ -2,6 +2,7 @@ import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { argsJsonValue } from "../../schemas/json-record.js";
 import { CONTEXT_NEED_TOOL_NAME } from "../context-need.js";
 import { ContextNeedToolJob } from "../jobs/ContextNeedToolJob.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
@@ -22,6 +23,10 @@ beforeEach(() => resetLocalIDs());
 
 function meta(id: string, title: string, description = ""): SystemToolJob {
   return new SystemToolJob({
+    outcomeJson: JSON.stringify({
+      ok: true,
+      value: { current_turn_title: title, current_turn_description: description },
+    }),
     triggersReactLoop: false,
     tapeHidden: true,
     toolCallId: id,
@@ -47,6 +52,7 @@ function metaTurn(argsJson: string): SessionTurn {
     prompt: prompt.user`p`,
     doneWork: [
       new SystemToolJob({
+        outcomeJson: JSON.stringify({ ok: true, value: argsJsonValue(argsJson) }),
         triggersReactLoop: false,
         tapeHidden: true,
         toolCallId: "m",
@@ -160,6 +166,7 @@ describe("update_metadata derivation", () => {
       doneWork: [
         meta("kept", "Kept title"),
         new SystemToolJob({
+          outcomeJson: JSON.stringify({ ok: true }),
           triggersReactLoop: false,
           tapeHidden: true,
           toolCallId: "bad",

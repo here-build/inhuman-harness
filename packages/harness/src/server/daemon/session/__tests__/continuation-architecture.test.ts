@@ -289,7 +289,7 @@ test("successful work resets repair allowances; switching repair kind does not",
 test("CodeAct executes through the real runtime and obeys its declared follow-up contract", async () => {
   const live = await liveSession();
   live.kernel.catalog.packEntries = live.kernel.catalog.packEntries.map((entry) =>
-    entry.wireName === "scheme_repl" ? { ...entry, triggersReactLoop: false } : entry,
+    entry.wireName === "scheme_repl" ? { ...entry, continuation: { kind: "none" } } : entry,
   );
   const { turn } = await startTurn(live);
   live.model.reply({

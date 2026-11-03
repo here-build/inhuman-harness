@@ -55,7 +55,10 @@ export class ProgrammaticJob extends SequenceJob<unknown, string> {
   @syncing accessor periodChildAt: number = 0;
   @syncing accessor periodWaitUntilMs: number | null = null;
   @syncing.record accessor pluginMeta: Record<string, string> = {};
+  /** Normalized definition policy frozen when this invocation was admitted. Empty on legacy documents. */
+  @syncing accessor continuationJson: string = "";
   @syncing accessor triggersReactLoop: boolean = true;
+  @syncing accessor isSideChannel: boolean = false;
   @syncing accessor tapeHidden: boolean = false;
   /** R2. Resolved retention rule stamped at admit. See {@link ToolCallJob.retentionJson}. */
   @syncing accessor retentionJson: string = "";
@@ -85,8 +88,10 @@ export class ProgrammaticJob extends SequenceJob<unknown, string> {
           readonly periodChildAt?: number;
           readonly periodWaitUntilMs?: number | null;
           readonly pluginMeta?: Record<string, string>;
+          readonly continuationJson?: string;
           readonly triggersReactLoop?: boolean;
           readonly tapeHidden?: boolean;
+          readonly isSideChannel?: boolean;
           readonly retentionJson?: string;
         }
       | symbol,

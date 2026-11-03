@@ -1,3 +1,4 @@
+import invariant from "tiny-invariant";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   admitSteer,
@@ -22,6 +23,8 @@ import {
 import { autorun } from "mobx";
 import { describe, expect, it } from "vitest";
 
+import { restorePendingRound } from "../../agent-calls/index.js";
+import { catalogOf } from "../../tool-catalog/bindings.js";
 import { THOUGHT_CONTINUE_NOTE } from "../re-act-loop-intent-detected-trigger.js";
 import { turnFixture } from "./fixtures/turn-iterator.js";
 
@@ -134,12 +137,96 @@ describe("turn sequence rules with mock resolution", () => {
     await f.run();
     expect(f.resolvers.work).toHaveBeenCalledTimes(3);
     expect(order.slice(0, 5)).toEqual([
-      "admit:update_metadata",
-      "resolve:update_metadata",
       "admit:context_need",
       "resolve:context_need",
+      "admit:update_metadata",
+      "resolve:update_metadata",
       "admit:echo",
     ]);
+  });
+
+  it("uses catalog flags for arbitrary side channels and freezes classification during execution", async () => {
+    const f = turnFixture(
+      (completion) => {
+        completion.responseCalls.push(
+          responseCall("ordinary", "echo", "{}"),
+          responseCall("early", "bookkeeping", "{}"),
+        );
+      },
+      (completion) => {
+        completion.responseText = "Done.";
+      },
+    );
+    const catalog = catalogOf(f.session);
+    invariant(catalog != null, "missing fixture catalog");
+    const entry = {
+      wireName: "bookkeeping",
+      class: "meta",
+      description: "bookkeeping",
+      parameters: {},
+      source: { kind: "pack", pluginName: "custom" } as const,
+      isSideChannel: true,
+    };
+    catalog.replacePack([...catalog.catalogEntries(), entry]);
+    const resolve = f.resolvers.work.getMockImplementation();
+    invariant(resolve != null, "missing fixture resolver");
+    f.resolvers.work.mockImplementationOnce(async (job, signal) => {
+      catalog.replacePack([
+        ...catalog.catalogEntries().filter((row) => row.wireName !== "bookkeeping"),
+        { ...entry, isSideChannel: false },
+        { ...entry, wireName: "echo", isSideChannel: true },
+      ]);
+      return resolve(job, signal);
+    });
+    await f.run();
+    expect(f.host.admit.mock.calls.map(([call]) => call.id)).toEqual(["early", "ordinary"]);
+    expect(f.resolvers.work.mock.calls.map(([job]) => job.toolCallId)).toEqual(["early", "ordinary"]);
+  });
+
+  it.each([false, true])("preserves recorded early work after catalog changes (program=%s)", async (program) => {
+    const f = turnFixture(
+      (completion) => {
+        completion.responseCalls.push(
+          responseCall("ordinary", "echo", "{}"),
+          responseCall("early", "context_need", '{"min_remaining_tokens":100}'),
+        );
+      },
+      (completion) => {
+        completion.responseText = "Done.";
+      },
+    );
+    if (program)
+      f.host.admit.mockImplementationOnce(
+        (call) =>
+          new ProgrammaticJob({
+            toolCallId: call.id,
+            toolName: call.function.name,
+            argsJson: call.function.arguments,
+            isSideChannel: true,
+            triggersReactLoop: false,
+          }),
+      );
+    f.resolvers.work.mockResolvedValueOnce("aborted");
+    await f.run();
+    expect(f.host.admit.mock.calls.map(([call]) => call.id)).toEqual(["early"]);
+    const catalog = catalogOf(f.session);
+    invariant(catalog != null, "missing fixture catalog");
+    catalog.replacePack([
+      ...catalog.catalogEntries().map((entry) => ({ ...entry, isSideChannel: false })),
+      {
+        wireName: "echo",
+        class: "meta",
+        description: "echo",
+        parameters: {},
+        source: { kind: "pack", pluginName: "custom" },
+        isSideChannel: true,
+      },
+    ]);
+    f.turn.orchestrationResult = true;
+    restorePendingRound(f.turn);
+    await f.run();
+    expect(f.host.admit.mock.calls.map(([call]) => call.id)).toEqual(["early", "ordinary"]);
+    expect(f.resolvers.work.mock.calls.map(([job]) => job.toolCallId)).toEqual(["early", "early", "ordinary"]);
   });
 
   it.each([false, true])(

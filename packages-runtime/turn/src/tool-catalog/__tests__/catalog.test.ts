@@ -19,6 +19,7 @@ function packEntry(wireName: string, pluginName: string, extra: Partial<CatalogE
     execute: extra.execute,
     packMeta: extra.packMeta,
     representation: extra.representation,
+    continuation: extra.continuation,
     triggersReactLoop: extra.triggersReactLoop,
     isSideChannel: extra.isSideChannel,
     tapeHidden: extra.tapeHidden,
@@ -190,7 +191,7 @@ describe("harness-tool-catalog", () => {
         side_only: null,
       },
       sideChannelLoop: false,
-      sideOnly: false,
+      sideOnly: true,
       absent: true,
     });
   });

@@ -271,3 +271,56 @@ it("extra-root isolation is per-run, not process-global", () => {
     after: extraRootAllowed(),
   }).toEqual({ outside: false, inner: true, after: false });
 });
+
+it.each(["success", "failure", "throw", "abort", "abort-failure", "stale"] as const)(
+  "commits proposed metadata only after a successful current execution: %s",
+  async (mode) => {
+    const plexus = SessionPlexus.create(`proposal-${mode}`, "/tmp/proposal");
+    const catalog = new KernelToolCatalog();
+    onTestFinished(() => {
+      catalog[Symbol.dispose]();
+      plexus.destroy();
+    });
+    const controller = new AbortController();
+    let current = true;
+    catalog.replacePack([
+      {
+        wireName: "propose",
+        class: "meta",
+        description: "propose",
+        parameters: {},
+        source: { kind: "pack", pluginName: "proposal" },
+        async execute(_args, ctx) {
+          ctx.storage?.propose({ changed: true });
+          if (mode === "throw") throw new Error("failed after proposal");
+          if (mode === "abort") controller.abort("cancel");
+          if (mode === "abort-failure") {
+            controller.abort("cancel");
+            return { ok: false, text: "cancelled", value: { stdout: "TAIL" } };
+          }
+          if (mode === "stale") current = false;
+          return { ok: mode !== "failure" };
+        },
+      },
+    ]);
+    bindSessionCatalog(plexus.root, catalog);
+    const job = new SystemToolJob({ toolCallId: "proposal", name: "propose", argsJson: "{}" });
+    plexus.root.head = new SessionTurn({
+      turnTail: new SessionSystemPrompt(),
+      prompt: prompt.user`p`,
+      doneWork: [job],
+      queue: [],
+    });
+    plexus.root.head.pushChild(job);
+    await executeSystemTool(job, controller.signal, { canApplyResults: () => current });
+    expect(job.pluginMeta).toEqual(
+      mode === "success" ? { proposal: JSON.stringify({ action: { changed: true } }) } : {},
+    );
+    if (mode === "abort-failure")
+      expect(job.outcomeSnap).toEqual({ ok: false, text: "cancelled", value: { stdout: "TAIL" } });
+    if (mode === "success") {
+      await executeSystemTool(job, controller.signal);
+      expect(job.outcomeSnap).toEqual({ ok: true });
+    }
+  },
+);

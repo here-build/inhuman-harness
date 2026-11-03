@@ -250,6 +250,7 @@ describe("context_need loop", () => {
         new CompletionJob({ expectation: prior }),
         new CompletionJob({ expectation: later }),
         new ContextNeedToolJob({
+          outcomeJson: JSON.stringify({ ok: true }),
           triggersReactLoop: false,
           tapeHidden: true,
           toolCallId: "n1",

@@ -4,7 +4,7 @@
  * package's.
  */
 import type { EnvCapability } from "@here.build/arrival";
-import { asSystemPrompt } from "@inhuman.tools/harness-commons";
+import { type ToolContinuation, asSystemPrompt } from "@inhuman.tools/harness-commons";
 import { z } from "zod";
 
 export const inhumanBrand = {
@@ -26,6 +26,12 @@ const fn = z.custom<(...args: never[]) => unknown>((value) => typeof value === "
 export const toolRepresentation = z.enum(["tool", "symbol", "both"]);
 export type ToolRepresentation = z.infer<typeof toolRepresentation>;
 
+export const toolContinuationSchema: z.ZodType<ToolContinuation> = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("observation") }),
+  z.strictObject({ kind: z.literal("auxiliary"), note: z.string().trim().min(1).optional() }),
+  z.strictObject({ kind: z.literal("none") }),
+]);
+
 const tapeFace = z.string().trim().min(1, "tape face must be a non-empty string").nullable().default(null);
 
 const toolBase = {
@@ -36,6 +42,7 @@ const toolBase = {
   representation: toolRepresentation.optional(),
   input: zodType,
   output: zodType,
+  continuation: toolContinuationSchema.optional(),
   triggersReactLoop: z.boolean().optional(),
   isSideChannel: z.boolean().optional(),
   tapeHidden: z.boolean().optional(),

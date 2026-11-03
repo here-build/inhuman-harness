@@ -3,7 +3,7 @@
  * and instanceof are not part of the contract.
  */
 import type { EnvCapability } from "@here.build/arrival";
-import type { SystemPrompt } from "@inhuman.tools/harness-commons";
+import type { SystemPrompt, ToolContinuation } from "@inhuman.tools/harness-commons";
 import { z, ZodType } from "zod";
 
 import type { ExamAdmit, PluginProjection, PluginStorageHandles } from "./projection.js";
@@ -96,6 +96,7 @@ export type FunctionToolDefinition<I = unknown, O = unknown> = {
   readonly input: ZodType<I>;
   readonly output: ZodType<O>;
   readonly run: (input: I, ctx: PluginCallContext) => O | Promise<O>;
+  readonly continuation: ToolContinuation;
   readonly triggersReactLoop: boolean;
   readonly isSideChannel: boolean;
   readonly tapeHidden: boolean;
@@ -121,6 +122,7 @@ export type BotCallToolDefinition<I = unknown, O = unknown> = {
   readonly deadlineMs?: number;
   readonly maxResultTokens?: number;
   readonly supportsNotify?: boolean;
+  readonly continuation: ToolContinuation;
   readonly triggersReactLoop: boolean;
   readonly isSideChannel: boolean;
   readonly tapeHidden: boolean;
@@ -213,6 +215,9 @@ function normalizeTool(raw: unknown, index: number, pluginName: string): ToolDef
     row.type === "bot-call"
       ? parseNamed(botCallToolDef, row, context)
       : parseNamed(functionToolDef, row.type === "function" ? row : { ...row, type: undefined }, context);
+  const continuation: ToolContinuation = parsed.continuation ?? {
+    kind: parsed.triggersReactLoop === false ? "none" : "observation",
+  };
   const base = {
     name: parsed.name,
     description: parsed.description,
@@ -220,7 +225,8 @@ function normalizeTool(raw: unknown, index: number, pluginName: string): ToolDef
     representation: declaredRepresentation(parsed.representation, parsed.type === "bot-call" ? "tool" : "symbol"),
     input: parsed.input as ZodType,
     output: parsed.output as ZodType,
-    triggersReactLoop: parsed.triggersReactLoop !== false,
+    continuation,
+    triggersReactLoop: continuation.kind === "observation",
     isSideChannel: parsed.isSideChannel === true,
     tapeHidden: parsed.tapeHidden === true,
     question: parsed.question,

@@ -36,7 +36,12 @@ export function kindOfJob(job: RetainedJob, entryClass?: string): RetentionKind 
   if (job instanceof WebExtractToolJob) return "tool.web.fetch";
   if (job instanceof FileMutateToolJob) return "tool.write";
   if (job instanceof AgentCallJob || job instanceof BotCallJob || job instanceof AgentMessageJob) return "tool.agent";
-  if (job instanceof AgentCallbackJob || job instanceof AgentNotifyJob || job instanceof ContextNeedToolJob) {
+  if (
+    job instanceof AgentCallbackJob ||
+    job instanceof AgentNotifyJob ||
+    job instanceof ContextNeedToolJob ||
+    job.isSideChannel
+  ) {
     return "tool.comm";
   }
   if (job.name === "shell") return "tool.shell";

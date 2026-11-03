@@ -16,6 +16,7 @@ import { computed, type IComputedValue } from "mobx";
 import { CONTEXT_NEED_TOOL_NAME } from "./context-need.js";
 import type { SessionRoot } from "./SessionRoot.js";
 import { SessionSystemPrompt } from "./SessionSystemPrompt.js";
+import { jobContinuationOf, type JobContinuationSnapshot } from "./tool-continuation.js";
 import { SessionTurn } from "./turn/session-turn.js";
 import type { SessionUnit } from "./turn/types.js";
 
@@ -34,11 +35,8 @@ const FALLBACK_TITLE_MAX_CHARS = 48;
 const NO_FOLLOWUP_SIDE_CHANNEL_NAMES: ReadonlySet<string> = new Set([CONTEXT_NEED_TOOL_NAME]);
 
 /** Catalog flags determine processing; names do not override admitted facts. */
-export function jobTriggersReactLoop(job: {
-  readonly name?: string;
-  readonly triggersReactLoop?: boolean | null;
-}): boolean {
-  return job.triggersReactLoop !== false;
+export function jobTriggersReactLoop(job: JobContinuationSnapshot): boolean {
+  return jobContinuationOf(job).kind === "observation";
 }
 
 /** Host system line when the model titled in a round by itself. */

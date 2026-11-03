@@ -1,7 +1,4 @@
-/**
- * ContextNeed parse and turn derivation. A SystemToolJob with this name is
- * not the need — admit must mint ContextNeedToolJob.
- */
+/** Context request validation and successful legacy-call projection. */
 import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { beforeEach, expect, test } from "vitest";
@@ -18,6 +15,7 @@ beforeEach(() => resetLocalIDs());
 
 function need(id: string, args: Record<string, unknown>): ContextNeedToolJob {
   return new ContextNeedToolJob({
+    outcomeJson: JSON.stringify({ ok: true }),
     triggersReactLoop: false,
     tapeHidden: true,
     toolCallId: id,

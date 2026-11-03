@@ -32,6 +32,7 @@ export type ToolCallJobProps = {
   readonly regenerateable?: boolean;
   readonly retentionJson?: string;
   readonly pluginMeta?: Record<string, string>;
+  readonly continuationJson?: string;
   readonly triggersReactLoop?: boolean;
   readonly isSideChannel?: boolean;
   readonly tapeHidden?: boolean;
@@ -88,6 +89,8 @@ export abstract class ToolCallJob extends ApprovableJob<unknown, string> {
   /** Plugin id → envelope JSON. The projection is computed; this is the fact. */
   @syncing.record accessor pluginMeta: Record<string, string> = {};
   /** Stamped from the catalog at admission. */
+  /** Normalized definition policy frozen when this invocation was admitted. Empty on legacy documents. */
+  @syncing accessor continuationJson: string = "";
   @syncing accessor triggersReactLoop: boolean = true;
   /** Stamped from the catalog at admission. Skips the license floor. */
   @syncing accessor isSideChannel: boolean = false;

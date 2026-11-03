@@ -12,9 +12,9 @@ import { DisposableClass, disposableGuard, prompt, type SystemPrompt } from "@in
 import { action, computed, observable } from "mobx";
 import invariant from "tiny-invariant";
 
+import { releaseCatalogRoots } from "./bindings.js";
 import { type CatalogRecipe, dedupeRecipes, findRecipe, invokeCyclePath } from "./recipes.js";
 import { type CatalogEntry, PLAIN_WORKER_HOST, type WorkerToolHost } from "./types.js";
-import { releaseCatalogRoots } from "./bindings.js";
 
 export { bindSessionCatalog, catalogOf } from "./bindings.js";
 
@@ -233,9 +233,10 @@ export class KernelToolCatalog extends DisposableClass {
 
 export function catalogTriggersReactLoop(catalog: KernelToolCatalog, wire: string): boolean {
   const entry = catalog.catalogEntry(wire);
+  if (entry?.continuation != null) return entry.continuation.kind === "observation";
   if (entry?.triggersReactLoop === false) return false;
   if (entry?.triggersReactLoop === true) return true;
-  return entry?.isSideChannel !== true;
+  return true;
 }
 
 export function requireCatalog<T extends KernelToolCatalog>(catalog: T | undefined, what: string): T {

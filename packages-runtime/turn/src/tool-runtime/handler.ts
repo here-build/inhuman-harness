@@ -2,13 +2,14 @@
  * Project-bound mint of one model tool_call. Does not execute.
  * Connection-sourced names are MCPToolJob; write_file / edit_file are
  * FileMutateToolJob; pack / unknown are SystemToolJob.
- * `agentCallFromWire` mints `agent__ask` / `agent__send`. `admit` wraps it; the turn calls it directly.
+ * `agentCallFromWire` mints `agent__ask` / `agent__send`. `admit` wraps it with frozen policy and retention facts.
  * Both append onto `AdmitContext.parent` when the caller passes one. They do not enqueue.
  * Bot-call pack tools and standing bot invocations mint BotCallJob.
  * `scheme_repl` is a ProgrammaticJob bag. Inner admits reuse this door.
  */
 import { createHash } from "node:crypto";
 
+import type { ToolContinuation } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
   BotCallJob,
@@ -23,8 +24,6 @@ import {
   AGENT_SEND,
   AGENT_VOID,
   CallDelivery,
-  CONTEXT_NEED_TOOL_NAME,
-  ContextNeedToolJob,
   FailureOutcome,
   FileMutateToolJob,
   MCPToolJob,
@@ -50,6 +49,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { parseJsonRecord } from "@inhuman.tools/harness-model/json-record";
 import type { ToolCall } from "@inhuman.tools/tool-call-normalize";
+import { action } from "mobx";
 
 import { externalizePrior } from "./blob-port.js";
 import { peelAgentCallArgs, requestIdOf } from "./peel.js";
@@ -57,7 +57,12 @@ import { workerToolAllowed } from "./worker-tools.js";
 import { lineStartOfSpan, writeFileAdmitSnap } from "./write-admit.js";
 import { policyOfTurn, stampJobRetention } from "../context/retention/index.js";
 import { peelShellCwd } from "../policy-processor/peel-cwd.js";
-import { agentCallSupportsNotify, type CatalogEntry, type KernelToolCatalog } from "../tool-catalog/index.js";
+import {
+  agentCallSupportsNotify,
+  behaviorEntriesOf,
+  type CatalogEntry,
+  type KernelToolCatalog,
+} from "../tool-catalog/index.js";
 
 /** Catalog face the handler proxies to. A kernel host satisfies this. */
 export type ToolCallKernel = {
@@ -106,12 +111,17 @@ function priorProps(text: string | null): { readonly priorContent?: string; read
 }
 
 function catalogFlags(entry: CatalogEntry | undefined): {
+  readonly continuationJson: string;
   readonly triggersReactLoop: boolean;
   readonly tapeHidden: boolean;
   readonly isSideChannel: boolean;
 } {
+  const continuation: ToolContinuation = entry?.continuation ?? {
+    kind: entry?.triggersReactLoop === false ? "none" : "observation",
+  };
   return {
-    triggersReactLoop: entry?.triggersReactLoop ?? true,
+    continuationJson: JSON.stringify(continuation),
+    triggersReactLoop: continuation.kind === "observation",
     tapeHidden: entry?.tapeHidden ?? false,
     isSideChannel: entry?.isSideChannel === true,
   };
@@ -171,15 +181,15 @@ function admitExam(call: ToolCall, ctx: AdmitContext, entry: CatalogEntry): Prog
     bag.outcomeSnap ??= { ok: true, value: { job_id: bag.toolCallId, background: true } };
   }
   ctx.originTurn?.pushChild(bag);
-  const action = exam.admit(prefix, input);
+  const admittedAction = exam.admit(prefix, input);
   let jobUuid = "";
   try {
     jobUuid = bag.uuid;
   } catch {
     jobUuid = "";
   }
-  const actionRec = asRecord(action);
-  writePluginMeta(bag, pluginId, actionRec == null ? action : { ...actionRec, jobUuid }, true);
+  const actionRec = asRecord(admittedAction);
+  writePluginMeta(bag, pluginId, actionRec == null ? admittedAction : { ...actionRec, jobUuid }, true);
   return bag;
 }
 
@@ -233,6 +243,11 @@ export function agentCallFromWire(
   if (ctx.session != null && !workerToolAllowed(catalog, ctx.session.agent.spec.name, name, ctx.session)) {
     return appendJob(ctx, ceilingJob(call));
   }
+  const flags = catalogFlags(
+    catalog.catalogEntry(call.function.name) ??
+      catalog.privateWorkerEntries.find((row) => row.wireName === call.function.name) ??
+      behaviorEntriesOf(ctx.session).find((row) => row.wireName === call.function.name),
+  );
   const peeled = peelAgentCallArgs(call.function.arguments);
   const spec = parseJsonRecord(peeled.argsJson)?.spec;
   // Select the explicit child or bot node at admission;
@@ -246,6 +261,7 @@ export function agentCallFromWire(
         argsJson: peeled.argsJson,
         botName: spec.trim(),
         voidLegal: name === AGENT_SEND ? peeled.voidLegal : false,
+        ...flags,
         readonly: peeled.readonly,
         responseSchema: peeled.responseSchema,
         ...stamp(peeled.argsJson),
@@ -260,6 +276,7 @@ export function agentCallFromWire(
       argsJson: peeled.argsJson,
       regenerateable: false,
       voidLegal: name === AGENT_SEND ? peeled.voidLegal : false,
+      ...flags,
       readonly: peeled.readonly,
       responseSchema: peeled.responseSchema,
       constitution: peeled.constitution,
@@ -275,16 +292,26 @@ export function agentCallFromWire(
 export class ToolCallHandler {
   constructor(readonly kernel: ToolCallKernel) {}
 
+  @action
   admit(call: ToolCall, catalog: KernelToolCatalog = this.kernel.catalog, ctx: AdmitContext = {}): AdmittedCall {
-    const job = this.#admit(call, catalog, ctx);
+    const job = this.#admit(call, catalog, { ...ctx, parent: undefined });
     // R2: the horizon is resolved once, here, from the turn's R1 policy and the catalog as it is now.
-    const entry = catalog.catalogEntry(call.function.name) ?? this.kernel.catalog.catalogEntry(call.function.name);
+    const entry =
+      catalog.catalogEntry(call.function.name) ??
+      this.kernel.catalog.catalogEntry(call.function.name) ??
+      catalog.privateWorkerEntries.find((row) => row.wireName === call.function.name) ??
+      behaviorEntriesOf(ctx.session).find((row) => row.wireName === call.function.name);
+    const policy = catalogFlags(entry);
+    job.continuationJson = policy.continuationJson;
+    job.triggersReactLoop = policy.triggersReactLoop;
+    job.isSideChannel = policy.isSideChannel;
+    job.tapeHidden = policy.tapeHidden;
     const turn = ctx.originTurn ?? ctx.session?.head ?? null;
     stampJobRetention(job, policyOfTurn(turn instanceof SessionTurn ? turn : null), {
       ...(entry?.class === undefined ? {} : { entryClass: entry.class }),
       ...(entry?.retention === undefined ? {} : { hint: entry.retention }),
     });
-    return job;
+    return appendJob(ctx, job);
   }
 
   #admit(call: ToolCall, catalog: KernelToolCatalog, ctx: AdmitContext): AdmittedCall {
@@ -435,18 +462,6 @@ export class ToolCallHandler {
           argsJson,
           regenerateable: false,
           ...stamp(argsJson),
-        }),
-      );
-    }
-    if (name === CONTEXT_NEED_TOOL_NAME) {
-      return place(
-        new ContextNeedToolJob({
-          toolCallId,
-          name,
-          argsJson,
-          regenerateable: false,
-          ...stamp(argsJson),
-          ...catalogFlags(entry),
         }),
       );
     }

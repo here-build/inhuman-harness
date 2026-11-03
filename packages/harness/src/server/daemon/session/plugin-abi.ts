@@ -11,6 +11,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
+import invariant from "tiny-invariant";
+
 import { documentRoot, SessionRoot, ToolCallJob } from "@inhuman.tools/harness-model";
 
 import {
@@ -97,6 +99,7 @@ async function loadAbi(
       parameters: { ...decl.input.json },
       class: decl.toolClass === "" ? "effect" : decl.toolClass,
       source: { kind: "pack", pluginName: plugin.name },
+      continuation: decl.continuation,
       triggersReactLoop: decl.triggersReactLoop,
       isSideChannel: decl.isSideChannel,
       representation: decl.representation,
@@ -181,7 +184,7 @@ function fileArgs(name: (typeof FILE_PORTS)[number], values: readonly Val[]): Re
       continue;
     }
     if (typeof value === "string" && value.startsWith(":") && value.length > 1 && positionals.length > 0) {
-      if (index + 1 >= values.length) throw new Error(`${name}: dangling keyword ${value}`);
+      invariant(index + 1 < values.length, `${name}: dangling keyword ${value}`);
       options[value.slice(1)] = toJS(values[index + 1]);
       index += 1;
       continue;
@@ -189,19 +192,20 @@ function fileArgs(name: (typeof FILE_PORTS)[number], values: readonly Val[]): Re
     positionals.push(value);
   }
   const head = positionals[0];
-  if (typeof head !== "string") throw new Error(`${name}: ${FILE_FIELD[name]} is required`);
-  if (positionals.length > 1) throw new Error(`${name}: unexpected argument`);
+  invariant(typeof head === "string", `${name}: ${FILE_FIELD[name]} is required`);
+  invariant(positionals.length <= 1, `${name}: unexpected argument`);
   return { [FILE_FIELD[name]]: head, ...options };
 }
 
 async function callCatalog(name: string, args: Record<string, unknown>): Promise<string> {
   const slot = examToolCtx.getStore();
-  if (slot == null) throw new Error(`${name}: kernel tool catalog is missing`);
+  invariant(slot != null, `${name}: kernel tool catalog is missing`);
   const parent = slot.invocation;
   const session = parent instanceof ToolCallJob ? documentRoot(parent) : null;
-  if (!(parent instanceof ToolCallJob) || !(session instanceof SessionRoot)) {
-    throw new TypeError(`${name}: runs only inside a session tool call`);
-  }
+  invariant(
+    parent instanceof ToolCallJob && session instanceof SessionRoot,
+    `${name}: runs only inside a session tool call`,
+  );
   const call = { id: randomUUID(), type: "function" as const, function: { name, arguments: JSON.stringify(args) } };
   const inner = new ToolCallHandler({ catalog: slot.catalog }).admit(call, slot.catalog, { session, parent });
   // Settles on the inner receipt; a failed receipt rejects with its text.

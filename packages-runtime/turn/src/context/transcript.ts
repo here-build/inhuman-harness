@@ -58,6 +58,12 @@ import { keepFloorsOfJob } from "./compact-floors.js";
 import { spawnHistoryText } from "./spawn-history.js";
 import { compactToolLine, toolCallRepresentation } from "./squeeze.js";
 
+/** Continuation is not a visibility policy. Preserve boolean-era projections on old documents. */
+export function compactToolVisible(job: ToolCallJob | ProgrammaticJob): boolean {
+  if (job.continuationJson !== "") return !job.tapeHidden;
+  return job instanceof ProgrammaticJob || jobTriggersReactLoop(job);
+}
+
 export type MessageRole = "user" | "assistant";
 
 export class MessageChunk {
@@ -201,11 +207,11 @@ function messagesFrom(
         break;
       }
       case "tool": {
-        if (jobTriggersReactLoop(event.chunk)) tools.push(event.chunk);
+        if (compactToolVisible(event.chunk)) tools.push(event.chunk);
         break;
       }
       case "scheme": {
-        tools.push(event.chunk);
+        if (compactToolVisible(event.chunk)) tools.push(event.chunk);
         break;
       }
       case "notify": {
@@ -618,7 +624,7 @@ export function projectCompactRows(
     if (promptText !== "") rows.push({ kind: "user", text: promptText });
     if (response !== "") rows.push({ kind: "assistant", text: response });
     for (const tool of round.toolCalls) {
-      if (tool instanceof ToolCallJob && !jobTriggersReactLoop(tool)) continue;
+      if (!compactToolVisible(tool)) continue;
       const line = compactToolLine(tool).trim();
       if (line === "") continue;
       const name = (tool instanceof ToolCallJob ? tool.name : tool.toolName).trim();

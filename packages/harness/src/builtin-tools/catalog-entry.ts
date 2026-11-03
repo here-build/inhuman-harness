@@ -29,6 +29,7 @@ export function catalogEntryFromTool(tool: InhumanTool, source: CatalogSource): 
     representation: tool.representation,
     source,
     execute: (raw, ctx) => tool.execute(raw, ctx),
+    continuation: tool.continuation,
     triggersReactLoop: tool.triggersReactLoop,
     isSideChannel: tool.isSideChannel,
     tapeHidden: tool.tapeHidden,

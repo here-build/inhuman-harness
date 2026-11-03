@@ -1,6 +1,7 @@
 import {
   AgentCallJob,
   ContextNeedToolJob,
+  CONTEXT_NEED_TOOL_NAME,
   ProgrammaticJob,
   spawnDescriptionArgs,
   spawnProgramTools,
@@ -23,7 +24,12 @@ export function spawnProgramOperations(
   const operations: Array<ToolCallJob | ProgrammaticJob> = [];
   const seen = new Set<ToolCallJob | ProgrammaticJob>([root]);
   const visit = (job: ToolCallJob | ProgrammaticJob): void => {
-    if (seen.has(job) || job instanceof ContextNeedToolJob) return;
+    if (
+      seen.has(job) ||
+      job instanceof ContextNeedToolJob ||
+      (job instanceof ToolCallJob && job.name === CONTEXT_NEED_TOOL_NAME)
+    )
+      return;
     seen.add(job);
     operations.push(job);
     if (job instanceof AgentCallJob) return;

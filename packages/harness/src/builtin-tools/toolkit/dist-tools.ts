@@ -45,6 +45,7 @@ export interface ToolResult {
   /** Door / dist string payload. Structured results use `value`; paint is squeeze. */
   readonly text?: string;
   readonly value?: unknown;
+  readonly json?: unknown;
   /** Listing/search hit more results than it returned. Markers stay out of `value`. */
   readonly truncated?: boolean;
 }
@@ -56,6 +57,7 @@ export function asToolResult(out: unknown): ToolResult {
     ok: parsed.data.ok,
     ...(typeof parsed.data.text === "string" ? { text: parsed.data.text } : {}),
     ...(out !== null && typeof out === "object" && "value" in out ? { value: parsed.data.value } : {}),
+    ...(out !== null && typeof out === "object" && "json" in out ? { json: parsed.data.json } : {}),
     ...(parsed.data.truncated === true ? { truncated: true } : {}),
   };
 }

@@ -23,6 +23,7 @@ import { schemaCapability } from "@here.build/arrival/capabilities/schema";
 import { CONSTANT_CTX } from "@here.build/arrival/host-internals";
 import { APair, AString, ASymbol, nil, schemeFalse } from "@here.build/arrival/reflect-internals";
 import { isOptionalTag, stripOptionalSuffix, tagToJsonSchema } from "@here.build/arrival/schema-tag";
+import { toolContinuationSchema } from "@inhuman.tools/plugin-sdk";
 
 import { jsToVal, plain, sliceForm, valToScheme } from "./crossing.js";
 import { PluginSurfaceError } from "./surface-error.js";
@@ -312,6 +313,8 @@ function expandTool(forms: readonly unknown[]): APair<SchemeValue, SchemeValue> 
     "class",
     "reentrant-depth",
     "triggers-react-loop",
+    "continuation",
+    "continuation-note",
     "is-side-channel",
     "representation",
     "question",
@@ -336,6 +339,8 @@ function expandTool(forms: readonly unknown[]): APair<SchemeValue, SchemeValue> 
     kw.get("caption") ?? schemeFalse,
     kw.get("representation") ?? schemeFalse,
     kw.get("is-side-channel") ?? schemeFalse,
+    kw.get("continuation") ?? schemeFalse,
+    kw.get("continuation-note") ?? schemeFalse,
   ]);
 }
 
@@ -366,7 +371,7 @@ function expandHook(forms: readonly unknown[]): APair<SchemeValue, SchemeValue> 
 function expandReducer(forms: readonly unknown[]): APair<SchemeValue, SchemeValue> {
   registerCtx("define/reducer");
   const { positional, kw } = splitKeywords(forms, ["initial", "reduce", "host-only"]);
-  PluginSurfaceError.invariant(positional.length <= 0, "define/reducer takes keywords");
+  PluginSurfaceError.invariant(positional.length === 0, "define/reducer takes keywords");
   const initial = kw.get("initial");
   const reduce = kw.get("reduce");
   PluginSurfaceError.invariant(!(initial == null || reduce == null), "reducer requires :initial and :reduce");
@@ -522,7 +527,7 @@ async function applyExam(source: string, ctx: Ctx): Promise<Val> {
   const form = (Array.isArray(parsed) ? parsed[0] : parsed) as SchemeValue;
   const params = lambdaParams(source, form);
   const unbound = params.filter((name) => !ctx.registry.environment.has(name));
-  PluginSurfaceError.invariant(unbound.length <= 0, `exam environment lacks ${unbound.join(", ")}`);
+  PluginSurfaceError.invariant(unbound.length === 0, `exam environment lacks ${unbound.join(", ")}`);
   const forms = await parse(`(${source} ${params.join(" ")})`, "exam-lambda.scm");
   const scope = LexicalScope.fresh("exam");
   const prelude = params
@@ -562,6 +567,8 @@ function registerTool(args: readonly unknown[]): void {
     caption,
     representation,
     sideChannel,
+    continuation,
+    continuationNote,
   ] = args;
   const id = token(name);
   PluginSurfaceError.invariant(id != null, "tool name must be a symbol");
@@ -579,6 +586,15 @@ function registerTool(args: readonly unknown[]): void {
   PluginSurfaceError.invariant(!ctx.registry.tools.has(id), `duplicate tool ${id}`);
   const className = missing(toolClass) ? "" : token(toolClass);
   PluginSurfaceError.invariant(className != null, ":class");
+  const legacyTrigger = triggersOf(triggers);
+  const policy = toolContinuationSchema.safeParse({
+    kind: missing(continuation) ? (legacyTrigger ? "observation" : "none") : token(continuation),
+    ...(missing(continuationNote) ? {} : { note: plain(continuationNote) }),
+  });
+  PluginSurfaceError.invariant(
+    policy.success,
+    ":continuation must be observation, auxiliary, or none; only auxiliary accepts :continuation-note",
+  );
   const decl: import("./value.js").ToolDecl = {
     name: id,
     expose: exposeName,
@@ -587,7 +603,8 @@ function registerTool(args: readonly unknown[]): void {
     question: faceOf(question),
     effect: faceOf(effect),
     caption: faceOf(caption),
-    triggersReactLoop: triggersOf(triggers),
+    continuation: policy.data,
+    triggersReactLoop: policy.data.kind === "observation",
     isSideChannel: sideChannelOf(sideChannel),
     representation: representationOf(representation),
     input: schema,

@@ -262,3 +262,30 @@ it.each(["direct", "program", "wrapper"])(
     }).toEqual({ ok: true, bounded: true, recall: true, description: true, worker: true, leaked: false });
   },
 );
+
+it("keeps visible results in compaction independently of static continuation mode", () => {
+  const completion = new CompletionJob({ expectation: new CompletionExpectation({ connectionId: "mock" }) });
+  const visible = new SystemToolJob({
+    name: "silent-result",
+    toolCallId: "visible",
+    continuationJson: '{"kind":"none"}',
+    triggersReactLoop: false,
+    outcomeJson: '{"ok":true,"value":"keep this result"}',
+    completed: true,
+  });
+  const hidden = new SystemToolJob({
+    name: "aux",
+    toolCallId: "hidden",
+    continuationJson: '{"kind":"auxiliary"}',
+    tapeHidden: true,
+    outcomeJson: '{"ok":true}',
+    completed: true,
+  });
+  const program = new ProgrammaticJob({
+    toolCallId: "program",
+    continuationJson: '{"kind":"none"}',
+    tapeHidden: false,
+  });
+  const transcript = Transcript.fromCells(historyBehind(turnWith([completion, visible, hidden, program])));
+  expect(transcript.rounds()[0]?.toolCalls).toEqual([visible, program]);
+});

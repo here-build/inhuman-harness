@@ -24,6 +24,7 @@ export function declaredToolEntries(
         parameters: { ...(decl.input?.json ?? { type: "object" }) },
         class: decl.toolClass,
         source: { kind: "pack", pluginName: plugin },
+        continuation: decl.continuation,
         triggersReactLoop: decl.triggersReactLoop,
         isSideChannel: decl.isSideChannel,
         representation: decl.representation,

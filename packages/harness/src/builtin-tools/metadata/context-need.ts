@@ -1,9 +1,8 @@
-/**
- * Side-channel context expectation. BODY is an ack; the host derives
- * SessionTurn.contextNeed from the job. Not occupancy, not compact().
- */
+/** Record a normalized context request on this invocation's trajectory. */
+import invariant from "tiny-invariant";
 import { CONTEXT_NEED_DESCRIPTION } from "@inhuman.tools/activity";
-import { CONTEXT_NEED_TOOL_NAME } from "@inhuman.tools/harness-model";
+import { CONTEXT_NEED_TOOL_NAME, type SessionMetadataAction } from "@inhuman.tools/harness-model";
+import { contextNeedAdmitSchema } from "@inhuman.tools/harness-model/schemas";
 import { InhumanTool } from "@inhuman.tools/plugin-sdk";
 import { z } from "zod";
 
@@ -14,7 +13,10 @@ export const contextNeedTool = new InhumanTool({
   description: CONTEXT_NEED_DESCRIPTION,
   class: "meta",
   representation: "both",
-  triggersReactLoop: false,
+  continuation: {
+    kind: "auxiliary",
+    note: "Continue the user's task. Make context requests alongside your other tool calls, rather than as a separate round.",
+  },
   isSideChannel: true,
   tapeHidden: true,
   input: z.object({
@@ -37,5 +39,10 @@ export const contextNeedTool = new InhumanTool({
     current_phase_settled: z.literal(true).optional().describe("Current reasoning phase reached a clean boundary."),
   }),
   output: toolResultSchema,
-  run: () => ({ ok: true as const, value: { ok: true } }),
+  run: (input, ctx) => {
+    const need = contextNeedAdmitSchema.parse(input);
+    invariant(ctx.storage != null, "context_need requires session storage");
+    ctx.storage.propose({ type: "context-need", need } satisfies SessionMetadataAction);
+    return { ok: true, value: { ok: true } };
+  },
 });
