@@ -43,3 +43,7 @@ export * from "./call-order.js";
 export * from "./worker-permissions.js";
 
 export * from "./spawn-history.js";
+
+export * from "../shared/compact-settings.js";
+export * from "./agent-relations.js";
+export type { SessionOverviewFace } from "../shared/session-overview.js";

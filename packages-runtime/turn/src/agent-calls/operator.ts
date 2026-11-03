@@ -1,7 +1,13 @@
 /**
  * Operator views over child invocations and bot requests. Same Calls as the graph — no telemetry DB.
  */
-import { CallJob, FailureOutcome, SessionRoot, SuccessfulOutcome, BotCallJob } from "@inhuman.tools/harness-model";
+import {
+  CallJob,
+  FailureOutcome,
+  SessionRoot,
+  SuccessfulOutcome,
+  BotCallJob,
+} from "@inhuman.tools/harness-model/session";
 
 import { isCallPaused } from "./acceptance.js";
 import { completeCallExceptionally } from "./runtime.js";

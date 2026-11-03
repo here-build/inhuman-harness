@@ -4,6 +4,10 @@
  * strategy paths are the harness's.
  */
 import { readFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+import { programSourceLoader } from "@inhuman.tools/scheme-program/fs";
+import { pinModuleLoader } from "@inhuman.tools/turn/resources";
 
 import {
   loadCompactProgram as loadSessionCompactProgram,
@@ -27,5 +31,8 @@ const resolve: CompactStrategyResolve = {
  * is the module root for `(require …)`.
  */
 export function loadCompactProgram(spec?: string, kernelFsRoot?: string): LoadedCompactProgram {
-  return loadSessionCompactProgram(spec, kernelFsRoot, resolve);
+  const loaded = loadSessionCompactProgram(spec, kernelFsRoot, resolve);
+  return loaded.sourcePath == null
+    ? loaded
+    : { ...loaded, moduleLoader: pinModuleLoader(programSourceLoader(dirname(loaded.sourcePath))) };
 }

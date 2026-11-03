@@ -19,7 +19,7 @@ import {
   type CompletionMessage,
   type ContextNeed,
   type SessionUnit,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 
 import { Transcript, walkTranscript } from "./transcript.js";
 

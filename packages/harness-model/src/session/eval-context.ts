@@ -22,27 +22,13 @@ export type PolicyResult = "policyApprove" | "deny" | "ask" | "block" | null;
  */
 export type JudgeResult = "allow" | "deny" | null;
 
-/** Session tri-state. Not Scheme program ids. */
-export const PERMISSION_MODES = ["manual", "auto", "yolo"] as const;
-export type PermissionMode = (typeof PERMISSION_MODES)[number];
-
-export function isPermissionMode(value: string): value is PermissionMode {
-  return value === "manual" || value === "auto" || value === "yolo";
-}
-
-/** Unknown / empty / `plan` / `act` / `always-approve` → null. */
-export function parsePermissionMode(value: unknown): PermissionMode | null {
-  return typeof value === "string" && isPermissionMode(value) ? value : null;
-}
-
-/**
- * Mint-time snapshot, same merge as sessionMintKvs: project wins when it
- * is a tri-state id; empty project inherits kernel; both empty is
- * `manual`. Not a kv key. Attach does not re-seed.
- */
-export function sessionMintPermissionMode(kernel: string, project: string): PermissionMode {
-  return parsePermissionMode(project) ?? parsePermissionMode(kernel) ?? "manual";
-}
+export {
+  PERMISSION_MODES,
+  type PermissionMode,
+  isPermissionMode,
+  parsePermissionMode,
+  sessionMintPermissionMode,
+} from "../shared/permission-mode.js";
 
 /** Unattended subset of {@link PERMISSION_MODES}. */
 export const EVAL_PERMISSION_MODES = ["auto", "yolo"] as const;

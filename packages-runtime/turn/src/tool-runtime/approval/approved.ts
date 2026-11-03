@@ -3,7 +3,7 @@
  * in harness-model. Cancel writes `cancelled`, not `approved`. Human
  * `approvalComment` is a `TurnApprovalNoteChunk`, not this receipt.
  */
-import { ApprovableJob, applyToolOutcomeReceipt, cancelUnstarted } from "@inhuman.tools/harness-model";
+import { ApprovableJob, applyToolOutcomeReceipt, cancelUnstarted } from "@inhuman.tools/harness-model/session";
 import { action } from "mobx";
 
 export function stampToolOutcome(leaf: ApprovableJob, text: "denied" | "cancelled", reason?: unknown): void {

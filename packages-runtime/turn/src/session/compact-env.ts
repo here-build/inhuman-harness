@@ -24,8 +24,6 @@
  * are `pipe` — pure transforms that mint nothing. `transcript/warm?` is the
  * one argument-reader that stays `source`: `isWarm` reads the live clock.
  */
-import { dirname } from "node:path";
-
 import {
   EnvCapability,
   execState,
@@ -36,7 +34,7 @@ import {
   type SchemeValue,
 } from "@here.build/arrival";
 import { applyCallback, is_callable_value } from "@here.build/arrival/host-internals";
-import { arrivalLoaderCapability } from "@here.build/arrival-modules";
+import { arrivalLoaderCapability, type Loader } from "@here.build/arrival-modules";
 import { promptIsolatedCapability, type PromptComplete } from "@inhuman.tools/env-capability-module-prompt";
 import {
   CompactJob,
@@ -48,9 +46,8 @@ import {
   TurnApprovalNoteChunk,
   TurnNotificationChunk,
   TurnSteerChunk,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import { Job } from "@inhuman.tools/plexus-expectations";
-import { programSourceLoader } from "@inhuman.tools/scheme-program/fs";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 
@@ -96,11 +93,10 @@ export type CompactStrategyOpts = {
   readonly plan?: string | null;
   readonly forced?: boolean;
   /**
-   * Absolute path the program source was read from. Enables `(require "…")` —
-   * `.prompt` pretreats ship next to the strategy — jailed under its dirname.
-   * Null for the inline fallback: no `require` surface.
+   * Source label for diagnostics; imports require an explicitly supplied loader.
    */
   readonly sourcePath?: string | null;
+  readonly moduleLoader?: Loader;
   /**
    * Live completion wiring for the summarizer call a `.prompt` performs. The
    * prompt capability admits an agent/ask on this job; absent → the strategy
@@ -408,32 +404,41 @@ export async function applyCompact(
   fullTranscript: Transcript,
   opts: CompactStrategyOpts = {},
 ): Promise<CompactApplyResult> {
+  opts.signal?.throwIfAborted();
   invariant(program.trim() !== "", "compact strategy program is empty");
   const names = opts.forced === true ? (["forced-compact", "compact"] as const) : (["compact"] as const);
-  // `(require "compact.prompt")` — the threaded-snapshot strategy is a
-  // `.scm` + `.prompt` pair. `require` is a loader symbol, and the loader is
-  // jailed under the strategy file's directory (same rule as scheme_repl:
-  // `programSourceLoader`). Without these the strategy throws
-  // `Unbound variable require` and the compact silently degrades to the fallback.
-  const moduleRoot = opts.sourcePath != null && opts.sourcePath !== "" ? dirname(opts.sourcePath) : undefined;
+  const suppliedLoader = opts.moduleLoader;
+  const loader: Loader | undefined =
+    suppliedLoader === undefined
+      ? undefined
+      : {
+          resolve: (specifier, fromDir) => suppliedLoader.resolve(specifier, fromDir),
+          async read(path) {
+            opts.signal?.throwIfAborted();
+            const content = await suppliedLoader.read(path);
+            opts.signal?.throwIfAborted();
+            return content;
+          },
+          resolvers: suppliedLoader.resolvers,
+        };
   // `require` only needs the loader. The isolated host is assembled when a
   // parent job and a connection exist; without them a stub strategy still
   // loads, and `dotprompt/run` is not a symbol.
   const connectionId = opts.connectionId ?? "";
-  const isolated = moduleRoot != null && opts.job != null && connectionId !== "";
+  const isolated = loader != null && opts.job != null && connectionId !== "";
   const state = await execState(program, {
     capabilities:
-      moduleRoot == null
+      loader == null
         ? [compactReducerCapability]
         : isolated
           ? [compactReducerCapability, promptIsolatedCapability, schemeLoadAliasCapability]
           : [compactReducerCapability, schemeLoadAliasCapability],
     config: {
       ...compactConfig(opts, fullTranscript.cells),
-      ...(moduleRoot == null
+      ...(loader == null
         ? {}
         : {
-            loader: programSourceLoader(moduleRoot),
+            loader,
             dirname: "",
             ...(isolated
               ? {

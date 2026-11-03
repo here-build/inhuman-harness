@@ -3,7 +3,7 @@
  * A ProgrammaticJob parents an omitted-spec AgentCallJob instead of calling the port.
  */
 import type { ReasoningEffort } from "@inhuman.tools/env-capability-dotprompt";
-import type { CompletionExpectation, PromptMessageRole } from "@inhuman.tools/harness-model";
+import type { CompletionExpectation, PromptMessageRole } from "@inhuman.tools/harness-model/session";
 
 /** Session/research intern port. Homed `round` is mutated in place. `responseSchemaJson` is the serialized schema, matching CompleteFields. */
 export type PromptCompleteRequest = {

@@ -17,7 +17,7 @@ import { programHostOf, type SchemeReplHost } from "./env.js";
 export async function interpretSchemeRepl(chunk: ProgrammaticJob, host: SchemeReplHost): Promise<void> {
   if (host.loadSource == null && host.replayOnly !== true) {
     Object.assign(host, {
-      loadSource: (root: string, job: ProgrammaticJob) => programSourceLoader(root, job),
+      loadSource: (root: string, job: ProgrammaticJob) => programSourceLoader(root, job, host.canApplyResults),
     });
   }
   const programHost = programHostOf(host);

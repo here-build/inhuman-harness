@@ -5,7 +5,7 @@ import {
   spawnDescriptionArgs,
   spawnProgramTools,
   ToolCallJob,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 
 import { BACKGROUND_TOOL, IN_FLIGHT_TOOL } from "./observations.js";
 import { refOfNode } from "./retention/render.js";

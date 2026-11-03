@@ -887,6 +887,7 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
           }
 
           const answer = await this.readAnswer(response, abort.signal);
+          if (this.signal.aborted) return;
           trace(
             "harness:complete",
             `answer ${this.expectation.uuid} ms=${Date.now() - posted} status=${response.status} chars=${answer?.content.length ?? 0}`,

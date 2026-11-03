@@ -16,7 +16,7 @@ import {
   ToolCallJob,
   WebExtractToolJob,
   WebSearchToolJob,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import { z } from "zod";
 
 import { ruleFor, type ResolvedPolicy } from "./resolve.js";

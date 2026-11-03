@@ -25,7 +25,7 @@ export class CompactJob extends Job<string, string> {
   override readonly intent: string =
     "None for the compact itself. Nested strategy complete() is CompletionJob/PEW and follows that row. CompactJob has no executor.";
   override readonly checkpoint: string =
-    "reason, keepTurns, kvKeepTurns, card, failed, notice on the session document.";
+    "reason, keepTurns, kvKeepTurns, resourceSnapshotJson, card, failed, notice on the session document.";
   override readonly dispatch: string =
     "Turn loop runs applyCompact when the chunk is shifted, after tools have settled.";
   override readonly settlement: string =
@@ -60,6 +60,8 @@ export class CompactJob extends Job<string, string> {
    * or invalid. Stamped together with `keepTurns`: the second input to the cut.
    */
   @syncing accessor kvKeepTurns: number = 0;
+  /** Versioned strategy and module bytes, pinned before the strategy's effects. */
+  @syncing accessor resourceSnapshotJson: string = "";
 
   constructor(
     props?:
@@ -70,6 +72,7 @@ export class CompactJob extends Job<string, string> {
           readonly failed?: boolean;
           readonly keepTurns?: number | null;
           readonly kvKeepTurns?: number;
+          readonly resourceSnapshotJson?: string;
           readonly background?: boolean;
           readonly walkBoundary?: boolean;
           readonly orchestrationResult?: true | false | null;

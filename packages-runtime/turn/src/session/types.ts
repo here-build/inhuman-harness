@@ -10,7 +10,7 @@ import type {
   SessionSystemPrompt,
   SessionTurn,
   SkillSpec,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import type { Job, WorkExpectation } from "@inhuman.tools/plexus-expectations";
 
 export type SessionCommandHost = {

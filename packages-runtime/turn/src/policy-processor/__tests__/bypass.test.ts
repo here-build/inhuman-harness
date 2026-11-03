@@ -155,7 +155,12 @@ describe("hints and sections", () => {
 
 type Answer = Record<string, unknown> | "fail";
 
-function run(opts: { readonly answers: Answer[]; readonly user?: unknown; readonly privileged?: string }) {
+function run(opts: {
+  readonly answers: Answer[];
+  readonly user?: unknown;
+  readonly privileged?: string;
+  readonly pending?: (completion: CompletionExpectation) => void;
+}) {
   const prompts: string[] = [];
   const stops: RunStop[] = [];
   const notices: string[] = [];
@@ -169,6 +174,10 @@ function run(opts: { readonly answers: Answer[]; readonly user?: unknown; readon
     user: opts.user ?? { unattended: { default: "deny" } },
     seal(completion: CompletionExpectation) {
       prompts.push(completion.userPrompt);
+      if (opts.pending !== undefined) {
+        opts.pending(completion);
+        return;
+      }
       const next = opts.answers.shift();
       if (next === undefined || next === "fail") {
         completion.fail("settled", "model unreachable", "null");
@@ -202,6 +211,33 @@ async function deny(bag: ReturnType<typeof run>["bag"], n: number, command = "rm
 }
 
 describe("an unattended run that keeps being denied", () => {
+  it.each([true, false])(
+    "drops a suspended bypass check after its scope closes (fail closed: %s)",
+    async (stopOnDoubleFail) => {
+      const pending = Promise.withResolvers<{ completion: CompletionExpectation }>();
+      const r = run({
+        answers: [],
+        user: { unattended: { default: "deny" }, escalate: { stopOnDoubleFail } },
+        pending: (completion) => pending.resolve({ completion }),
+      });
+      using bag = r.bag;
+      await deny(bag, 2);
+      const last = shell("rm -rf build last");
+      bag.enqueue(last);
+      const { completion } = await pending.promise;
+      r.scope.close();
+      completion.succeed("settled", "", "null", {
+        result: { text: JSON.stringify(verdict("bypass", "script-indirection")) },
+      });
+      await settled(last);
+      expect({ cancelled: bag.turn.cancelRequested, stops: r.stops, notices: r.notices }).toEqual({
+        cancelled: false,
+        stops: [],
+        notices: [],
+      });
+    },
+  );
+
   it("a bypass verdict stops the run: sealed interaction_required, cancel requested, host told", async () => {
     const r = run({
       answers: [verdict("bypass", "same-effect-different-route", "tried find -delete after rm", [1, 2])],

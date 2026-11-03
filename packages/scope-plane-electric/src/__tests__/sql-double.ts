@@ -35,8 +35,7 @@ function matches(record: Rec, where: string, params: readonly unknown[]): boolea
 }
 
 /**
- * Applies the SQL this package emits. Enough to run the same contract as TinyBase.
- * A write pokes shape subscribers the way Electric's replication stream would.
+ * Statement-shape double, not a PostgreSQL concurrency or Electric recovery test.
  */
 export function createSqlDouble(): ElectricSql & {
   readonly shapes: ElectricShapes;
@@ -72,7 +71,7 @@ export function createSqlDouble(): ElectricSql & {
         const where = text.split(" WHERE ")[1] ?? "";
         return [...rows.values()].filter((record) => matches(record, where, params));
       }
-      if (text.startsWith("INSERT") && text.includes("WHERE NOT EXISTS")) {
+      if (text.startsWith("INSERT") && text.includes("DO NOTHING")) {
         const id = params[0];
         if (typeof id !== "string" || rows.has(id)) return [];
         const record: Rec = {};

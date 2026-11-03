@@ -345,11 +345,10 @@ export class SessionRoot extends WorkContainer {
     if (this.head) this.head.permissionMode = id;
   }
 
-  /** Session choice and the project's last-choice, one region. The config file stays with the caller. */
+  /** Assign this session's choice. Remembering it in another scope belongs to the host. */
   @syncing.action
-  writeChoicePermissionMode(policy: PermissionMode, project: { defaultPermissionMode: PermissionMode | "" }): void {
+  writeChoicePermissionMode(policy: PermissionMode): void {
     this.permissionMode = policy;
-    project.defaultPermissionMode = policy;
   }
 
   @syncing.action

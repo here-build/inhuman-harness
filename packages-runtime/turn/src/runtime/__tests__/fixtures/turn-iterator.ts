@@ -8,13 +8,11 @@ import {
   SessionTurn,
   SystemToolJob,
   type CompletionExpectation,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import { onTestFinished, vi } from "vitest";
 
-import { NoteLog } from "@/extensions";
-import { bindSessionCatalog } from "@/tool-catalog";
-
-import { KernelToolCatalog } from "../../../../toolkit/tool-table.js";
+import { bindSessionCatalog, KernelToolCatalog } from "../../../tool-catalog/catalog.js";
+import { NoteLog } from "./notes.js";
 import { iterateTurn, type TurnIteratorHost } from "../../turn-iterator.js";
 import type { TurnResolvers } from "../../turn-resolvers.js";
 

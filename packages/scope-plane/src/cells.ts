@@ -36,7 +36,7 @@ export function pairId(scopeId: string, part: string): string {
   if (scopeId.includes("\0") || part.includes("\0")) {
     throw new ScopeKey("scope id and key must not contain NUL");
   }
-  return `${scopeId}\0${part}`;
+  return JSON.stringify([scopeId, part]);
 }
 
 export function text(row: Row | undefined, key: string): string | null {

@@ -16,18 +16,23 @@ import {
   AgentMessageJob,
   AgentNotifyJob,
   CompletionExpectation,
+  CompletionJob,
   SessionAdmission,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
   type ToolCallJob,
 } from "@inhuman.tools/harness-model";
+import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { mkdtemp } from "fs-extra";
 import { runInAction, when } from "mobx";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import * as Y from "yjs";
 
+import { scopes } from "@/policy-processor/scope";
 import { behaviorEntriesOf, bindBehaviorEntries } from "@/tool-catalog";
 
+import { attachScriptedModel, scriptedConnectionId } from "../../../testkit/scripted-model.js";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
 import type { SessionDaemon } from "../SessionDaemon.js";
@@ -124,6 +129,78 @@ describe("orchestrator settlement", () => {
     ]);
     await session.park();
     expect(behaviorEntriesOf(session.root)).toEqual([]);
+  });
+
+  it("a replaced wrap does not claim an isolated completion added by the new owner", async () => {
+    const { session } = await openSession();
+    const turn = closedTurn();
+    session.root.head = turn;
+    const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
+    onTestFinished(() => replacement[Symbol.asyncDispose]());
+    const completion = new CompletionJob({
+      expectation: new CompletionExpectation({ connectionId: "missing", completionMode: "isolated" }),
+    });
+    turn.pushChild(completion);
+    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64");
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect({
+      orchestrated: completion.orchestrated,
+      done: completion.expectation.isDone,
+      state: Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64"),
+    }).toEqual({ orchestrated: false, done: false, state: before });
+  });
+
+  it("a parked runtime preserves the completion port for work retained by its current wrap", async () => {
+    const { kernel, session } = await openSession();
+    attachScriptedModel(kernel, session);
+    const round = new CompletionExpectation({ connectionId: scriptedConnectionId(), completionMode: "isolated" });
+    const turn = closedTurn();
+    turn.pushChild(new CompletionJob({ expectation: round }));
+    session.root.head = turn;
+    session.sessionRuntime.park();
+    await session.orchestrator.complete({ connectionId: scriptedConnectionId(), model: "supplied", round });
+    expect({
+      binding: session.sessionRuntime.isCurrent,
+      parked: session.sessionRuntime.signal.aborted,
+      ownerAborted: session.sessionRuntime.ownershipSignal.aborted,
+      outcome: round.outcome,
+    }).toEqual({ binding: true, parked: true, ownerAborted: false, outcome: "successful" });
+  });
+
+  it("replacement aborts a pending policy check and old cleanup preserves the new scope", async () => {
+    const { session } = await openSession();
+    const scope = scopes.get(session.root);
+    const entered = Promise.withResolvers<void>();
+    const pending = Promise.withResolvers<Awaited<ReturnType<typeof scope.checkShell>>>();
+    let checkSignal: AbortSignal | undefined;
+    scope.checkShell = (_command, options) => {
+      checkSignal = options.signal;
+      entered.resolve();
+      return pending.promise;
+    };
+    const job = new SystemToolJob({
+      toolCallId: "pending-policy",
+      name: "shell",
+      argsJson: JSON.stringify({ command: "ls" }),
+    });
+    session.root.head = closedTurn(job);
+    await entered.promise;
+    const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
+    onTestFinished(() => replacement[Symbol.asyncDispose]());
+    const nextScope = scopes.get(session.root);
+    onTestFinished(() => nextScope.close());
+    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64");
+    pending.resolve({ action: "allow", findings: [] });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    session.orchestrator[Symbol.dispose]();
+    expect({
+      closed: scope.closed,
+      aborted: checkSignal?.aborted,
+      policy: job.policyResult,
+      currentScope: scopes.get(session.root) === nextScope,
+      nextClosed: nextScope.closed,
+      state: Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64"),
+    }).toEqual({ closed: true, aborted: true, policy: null, currentScope: true, nextClosed: false, state: before });
   });
 
   it("a turn that became unreachable before it ran closes as completed", async () => {

@@ -26,7 +26,7 @@ import {
   userVisualsJson,
   decideRound,
   type UserVisualIdentity,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 
 import type { SessionCommandHost } from "./types.js";
 import { compactRejectReason, stampCompactInputs } from "../context/index.js";

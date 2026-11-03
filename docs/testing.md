@@ -2,10 +2,15 @@
 
 Run the workspace wrappers from the repository root. They build the workspace dependency graph before testing public package entries; running a package's Vitest command against stale `dist` can test a different implementation from the source open in the editor.
 
+The test ownership and qualification gates for the shared runtime and
+its local and Kley hosts are in the
+[portable session runtime rework](proposals/session-runtime-isolation.md#testing-strategy).
+
 | Command | Scope |
 | --- | --- |
 | `pnpm test` | Default logic gate, including owned local HTTP contracts and wire compatibility fixtures |
 | `pnpm test:process` | Serialized subprocess smoke tests: daemon loading, hypervisor and lifetime locks, real stdio MCP, CLI loader/reconnect lifecycle, Git-backed prompt-prefix compatibility |
+| `pnpm test:session-runtime` | Build and pack the runtime closure; compile a clean consumer and verify old-session restore, execution, effects and bundled compaction in a fresh process |
 | `pnpm test:visual` | Terminal structural frame approvals and browser computed appearance/focus approvals |
 | `pnpm verify:logic` | Packaging boundaries, build, types, lint, and default logic |
 | `pnpm verify` | All verification lanes |

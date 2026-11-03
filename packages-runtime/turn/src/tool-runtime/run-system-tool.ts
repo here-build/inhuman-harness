@@ -39,7 +39,10 @@ function cancelledSnap(signal: AbortSignal): ToolOutcomeSnap {
 
 const TAIL_MS = 50;
 
-function tailPublisher(job: SystemToolJob): {
+function tailPublisher(
+  job: SystemToolJob,
+  canApplyResults: () => boolean,
+): {
   push: (frame: { readonly text: string; readonly totalBytes: number }) => void;
   flush: () => void;
 } {
@@ -47,6 +50,7 @@ function tailPublisher(job: SystemToolJob): {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let latest: { text: string; totalBytes: number } | undefined;
   const send = (frame: { text: string; totalBytes: number }): void => {
+    if (!canApplyResults()) return;
     if (job.receiptJson != null && job.receiptJson !== "") return;
     latest = undefined;
     lastAt = Date.now();
@@ -54,6 +58,7 @@ function tailPublisher(job: SystemToolJob): {
   };
   return {
     push(frame) {
+      if (!canApplyResults()) return;
       const now = Date.now();
       if (now - lastAt >= TAIL_MS) {
         if (timer !== undefined) clearTimeout(timer);
@@ -133,14 +138,18 @@ export async function executeSystemTool(
   signal: AbortSignal,
   opts?: {
     readonly shellTailBytes?: number;
+    readonly canApplyResults?: () => boolean;
     /** Host list/stop for `job_stop`. The tool body has no job table of its own. */
     readonly stopJob?: (jobId: string) => JobStopReport | Promise<JobStopReport>;
   },
 ): Promise<void> {
+  const canApplyResults = opts?.canApplyResults ?? (() => true);
   const seal = (outcome: ToolOutcomeSnap): void => {
+    if (!canApplyResults()) return;
     sealToolCall(job, outcome);
   };
   try {
+    if (!canApplyResults()) return;
     if (signal.aborted) {
       seal(cancelledSnap(signal));
       return;
@@ -203,7 +212,7 @@ export async function executeSystemTool(
     // reads under it (a session read root), so it opens the same door through `licenseAllows`; nothing is remembered
     // from a single outside read.
     const tailBytes = parseShellTailBytes(opts?.shellTailBytes ?? DEFAULT_SHELL_TAIL_BYTES);
-    const live = name === "shell" && tailBytes > 0 ? tailPublisher(job) : undefined;
+    const live = name === "shell" && tailBytes > 0 ? tailPublisher(job, canApplyResults) : undefined;
     let dispatched: unknown;
     try {
       ToolError.invariant(entry?.execute, () =>
@@ -221,6 +230,7 @@ export async function executeSystemTool(
             onPriorContent:
               job instanceof FileMutateToolJob
                 ? (text) => {
+                    if (!canApplyResults()) return;
                     stampPrior(job, text);
                     if (typeof text === "string" && name === "edit_file") {
                       const old = typeof args.old_string === "string" ? args.old_string : "";
@@ -246,6 +256,7 @@ export async function executeSystemTool(
     }
     const proposed = pendingPropose.get(job);
     pendingPropose.delete(job);
+    if (!canApplyResults()) return;
     if (proposed != null) {
       const projection = projectionsOf(job).get(proposed.pluginId);
       if (projection?.hostOnly?.(proposed.action) === true) {
@@ -256,6 +267,7 @@ export async function executeSystemTool(
     }
     seal(asToolResult(dispatched));
   } catch (error) {
+    if (!canApplyResults()) return;
     if (signal.aborted) {
       seal(cancelledSnap(signal));
       return;

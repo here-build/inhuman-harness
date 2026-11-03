@@ -14,6 +14,9 @@ import invariant from "tiny-invariant";
 
 import { type CatalogRecipe, dedupeRecipes, findRecipe, invokeCyclePath } from "./recipes.js";
 import { type CatalogEntry, PLAIN_WORKER_HOST, type WorkerToolHost } from "./types.js";
+import { releaseCatalogRoots } from "./bindings.js";
+
+export { bindSessionCatalog, catalogOf } from "./bindings.js";
 
 export type CompiledPluginContribution = {
   readonly compiledRecipes: readonly CatalogRecipe[];
@@ -224,13 +227,7 @@ export class KernelToolCatalog extends DisposableClass {
     this.behaviorEntries = [];
     this.connectionHost = undefined;
     this.botRevisions = new Map();
-    const roots = rootsByCatalog.get(this);
-    if (roots == null) return;
-    for (const root of roots) {
-      if (catalogsByRoot.get(root) === this) catalogsByRoot.delete(root);
-    }
-    roots.clear();
-    rootsByCatalog.delete(this);
+    releaseCatalogRoots(this);
   }
 }
 
@@ -246,8 +243,6 @@ export function requireCatalog<T extends KernelToolCatalog>(catalog: T | undefin
   return catalog;
 }
 
-const catalogsByRoot = new WeakMap<object, KernelToolCatalog>();
-const rootsByCatalog = new WeakMap<KernelToolCatalog, Set<object>>();
 const behaviorEntriesByRoot = observable.map<object, readonly CatalogEntry[]>(new Map(), { deep: false });
 
 /** Tools the session's pinned behavior declares. Replaced whenever the pin reattaches. */
@@ -258,25 +253,4 @@ export const bindBehaviorEntries = action((root: object, entries: readonly Catal
 
 export function behaviorEntriesOf(root: object | undefined | null): readonly CatalogEntry[] {
   return root == null ? [] : (behaviorEntriesByRoot.get(root) ?? []);
-}
-
-/** Bind a session (or test) root to a kernel catalog. */
-export function bindSessionCatalog(root: object, catalog: KernelToolCatalog): void {
-  invariant(!catalog.disposed, "bindSessionCatalog: catalog is disposed");
-  const prior = catalogsByRoot.get(root);
-  if (prior != null && prior !== catalog) rootsByCatalog.get(prior)?.delete(root);
-  catalogsByRoot.set(root, catalog);
-  let roots = rootsByCatalog.get(catalog);
-  if (roots == null) {
-    roots = new Set();
-    rootsByCatalog.set(catalog, roots);
-  }
-  roots.add(root);
-}
-
-export function catalogOf(root: object | undefined | null): KernelToolCatalog | undefined {
-  if (root == null) return undefined;
-  const catalog = catalogsByRoot.get(root);
-  if (catalog == null || catalog.disposed) return undefined;
-  return catalog;
 }

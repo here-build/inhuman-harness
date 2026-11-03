@@ -17,9 +17,11 @@ import {
   tapeCompletion,
 } from "@inhuman.tools/harness-model";
 import { schemeReplDescription } from "@inhuman.tools/harness-scheme";
+import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
 import { expect, onTestFinished, test } from "vitest";
+import * as Y from "yjs";
 
 import {
   CallerLedger,
@@ -613,6 +615,38 @@ test.each(["cancel", "park"] as const)(
       log: kernel.behavior.directory.get(ownerId).log.map(toJS),
       notes: latePluginNotes(kernel),
     }).toEqual({ exited: stop === "cancel", completions: 0, log: [], notes: [] });
+  },
+  15_000,
+);
+
+test.each(["pre", "post"] as const)(
+  "replacement during a %s hook fences the old wrap and its finalizer on the same document",
+  async (stage) => {
+    resetLocalIDs();
+    const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin(stage) });
+    const callback = suspendPluginMutation(kernel);
+    const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`keep this turn` });
+    session.root.head = turn;
+    if (stage === "post") {
+      await when(() => completionsOf(turn).length === 1, { timeout: TIMEOUT });
+      modelOf(session).reply({ text: "done" });
+    }
+    await callback.entered;
+    const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
+    onTestFinished(() => replacement[Symbol.asyncDispose]());
+    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64");
+    callback.release();
+    await callback.returned;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const ownerId = kernel.behavior.directory.ownerId("stalled", "session", "s1", "state");
+    expect({
+      current: session.sessionRuntime.isCurrent,
+      exited: turn.reducerExited,
+      completed: turn.completed,
+      state: Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64"),
+      log: kernel.behavior.directory.get(ownerId).log.map(toJS),
+      notes: latePluginNotes(kernel),
+    }).toEqual({ current: false, exited: false, completed: false, state: before, log: [], notes: [] });
   },
   15_000,
 );

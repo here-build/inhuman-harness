@@ -149,7 +149,12 @@ export function sealChunk(chunk: ProgrammaticJob, result: CallResult): void {
   chunk.markComplete();
 }
 
+export function canApplyProgramResults(host: ProgramHost): boolean {
+  return host.canApplyResults?.() !== false;
+}
+
 export function cancelLiveInvocations(job: ProgrammaticJob, host: ProgramHost, reason?: unknown): void {
+  if (!canApplyProgramResults(host)) return;
   for (const inner of job.children) {
     if (!(inner instanceof ToolCallJob)) continue;
     if (inner.completed || inner.cancelled) continue;
@@ -222,7 +227,7 @@ function handleEvaluationStop(
   timeoutMs: number | undefined,
   error: unknown,
 ): Extract<EvalOutcome, { kind: "park" | "halt" }> | undefined {
-  if (parked(host) || isParkAbort(signal)) return { kind: "park" };
+  if (!canApplyProgramResults(host) || parked(host) || isParkAbort(signal)) return { kind: "park" };
   if (cancelled(host)) {
     cancelLiveInvocations(chunk, host, hostAbortReason(host));
     return { kind: "halt", result: fail("Error: Scheme REPL call cancelled") };
@@ -247,6 +252,7 @@ export async function evaluateForms(
   opts: EvaluateOpts,
   runtime: ProgramRuntime,
 ): Promise<EvalOutcome> {
+  if (!canApplyProgramResults(host)) return { kind: "park" };
   const { timeoutMs, maxInternalCalls } = opts;
   const tick = opts.kind === "period" ? opts.tick : undefined;
   const shared = opts.kind === "source-load" || opts.kind === "source-body" ? opts.shared : undefined;
@@ -271,6 +277,7 @@ export async function evaluateForms(
         config,
         ...(setupSignal != null ? { signal: setupSignal } : {}),
       });
+      if (!canApplyProgramResults(host)) return { kind: "park" };
       scope = rooted.scope;
       if (shared !== undefined) shared.scope = scope;
     }
@@ -314,6 +321,7 @@ export async function evaluateForms(
           ...(remainingMs == null ? {} : { budgetMs: remainingMs }),
           ...(trace == null ? {} : { tap: trace }),
         });
+        if (!canApplyProgramResults(host)) return { kind: "park" };
         const wasTopLevelDisplay = tick == null && isTopLevelDisplay(item.raw);
         for (const value of state.values) {
           if (value instanceof AVoid) continue;
@@ -381,15 +389,16 @@ export async function guardProgram(
   host: ProgramHost,
   body: () => Promise<void>,
 ): Promise<void> {
+  if (!canApplyProgramResults(host)) return;
   try {
     await body();
   } catch (error) {
-    if (!chunk.completed && !parked(host) && !cancelled(host)) {
+    if (canApplyProgramResults(host) && !chunk.completed && !parked(host) && !cancelled(host)) {
       cancelLiveInvocations(chunk, host, error);
       sealChunk(chunk, fail(errorText(error)));
     }
   } finally {
-    if (!chunk.completed && !parked(host)) {
+    if (canApplyProgramResults(host) && !chunk.completed && !parked(host)) {
       cancelLiveInvocations(chunk, host, hostAbortReason(host));
       if (cancelled(host)) chunk.cancelled = true;
       sealChunk(chunk, fail("Error: Scheme REPL call cancelled"));

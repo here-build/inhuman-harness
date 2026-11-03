@@ -3,6 +3,7 @@ import { mkdirSync, realpathSync, statSync } from "node:fs";
 
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import { projectBotSpecs, ProjectPlexus, type SessionPlexus } from "@inhuman.tools/harness-model";
+import type { KvProposal, PermissionMode } from "@inhuman.tools/harness-model/shared";
 import { projectSessionsDir } from "@inhuman.tools/harness-sdk/paths";
 import { namedWorkerIds } from "@inhuman.tools/turn/agent-calls";
 import { observable, runInAction } from "mobx";
@@ -79,6 +80,20 @@ export class ProjectDaemon extends RequestHost implements Disposable {
 
   get root() {
     return this.plexus.root;
+  }
+
+  writeKvs(proposals: readonly KvProposal[]): void {
+    this.root.applyKvs(proposals);
+  }
+
+  rememberModelChoice(connection: string, model: string): void {
+    this.root.stampLastUsedConnectionModel(connection, model);
+  }
+
+  writeDefaultPermissionMode(policy: PermissionMode): void {
+    runInAction(() => {
+      this.root.defaultPermissionMode = policy;
+    });
   }
 
   async session(id: string = randomUUID()): Promise<SessionDaemon> {

@@ -373,6 +373,7 @@ export async function runBypassJudge(
   job: ToolCallJob,
   sections: BypassSections,
 ): Promise<unknown> {
+  scope.signal.throwIfAborted();
   const source = scope.root.judgeAskProgram;
   const route = classifierRoute(scope.root.kvs, {
     fallback: scope.judgeFallbackKvs,
@@ -389,7 +390,7 @@ export async function runBypassJudge(
     const cuts = evidenceCuts(job);
     const state = await execState(source, {
       capabilities: [policyEnvCapability, promptIsolatedCapability],
-      signal: abort.signal,
+      signal: AbortSignal.any([abort.signal, scope.signal]),
       config: {
         privileged: cuts.privileged,
         taskJson: sections.taskJson,
@@ -406,6 +407,7 @@ export async function runBypassJudge(
     });
     try {
       const fn = classifierResources(state.runCtx).bypass;
+      scope.signal.throwIfAborted();
       if (fn === undefined) throw new Error("no bypass/judge sink in the classifier program");
       return await applyClassifier(state.runCtx, fn, []);
     } finally {

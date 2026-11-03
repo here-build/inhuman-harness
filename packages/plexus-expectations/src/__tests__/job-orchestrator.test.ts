@@ -2,7 +2,7 @@ import { configure } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { PewJudge, StoredJob } from "./_helpers/test-jobs.js";
-import { makeJobHost } from "./_helpers/test-job-orchestrator.js";
+import { makeJobHost, TestJobOrchestrator  } from "./_helpers/test-job-orchestrator.js";
 
 function settled(): Promise<void> {
   return Promise.resolve();
@@ -50,6 +50,42 @@ describe("Orchestrator jobs", () => {
     bag.sessionRoot.declared.push(second);
     await settled();
     expect(second.orchestrated).toBe(false);
+  });
+
+  it.each(["license", "body"] as const)("revoked ownership drops late %s results and errors", async (phase) => {
+    for (const rejected of [false, true]) {
+      using bag = makeJobHost([], { activate: false });
+      let current = true;
+      class OwnedOrchestrator extends TestJobOrchestrator {
+        protected override get canApplyResults(): boolean {
+          return super.canApplyResults && current;
+        }
+      }
+      using host = new OwnedOrchestrator(bag.host.kernel, bag.host.session);
+      const license = Promise.withResolvers<boolean>();
+      const body = Promise.withResolvers<void>();
+      const entered = Promise.withResolvers<void>();
+      host.registerExecutor(StoredJob, () => {
+        if (phase === "license") entered.resolve();
+        return phase === "license" ? license.promise : true;
+      }, () => {
+        entered.resolve();
+        return body.promise;
+      });
+      host.activate();
+      const job = new StoredJob();
+      bag.sessionRoot.declared.push(job);
+      await entered.promise;
+      const before = { result: job.orchestrationResult, crash: job.crash, completed: job.completed, started: job.startedAtMs };
+      current = false;
+      if (phase === "license") {
+        if (rejected) license.reject(new Error("late license failure"));
+        else license.resolve(true);
+      } else if (rejected) body.reject(new Error("late body failure"));
+      else body.resolve();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect({ result: job.orchestrationResult, crash: job.crash, completed: job.completed, started: job.startedAtMs }).toEqual(before);
+    }
   });
 
   it("seal:false does not invent completed when execute returns", async () => {
@@ -276,7 +312,8 @@ describe("Orchestrator jobs", () => {
     expect(signals[1]!.aborted).toBe(false);
     bag.host[Symbol.dispose]();
     await waitUntil(() => signals[1]!.aborted, "dispose aborted");
-    await waitUntil(() => inFlight.completed, "in-flight completed");
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(inFlight.completed).toBe(false);
   });
   describe("after", () => {
     function gated() {

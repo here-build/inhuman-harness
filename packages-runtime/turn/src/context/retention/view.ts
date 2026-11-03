@@ -4,7 +4,7 @@
  * tip's R3 clock. Nothing reads config, kv, the catalog or the wall clock, so
  * a restart re-projects byte-identically.
  */
-import { CompletionExpectation, owningTurn, SessionTurn } from "@inhuman.tools/harness-model";
+import { CompletionExpectation, owningTurn, SessionTurn } from "@inhuman.tools/harness-model/session";
 
 import { LEGACY_POLICY, parsePolicy, type ResolvedPolicy } from "./resolve.js";
 import type { Horizon } from "./schema.js";

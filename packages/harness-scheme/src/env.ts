@@ -119,6 +119,7 @@ export type SchemeReplHost = {
   /** Disk `require`. Replay leaves this unset and reads `job.modules`. */
   readonly loadSource?: (root: string, job: ProgrammaticJob) => Loader;
   readonly signal?: AbortSignal;
+  readonly canApplyResults?: () => boolean;
   readonly sessionId?: string;
   readonly session?: SessionRoot;
   readonly doors: DoorSession;
@@ -491,7 +492,7 @@ async function callTool(
   ctx: CallCtx,
 ): Promise<unknown> {
   const { signal } = rig;
-  if (signal.aborted || job.cancelled) throw abortThrow(signal);
+  if (host.canApplyResults?.() === false || signal.aborted || job.cancelled) throw abortThrow(signal);
   invariant(
     name !== SCHEME_REPL_TOOL_NAME && name !== SCHEME_WATCH_TOOL_NAME,
     `${name} cannot be invoked inside scheme_repl`,
@@ -601,7 +602,7 @@ async function joinMinted(
   mint: () => ToolCallJob,
 ): Promise<unknown> {
   const { signal } = rig;
-  if (signal.aborted || job.cancelled) throw abortThrow(signal);
+  if (host.canApplyResults?.() === false || signal.aborted || job.cancelled) throw abortThrow(signal);
   const formAt = rig.formAt;
   const emission = ctx.runCtx.emission;
   if (job.trackMatch && emission != null) {
@@ -618,7 +619,7 @@ async function joinMinted(
           joined.cancel();
         }
       }
-      if (signal.aborted || job.cancelled) throw abortThrow(signal);
+      if (host.canApplyResults?.() === false || signal.aborted || job.cancelled) throw abortThrow(signal);
       replay = takeCrossing(job, emission, path);
       if (replay == null) throw new Error(`replay: no recorded ${name}`);
     }
@@ -1162,6 +1163,7 @@ export function programHostOf(host: SchemeReplHost): ProgramHost {
   return {
     identity: host,
     signal: host.signal,
+    canApplyResults: host.canApplyResults,
     doors: host.doors,
     root: host.root,
     abort: host.abort,

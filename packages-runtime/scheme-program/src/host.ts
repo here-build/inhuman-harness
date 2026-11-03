@@ -17,6 +17,7 @@ export type ProgramHost = {
   /** Stable across wrappers. The runtime map keys on this, not on the wrapper. */
   readonly identity: object;
   readonly signal?: AbortSignal;
+  readonly canApplyResults?: () => boolean;
   readonly doors: DoorSession;
   readonly root: string;
   readonly abort?: (leaf: ApprovableJob, reason?: unknown) => void;

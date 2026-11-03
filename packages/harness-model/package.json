@@ -26,6 +26,11 @@
       "import": "./dist/register.js",
       "default": "./dist/register.js"
     },
+    "./session/register": {
+      "types": "./dist/session/register.d.ts",
+      "import": "./dist/session/register.js",
+      "default": "./dist/session/register.js"
+    },
     "./json-record": {
       "types": "./dist/json-record.d.ts",
       "import": "./dist/json-record.js",
@@ -53,7 +58,8 @@
     "!**/__tests__"
   ],
   "sideEffects": [
-    "./dist/register.js"
+    "./dist/register.js",
+    "./dist/session/register.js"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

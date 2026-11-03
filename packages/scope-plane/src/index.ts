@@ -2,7 +2,7 @@
  * Scope tree shared by the local harness and the cloud runtime.
  * Storage adapters are separate packages and depend only on this API.
  */
-export { ScopeCycle, ScopeKey, ScopeMissing, coerceCell, type Cell, type Row } from "./cells.js";
+export { ScopeCycle, ScopeKey, ScopeMissing, coerceCell, pairId, type Cell, type Row } from "./cells.js";
 export {
   createScopePlane,
   type ConfigPatch,
@@ -14,7 +14,7 @@ export {
   type ScopeStamp,
   type ScopeView,
 } from "./plane.js";
-export type { RowMatch, RowPlane } from "./row-plane.js";
+export type { GenerationClaim, OwnedMutation, RowMatch, RowPlane, RowReader } from "./row-plane.js";
 export {
   columnOf,
   configFieldNames,

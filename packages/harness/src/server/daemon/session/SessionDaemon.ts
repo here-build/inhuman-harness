@@ -39,7 +39,6 @@ import {
   type UserVisualIdentity,
 } from "@inhuman.tools/harness-model";
 import {
-  applyKv,
   type KvProposal,
   sessionMintKvs,
   sessionMintLastUsedConnectionModel,
@@ -50,6 +49,7 @@ import { isGitShellCommand, runStatusline } from "@inhuman.tools/statusline";
 import { DoorSession } from "@inhuman.tools/substrate/doors";
 import { inspectAgentCall, listAgentCalls, namedWorkerIds, settleCancelledTurn } from "@inhuman.tools/turn/agent-calls";
 import { turnRetentionJson } from "@inhuman.tools/turn/context";
+import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { writeBlob } from "@inhuman.tools/turn/tool-runtime";
 import { observable, type IReactionDisposer, reaction, runInAction } from "mobx";
 
@@ -59,16 +59,7 @@ import { scopes } from "@/policy-processor/scope";
 import { documentImageSegments } from "@/protocol/document";
 import { isMcpDriver } from "@/providers/mcp";
 import { bindCompletionFace, OpenAiCompatActor } from "@/providers/openai-compat";
-import { recoverSessionJobs } from "@/runtime";
-import {
-  admitCompact,
-  admitTurn,
-  cancelTurnCommand,
-  drainPromptQueue,
-  retryTurn,
-  rewindTurn,
-  type SessionCommandHost,
-} from "@/session";
+import { type SessionCommandHost } from "@/session";
 import { behaviorEntriesOf, bindSessionCatalog } from "@/tool-catalog";
 import { resolveEvalPermissionMode, unattendedFailureText } from "@/tool-runtime";
 import { attachLens, type AwarenessRoom, type PlaneSocket } from "@/yjs";
@@ -151,6 +142,7 @@ function sameEvalProgramInput(
 export class SessionDaemon extends RequestHost implements Disposable {
   readonly plexus: SessionPlexus;
   readonly orchestrator: SessionOrchestrator;
+  readonly sessionRuntime: SessionRuntime;
   readonly ready: Promise<void>;
   /** Teaching verbosity for scheme-repl envelope doors. Process-local, not a Plexus field. */
   readonly doors = new DoorSession((line) => step(line));
@@ -269,7 +261,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
         warnings,
       };
     }),
-    DaemonRpcMethod.fromContract(contract.session.turn.send, (args) => {
+    DaemonRpcMethod.fromContract(contract.session.turn.send, async (args) => {
       const incoming = args.visuals ?? [];
       const named = args.kind;
       const kind = named === "queue" || named === "continue" ? named : undefined;
@@ -287,7 +279,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
         }
       }
       const visuals = incoming.length === 0 ? undefined : this.#seatVisuals(incoming);
-      const result = admitTurn(this.#commandHost(), {
+      const result = await this.sessionRuntime.admit(this.#commandHost(), {
         prompt: args.prompt,
         kind,
         ...(visuals === undefined ? {} : { visuals }),
@@ -298,8 +290,8 @@ export class SessionDaemon extends RequestHost implements Disposable {
       }
       return { ok: true as const };
     }),
-    DaemonRpcMethod.fromContract(contract.session.compact, (args) => {
-      const result = admitCompact(this.#commandHost(), args.focus ?? "");
+    DaemonRpcMethod.fromContract(contract.session.compact, async (args) => {
+      const result = await this.sessionRuntime.compact(this.#commandHost(), args.focus ?? "");
       if (!result.ok && result.invalid) throw new RpcInvalidParams(result.reason);
       if (!result.ok) return { ok: false as const, reason: result.reason };
       return { ok: true as const, compacted: false as const };
@@ -379,7 +371,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
           });
         });
         if (isEvalRequestCancelled(this.root, args.requestId)) {
-          cancelTurnCommand(this.#commandHost(), { requestId: args.requestId });
+          await this.sessionRuntime.cancel(this.#commandHost(), { requestId: args.requestId });
         }
         await this.kernel.flushSession(this.plexus);
       } catch {
@@ -396,7 +388,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       };
     }),
     DaemonRpcMethod.fromContract(contract.session.turn.cancel, async (args) => {
-      const result = cancelTurnCommand(this.#commandHost(), args);
+      const result = await this.sessionRuntime.cancel(this.#commandHost(), args);
       await this.kernel.flushSession(this.plexus);
       return result;
     }),
@@ -446,13 +438,14 @@ export class SessionDaemon extends RequestHost implements Disposable {
       if (!dryRun) await this.kernel.flushSession(this.plexus, { force: true });
       return { dryRun, ...counts, imageBytesBefore, imageBytesAfter: dryRun ? imageBytesBefore : this.#imageBytes() };
     }),
-    DaemonRpcMethod.fromContract(contract.session.turn.rewind, (args) => {
-      const result = rewindTurn(this.#commandHost(), args.turnId);
+    DaemonRpcMethod.fromContract(contract.session.turn.rewind, async (args) => {
+      const result = await this.sessionRuntime.rewind(this.#commandHost(), args.turnId);
       if (!result.ok) throw new RpcInvalidParams(result.reason);
       return { ok: true as const, turnId: result.turnId };
     }),
-    DaemonRpcMethod.fromContract(contract.session.turn.retry, () => {
-      return retryTurn(this.#commandHost());
+    DaemonRpcMethod.fromContract(contract.session.turn.retry, async () => {
+      await this.sessionRuntime.flush();
+      return this.sessionRuntime.retry(this.#commandHost());
     }),
     DaemonRpcMethod.fromContract(contract.session.ask.answer, (args) => {
       const target = this.#rootFor(args.sessionId);
@@ -581,6 +574,17 @@ export class SessionDaemon extends RequestHost implements Disposable {
         this.#syncSkills();
       });
     }
+    this.sessionRuntime = new SessionRuntime(this.plexus, {
+      kind: "durable",
+      commit: async (checkpoint) => {
+        await this.kernel.flushSession(this.plexus);
+        return {
+          sessionId: checkpoint.sessionId,
+          incarnation: checkpoint.incarnation,
+          revision: checkpoint.revision,
+        };
+      },
+    });
     this.orchestrator = new SessionOrchestrator(this);
     bindSessionCatalog(this.plexus.root, project.kernel.catalog);
     bindSessionProjections(this.plexus.root, project.kernel.projections);
@@ -610,25 +614,29 @@ export class SessionDaemon extends RequestHost implements Disposable {
   async recover(): Promise<void> {
     if (this.#recovered) return;
     if (this.#hydrated) {
-      recoverSessionJobs(this.plexus.root, {
-        catalog: this.project.kernel.catalog,
-        releaseCall: (call) =>
-          completeCallExceptionally(
-            call,
-            {
-              kernel: this.project.kernel,
-              project: this.project,
-              caller: this.plexus.root,
-            },
-            "cancelled",
-          ),
-      });
+      this.sessionRuntime.recover(
+        { kind: "resume" },
+        {
+          catalog: this.project.kernel.catalog,
+          releaseCall: (call) =>
+            completeCallExceptionally(
+              call,
+              {
+                kernel: this.project.kernel,
+                project: this.project,
+                caller: this.plexus.root,
+              },
+              "cancelled",
+            ),
+        },
+      );
       runInAction(() => {
         this.#syncSkills();
         const resolved = resolvedTip(this.root.head, this.root.tip);
         if (this.root.tip !== resolved) this.root.tip = resolved;
       });
     }
+    if (!this.#hydrated) this.sessionRuntime.recover();
     // A peer that cannot open (overload, corrupt image) must not block this session.
     for (const id of new Set([...namedWorkerIds(this.root), ...Object.values(this.root.agentCallbacks)])) {
       if (id === "" || id === this.sessionId) continue;
@@ -638,6 +646,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
         fail(`recover peer ${id}`, error);
       }
     }
+    await this.sessionRuntime.flush();
     this.#recovered = true;
   }
 
@@ -657,6 +666,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       return;
     }
     this.#activated = true;
+    this.sessionRuntime.activate();
     this.orchestrator.activate();
     this.#statuslineRefreshWatch = reaction(
       () => `${this.kernel.plexus.root.statusline}\0${this.kernel.plexus.root.statuslineRefresh}`,
@@ -767,8 +777,10 @@ export class SessionDaemon extends RequestHost implements Disposable {
 
   /** Serialized with the door so a concurrent `turn` cannot twin-mint. */
   drainPromptQueue(): Promise<void> {
-    return this.#serialize(() => {
-      drainPromptQueue(this.#commandHost());
+    return this.#serialize(async () => {
+      if (this.#closed || this.#parked || this.root.promptQueue.length === 0) return;
+      if (this.root.findRunningTurn() != null || this.root.kvs.connection.trim() === "") return;
+      await this.sessionRuntime.drain(this.#commandHost());
     });
   }
 
@@ -885,6 +897,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     this.#stopGitWatch();
     this.kernel.dropReservation(this.sessionId);
     this.#parked = true;
+    this.sessionRuntime.park();
     const keep = this.kernel.graphEligibleSessionIds();
     const workers: SessionDaemon[] = [];
     for (const id of namedWorkerIds(this.root)) {
@@ -915,6 +928,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       delete this.project.sessions[this.sessionId];
     });
     this.kernel.dropDaemon(this.sessionId);
+    void this.sessionRuntime[Symbol.asyncDispose]();
     this.#closed = true;
   }
 
@@ -1133,12 +1147,12 @@ export class SessionDaemon extends RequestHost implements Disposable {
    */
   #write(scope: "session" | "project" | "kernel", proposals: readonly KvProposal[], remember = false): void {
     if (scope === "kernel") {
-      this.#writeKernel(proposals);
+      this.kernel.writeKvs(proposals);
       this.#stampModelUsage("kernel", this.kernel.plexus.root.kvs, proposals);
       return;
     }
     if (scope === "project") {
-      this.project.root.applyKvs(proposals);
+      this.project.writeKvs(proposals);
       this.#stampModelUsage("project", this.project.root.kvs, proposals);
       return;
     }
@@ -1147,8 +1161,8 @@ export class SessionDaemon extends RequestHost implements Disposable {
     if (assigned.length === 0) return;
     const projected = remember ? assigned : assigned.filter((proposal) => !isModelChoiceKey(proposal.key));
     if (projected.length === 0) return;
-    this.project.root.applyKvs(projected);
-    this.#writeKernel(projected);
+    this.project.writeKvs(projected);
+    this.kernel.writeKvs(projected);
     if (remember) this.#stampModelUsage("session", this.root.kvs, projected);
   }
 
@@ -1164,21 +1178,14 @@ export class SessionDaemon extends RequestHost implements Disposable {
     const connection = (connSet?.value ?? bag.connection ?? "").trim();
     if (connection === "") return;
     // Global recency; also the kernel last-used index.
-    this.kernel.plexus.root.stampModelUsage(connection, modelSet.value);
+    this.kernel.rememberModelChoice(connection, modelSet.value);
     // Per-connection last-used mirrors the remembered kv write.
     if (scope === "session") {
       this.root.stampLastUsedConnectionModel(connection, modelSet.value);
-      this.project.root.stampLastUsedConnectionModel(connection, modelSet.value);
+      this.project.rememberModelChoice(connection, modelSet.value);
     } else if (scope === "project") {
-      this.project.root.stampLastUsedConnectionModel(connection, modelSet.value);
+      this.project.rememberModelChoice(connection, modelSet.value);
     }
-  }
-
-  #writeKernel(proposals: readonly KvProposal[]): void {
-    this.kernel.adjustKv((bag) => {
-      applyKv(bag, proposals);
-    });
-    this.kernel.plexus.root.applyKvs(proposals);
   }
 
   #syncSkills(): void {
@@ -1205,10 +1212,9 @@ export class SessionDaemon extends RequestHost implements Disposable {
    * the turn and does not call this. Attach does not re-seed.
    */
   #writeDefaultPermissionMode(policy: "manual" | "auto" | "yolo"): void {
-    this.root.writeChoicePermissionMode(policy, this.project.root);
-    this.kernel.adjustConfig((config) => {
-      config.defaultPermissionMode = policy;
-    });
+    this.root.writeChoicePermissionMode(policy);
+    this.project.writeDefaultPermissionMode(policy);
+    this.kernel.writeDefaultPermissionMode(policy);
   }
 }
 

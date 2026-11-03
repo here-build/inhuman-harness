@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { EnvCapability } from "@here.build/arrival";
+import { AString } from "@here.build/arrival/reflect-internals";
 import { arrivalLoaderCapability } from "@here.build/arrival-modules";
 import { ProgrammaticJob } from "@inhuman.tools/harness-model";
 import { REPL_PERIOD_ERR } from "@inhuman.tools/harness-model/schemas";
@@ -77,6 +78,50 @@ function sourceHost(root: string, evalProgram: boolean): ProgramHost {
     },
   });
 }
+
+it.each(["resolve", "reject"])("leaves an owned program untouched when authority changes during %s", async (mode) => {
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let current = true;
+  const deferred = EnvCapability.define(`test/scheme-owner-${mode}`, {
+    symbols: (declare, sz) => ({
+      wait: declare.native`wait: controlled host response`({ input: [], output: [sz.schemeValue] }, async () => {
+        entered.resolve();
+        await release.promise;
+        if (mode === "reject") throw new Error("late host failure");
+        return new AString("old response");
+      }),
+    }),
+  });
+  const chunk = job({ expr: "(wait)" });
+  const running = runProgram(chunk, {
+    ...host(),
+    canApplyResults: () => current,
+    prepare: () => ({ capabilities: [deferred], config: {} }),
+  });
+  await entered.promise;
+  current = false;
+  release.resolve();
+  await running;
+  expect({ completed: chunk.completed, cancelled: chunk.cancelled, receipt: chunk.receiptJson }).toEqual({
+    completed: false,
+    cancelled: false,
+    receipt: null,
+  });
+  const replacement = EnvCapability.define(`test/scheme-owner-replacement-${mode}`, {
+    symbols: (declare, sz) => ({
+      wait: declare.native`wait: replacement host response`(
+        { input: [], output: [sz.schemeValue] },
+        () => new AString("replacement"),
+      ),
+    }),
+  });
+  await runProgram(chunk, {
+    ...host(),
+    prepare: () => ({ capabilities: [replacement], config: {} }),
+  });
+  expect(outcomeOf(chunk)).toEqual({ ok: true, value: ["replacement"] });
+});
 
 describe("runProgram", () => {
   it("rejects a bad argument bag, an empty expr, and period", async () => {

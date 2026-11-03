@@ -46,7 +46,7 @@ export function ledgerFor(scope: LicenseScope, turn: SessionTurn): RunLedger {
 
 /** Seal the program with `interaction_required` and ask the turn to stop. Idempotent. */
 export function stopRun(scope: LicenseScope, turn: SessionTurn, ledger: RunLedger, stop: Omit<RunStop, "turn">): void {
-  if (ledger.stopped) return;
+  if (scope.closed || ledger.stopped) return;
   ledger.stopped = true;
   const program = evalProgramOf(turn);
   if (program !== null && program.outcomeSnap === undefined) {
@@ -62,7 +62,7 @@ export function stopRun(scope: LicenseScope, turn: SessionTurn, ledger: RunLedge
  */
 export async function noteLicense(scope: LicenseScope, job: ToolCallJob, allowed: boolean): Promise<void> {
   try {
-    if (!job.unattended) return;
+    if (scope.closed || !job.unattended) return;
     const turn = owningTurn(job);
     if (turn?.evalSpec == null) return;
     const ledger = ledgerFor(scope, turn);
@@ -112,6 +112,7 @@ export async function noteLicense(scope: LicenseScope, job: ToolCallJob, allowed
 }
 
 async function check(scope: LicenseScope, job: ToolCallJob, turn: SessionTurn, ledger: RunLedger): Promise<void> {
+  if (scope.closed) return;
   const esc = job.escalation;
   const cuts = evidenceCuts(job);
   const sections = buildBypassSections({
@@ -125,9 +126,11 @@ async function check(scope: LicenseScope, job: ToolCallJob, turn: SessionTurn, l
   for (let attempt = 0; attempt < 2 && verdict === undefined; attempt += 1) {
     try {
       const parsed = parseBypassVerdict(await runBypassJudge(scope, job, sections));
+      if (scope.closed) return;
       if ("fail" in parsed) throw new Error(parsed.fail);
       verdict = parsed;
     } catch {
+      if (scope.closed) return;
       ledger.checkFails += 1;
     }
   }

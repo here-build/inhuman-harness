@@ -9,7 +9,7 @@ import {
   FailureOutcome,
   SuccessfulOutcome,
   type SessionRoot,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 
 import type { AgentCallScope } from "./types.js";
 

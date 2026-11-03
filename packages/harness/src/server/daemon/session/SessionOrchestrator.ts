@@ -61,7 +61,8 @@ import {
   shouldSkipTurnCancel,
   type TurnEnding,
 } from "@inhuman.tools/turn/agent-calls";
-import { autorun, comparer, reaction, runInAction, when } from "mobx";
+import { createTurnResolvers, SessionOwnershipError } from "@inhuman.tools/turn/runtime";
+import { autorun, comparer, computed, reaction, runInAction, when } from "mobx";
 import invariant from "tiny-invariant";
 
 import { admitPrivateMcpTool, type NoteLog } from "@/extensions";
@@ -129,8 +130,6 @@ import { CompletionFlights } from "./completion-flight.js";
 import { PROJECT_LAYER_POLL_MS, readProjectAuthorization } from "./project-authorization.js";
 import { internJudgeWire, assessTextOnlyContinueIntern } from "./re-act-loop-intent-detected-trigger.js";
 import type { SessionDaemon } from "./SessionDaemon.js";
-import { iterateTurn } from "./turn-iterator.js";
-import { createTurnResolvers } from "./turn-resolvers.js";
 import { resolveCompactStrategyPath } from "../../defaults/index.js";
 import { internedComplete } from "../../drivers/interned-complete.js";
 import { pickWebExtractConnection, pickWebSearchConnection } from "../../drivers/web-search/pick.js";
@@ -156,6 +155,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   readonly #disposeAutoAllow: () => void;
   readonly #disposeDesk: () => void;
   readonly #disposeCompletions: () => void;
+  readonly #closeScope: () => void;
   #closed = false;
   /** Judge pairs that cannot send json_schema. Sticky skip, not retry. */
   readonly #reActLoopIntentDetectedTriggerHaltKeys = new Set<string>();
@@ -188,9 +188,17 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       {
         syncTools: (turn) => sessionDaemon.syncBehaviorTools(turn),
         hookTimeoutMs: () => pluginHookTimeoutMs(this.session.root.kvs, this.kernel.root.kvs),
+        canApplyResults: () => this.canApplyResults,
+        ownershipSignal: sessionDaemon.sessionRuntime.ownershipSignal,
       },
     );
     const scope = scopes.get(this.session.root);
+    const ownershipSignal = sessionDaemon.sessionRuntime.ownershipSignal;
+    this.#closeScope = () => {
+      ownershipSignal.removeEventListener("abort", this.#closeScope);
+      scope.close();
+    };
+    ownershipSignal.addEventListener("abort", this.#closeScope, { once: true });
     runInAction(() => {
       scope.cap = this.kernel.root.speculativePolicyProcessingTools;
       stampSessionPrograms(this.session.root, this.sessionDaemon.kernel.root, this.kernel.root);
@@ -218,6 +226,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     // mid-session tightening applies to the next call.
     const projectPath = this.sessionDaemon.project.path;
     const syncAuthorization = () => {
+      if (!this.canApplyResults) return;
       const session = this.session.root;
       const user = this.kernel.root.authorizationJson;
       if (session.authorizationUserJson !== user) session.authorizationUserJson = user;
@@ -260,7 +269,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     this.#disposeDesk = reaction(
       () => (this.activated ? this.#deskPermissionSnap() : null),
       (snap) => {
-        if (snap == null) return;
+        if (snap == null || !this.canApplyResults) return;
         const desk = this.#permissionDesk();
         if (desk == null) return;
         runInAction(() => projectWorkerPermissions(this.session.root, desk));
@@ -269,7 +278,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     );
     this.#disposePromptQueue = reaction(
       () => {
-        if (!this.activated || this.#closed) return "";
+        if (!this.activated || this.#closed || !this.canApplyResults) return "";
         const root = this.session.root;
         if (root.findRunningTurn() != null) return "";
         const first = root.promptQueue[0];
@@ -277,7 +286,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         return `${first.uuid}:${(root.kvs.connection ?? "").trim()}`;
       },
       (key) => {
-        if (key === "") return;
+        if (key === "" || !this.canApplyResults) return;
         void this.sessionDaemon.drainPromptQueue();
       },
     );
@@ -285,9 +294,11 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       SystemToolJob,
       (job) => this.#guardTool(job),
       async (job, signal) => {
+        signal = this.#ownedSignal(signal);
         if (await this.#bodyRefused(job, signal)) return;
         try {
           await executeSystemTool(job, signal, {
+            canApplyResults: () => this.canApplyResults,
             shellTailBytes: this.kernel.root.shellTailBytes,
             stopJob: async (jobId): Promise<JobStopReport> => {
               const nodes = this.session.root.motionWork();
@@ -306,8 +317,10 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
             },
           });
         } finally {
-          await this.#behavior.finishTool(job, signal);
-          if (!job.completed && !job.cancelled) job.markComplete();
+          if (this.canApplyResults) {
+            await this.#behavior.finishTool(job, signal);
+            if (this.canApplyResults && !job.completed && !job.cancelled) job.markComplete();
+          }
         }
       },
       { seal: false },
@@ -320,7 +333,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         try {
           await this.#runMcp(job, signal);
         } finally {
-          await this.#behavior.finishTool(job, signal);
+          if (this.canApplyResults) await this.#behavior.finishTool(job, signal);
         }
       },
       { seal: false },
@@ -344,10 +357,12 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         try {
           await executeBotCall(job, this.#agentHost());
         } catch (error) {
-          sealCall(job, "error", error instanceof Error ? error.message : String(error));
+          if (this.canApplyResults) sealCall(job, "error", error instanceof Error ? error.message : String(error));
         } finally {
-          await waitUntil(() => job.completed, signal);
-          await this.#finishCall(job, signal);
+          if (this.canApplyResults) {
+            await waitUntil(() => job.completed, signal);
+            if (this.canApplyResults) await this.#finishCall(job, signal);
+          }
         }
       },
       { seal: false },
@@ -359,10 +374,12 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         try {
           await executeAgentCall(job, this.#agentHost(), this.#agentTools.get(job));
         } catch (error) {
-          sealCall(job, "error", error instanceof Error ? error.message : String(error));
+          if (this.canApplyResults) sealCall(job, "error", error instanceof Error ? error.message : String(error));
         } finally {
-          await waitUntil(() => job.completed, signal);
-          await this.#finishCall(job, signal);
+          if (this.canApplyResults) {
+            await waitUntil(() => job.completed, signal);
+            if (this.canApplyResults) await this.#finishCall(job, signal);
+          }
         }
       },
       { seal: false },
@@ -403,9 +420,12 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       // Bag is not remainder. Inner System/MCP/agent leaves still `#license`.
       () => true,
       async (job, signal) => {
+        signal = this.#ownedSignal(signal);
         if (!(await this.#waitEvalAdmission(signal))) return;
+        if (!this.canApplyResults) return;
         const catalog = sessionCatalog(this.session.root) ?? new KernelToolCatalog();
         await interpretSchemeRepl(job, {
+          canApplyResults: () => this.canApplyResults,
           catalog,
           root: this.session.root.path.trim() === "" ? process.cwd() : this.session.root.path,
           signal,
@@ -428,7 +448,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
             try {
               return await this.complete(req);
             } catch (error) {
-              if (error instanceof ConnectionMiss) throw new Error(error.message);
+              if (error instanceof ConnectionMiss) throw new TypeError(error.message);
               throw error;
             }
           },
@@ -437,13 +457,16 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
             invariant(spec != null, `unknown connection ${name}`);
             return liveModelsOf(spec);
           },
-          admit: (call: ToolCall) =>
-            this.sessionDaemon.project.toolCalls.admit(call, catalog, {
+          admit: (call: ToolCall) => {
+            if (!this.canApplyResults) throw new SessionOwnershipError();
+            return this.sessionDaemon.project.toolCalls.admit(call, catalog, {
               session: this.session.root,
               loadAgentCall: (uuid) => loadOpenCall(this.sessionDaemon.kernel, this.session.root, uuid),
-            }),
+            });
+          },
           abort: (leaf: ApprovableJob, reason?: unknown) => this.#abortLeaf(leaf, reason),
           notify: (note: AgentCallNotification) => {
+            if (!this.canApplyResults) return;
             const call = enclosingCallOf(this.sessionDaemon.kernel, this.session.root, job);
             if (call != null) {
               call.notifications.push(note);
@@ -459,8 +482,11 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       SessionTurn,
       (turn) => inboundTurnGuard(turn),
       async (turn, signal) => {
+        if (!this.canApplyResults) return;
+        signal = AbortSignal.any([signal, this.sessionDaemon.sessionRuntime.signal]);
         // Any other abort runs the close below; the iterator stops at once.
         if (!(await this.#waitEvalAdmission(signal)) && isParkAbort(signal)) return;
+        if (!this.canApplyResults) return;
         if (turn.reducerExited) return;
         // Rewound away before it ran. Its close touches only itself: the steers and holds belong to the live head.
         if (!this.reachableJobs.includes(turn)) {
@@ -474,7 +500,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
           const connectionId = session.kvs.connection?.trim() ?? "";
           const model = session.kvs.model?.trim() ?? "";
           trace("harness:turn", `open ${turn.uuid} connection=${connectionId || "(none)"} model=${model || "(none)"}`);
-          await iterateTurn(
+          await this.sessionDaemon.sessionRuntime.run(
             turn,
             {
               session,
@@ -484,6 +510,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
                 compactHost: () => this.#compactHost(turn, session, connectionId, model),
               }),
               notes: this.#behaviorNotes,
+              diagnostics: { step, trace, fail },
               compactKeepTurns: this.kernel.root.compactKeepTurns,
               hardCompactTrigger: this.kernel.root.compactTriggers.hard,
               loopLimits: () => {
@@ -497,6 +524,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
               },
               remoteMcp: (key) => this.kernel.root.connections[key]?.driver?.name === MCP_HTTP_DRIVER,
               admit: (call) => {
+                if (!this.canApplyResults) throw new SessionOwnershipError();
                 const catalog = sessionCatalog(session) ?? toolCalls.kernel.catalog;
                 const ctx = {
                   session,
@@ -528,35 +556,38 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
             signal,
           );
         } catch (error) {
+          if (!this.canApplyResults) return;
           broke = error instanceof Error ? error.message : String(error);
           fail("turn", error);
         } finally {
-          trace("harness:turn", `close ${turn.uuid} cancel=${turn.cancelRequested} park=${signal.reason === "park"}`);
-          if (signal.reason === "park") this.#behavior.dropTurn(turn);
+          if (!this.canApplyResults || signal.reason === "park") this.#behavior.dropTurn(turn);
           else {
+            trace("harness:turn", `close ${turn.uuid} cancel=${turn.cancelRequested} park=false`);
             // The post hooks are bounded, but a throw must still reach the close below.
             try {
               await this.#behavior.leaveTurn(turn, broke || turn.broke);
             } catch (error) {
-              fail("turn boundary", error);
+              if (this.canApplyResults) fail("turn boundary", error);
             }
-            const ending: TurnEnding = turn.cancelRequested
-              ? { kind: "cancel" }
-              : (broke || turn.broke) === ""
-                ? { kind: "finish" }
-                : { kind: "broke", detail: broke || turn.broke };
-            closeTurn(turn, ending, this.#closeOptions());
-            this.#releaseUnansweredCall(turn);
-            // Self-service lane: the turn that was head takes the next queued message itself.
-            // The prompt-queue reaction stays as the fallback (a restart re-arms it).
-            void this.sessionDaemon.drainPromptQueue();
+            if (this.canApplyResults) {
+              const ending: TurnEnding = turn.cancelRequested
+                ? { kind: "cancel" }
+                : (broke || turn.broke) === ""
+                  ? { kind: "finish" }
+                  : { kind: "broke", detail: broke || turn.broke };
+              closeTurn(turn, ending, this.#closeOptions());
+              this.#releaseUnansweredCall(turn);
+              // Self-service lane: the turn that was head takes the next queued message itself.
+              // The prompt-queue reaction stays as the fallback (a restart re-arms it).
+              void this.sessionDaemon.drainPromptQueue();
+            }
           }
         }
       },
       { seal: false },
     );
     this.#disposeLive = autorun(() => {
-      if (!this.activated || this.#closed) return;
+      if (!this.activated || this.#closed || !this.canApplyResults) return;
       const reachable = this.reachableJobs;
       for (const job of this.inFlightJobs()) {
         if (!(job instanceof SessionTurn) || job.reducerExited || reachable.includes(job)) continue;
@@ -584,7 +615,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
           baseline.add(job);
           const pew = job.expectation;
           void this.complete(completionRequest(pew)).catch((error: unknown) => {
-            if (pew.isDone || this.#flights.aborted(pew)) return;
+            if (!this.canApplyResults || pew.isDone || this.#flights.aborted(pew)) return;
             pew.fail("crash", error instanceof Error ? error.message : String(error), "null");
           });
         }
@@ -650,6 +681,8 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 
   async #runMcp(job: MCPToolJob, signal: AbortSignal): Promise<void> {
+    signal = this.#ownedSignal(signal);
+    if (!this.canApplyResults) return;
     if (this.#outsideWorkerCeiling(job)) {
       closeMcpFailure(job, OUTSIDE_WORKER_CEILING);
       return;
@@ -685,7 +718,9 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         }
       }
     }
-    if (!(await this.#inboundResumed(hostingTurnOf(this.session.root, job) ?? this.session.root.head, signal))) {
+    const resumed = await this.#inboundResumed(hostingTurnOf(this.session.root, job) ?? this.session.root.head, signal);
+    if (!this.canApplyResults) return;
+    if (!resumed) {
       if (isParkAbort(signal)) return;
       closeMcpFailure(job, signal.aborted ? cancelOutcomeText(signal.reason) : "contribution paused");
       return;
@@ -693,7 +728,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     if (signal.aborted) {
       if (isParkAbort(signal)) {
         await waitDispatchedMcp(job);
-        sealMcpIfSettled(job);
+        if (this.canApplyResults) sealMcpIfSettled(job);
         return;
       }
       closeMcpFailure(job, cancelOutcomeText(signal.reason));
@@ -706,13 +741,15 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       return;
     }
     if (job.dispatched && !job.completed) {
-      if ((await this.#settleLeftoverPew(job.expectation, key, "MCP connection", signal)) === "settled") {
+      const settled = await this.#settleLeftoverPew(job.expectation, key, "MCP connection", signal);
+      if (!this.canApplyResults) return;
+      if (settled === "settled") {
         sealMcpIfSettled(job);
         return;
       }
       if (isParkAbort(signal)) {
         await waitDispatchedMcp(job);
-        sealMcpIfSettled(job);
+        if (this.canApplyResults) sealMcpIfSettled(job);
         return;
       }
       job.outcomeSnap ??= { ok: false, text: cancelOutcomeText(signal.reason) };
@@ -727,6 +764,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     }
     try {
       const instance = (await this.ensure(key)) as CapabilityConnection;
+      if (!this.canApplyResults) return;
       if (!connectionSupports(instance, "mcp") || instance.callTool == null) {
         closeMcpFailure(job, `${key}: missing MCP connection`);
         return;
@@ -741,16 +779,19 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         args,
         signal,
         onDispatch: () => {
+          if (!this.canApplyResults) throw new SessionOwnershipError();
           job.dispatched = true;
         },
       });
+      if (!this.canApplyResults) return;
       job.outcomeSnap ??= result;
       await this.#behavior.finishTool(job, signal);
-      if (!job.completed && !job.cancelled) job.markComplete();
+      if (this.canApplyResults && !job.completed && !job.cancelled) job.markComplete();
     } catch (error) {
+      if (!this.canApplyResults) return;
       if (isParkAbort(signal)) {
         await waitDispatchedMcp(job);
-        sealMcpIfSettled(job);
+        if (this.canApplyResults) sealMcpIfSettled(job);
         return;
       }
       if (error instanceof ConnectionMiss) {
@@ -786,9 +827,11 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     job: Job,
     signal: AbortSignal,
   ): Promise<{ readonly dispatch: true } | { readonly dispatch: false; readonly persistFailed: boolean }> {
+    if (!this.canApplyResults) return { dispatch: false, persistFailed: false };
     const documents = this.sessionDaemon.kernel.runtime.documents;
     if (documents != null) {
       const gate = await persistJobIntent(documents, documentKey("sessions", this.session.root.sessionId), job);
+      if (!this.canApplyResults) return { dispatch: false, persistFailed: false };
       if (!gate.ok) return { dispatch: false, persistFailed: true };
     }
     if (
@@ -808,6 +851,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
    */
   async #bodyRefused(job: ToolCallJob, signal: AbortSignal): Promise<boolean> {
     const intent = await this.#gateIntent(job, signal);
+    if (!this.canApplyResults) return true;
     if (intent.dispatch) return false;
     if (!job.completed && (intent.persistFailed || !isParkAbort(signal))) {
       const text = intent.persistFailed ? INTENT_NOT_PERSISTED : cancelOutcomeText(signal.reason);
@@ -821,7 +865,9 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
 
   /** The two web tools differ only in their argument, their connection pick, and the call. */
   async #runWeb(job: WebSearchToolJob | WebExtractToolJob, signal: AbortSignal): Promise<void> {
+    signal = this.#ownedSignal(signal);
     if (await this.#bodyRefused(job, signal)) return;
+    if (!this.canApplyResults) return;
     const web =
       job instanceof WebSearchToolJob
         ? {
@@ -865,7 +911,9 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       if (job.expectation.startedAtMs == null) job.expectation.connectionId = key;
       const leftoverPew = job.expectation;
       if (leftoverPew.startedAtMs != null && !leftoverPew.isDone) {
-        if ((await this.#settleLeftoverPew(leftoverPew, key, `${web.ability} connection`, signal)) === "aborted") {
+        const settled = await this.#settleLeftoverPew(leftoverPew, key, `${web.ability} connection`, signal);
+        if (!this.canApplyResults) return;
+        if (settled === "aborted") {
           job.outcomeSnap ??= { ok: false, text: cancelOutcomeText(signal.reason) };
           this.#terminatePew(leftoverPew);
         }
@@ -873,9 +921,12 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       }
       try {
         const instance = (await this.ensure(key)) as CapabilityConnection;
+        if (!this.canApplyResults) return;
         const found = connectionSupports(instance, web.ability) ? await web.call(instance) : undefined;
+        if (!this.canApplyResults) return;
         job.outcomeSnap ??= found ?? { ok: false, text: `${web.name}: intern failed` };
       } catch (error) {
+        if (!this.canApplyResults) return;
         job.outcomeSnap ??= {
           ok: false,
           text: signal.aborted
@@ -886,8 +937,10 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         };
       }
     } finally {
-      await this.#behavior.finishTool(job, signal);
-      this.#sealWebJob(job);
+      if (this.canApplyResults) {
+        await this.#behavior.finishTool(job, signal);
+        if (this.canApplyResults) this.#sealWebJob(job);
+      }
     }
   }
 
@@ -916,6 +969,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     signal: AbortSignal,
   ): Promise<"settled" | "aborted"> {
     const settled = await waitUntil(() => pew.isDone || this.#connectionFailure(key, what) !== null, signal);
+    if (!this.canApplyResults) return "aborted";
     if (settled === "aborted") return settled;
     const detail = this.#connectionFailure(key, what);
     if (detail !== null && !pew.isDone) pew.fail("crash", detail, "null");
@@ -936,12 +990,13 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
    * Pre hooks run once the call is licensed.
    */
   async #guardTool(job: ToolCallJob): Promise<boolean> {
+    if (!this.canApplyResults) return false;
     // Origin-aware door. Scheme inner admits and RPC/statusline still enter
     // here as model until those callers pass their origin through this path.
     const result = await guardHostTool({
       job,
       signal: this.#behavior.signalFor(job),
-      stopped: () => !isWorkReachable(this.session.root, job),
+      stopped: () => !this.canApplyResults || !isWorkReachable(this.session.root, job),
       origin: "model",
       hookTimeoutMs: pluginHookTimeoutMs(this.session.root.kvs, this.kernel.root.kvs),
       agent: this.#behavior.agent,
@@ -952,10 +1007,16 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       license: (leaf) => this.#license(leaf),
       turnId: (hostingTurnOf(this.session.root, job) ?? this.session.root.head)?.uuid ?? "",
       narrowAgent: (leaf, tools) => this.#narrowAgent(leaf, tools),
-      onUnentered: stampUnentered,
+      onUnentered: (leaf, outcome) => {
+        if (this.canApplyResults) stampUnentered(leaf, outcome);
+      },
       onProblem: (what, error) => this.#behavior.problem(what, error),
       onReport: (leaf, outcome) => this.#behavior.toolReport(leaf, outcome),
     });
+    if (!this.canApplyResults) {
+      result.opened?.abandon();
+      return false;
+    }
     if (result.opened != null) this.#behavior.holdTool(job, result.opened);
     return result.allowed;
   }
@@ -984,6 +1045,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
 
   /** An ad-hoc ask carries its tools on the job; a one-shot recipe worker takes them at mint. */
   #narrowAgent(job: AgentCallJob, tools: readonly string[]): void {
+    if (!this.canApplyResults) return;
     if (job.argString("spec").trim() === "") {
       job.tools = [...tools];
       job.inheritCallerTools = false;
@@ -995,11 +1057,13 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 
   async #finishCall(job: CallJob, signal: AbortSignal): Promise<void> {
+    if (!this.canApplyResults) return;
     if (job instanceof AgentCallJob) this.#agentTools.delete(job);
     await this.#behavior.finishCall(job, signal);
   }
 
   async #license(job: ToolCallJob): Promise<boolean> {
+    if (!this.canApplyResults) return false;
     const started = Date.now();
     trace(
       "harness:license",
@@ -1013,6 +1077,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     }
     const hostTurn = hostingTurnOf(this.session.root, job) ?? this.session.root.head;
     const ok = await license(job, hostTurn, this.session.root);
+    if (!this.canApplyResults) return false;
     trace(
       "harness:license",
       `${ok ? "allow" : "deny"} ${job.toolCallId || job.name} ms=${Date.now() - started} policy=${job.policyResult ?? ""} judge=${job.classifierResult ?? ""}`,
@@ -1030,6 +1095,8 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       project: this.sessionDaemon.project,
       caller: this.session.root,
       problem: (what, error) => this.#behavior.problem(what, error),
+      canApplyResults: () => this.canApplyResults,
+      ownershipSignal: this.sessionDaemon.sessionRuntime.ownershipSignal,
     };
   }
 
@@ -1110,7 +1177,25 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
    * `connection.complete` → `handle(round)`. `KernelDaemon` has no `complete()`.
    */
   complete(req: CompleteRequest): Promise<CompleteResult> {
-    return this.#flights.complete(req);
+    if (!this.canApplyResults) return Promise.reject(new SessionOwnershipError());
+    const ownership = this.sessionDaemon.sessionRuntime.ownershipSignal;
+    const abort = new AbortController();
+    // Losing the writer leaves recovery in charge of the open attempt.
+    const onOwnershipLost = () => abort.abort("park");
+    const onCallerAbort = () => abort.abort(ownership.aborted ? "park" : req.signal?.reason);
+    ownership.addEventListener("abort", onOwnershipLost, { once: true });
+    req.signal?.addEventListener("abort", onCallerAbort, { once: true });
+    if (ownership.aborted) onOwnershipLost();
+    else if (req.signal?.aborted) onCallerAbort();
+    return this.#flights
+      .complete({
+        ...req,
+        signal: abort.signal,
+      })
+      .finally(() => {
+        ownership.removeEventListener("abort", onOwnershipLost);
+        req.signal?.removeEventListener("abort", onCallerAbort);
+      });
   }
 
   /**
@@ -1119,7 +1204,8 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
    * completions use this driver, so there is one dispatch owner per node.
    */
   #openUnstartedCompletions(): CompletionJob[] {
-    if (!this.activated || this.#closed) return [];
+    if (!this.activated || this.#closed || !this.canApplyResults || this.sessionDaemon.sessionRuntime.admissionHeld)
+      return [];
     const open: CompletionJob[] = [];
     for (const node of this.reachableJobs) {
       if (!(node instanceof CompletionJob)) continue;
@@ -1138,6 +1224,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 
   async #driveCompletion(req: CompleteRequest): Promise<CompleteResult> {
+    if (!this.canApplyResults) throw new SessionOwnershipError();
     const owner = req.round.parent;
     if (owner instanceof CompletionJob) {
       if (owner.orchestrationResult == null) {
@@ -1146,6 +1233,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         });
       }
       const intent = await this.#gateIntent(owner, req.signal ?? new AbortController().signal);
+      if (!this.canApplyResults) throw new SessionOwnershipError();
       if (!intent.dispatch) {
         if (intent.persistFailed && req.round.outcome == null) {
           req.round.fail("crash", INTENT_NOT_PERSISTED, "null");
@@ -1193,10 +1281,20 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 
   protected override shouldHonor(node: WorkExpectation): boolean {
+    if (!this.canApplyResults) return false;
+    if (this.sessionDaemon.sessionRuntime.admissionHeld) return false;
     if (!super.shouldHonor(node)) return false;
     if (node instanceof McpToolExpectation) return node.startedAtMs != null || node.dispatched;
     if (node instanceof CompletionExpectation) return node.startedAtMs != null;
     return true;
+  }
+
+  protected override get canApplyResults(): boolean {
+    return super.canApplyResults && this.sessionDaemon.sessionRuntime.isCurrent;
+  }
+
+  #ownedSignal(signal: AbortSignal): AbortSignal {
+    return AbortSignal.any([signal, this.sessionDaemon.sessionRuntime.ownershipSignal]);
   }
 
   async loadDriverModule(driver: DriverSpec): Promise<DriverConnectionClass> {
@@ -1205,6 +1303,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
 
   #holdingDispatchedMcp = false;
   #holdingEval = false;
+  #holdingCallbacks = false;
 
   get holdingEval(): boolean {
     return this.#holdingEval;
@@ -1212,12 +1311,21 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
 
   /** Honor still running after last-seat park: on-wire MCP or an unsealed eval bag. */
   get holding(): boolean {
-    return this.#holdingDispatchedMcp || this.#holdingEval;
+    return this.#holdingDispatchedMcp || this.#holdingEval || this.#holdingCallbacks;
+  }
+
+  @computed
+  get #callbackPending(): boolean {
+    for (const job of this.session.root.motionWork()) {
+      if (job instanceof AgentCallbackJob && job.startedAtMs != null && !job.completed && !job.cancelled) return true;
+    }
+    return false;
   }
 
   async #waitEvalAdmission(signal: AbortSignal): Promise<boolean> {
     const held = this.sessionDaemon.evalAdmissionHeld;
-    return !held.get() || (await waitUntil(() => !held.get(), signal)) === "settled";
+    const ready = () => !held.get() && !this.sessionDaemon.sessionRuntime.admissionHeld;
+    return ready() || (await waitUntil(ready, signal)) === "settled";
   }
 
   /**
@@ -1242,13 +1350,18 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
    */
   park(): Promise<void> {
     if (this.#closed) return Promise.resolve();
-    if (liveEvalWork(this.session.root).size === 0) return this.#parkNow();
+    if (liveEvalWork(this.session.root).size === 0 && !this.#callbackPending) return this.#parkNow();
     this.#deferredPark ??= (async () => {
-      this.#holdingEval = true;
+      this.#holdingEval = liveEvalWork(this.session.root).size > 0;
+      this.#holdingCallbacks = this.#callbackPending;
       try {
-        await when(() => this.#closed || liveEvalWork(this.session.root).size === 0);
+        await waitUntil(
+          () => this.#closed || (liveEvalWork(this.session.root).size === 0 && !this.#callbackPending),
+          this.sessionDaemon.sessionRuntime.ownershipSignal,
+        );
       } finally {
         this.#holdingEval = false;
+        this.#holdingCallbacks = false;
       }
       await this.#parkNow();
     })();
@@ -1259,6 +1372,10 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
 
   #parkNow(): Promise<void> {
     if (!this.#stop("park")) return Promise.resolve();
+    if (!this.canApplyResults) {
+      this.#release();
+      return Promise.resolve();
+    }
     const hold = this.#abortParkableWork();
     if (!hold.mcpPending && !hold.evalPending) {
       this.#abortParkableWork();
@@ -1292,7 +1409,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     this.#stopCompletions(cause);
     this.stopAdmission();
     this.#behavior.stopAdmission();
-    scopes.get(this.session.root).close();
+    this.#closeScope();
     return true;
   }
 
@@ -1314,9 +1431,11 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
 
   [Symbol.dispose](): void {
     if (!this.#stop()) return;
-    for (const job of this.inFlightJobs()) {
-      if (job instanceof SessionTurn) {
-        failLeftoverApprovables(job, (leaf) => this.#abortLeaf(leaf), this.sessionDaemon.kernel.catalog);
+    if (this.canApplyResults) {
+      for (const job of this.inFlightJobs()) {
+        if (job instanceof SessionTurn) {
+          failLeftoverApprovables(job, (leaf) => this.#abortLeaf(leaf), this.sessionDaemon.kernel.catalog);
+        }
       }
     }
     this.#release();
@@ -1333,6 +1452,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       model,
       complete: (req) => this.complete(req),
       loadProgram: (spec, root) => loadCompactProgram(spec, root),
+      checkpoint: () => this.sessionDaemon.sessionRuntime.flush().then(() => undefined),
       log: (message) => step(message),
       fail: (label, error) => fail(label, error),
     };

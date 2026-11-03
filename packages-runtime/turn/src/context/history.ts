@@ -30,7 +30,7 @@ import {
   TurnPromptChunk,
   TurnSteerChunk,
   type UserVisualIdentity,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import invariant from "tiny-invariant";
 
 import { usesGenericSilentProjection } from "./delivery.js";

@@ -23,9 +23,10 @@ export function failureCodeOf(error: unknown): string | undefined {
 
 export function appendNotify(
   job: ProgrammaticJob,
-  host: { readonly notify?: (note: AgentCallNotification) => void },
+  host: { readonly notify?: (note: AgentCallNotification) => void; readonly canApplyResults?: () => boolean },
   message: string,
 ): void {
+  if (host.canApplyResults?.() === false) return;
   const note = new AgentCallNotification({ message });
   if (host.notify != null) {
     host.notify(note);

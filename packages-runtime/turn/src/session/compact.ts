@@ -13,17 +13,22 @@
  * `failsafe` set tells the caller to log a diagnostic.
  */
 
+import type { Loader } from "@here.build/arrival-modules";
+
+import type { ResourceIdentity } from "../resources/module-bundle.js";
+
 const INLINE_KEEP_FIRST =
   "(define (compact compact-transcript full-transcript) (let ((xs (transcript/cells compact-transcript))) (if (null? xs) xs (list (car xs)))))";
 
 export type CompactProgram = {
   readonly source: string;
   /**
-   * Absolute path the source was read from. `require` (`.prompt` pretreats) is
-   * jailed under its dirname; absent for the inline fallback and a dist stub
-   * that has no `compact.prompt` next to it.
+   * Source label for diagnostics. Local adapters can supply an absolute path;
+   * it never grants module access by itself.
    */
   readonly sourcePath: string | null;
+  readonly resource?: ResourceIdentity;
+  readonly moduleLoader?: Loader;
   /**
    * Set only on the inline keep-first failsafe: why no real program could be
    * loaded. The caller must surface it; a silent failsafe would hide a broken

@@ -8,7 +8,7 @@ import { makeFsLoader, type Loader } from "@here.build/arrival-modules";
 import type { ProgrammaticJob } from "@inhuman.tools/harness-model";
 import { runInAction } from "mobx";
 
-export function programSourceLoader(root: string, job?: ProgrammaticJob): Loader {
+export function programSourceLoader(root: string, job?: ProgrammaticJob, canApplyResults?: () => boolean): Loader {
   return makeFsLoader({
     async readFile(key: string) {
       if (job !== undefined) {
@@ -28,7 +28,7 @@ export function programSourceLoader(root: string, job?: ProgrammaticJob): Loader
         throw new Error(`require path escapes program source root: ${key}`);
       }
       const text = await readFile(real, "utf8");
-      if (job !== undefined) runInAction(() => (job.modules[key] = text));
+      if (job !== undefined && canApplyResults?.() !== false) runInAction(() => (job.modules[key] = text));
       return text;
     },
   });

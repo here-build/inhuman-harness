@@ -8,6 +8,7 @@ import { callArgsSchema, REPL_PERIOD_ERR } from "@inhuman.tools/harness-model/sc
 import { unwrapTopLevelBegins } from "@inhuman.tools/substrate/unwrap-begin";
 
 import {
+  canApplyProgramResults,
   createEvaluationTimeout,
   displayPrinted,
   errorText,
@@ -42,7 +43,7 @@ export async function runProgram(chunk: ProgrammaticJob, host: ProgramHost): Pro
       return;
     }
     const opened = await openProgram(chunk, host, parsed.data);
-    if (opened == null) return;
+    if (opened == null || !canApplyProgramResults(host)) return;
 
     const runtime = programRuntimeOf(chunk, host);
     runtime.arm({ watching: false, moduleRoot: opened.moduleRoot });
@@ -52,7 +53,7 @@ export async function runProgram(chunk: ProgrammaticJob, host: ProgramHost): Pro
       try {
         sourceForms = unwrapTopLevelBegins(await parse(sourceText));
       } catch (error) {
-        sealChunk(chunk, fail(errorText(error)));
+        if (canApplyProgramResults(host)) sealChunk(chunk, fail(errorText(error)));
         return;
       }
     }
@@ -78,6 +79,7 @@ export async function runProgram(chunk: ProgrammaticJob, host: ProgramHost): Pro
         timeout.dispose();
       }
     });
+    if (!canApplyProgramResults(host)) return;
     if (outcome.kind === "park") return;
     if (outcome.kind === "halt") {
       sealChunk(chunk, outcome.result);

@@ -1,8 +1,7 @@
-import { ReACTChunk, ResponseCall, responseCall, TurnNotificationChunk } from "@inhuman.tools/harness-model";
+import { ReACTChunk, ResponseCall, responseCall, TurnNotificationChunk } from "@inhuman.tools/harness-model/session";
 import { describe, expect, it } from "vitest";
 
-import { historyBehind } from "@/context";
-
+import { historyBehind } from "../../context/index.js";
 import { LENGTH_CONTINUE_NOTE } from "../re-act-loop-intent-detected-trigger.js";
 import { maxRoundsMessage } from "../round-stop.js";
 import type { TurnIteratorHost } from "../turn-iterator.js";

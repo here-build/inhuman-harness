@@ -20,13 +20,9 @@ import { contract } from "@inhuman.tools/harness-contract";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import {
   AskAgentSpec,
-  type AgentNature,
-  type SessionUnfinished,
   DEFAULT_COMPACT_STRATEGY,
   DEFAULT_COMPACT_TRIGGERS,
   DEFAULT_COMPACT_KEEP_TURNS,
-  latestUserPrompt,
-  outgoingAgentRelations,
   bindSessionProjections,
   PluginProjectionRegistry,
   KernelPlexus,
@@ -42,10 +38,11 @@ import {
   parseAuthorizationConfig,
   parseGrantRows,
   type SessionRoot,
-  SessionTurn,
 } from "@inhuman.tools/harness-model";
+import { applyKv, type KvProposal, type PermissionMode } from "@inhuman.tools/harness-model/shared";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import { disposeKernelConnections, dropConnection } from "@inhuman.tools/plexus-expectations/executor";
+import { sessionSummary, observeSessionSummary, type SessionSummary } from "@inhuman.tools/turn/runtime";
 import fs from "fs-extra";
 import { autorun, comparer, observable, reaction, runInAction, type IReactionDisposer } from "mobx";
 import * as Y from "yjs";
@@ -89,7 +86,6 @@ import { PRODUCT_PROVIDERS } from "../../composition.js";
 import { DaemonRpcMethod, isAbortError, isUiCancelled, RequestHost, RpcInvalidParams } from "../../contract.js";
 import { KernelReflector } from "./fs-reflection/KernelReflector.js";
 import { reflectKernel } from "./fs-reflection/reflectKernel.js";
-import { glanceAskLine } from "./glance-ask-line.js";
 import { defaultCompactSource } from "../../defaults/index.js";
 import { parseConfigJson, parseKvBag, connectionSliceSchema, type ConfigJson } from "../../schemas/well-known.js";
 import { deleteConnectionSecrets, readConnectionSecrets, writeConnectionSecrets } from "../../secrets.js";
@@ -1120,6 +1116,23 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     });
   }
 
+  writeKvs(proposals: readonly KvProposal[]): void {
+    this.adjustKv((bag) => {
+      applyKv(bag, proposals);
+    });
+    this.plexus.root.applyKvs(proposals);
+  }
+
+  rememberModelChoice(connection: string, model: string): void {
+    this.plexus.root.stampModelUsage(connection, model);
+  }
+
+  writeDefaultPermissionMode(policy: PermissionMode): void {
+    this.adjustConfig((config) => {
+      config.defaultPermissionMode = policy;
+    });
+  }
+
   override ui(body: string) {
     this.#writeChain = Promise.resolve();
     return super.ui(body);
@@ -1327,14 +1340,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   /** Title tracks `SessionRoot.title`; recency is turn/steer. Liveness is not recency. */
   #watchSessionGlance(sessionId: string, plexus: SessionPlexus): void {
     if (this.#glanceWatch.has(sessionId)) return;
-    const stopLens = reaction(
-      () => glanceSnapOf(plexus.root),
-      (snap) => {
-        this.#upsertSessionGlance(sessionId, snap);
-        this.#rememberConversationFromSnap(sessionId, snap);
-      },
-      { equals: comparer.structural, fireImmediately: true },
-    );
+    const stopLens = observeSessionSummary(plexus, (snap) => {
+      this.#upsertSessionGlance(sessionId, snap);
+      this.#rememberConversationFromSnap(sessionId, snap);
+    });
     const stopHead = reaction(
       () => plexus.root.head?.uuid ?? "",
       (uuid) => {
@@ -1429,7 +1438,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       .catch((error: unknown) => fail("grant park", error));
   }
 
-  #upsertSessionGlance(sessionId: string, snap: SessionGlanceSnap): void {
+  #upsertSessionGlance(sessionId: string, snap: SessionSummary): void {
     this.plexus.root.projectSessionGlance(sessionId, snap, Date.now());
   }
 
@@ -1441,10 +1450,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   /** Conversation catalog is empty-scope only. Stamp/re-intern retracts a named worker. */
   #rememberConversation(sessionId: string, plexus: SessionPlexus): void {
-    this.#rememberConversationFromSnap(sessionId, glanceSnapOf(plexus.root));
+    this.#rememberConversationFromSnap(sessionId, sessionSummary(plexus.root));
   }
 
-  #rememberConversationFromSnap(sessionId: string, snap: SessionGlanceSnap): void {
+  #rememberConversationFromSnap(sessionId: string, snap: SessionSummary): void {
     if (snap.path === "") return;
     if (!this.#projects.has(snap.path)) return;
     const project = this.#projects.get(snap.path);
@@ -1613,56 +1622,6 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     const result = await documents.flush(key, checkpoint, options);
     if (!result.ok) throw new Error(`flushDocument: ${result.reason}`);
   }
-}
-
-type SessionGlanceSnap = {
-  readonly title: string;
-  readonly recipeScope: AgentNature;
-  readonly specName: string;
-  readonly resident: boolean;
-  readonly keepAlive: boolean;
-  readonly oneShot: boolean;
-  readonly model: string;
-  readonly status: string;
-  readonly midMotion: boolean;
-  readonly openTurn: boolean;
-  readonly openToolCount: number;
-  readonly periodArmed: boolean;
-  readonly openCallbackCount: number;
-  readonly asking: boolean;
-  readonly unfinished: SessionUnfinished;
-  readonly lastPrompt: string;
-  readonly askLine: string;
-  readonly questionLine: string;
-  readonly path: string;
-  readonly calls: ReturnType<typeof outgoingAgentRelations>;
-};
-
-function glanceSnapOf(root: SessionRoot): SessionGlanceSnap {
-  const spec = root.agent.spec;
-  const unfinished = root.unfinished;
-  return {
-    title: root.title,
-    recipeScope: spec.recipeScope,
-    specName: spec.name,
-    resident: spec.resident,
-    keepAlive: spec.keepAlive,
-    oneShot: spec instanceof AskAgentSpec,
-    model: (root.kvs.model ?? "").trim(),
-    status: root.turnDescription,
-    midMotion: root.midMotion,
-    openTurn: root.openTurn,
-    openToolCount: root.openToolCount,
-    periodArmed: root.periodArmed,
-    openCallbackCount: root.openCallbackCount,
-    asking: root.asking,
-    unfinished,
-    lastPrompt: latestUserPrompt(root.head),
-    askLine: unfinished === "ask" ? glanceAskLine(root.head?.approvalHead ?? null) : "",
-    questionLine: unfinished === "question" && root.head instanceof SessionTurn ? root.head.questionLine : "",
-    path: root.path,
-    calls: outgoingAgentRelations(root),
-  };
 }
 
 function captureInstallStreams(): { readonly streams: InstallStreams; stderr(): string } {

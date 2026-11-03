@@ -42,6 +42,7 @@ import {
   stampCallLifetime,
   type AgentRuntimeHost as AgentCallHost,
 } from "@inhuman.tools/turn/agent-calls";
+import { SessionOwnershipError } from "@inhuman.tools/turn/runtime";
 import { runInAction } from "mobx";
 
 import { agentCallSupportsNotify, type CatalogRecipe, invokeDenied } from "@/tool-catalog";
@@ -61,7 +62,13 @@ export type AgentRuntimeHost = {
   readonly project: ProjectDaemon;
   readonly caller: SessionRoot;
   readonly problem?: (what: string, error: unknown) => void;
+  readonly canApplyResults?: () => boolean;
+  readonly ownershipSignal?: AbortSignal;
 };
+
+function assertHostCurrent(host: AgentRuntimeHost): void {
+  if (host.canApplyResults?.() === false) throw new SessionOwnershipError();
+}
 
 /**
  * What an ad-hoc child may call when it asks to inherit its caller's tools. An unrestricted caller
@@ -211,6 +218,7 @@ async function resolveWorker(
   host: AgentRuntimeHost,
   job?: CallJob,
 ): Promise<{ readonly id: string; readonly revision: string }> {
+  assertHostCurrent(host);
   const bot = recipe.spec;
   const [roster, owner] =
     bot.recipeScope === "session"
@@ -221,9 +229,11 @@ async function resolveWorker(
   const id = roster[bot.name] ?? derivedSessionId(owner, bot.name);
   if (roster[bot.name] == null) roster[bot.name] = id;
   const worker = bot.recipeScope === "global" ? await host.kernel.globalSession(id) : await host.project.session(id);
+  assertHostCurrent(host);
   const spec = worker.root.agent.spec;
   const fresh = spec.name === "" && spec.behaviorPin.trim() === "";
   const pinned = fresh ? await workerPin(recipe, host) : undefined;
+  assertHostCurrent(host);
   if (spec.name === "") {
     spec.adoptNamedRecipe({
       name: bot.name,
@@ -266,10 +276,13 @@ async function resolveOneShotWorker(
     readonly tools?: readonly string[];
   },
 ): Promise<string> {
+  assertHostCurrent(host);
   const id = opts.workerSessionId || derivedSessionId(host.caller.sessionId, opts.job.uuid);
   const pinned = await workerPin(recipe, host);
+  assertHostCurrent(host);
   if (opts.job instanceof BotCallJob) stampContribution(opts.job, recipe, pinned.revision);
   const worker = await host.project.session(id);
+  assertHostCurrent(host);
   worker.root.agent.spec = new AskAgentSpec({
     name: recipe.spec.name,
     description: recipe.spec.description,
@@ -350,6 +363,7 @@ export async function executeAgentCall(
   /** Tools an agent guard narrowed a one-shot recipe call to. */
   tools?: readonly string[],
 ): Promise<void> {
+  assertHostCurrent(host);
   if (job.completed) return;
   if (job.name === AGENT_ASK || job.name === AGENT_SEND) {
     if (refuseDeep(job, host.caller.agent.spec.depth + 1, host.kernel.plexus.root.maxDepth, "agent")) return;
@@ -375,6 +389,7 @@ export async function executeAgentCall(
       } else {
         const id = derivedSessionId(host.caller.sessionId, job.uuid);
         const worker = await host.project.session(id);
+        assertHostCurrent(host);
         const constitution = job.systemPrompt.trim();
         const faceName = (job.faceName ?? "").trim();
         const grant = inheritedToolGrant(host.caller, host.kernel.catalog, job);
@@ -423,8 +438,10 @@ export async function executeAgentCall(
           tools,
         }));
     }
+    assertHostCurrent(host);
     if (job.completed) return;
     const worker = await host.kernel.acquireSession(namedWorkerId);
+    assertHostCurrent(host);
     stampWorker(job, worker, host.caller.sessionId, () => {
       job.workerSessionId = namedWorkerId;
     });
@@ -439,6 +456,7 @@ export async function executeAgentCall(
 
 /** Deliver into the worker's document; the caller neither persists first nor waits on processing. */
 export async function executeBotCall(job: BotCallJob, host: AgentRuntimeHost): Promise<void> {
+  assertHostCurrent(host);
   if (job.completed) return;
   const packEntry = host.kernel.catalog.catalogEntry(job.name);
   const meta = packEntry?.packMeta?.kind === "bot-call" ? packEntry.packMeta : undefined;
@@ -479,9 +497,11 @@ export async function executeBotCall(job: BotCallJob, host: AgentRuntimeHost): P
         })
       : await (async () => {
           const resolved = await resolveWorker(recipe, host, job);
+          assertHostCurrent(host);
           stampContribution(job, recipe, resolved.revision);
           return resolved.id;
         })());
+  assertHostCurrent(host);
   if (job.completed) return;
   let prepared: unknown;
   if (job.acceptedAt != null && job.preparedDocument) {
@@ -541,6 +561,7 @@ export async function executeBotCall(job: BotCallJob, host: AgentRuntimeHost): P
   });
   if (!delivered) return;
   await host.kernel.flushSession(worker);
+  assertHostCurrent(host);
   markDelivered(job);
 }
 
@@ -550,6 +571,7 @@ export async function settleAgentCallback(
   host: AgentRuntimeHost,
   abortWork: (node: Job) => void,
 ): Promise<void> {
+  assertHostCurrent(host);
   const requestId = job.argString("requestId");
   const callerId = host.caller.agentCallbacks[requestId];
   if (callerId == null) return;
@@ -558,7 +580,11 @@ export async function settleAgentCallback(
     job.outcomeSnap ??= { ok: false, text: "caller not attached" };
     return;
   }
-  if (!call.completed) {
+  const callerPlexus = host.kernel.sessionPlexus(callerId);
+  const callerRuntime = (host.kernel.liveSession(callerId) ?? host.project.sessions[callerId])?.sessionRuntime;
+  if (callerRuntime != null && !callerRuntime.isCurrent) throw new SessionOwnershipError();
+  const alreadySettled = call.completed;
+  if (!alreadySettled) {
     let reject: string | null = null;
     if (!call.voidLegal) {
       if (job.name === AGENT_VOID) reject = ASK_NEEDS_RESPONSE;
@@ -576,22 +602,40 @@ export async function settleAgentCallback(
       job.outcomeSnap = { ok: false, text: reject };
       return;
     }
-    settleCallFromCallback(call, job, host);
-    const callerPlexus = host.kernel.sessionPlexus(callerId);
+  }
+  if (callerRuntime?.phase === "active" && callerRuntime.isCurrent && callerRuntime.session.doc === callerPlexus?.doc) {
+    if (alreadySettled) await callerRuntime.flush();
+    else {
+      await callerRuntime.commitMutation(
+        `agent-callback:${call.uuid}`,
+        JSON.stringify({ callerId, requestId, workerId: host.caller.sessionId, name: job.name, args: job.args }),
+        () => {
+          if (!call.completed) settleCallFromCallback(call, job, host);
+        },
+        host.ownershipSignal,
+      );
+    }
+  } else {
+    if (!call.completed) settleCallFromCallback(call, job, host);
     if (callerPlexus != null) await host.kernel.flushSession(callerPlexus);
   }
-  host.caller.removeAgentCallback(requestId);
-  job.outcomeSnap ??= { ok: true };
-  forceStopLoop(
-    host.caller,
-    abortWork,
-    job,
-    (nested) => completeCallExceptionally(nested, host, "rejected"),
-    host.kernel.catalog,
-  );
+  assertHostCurrent(host);
+  runInAction(() => {
+    job.outcomeSnap ??= alreadySettled ? { ok: true, text: "caller already settled" } : { ok: true };
+    job.markComplete();
+    host.caller.removeAgentCallback(requestId);
+    forceStopLoop(
+      host.caller,
+      abortWork,
+      job,
+      (nested) => completeCallExceptionally(nested, host, "rejected"),
+      host.kernel.catalog,
+    );
+  });
 }
 
 export function notifyAgentCall(job: AgentNotifyJob, host: AgentRuntimeHost): void {
+  assertHostCurrent(host);
   const requestId = job.argString("requestId");
   const callerId = host.caller.agentCallbacks[requestId];
   if (callerId == null) return;
@@ -608,6 +652,7 @@ export async function deliverAgentMessage(
   host: AgentRuntimeHost,
   signal: AbortSignal,
 ): Promise<void> {
+  assertHostCurrent(host);
   const targetIdArg = job.argString("targetId");
   const targetName = job.argString("targetName");
   const agentScope = host.caller.agent.spec.recipeScope;
@@ -632,6 +677,7 @@ export async function deliverAgentMessage(
     if (target.root.agent.spec.recipeScope === "global") await host.kernel.globalSession(targetId);
     else await host.project.session(targetId);
   }
+  assertHostCurrent(host);
   // A message has no reply, so the request opens no callback.
   target.root.enqueueAgentRequest(
     job.uuid,
@@ -640,6 +686,7 @@ export async function deliverAgentMessage(
     { callback: false },
   );
   await host.kernel.flushSession(target);
+  assertHostCurrent(host);
   if (signal.aborted) return;
   job.outcomeSnap = { ok: true };
 }

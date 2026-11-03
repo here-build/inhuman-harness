@@ -9,6 +9,7 @@
     "test:process": "turbo test:process --continue --concurrency=1",
     "test:visual": "turbo test:visual --continue --concurrency=1",
     "test:boundaries": "node --test scripts/packed-product.test.mjs scripts/release-check.test.mjs",
+    "test:session-runtime": "turbo build --filter=@inhuman.tools/turn... --output-logs=errors-only && node --test scripts/session-runtime.test.mjs",
     "release:check": "node scripts/release-check.mjs",
     "verify": "pnpm verify:logic && pnpm test:process && pnpm test:visual",
     "typecheck": "turbo typecheck",

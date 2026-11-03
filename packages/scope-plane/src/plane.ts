@@ -10,7 +10,7 @@ import {
   type Cell,
   type Row,
 } from "./cells.js";
-import type { RowMatch, RowPlane } from "./row-plane.js";
+import type { GenerationClaim, RowMatch, RowPlane, RowReader } from "./row-plane.js";
 import { configFieldNames, type ConfigField } from "./schema.js";
 
 export type ConfigValue = string | number | boolean;
@@ -66,6 +66,9 @@ export type ScopeView = {
   readonly chain: readonly string[];
   /** This scope's config generation. 0 until the first publish. */
   readonly generation: number;
+  /** Content identity of all captured dependencies; neither ordered nor an ownership fence. */
+  readonly revision: string;
+  readonly consistency: "snapshot" | "observed";
   readonly config: EffectiveConfig;
   /** Child keys cover parent keys. */
   readonly kv: Readonly<Record<string, string>>;
@@ -85,7 +88,10 @@ export type ScopeView = {
 };
 
 export type ScopePlane = {
+  /** Uses a storage snapshot when supported, otherwise independently observes rows. */
   read(scopeId: string): Promise<ScopeView | null>;
+  /** Rejects when the adapter cannot provide an atomic read snapshot. */
+  readSnapshot(scopeId: string): Promise<ScopeView | null>;
   /**
    * Emits the current view, then again after a committed change in this
    * scope or an ancestor. `null` means this scope row is absent.
@@ -106,6 +112,8 @@ export type ScopePlane = {
   /** False when `name` already belongs to another session. */
   insertRoster(scopeId: string, name: string, sessionId: string): Promise<boolean>;
   writeOverview(glance: OverviewWrite): Promise<void>;
+  /** Execution-authoritative write: false means ownership or target ownership was lost. */
+  writeOverviewOwned(claim: GenerationClaim, glance: OverviewWrite): Promise<boolean>;
   /** Pass `null` to drop the pane. */
   putTermContinue(scopeId: string, key: string, sessionId: string | null): Promise<void>;
   stampModelUsage(scopeId: string, key: string, at: number): Promise<void>;
@@ -113,8 +121,11 @@ export type ScopePlane = {
   putLastUsedModel(scopeId: string, connection: string, model: string | null): Promise<void>;
   writeAgentCall(call: AgentCallWrite): Promise<void>;
   removeAgentCall(callId: string): Promise<void>;
+  writeAgentCallOwned(claim: GenerationClaim, call: AgentCallWrite): Promise<boolean>;
+  removeAgentCallOwned(claim: GenerationClaim, callId: string): Promise<boolean>;
   /** Pass 0 to take a free session. Returns the generation now held. */
   claimGeneration(sessionId: string, scopeId: string, expectGeneration: number, holder: string): Promise<number | null>;
+  takeoverGeneration(claim: GenerationClaim, nextHolder: string): Promise<number | null>;
   releaseGeneration(sessionId: string, generation: number, holder: string): Promise<boolean>;
 };
 
@@ -258,7 +269,11 @@ type ChainLink = {
   readonly lastUsed: readonly { id: string; row: Row }[];
 };
 
-async function loadChain(rows: RowPlane, scopeId: string): Promise<ChainLink[] | null> {
+function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+async function loadChain(rows: RowReader, scopeId: string): Promise<ChainLink[] | null> {
   const links: ChainLink[] = [];
   const seen = new Set<string>();
   let cursor: string | null = scopeId;
@@ -278,8 +293,8 @@ async function loadChain(rows: RowPlane, scopeId: string): Promise<ChainLink[] |
       trusted: flag(scope, "trusted") ?? false,
       contentHash: text(scope, "contentHash") ?? "",
       config: await rows.get("config", cursor),
-      kv: await rows.list("kv", "scopeId", cursor),
-      lastUsed: await rows.list("lastUsedModel", "scopeId", cursor),
+      kv: [...(await rows.list("kv", "scopeId", cursor))].sort((a, b) => compareText(a.id, b.id)),
+      lastUsed: [...(await rows.list("lastUsedModel", "scopeId", cursor))].sort((a, b) => compareText(a.id, b.id)),
     });
     cursor = parentId;
   }
@@ -287,7 +302,26 @@ async function loadChain(rows: RowPlane, scopeId: string): Promise<ChainLink[] |
   return links;
 }
 
-async function viewOf(rows: RowPlane, scopeId: string, links: readonly ChainLink[]): Promise<ScopeView> {
+function stableContent(value: unknown): string {
+  if (value == null) return "null";
+  if (Array.isArray(value)) return `[${value.map(stableContent).join(",")}]`;
+  if (value != null && typeof value === "object") {
+    return `{${Object.entries(value)
+      .sort(([a], [b]) => compareText(a, b))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableContent(entry)}`)
+      .join(",")}}`;
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
+    return JSON.stringify(value);
+  throw new Error("unsupported scope revision value");
+}
+
+async function viewOf(
+  rows: RowReader,
+  scopeId: string,
+  links: readonly ChainLink[],
+  consistency: ScopeView["consistency"],
+): Promise<ScopeView> {
   const self = links.at(-1);
   if (self == null) throw new ScopeMissing(scopeId);
   const roster = await rows.list("roster", "scopeId", scopeId);
@@ -301,7 +335,7 @@ async function viewOf(rows: RowPlane, scopeId: string, links: readonly ChainLink
     const sessionId = text(entry.row, "sessionId");
     if (name != null && sessionId != null) names[name] = sessionId;
   }
-  return {
+  const view = {
     id: scopeId,
     parentId: self.parentId,
     path: self.path,
@@ -312,7 +346,7 @@ async function viewOf(rows: RowPlane, scopeId: string, links: readonly ChainLink
     roster: names,
     overviews: overviews
       .map((entry) => glanceOf(entry.id, entry.row))
-      .sort((left, right) => left.sessionId.localeCompare(right.sessionId)),
+      .sort((left, right) => compareText(left.sessionId, right.sessionId)),
     termContinue: localStrings(panes, "key", "sessionId"),
     modelsUsage: localNumbers(usage, "key", "at"),
     lastUsedConnectionModel: overlayPairs(
@@ -324,8 +358,9 @@ async function viewOf(rows: RowPlane, scopeId: string, links: readonly ChainLink
     contentHash: self.contentHash,
     agentCalls: calls
       .map((entry) => callOf(entry.id, entry.row))
-      .sort((left, right) => left.callId.localeCompare(right.callId)),
+      .sort((left, right) => compareText(left.callId, right.callId)),
   };
+  return { ...view, consistency, revision: stableContent({ links, view }) };
 }
 
 function callOf(callId: string, row: Row): AgentCallWrite {
@@ -418,18 +453,39 @@ function subscribeChain(rows: RowPlane, scopeId: string, ids: readonly string[],
 }
 
 export function createScopePlane(rows: RowPlane): ScopePlane {
-  async function read(scopeId: string): Promise<ScopeView | null> {
-    const links = await loadChain(rows, scopeId);
+  async function readWith(
+    reader: RowReader,
+    scopeId: string,
+    consistency: ScopeView["consistency"],
+  ): Promise<ScopeView | null> {
+    const links = await loadChain(reader, scopeId);
     if (links == null) return null;
-    return viewOf(rows, scopeId, links);
+    return viewOf(reader, scopeId, links, consistency);
+  }
+
+  async function read(scopeId: string): Promise<ScopeView | null> {
+    return rows.snapshot
+      ? rows.snapshot((reader) => readWith(reader, scopeId, "snapshot"))
+      : readWith(rows, scopeId, "observed");
+  }
+
+  function owned(claim: GenerationClaim): NonNullable<RowPlane["commitOwned"]> {
+    if (!Number.isSafeInteger(claim.generation) || claim.generation < 1 || claim.holder === "")
+      throw new ScopeKey("invalid generation claim");
+    if (!rows.commitOwned) throw new Error("storage does not support fenced writes");
+    return rows.commitOwned.bind(rows);
   }
 
   return {
     read,
+    async readSnapshot(scopeId) {
+      if (!rows.snapshot) throw new Error("storage does not support atomic snapshots");
+      return rows.snapshot((reader) => readWith(reader, scopeId, "snapshot"));
+    },
     watch(scopeId, onChange, onError) {
       const gate = { closed: false };
       let stops: Array<() => void> = [];
-      let chainKey: string | undefined;
+      let chainKey = JSON.stringify([scopeId]);
       let pumping = false;
       let again = false;
 
@@ -458,14 +514,17 @@ export function createScopePlane(rows: RowPlane): ScopePlane {
             // Unsubscribe can flip the gate during the read. A poke during onChange sets `again`.
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- flags change across the await
             if (gate.closed) return;
-            const nextKey = view == null ? "" : view.chain.join("\0");
+            const ids = view == null ? [scopeId] : view.chain;
+            const nextKey = JSON.stringify(ids);
             if (nextKey !== chainKey) {
               chainKey = nextKey;
-              stopSubs();
-              const ids = view == null ? [scopeId] : view.chain;
-              stops = subscribeChain(rows, scopeId, ids, () => {
+              const nextStops = subscribeChain(rows, scopeId, ids, () => {
                 void pump().catch(fail);
               });
+              stopSubs();
+              stops = nextStops;
+              again = true;
+              continue;
             }
             onChange(view);
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- poke during onChange sets `again`
@@ -477,6 +536,9 @@ export function createScopePlane(rows: RowPlane): ScopePlane {
         }
       };
 
+      stops = subscribeChain(rows, scopeId, [scopeId], () => {
+        void pump().catch(fail);
+      });
       void pump().catch(fail);
       return () => {
         gate.closed = true;
@@ -532,6 +594,16 @@ export function createScopePlane(rows: RowPlane): ScopePlane {
       if (glance.sessionId === "" || glance.scopeId === "") throw new ScopeKey("glance requires sessionId and scopeId");
       await rows.put("overviews", glance.sessionId, overviewRow(glance));
     },
+    async writeOverviewOwned(claim, glance) {
+      if (glance.sessionId !== claim.sessionId || glance.scopeId !== claim.scopeId)
+        throw new ScopeKey("overview does not belong to claim");
+      return owned(claim)(claim, {
+        table: "overviews",
+        id: glance.sessionId,
+        row: overviewRow(glance),
+        existing: { scopeId: claim.scopeId },
+      });
+    },
     async putTermContinue(scopeId, key, sessionId) {
       if (key === "") throw new ScopeKey("pane key is empty");
       const id = pairId(scopeId, key);
@@ -568,7 +640,33 @@ export function createScopePlane(rows: RowPlane): ScopePlane {
     async removeAgentCall(callId) {
       await rows.remove("agentCalls", callId);
     },
+    async writeAgentCallOwned(claim, call) {
+      if (call.callId === "" || call.callerSessionId !== claim.sessionId || call.scopeId !== claim.scopeId)
+        throw new ScopeKey("agent call does not belong to claim");
+      return owned(claim)(claim, {
+        table: "agentCalls",
+        id: call.callId,
+        row: {
+          scopeId: call.scopeId,
+          callerSessionId: call.callerSessionId,
+          workerSessionId: call.workerSessionId,
+          spec: call.spec,
+          oneShot: call.oneShot,
+          completed: call.completed,
+        },
+        existing: { scopeId: claim.scopeId, callerSessionId: claim.sessionId },
+      });
+    },
+    async removeAgentCallOwned(claim, callId) {
+      return owned(claim)(claim, {
+        table: "agentCalls",
+        id: callId,
+        row: null,
+        existing: { scopeId: claim.scopeId, callerSessionId: claim.sessionId },
+      });
+    },
     async claimGeneration(sessionId, scopeId, expectGeneration, holder) {
+      if (holder === "") throw new ScopeKey("holder is empty");
       const current = await rows.get("generations", sessionId);
       if (current == null) {
         if (expectGeneration !== 0) return null;
@@ -580,17 +678,41 @@ export function createScopePlane(rows: RowPlane): ScopePlane {
         return ok ? 1 : null;
       }
       const generation = num(current, "generation") ?? 0;
-      if (generation !== expectGeneration) return null;
-      const next = expectGeneration + 1;
-      const ok = await rows.replaceIf("generations", sessionId, "generation", generation, {
-        scopeId,
-        generation: next,
-        holder,
-      });
+      if (!Number.isSafeInteger(generation) || generation < 1) throw new ScopeKey("invalid stored generation");
+      const currentHolder = text(current, "holder") ?? "";
+      if (currentHolder === "" ? expectGeneration !== 0 : generation !== expectGeneration) return null;
+      const next = generation + 1;
+      if (!Number.isSafeInteger(next)) throw new ScopeKey("generation exhausted");
+      const ok = await rows.replaceIfMatch(
+        "generations",
+        sessionId,
+        { generation, holder: currentHolder },
+        {
+          scopeId,
+          generation: next,
+          holder,
+        },
+      );
+      return ok ? next : null;
+    },
+    async takeoverGeneration(claim, nextHolder) {
+      if (nextHolder === "" || claim.holder === "" || !Number.isSafeInteger(claim.generation) || claim.generation < 1)
+        throw new ScopeKey("invalid generation holder");
+      const next = claim.generation + 1;
+      if (!Number.isSafeInteger(next)) throw new ScopeKey("generation exhausted");
+      const ok = await rows.replaceIfMatch(
+        "generations",
+        claim.sessionId,
+        { scopeId: claim.scopeId, generation: claim.generation, holder: claim.holder },
+        { scopeId: claim.scopeId, generation: next, holder: nextHolder },
+      );
       return ok ? next : null;
     },
     async releaseGeneration(sessionId, generation, holder) {
-      return rows.removeIf("generations", sessionId, { generation, holder });
+      if (holder === "") return false;
+      const current = await rows.get("generations", sessionId);
+      if (current == null) return false;
+      return rows.replaceIfMatch("generations", sessionId, { generation, holder }, { ...current, holder: "" });
     },
   };
 }

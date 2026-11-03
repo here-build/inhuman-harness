@@ -33,7 +33,7 @@ function open(): { plane: ScopePlane; texts: string[] } {
   return { plane: createElectricScopePlane({ sql, shapes: sql.shapes }), texts: sql.texts };
 }
 
-describe("electric", () => {
+describe("electric SQL port with a statement double", () => {
   it("overlays parent config through SQL and keeps the roster unique", async () => {
     const { plane, texts } = open();
     await plane.ensureScope({ id: "root", parentId: null, path: null });
@@ -52,7 +52,8 @@ describe("electric", () => {
       roster: { echo: "child-bot" },
     });
     expect(await plane.publishConfig("child", 1, { statusline: "git" })).toBe(2);
-    expect(texts.some((text) => text.includes("WHERE NOT EXISTS"))).toBe(true);
+    expect(texts.some((text) => text.includes("ON CONFLICT (scope_id) DO NOTHING"))).toBe(true);
+    expect(texts.some((text) => text.includes("WHERE NOT EXISTS"))).toBe(false);
     expect(texts.some((text) => text.startsWith("UPDATE config SET") && text.includes("AND generation ="))).toBe(true);
   });
 
@@ -63,6 +64,8 @@ describe("electric", () => {
     expect(await plane.claimGeneration("sess", "root", 0, "worker-b")).toBeNull();
     expect(await plane.releaseGeneration("sess", 1, "worker-b")).toBe(false);
     expect(await plane.releaseGeneration("sess", 1, "worker-a")).toBe(true);
+    expect(await plane.claimGeneration("sess", "root", 0, "worker-a")).toBe(2);
+    expect(await plane.releaseGeneration("sess", 1, "worker-a")).toBe(false);
 
     let resolveArmed: () => void = () => undefined;
     const armed = new Promise<void>((resolve) => {
@@ -122,5 +125,12 @@ describe("electric", () => {
     await plane.removeAgentCall("call-1");
     const cleared = await plane.read("child");
     expect(cleared?.agentCalls).toEqual([]);
+  });
+
+  it("refuses to advertise a snapshot when no SQL transaction port was supplied", async () => {
+    const { plane } = open();
+    await plane.ensureScope({ id: "root", parentId: null, path: null });
+    expect((await plane.read("root"))?.consistency).toBe("observed");
+    await expect(plane.readSnapshot("root")).rejects.toThrow("does not support atomic snapshots");
   });
 });

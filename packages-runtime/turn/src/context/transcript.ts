@@ -52,7 +52,7 @@ import {
   TurnApprovalNoteChunk,
   TurnNotificationChunk,
   TurnSteerChunk,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 
 import { keepFloorsOfJob } from "./compact-floors.js";
 import { spawnHistoryText } from "./spawn-history.js";

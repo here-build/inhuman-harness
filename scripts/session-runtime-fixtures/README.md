@@ -1,0 +1,3 @@
+`kley-0.1-session.json` contains a synthetic completed conversation encoded by the `@inhuman.tools/harness-model@0.1.0` package installed in the sibling Kley project. Its constructors created a session, system prompt, turn, and completion; the package’s matching ESM Yjs implementation encoded the update. The fixture includes no user conversation or credentials.
+
+The installed-consumer test restores these bytes using the candidate package’s session-only registration. Its expected prompt and answer are stored alongside the update so migration is checked against the old package’s actual representation, rather than a fixture produced by the new model.

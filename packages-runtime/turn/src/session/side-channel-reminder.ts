@@ -34,7 +34,7 @@ import {
   UPDATE_METADATA_TOOL_NAME,
   type SessionUnit,
   type TurnChunk,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 
 /** Quiet sealed session rounds before the armed round carries the nag. */
 export const SIDE_CHANNEL_REMINDER_EVERY = 5;

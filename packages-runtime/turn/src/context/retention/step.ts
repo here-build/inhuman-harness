@@ -4,7 +4,7 @@
  * tail grows. The live inputs (wall clock, prior `warmUntilMs`, estimated
  * savings) are read once here and recorded; the projection reads only `at`.
  */
-import { CompletionExpectation, latestCompactCutoff, owningTurn } from "@inhuman.tools/harness-model";
+import { CompletionExpectation, latestCompactCutoff, owningTurn } from "@inhuman.tools/harness-model/session";
 
 import { projectHistory } from "../history.js";
 import type { StepConfig } from "./schema.js";

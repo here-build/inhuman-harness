@@ -30,7 +30,7 @@ import {
   TurnPromptChunk,
   TurnSteerChunk,
   decideRound,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import { Job, walkWork, WorkExpectation } from "@inhuman.tools/plexus-expectations";
 import { runInAction } from "mobx";
 

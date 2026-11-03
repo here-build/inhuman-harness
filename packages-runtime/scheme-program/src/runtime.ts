@@ -24,7 +24,12 @@ const displayCapability = EnvCapability.define("harness/scheme-repl-display", {
 
 const runtimes = new WeakMap<
   ProgrammaticJob,
-  { readonly identity: object; readonly signal?: AbortSignal; readonly runtime: ProgramRuntime }
+  {
+    readonly identity: object;
+    readonly signal?: AbortSignal;
+    readonly canApplyResults?: () => boolean;
+    readonly runtime: ProgramRuntime;
+  }
 >();
 
 function runtimeFor(job: ProgrammaticJob, host: ProgramHost): ProgramRuntime {
@@ -81,13 +86,13 @@ export function programRuntimeOf(job: ProgrammaticJob, host: ProgramHost): Progr
     if (existing.identity === host.identity) return existing.runtime;
     const stale = existing.signal;
     invariant(
-      stale != null && stale.aborted && stale.reason === "park",
+      existing.canApplyResults?.() === false || (stale != null && stale.aborted && stale.reason === "park"),
       "scheme-repl: ProgrammaticJob rebound to a different host",
     );
     runtimes.delete(job);
   }
   const runtime = runtimeFor(job, host);
-  runtimes.set(job, { identity: host.identity, signal: host.signal, runtime });
+  runtimes.set(job, { identity: host.identity, signal: host.signal, canApplyResults: host.canApplyResults, runtime });
   return runtime;
 }
 

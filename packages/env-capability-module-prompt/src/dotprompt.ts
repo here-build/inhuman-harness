@@ -5,7 +5,7 @@
 import { type SchemeValue, toJS } from "@here.build/arrival";
 import { compileTemplate, runCompiledTemplate } from "@here.build/arrival-modules/handlebars";
 import { isPlainRecord, type ParsedPrompt, reasoningEffortSchema } from "@inhuman.tools/env-capability-dotprompt";
-import { type PromptMessageRole } from "@inhuman.tools/harness-model";
+import { type PromptMessageRole } from "@inhuman.tools/harness-model/session";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 

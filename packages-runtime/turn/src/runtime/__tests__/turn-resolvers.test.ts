@@ -1,4 +1,4 @@
-import { CompletionExpectation, CompletionJob, SystemToolJob } from "@inhuman.tools/harness-model";
+import { CompletionExpectation, CompletionJob, SystemToolJob } from "@inhuman.tools/harness-model/session";
 import { describe, expect, it, vi } from "vitest";
 
 import { createTurnResolvers, type TurnResolverHost } from "../turn-resolvers.js";

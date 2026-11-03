@@ -337,6 +337,10 @@ class FloorHandle {
 }
 
 export class LicenseScope {
+  readonly #controller = new AbortController();
+  get signal(): AbortSignal {
+    return this.#controller.signal;
+  }
   @observable accessor closed = false;
   @observable accessor cap = 2;
   backoffMs = function (n: number): number {
@@ -633,6 +637,8 @@ export class LicenseScope {
 
   @action
   close(): void {
+    if (this.closed) return;
+    this.#controller.abort("scope-closed");
     this.closed = true;
     for (const stop of this.#disposers) stop();
     this.#disposers.length = 0;

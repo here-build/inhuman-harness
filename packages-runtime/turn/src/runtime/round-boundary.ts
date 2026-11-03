@@ -19,10 +19,8 @@ import {
   type RoundDecision,
   type RoundGate,
   type SessionRoot,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import { splitThink } from "@inhuman.tools/tool-call-normalize";
-
-import { joinSystemNotes } from "@/session";
 
 import {
   LENGTH_CONTINUE_NOTE,
@@ -32,6 +30,7 @@ import {
 } from "./re-act-loop-intent-detected-trigger.js";
 import { CONTENT_FILTER_STOP, maxRoundsMessage, roundCapReached } from "./round-stop.js";
 import type { TurnIteratorHost } from "./turn-iterator.js";
+import { joinSystemNotes } from "../session/side-channel-reminder.js";
 
 const REPAIR_ATTEMPTS = 4;
 const THOUGHT_ATTEMPTS = THOUGHT_WITHOUT_ANSWER_STREAK_MAX;

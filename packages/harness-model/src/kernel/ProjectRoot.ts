@@ -2,7 +2,7 @@ import { PlexusModel, syncing } from "@here.build/plexus";
 
 import { BotSpec, writeAuthoredBots } from "./BotSpec.js";
 import type { CommandSpec } from "./CommandSpec.js";
-import type { PermissionMode } from "../session/eval-context.js";
+import type { PermissionMode } from "../shared/permission-mode.js";
 import type { ActionSpec } from "../shared/ActionSpec.js";
 import { applyKv } from "../shared/KeyValueStorage.js";
 import type { KvProposal } from "../shared/residual.js";

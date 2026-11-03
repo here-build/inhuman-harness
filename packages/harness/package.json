@@ -28,7 +28,7 @@
     "!**/__tests__"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node ./scripts/src-alias.mjs",
+    "build": "node ./scripts/compact-assets.mjs && tsc -p tsconfig.build.json && node ./scripts/src-alias.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",

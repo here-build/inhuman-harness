@@ -3,12 +3,61 @@ import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { SessionPlexus, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { beforeEach, expect, it, onTestFinished } from "vitest";
+import * as Y from "yjs";
 
+import { SessionRuntime } from "../../session-runtime/index.js";
 import { bindBehaviorEntries, bindSessionCatalog, KernelToolCatalog } from "../../tool-catalog/index.js";
 import { runWithExtraRoot } from "../extra-root.js";
 import { extraRootAllowed, executeSystemTool, sealToolCall } from "../index.js";
 
 beforeEach(() => resetLocalIDs());
+
+it("drops a late tool receipt and stream after another runtime binds the same document", async () => {
+  const plexus = SessionPlexus.create("late-tool", "/tmp/late-tool");
+  const runtime = new SessionRuntime(plexus, { kind: "memory" });
+  const catalog = new KernelToolCatalog();
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  catalog.replacePack([
+    {
+      wireName: "shell",
+      description: "deferred shell",
+      parameters: { type: "object", properties: {} },
+      class: "read",
+      source: { kind: "pack", pluginName: "toolkit" },
+      async execute(_args, context) {
+        entered.resolve();
+        await release.promise;
+        context.onTail?.({ text: "late stream", totalBytes: 11 });
+        return { ok: true, text: "late result" };
+      },
+    },
+  ]);
+  bindSessionCatalog(plexus.root, catalog);
+  const job = new SystemToolJob({ toolCallId: "late-shell", name: "shell", argsJson: "{}" });
+  plexus.root.head = new SessionTurn({
+    turnTail: new SessionSystemPrompt(),
+    prompt: prompt.user`run`,
+    doneWork: [job],
+  });
+  plexus.root.head.pushChild(job);
+  const running = executeSystemTool(job, new AbortController().signal, { canApplyResults: () => runtime.isCurrent });
+  await entered.promise;
+  const replacement = new SessionRuntime(plexus, { kind: "memory" });
+  onTestFinished(async () => {
+    await replacement[Symbol.asyncDispose]();
+    await runtime[Symbol.asyncDispose]();
+    catalog[Symbol.dispose]();
+    plexus.destroy();
+  });
+  const before = Y.encodeStateAsUpdate(plexus.doc);
+  release.resolve();
+  await running;
+  expect({ state: Y.encodeStateAsUpdate(plexus.doc), receipt: job.receiptJson }).toEqual({
+    state: before,
+    receipt: null,
+  });
+});
 
 it("executeSystemTool seals { ok: false } when the session catalog is missing", async () => {
   const plexus = SessionPlexus.create("exec-miss-catalog", "/tmp/exec-miss-catalog");

@@ -3,7 +3,7 @@
  */
 import { createHash } from "node:crypto";
 
-import { BotCallJob, CallJob } from "@inhuman.tools/harness-model";
+import { BotCallJob, CallJob } from "@inhuman.tools/harness-model/session";
 import type { Job } from "@inhuman.tools/plexus-expectations";
 import { type IObservableValue, observable, runInAction } from "mobx";
 

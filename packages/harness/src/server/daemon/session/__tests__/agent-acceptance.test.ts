@@ -7,18 +7,23 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resetLocalIDs } from "@here.build/plexus";
+import { asUserPrompt } from "@inhuman.tools/harness-commons";
 import {
   AGENT_ASK,
+  AgentCallbackJob,
   AgentCallJob,
   BotCallJob,
-  CallJob,
+  SessionAdmission,
   SessionSystemPrompt,
   SessionTurn,
+  type ToolCallJob,
 } from "@inhuman.tools/harness-model";
 import { joinReleased } from "@inhuman.tools/turn/agent-calls";
+import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { mkdtemp, realpath } from "fs-extra";
 import { runInAction, when } from "mobx";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import * as Y from "yjs";
 
 import { catalogRecipe } from "@/tool-catalog";
 
@@ -63,7 +68,7 @@ function requestTurns(kernel: KernelDaemon, requestId: string): number {
   return count;
 }
 
-function closedTurn(child: CallJob) {
+function closedTurn(child: ToolCallJob) {
   const turn = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     queue: [],
@@ -75,6 +80,142 @@ function closedTurn(child: CallJob) {
 
 describe("agent acceptance step 3", () => {
   beforeEach(() => resetLocalIDs());
+
+  it("replacement while a child session attaches drops the old caller's late delivery", async () => {
+    const { project, session } = await openPluginHarness();
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const returned = Promise.withResolvers<void>();
+    const attach = project.session;
+    vi.spyOn(project, "session").mockImplementation(async (id) => {
+      entered.resolve();
+      await release.promise;
+      try {
+        return await attach.call(project, id);
+      } finally {
+        returned.resolve();
+      }
+    });
+    const call = new AgentCallJob({
+      name: AGENT_ASK,
+      argsJson: JSON.stringify({ message: "work" }),
+      humanApprove: true,
+      orchestrationResult: true,
+    });
+    session.root.head = closedTurn(call);
+    await entered.promise;
+    const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
+    onTestFinished(() => replacement[Symbol.asyncDispose]());
+    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64");
+    release.resolve();
+    await returned.promise;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect({
+      worker: call.workerSessionId,
+      completed: call.completed,
+      state: Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64"),
+    }).toEqual({ worker: "", completed: false, state: before });
+  });
+
+  it.each(["acknowledged", "exact retry", "changed reply"] as const)(
+    "callback retains its worker and parent admission until a covering receipt (%s)",
+    async (mode) => {
+      const lostAcknowledgement = mode !== "acknowledged";
+      const { kernel, project, session } = await openPluginHarness();
+      const call = new BotCallJob({
+        name: "fixture_offload",
+        argsJson: JSON.stringify({ guidance: "review" }),
+        humanApprove: true,
+        background: true,
+      });
+      session.root.head = closedTurn(call);
+      await when(
+        () =>
+          call.workerSessionId !== "" &&
+          kernel.sessionPlexus(call.workerSessionId)?.root.agentCallbacks[call.uuid] === session.sessionId,
+        { timeout: TIMEOUT },
+      );
+      const worker = await project.session(call.workerSessionId);
+      const release = Promise.withResolvers<void>();
+      const entered = Promise.withResolvers<void>();
+      onTestFinished(() => release.resolve());
+      let waiting = false;
+      const flush = kernel.flushSession;
+      vi.spyOn(kernel, "flushSession").mockImplementation(async (plexus, options) => {
+        if (!waiting && plexus.doc === session.plexus.doc && call.completed) {
+          waiting = true;
+          entered.resolve();
+          await release.promise;
+          await flush.call(kernel, plexus, options);
+          if (lostAcknowledgement) throw new Error("caller receipt acknowledgement lost");
+          return;
+        }
+        await flush.call(kernel, plexus, options);
+      });
+      const argsJson = JSON.stringify({ requestId: call.uuid });
+      const callback = new AgentCallbackJob({ name: "agent__void", argsJson, humanApprove: true });
+      worker.root.head = closedTurn(callback);
+      await entered.promise;
+      const firstReceipt = call.receiptJson;
+      const head = session.root.head;
+      if (!lostAcknowledgement) {
+        session.root.applyKvs([{ form: "kv-set", key: "connection", value: "receipt-test" }]);
+        session.root.promptQueue.push(
+          new SessionAdmission({ text: asUserPrompt("after the receipt"), composedAtMs: 1 }),
+        );
+      }
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect({
+        held: session.sessionRuntime.admissionHeld,
+        successor: session.root.head !== head,
+        workerOwned: worker.sessionRuntime.isCurrent,
+        callbackCompleted: callback.completed,
+        obligation: worker.root.agentCallbacks[call.uuid],
+      }).toEqual({
+        held: true,
+        successor: false,
+        workerOwned: true,
+        callbackCompleted: false,
+        obligation: session.sessionId,
+      });
+      release.resolve();
+      await when(() => callback.completed, { timeout: TIMEOUT });
+      if (lostAcknowledgement) {
+        expect({
+          held: session.sessionRuntime.admissionHeld,
+          obligation: worker.root.agentCallbacks[call.uuid],
+        }).toEqual({ held: true, obligation: session.sessionId });
+        if (mode === "exact retry") await session.handleRequest("turn/retry", {});
+        const resumed = await project.session(call.workerSessionId);
+        const repeated = new AgentCallbackJob({
+          name: mode === "changed reply" ? "agent__respond" : "agent__void",
+          argsJson:
+            mode === "changed reply"
+              ? JSON.stringify({ requestId: call.uuid, response: "a different later reply" })
+              : argsJson,
+          humanApprove: true,
+        });
+        resumed.root.head = closedTurn(repeated);
+        await when(() => repeated.completed && resumed.root.agentCallbacks[call.uuid] == null, { timeout: TIMEOUT });
+        expect({
+          held: session.sessionRuntime.admissionHeld,
+          receipt: repeated.outcomeSnap,
+          parentReceipt: call.receiptJson,
+        }).toEqual({
+          held: false,
+          receipt: { ok: true, text: "caller already settled" },
+          parentReceipt: firstReceipt,
+        });
+      } else {
+        await when(() => session.root.head !== head && !session.sessionRuntime.admissionHeld, { timeout: TIMEOUT });
+        expect({
+          held: session.sessionRuntime.admissionHeld,
+          obligation: worker.root.agentCallbacks[call.uuid],
+          receipt: callback.outcomeSnap,
+        }).toEqual({ held: false, obligation: undefined, receipt: { ok: true } });
+      }
+    },
+  );
 
   it("a bot request with no response schema is delivered", async () => {
     const { kernel, session } = await openPluginHarness();

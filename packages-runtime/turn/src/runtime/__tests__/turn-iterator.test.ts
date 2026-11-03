@@ -18,7 +18,7 @@ import {
   TurnNotificationChunk,
   TurnSteerChunk,
   ToolCallJob,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import { autorun } from "mobx";
 import { describe, expect, it } from "vitest";
 

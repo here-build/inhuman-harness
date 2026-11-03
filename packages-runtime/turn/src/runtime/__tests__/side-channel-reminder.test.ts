@@ -13,13 +13,12 @@ import {
   ToolCallJob,
   ToolSpec,
   CompactJob,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import { expect, test } from "vitest";
 
-import { historyBehind } from "@/context";
-import { CONTEXT_NEED_REMINDER, TITLE_UPDATE_REMINDER } from "@/session";
-
 import { turnFixture, type ModelReply } from "./fixtures/turn-iterator.js";
+import { historyBehind } from "../../context/index.js";
+import { CONTEXT_NEED_REMINDER, TITLE_UPDATE_REMINDER } from "../../session/side-channel-reminder.js";
 
 test("title and context_need reminders arm on the 5th quiet round and stay off the tape", async () => {
   const work: ModelReply = (completion) => {

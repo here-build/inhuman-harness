@@ -8,19 +8,23 @@ import {
   type Row,
   type RowMatch,
   type RowPlane,
+  type RowReader,
   type ScopePlane,
   type TableName,
 } from "@inhuman.tools/scope-plane";
 
 /**
- * Writes are ordinary SQL. Electric only wakes `watch` after a commit.
- * `read` goes back to Postgres, so a subscriber never serves a stale shape row.
+ * Queries must resolve after their transaction commits. Electric provides
+ * invalidation; reads use SQL. Atomic read snapshots require the optional port.
  */
 export type ElectricSql = {
   query(text: string, params: readonly unknown[]): Promise<readonly Record<string, unknown>[]>;
+  /** Run every callback query in one repeatable-read (or stronger) transaction. */
+  snapshot?<T>(read: (sql: ElectricSql) => Promise<T>): Promise<T>;
 };
 
 export type ElectricShapes = {
+  /** Wake on initial catch-up and reconnect, as well as subsequent commits. */
   subscribe(table: string, where: string, params: readonly unknown[], onChange: () => void): () => void;
 };
 
@@ -72,7 +76,7 @@ function insertSql(table: TableName, conflict: "update" | "absent"): string {
   const slots = names.map((_, index) => `$${index + 1}`).join(", ");
   const into = `INSERT INTO ${ident(def.sql)} (${names.join(", ")})`;
   if (conflict === "absent") {
-    return `${into} SELECT ${slots} WHERE NOT EXISTS (SELECT 1 FROM ${ident(def.sql)} WHERE ${ident(def.keySql)} = $1) RETURNING ${ident(def.keySql)}`;
+    return `${into} VALUES (${slots}) ON CONFLICT (${ident(def.keySql)}) DO NOTHING RETURNING ${ident(def.keySql)}`;
   }
   const assignments = def.columns.map((field) => {
     const sql = ident(field.sql);
@@ -82,7 +86,7 @@ function insertSql(table: TableName, conflict: "update" | "absent"): string {
 }
 
 export function createElectricRowPlane(io: ElectricIo): RowPlane {
-  return {
+  const rows: RowPlane = {
     async get(table, id) {
       const records = await io.sql.query(
         `SELECT * FROM ${ident(tables[table].sql)} WHERE ${ident(tables[table].keySql)} = $1`,
@@ -121,6 +125,19 @@ export function createElectricRowPlane(io: ElectricIo): RowPlane {
       const records = await io.sql.query(insertSql(table, "absent"), [id, ...rowValues(table, row)]);
       return records.length > 0;
     },
+    async replaceIfMatch(table, id, expected, row) {
+      const def = tables[table];
+      const assignments = def.columns.map((field, index) => `${ident(field.sql)} = $${index + 2}`);
+      const keys = Object.keys(expected).sort();
+      const start = def.columns.length + 2;
+      const clauses = keys.map((key, index) => `${columnSql(table, key)} = $${start + index}`);
+      const where = clauses.length === 0 ? "" : ` AND ${clauses.join(" AND ")}`;
+      const records = await io.sql.query(
+        `UPDATE ${ident(def.sql)} SET ${assignments.join(", ")} WHERE ${ident(def.keySql)} = $1${where} RETURNING ${ident(def.keySql)}`,
+        [id, ...rowValues(table, row), ...keys.map((key) => expected[key])],
+      );
+      return records.length > 0;
+    },
     async removeIf(table, id, expected) {
       const keys = Object.keys(expected).sort();
       const clauses = keys.map((key, index) => `${columnSql(table, key)} = $${index + 2}`);
@@ -147,7 +164,43 @@ export function createElectricRowPlane(io: ElectricIo): RowPlane {
         onChange,
       );
     },
+    async commitOwned(claim, mutation) {
+      if (claim.holder === "") return false;
+      const def = tables[mutation.table];
+      const table = ident(def.sql);
+      const key = ident(def.keySql);
+      const params: unknown[] = [claim.sessionId, claim.scopeId, claim.generation, claim.holder, mutation.id];
+      const ownership =
+        "WITH ownership AS MATERIALIZED (SELECT session_id FROM generations WHERE session_id = $1 AND scope_id = $2 AND generation = $3 AND holder = $4 FOR UPDATE)";
+      const expected = Object.entries(mutation.existing).sort(([a], [b]) => a.localeCompare(b));
+      let sql: string;
+      if (mutation.row == null) {
+        const clauses = expected.map(([column, value]) => {
+          params.push(value);
+          return `${table}.${columnSql(mutation.table, column)} = $${params.length}`;
+        });
+        sql = `${ownership} DELETE FROM ${table} WHERE ${key} = $5 AND EXISTS (SELECT 1 FROM ownership)${clauses.map((clause) => ` AND ${clause}`).join("")} RETURNING ${key}`;
+      } else {
+        params.push(...rowValues(mutation.table, mutation.row));
+        const names = [key, ...def.columns.map((column) => ident(column.sql))];
+        const slots = names.map((_, index) => `$${index + 5}`);
+        const assignments = def.columns.map((column) => `${ident(column.sql)} = EXCLUDED.${ident(column.sql)}`);
+        const clauses = expected.map(([column, value]) => {
+          params.push(value);
+          return `${table}.${columnSql(mutation.table, column)} = $${params.length}`;
+        });
+        const where = clauses.length === 0 ? "" : ` WHERE ${clauses.join(" AND ")}`;
+        sql = `${ownership} INSERT INTO ${table} (${names.join(", ")}) SELECT ${slots.join(", ")} FROM ownership WHERE true ON CONFLICT (${key}) DO UPDATE SET ${assignments.join(", ")}${where} RETURNING ${key}`;
+      }
+      return (await io.sql.query(sql, params)).length > 0;
+    },
   };
+  const snapshot = io.sql.snapshot;
+  if (snapshot) {
+    rows.snapshot = <T>(read: (reader: RowReader) => Promise<T>): Promise<T> =>
+      snapshot((sql) => read(createElectricRowPlane({ ...io, sql })));
+  }
+  return rows;
 }
 
 export function createElectricScopePlane(io: ElectricIo): ScopePlane {

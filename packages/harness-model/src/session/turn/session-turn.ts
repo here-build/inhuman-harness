@@ -15,7 +15,7 @@ import { comparer, computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
 
 import { deepFreeze, frozenRecord } from "../../json-record.js";
-import { DEFAULT_COMPACT_TRIGGERS, parseCompactTrigger } from "../../kernel/KernelRoot.js";
+import { DEFAULT_COMPACT_TRIGGERS, parseCompactTrigger } from "../../shared/compact-settings.js";
 import { updateMetadataArgsSchema } from "../../schemas/update-metadata.js";
 import { contextNeedFromChunks, type ContextNeed } from "../context-need.js";
 import type { PermissionMode } from "../eval-context.js";

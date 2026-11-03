@@ -15,6 +15,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Transcript } from "../../context/index.js";
+import { createModuleBundle } from "../../resources/index.js";
 import { applyCompact, loadCompactProgram, runCompactJob } from "../index.js";
 import { sessionOf } from "./fixtures.js";
 
@@ -272,7 +273,15 @@ describe("compaction actor", () => {
         kernelFsRoot: "",
         connectionId: "c1",
         model: "m",
-        loadProgram: () => ({ source, sourcePath: join(dir, "compact.scm") }),
+        loadProgram: () => ({
+          source,
+          sourcePath: join(dir, "compact.scm"),
+          moduleLoader: createModuleBundle({
+            id: "abort-test",
+            revision: "1",
+            modules: { "hang.prompt": '{{role "user"}}\nsummarize\n' },
+          }).loader,
+        }),
         complete: async (req) => {
           if (req.signal != null) joined.push(req.signal);
           return await new Promise<never>(() => {});
@@ -280,7 +289,16 @@ describe("compaction actor", () => {
       },
       abort.signal,
     );
-    await vi.waitFor(() => expect(turn.children.some((child) => child instanceof CompletionJob)).toBe(true));
+    await vi.waitFor(() =>
+      expect(
+        turn.children.some(
+          (child) =>
+            child instanceof CompletionJob &&
+            child.expectation.completionMode === "isolated" &&
+            !child.expectation.isDone,
+        ),
+      ).toBe(true),
+    );
     abort.abort("cancel");
     await running;
     expect({

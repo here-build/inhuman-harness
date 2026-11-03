@@ -3,7 +3,7 @@
  * session kv only raise it. Empty is never valid — 0 orphans the in-flight
  * exchange — so the mode default stands in when nothing is set.
  */
-import type { CompactJob, ContextNeed } from "@inhuman.tools/harness-model";
+import type { CompactJob, ContextNeed } from "@inhuman.tools/harness-model/session";
 
 /**
  * Minimum recent rounds kept when the floors are otherwise empty. 0 replaces the

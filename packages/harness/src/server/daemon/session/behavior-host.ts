@@ -61,6 +61,8 @@ export type SessionBehaviorHooks = {
   readonly syncTools: (turn: SessionTurn) => void;
   /** How long a plugin boundary may hold a turn open before it is skipped. */
   readonly hookTimeoutMs: () => number;
+  readonly canApplyResults?: () => boolean;
+  readonly ownershipSignal?: AbortSignal;
 };
 
 /** A park keeps the work for the next wrap; its hooks do not run. */
@@ -139,6 +141,7 @@ export class SessionBehavior implements Disposable {
   /** Turn start: re-select the foreground's bots, then attach the pin. */
   async prepare(signal?: AbortSignal): Promise<AgentBehavior> {
     signal?.throwIfAborted();
+    this.hooks.ownershipSignal?.throwIfAborted();
     this.#lifetime.signal.throwIfAborted();
     this.#turnProblems = [];
     this.#publish();
@@ -153,6 +156,7 @@ export class SessionBehavior implements Disposable {
       }
       const next = pinJson(await repin(foregroundChoices(this.kernel.packages(), errors), previous, errors));
       signal?.throwIfAborted();
+      this.hooks.ownershipSignal?.throwIfAborted();
       this.#lifetime.signal.throwIfAborted();
       this.#report("pin", errors);
       if (next !== spec.behaviorPin) {
@@ -167,6 +171,7 @@ export class SessionBehavior implements Disposable {
   /** Attach whatever the session's spec pins now. */
   async attach(signal?: AbortSignal): Promise<AgentBehavior> {
     signal?.throwIfAborted();
+    this.hooks.ownershipSignal?.throwIfAborted();
     this.#lifetime.signal.throwIfAborted();
     const json = this.session.agent.spec.behaviorPin;
     if (this.#attached?.json === json) return this.#attached.agent;
@@ -177,8 +182,13 @@ export class SessionBehavior implements Disposable {
     }
     const { agent, errors } = await pending.promise;
     signal?.throwIfAborted();
+    this.hooks.ownershipSignal?.throwIfAborted();
     this.#lifetime.signal.throwIfAborted();
-    if (this.#attaching === pending && this.session.agent.spec.behaviorPin === json) {
+    if (
+      this.hooks.canApplyResults?.() !== false &&
+      this.#attaching === pending &&
+      this.session.agent.spec.behaviorPin === json
+    ) {
       bindBehaviorEntries(
         this.session,
         declaredToolEntries(
@@ -233,10 +243,17 @@ export class SessionBehavior implements Disposable {
           ? AbortSignal.any([
               this.#lifetime.signal,
               this.#admission.signal,
+              ...(this.hooks.ownershipSignal == null ? [] : [this.hooks.ownershipSignal]),
               ...(this.#signals.has(turn) ? [this.#signals.get(turn)!] : []),
             ])
-          : this.#lifetime.signal,
-        stopped: () => !isWorkReachable(this.session, turn) || (honourStop && turn.cancelRequested),
+          : AbortSignal.any([
+              this.#lifetime.signal,
+              ...(this.hooks.ownershipSignal == null ? [] : [this.hooks.ownershipSignal]),
+            ]),
+        stopped: () =>
+          this.hooks.canApplyResults?.() === false ||
+          !isWorkReachable(this.session, turn) ||
+          (honourStop && turn.cancelRequested),
       });
     } catch (error) {
       opened?.abandon();
@@ -244,6 +261,7 @@ export class SessionBehavior implements Disposable {
     }
     if (outcome.kind === "done") {
       if (
+        this.hooks.canApplyResults?.() !== false &&
         !this.#lifetime.signal.aborted &&
         isWorkReachable(this.session, turn) &&
         (!honourStop || (!this.#admission.signal.aborted && !this.#signals.get(turn)?.aborted && !turn.cancelRequested))
@@ -262,7 +280,12 @@ export class SessionBehavior implements Disposable {
   signalFor(job: ToolCallJob): AbortSignal {
     const owner = [...owningTurns(job)].find((turn) => this.#signals.has(turn));
     const signal = owner == null ? undefined : this.#signals.get(owner);
-    return AbortSignal.any([this.#lifetime.signal, this.#admission.signal, ...(signal == null ? [] : [signal])]);
+    return AbortSignal.any([
+      this.#lifetime.signal,
+      this.#admission.signal,
+      ...(this.hooks.ownershipSignal == null ? [] : [this.hooks.ownershipSignal]),
+      ...(signal == null ? [] : [signal]),
+    ]);
   }
 
   /** Stop new plugin entry immediately, while an effect already on the wire may still drain. */
@@ -288,6 +311,7 @@ export class SessionBehavior implements Disposable {
   }
 
   #publish(): void {
+    if (this.hooks.canApplyResults?.() === false) return;
     const joined = [this.#problems.pin, this.#problems.load, ...this.#turnProblems]
       .filter((row) => row !== "")
       .join("; ");
@@ -319,6 +343,7 @@ export class SessionBehavior implements Disposable {
     const preparation = new AbortController();
     const signalForPreparation = AbortSignal.any([
       signal,
+      ...(this.hooks.ownershipSignal == null ? [] : [this.hooks.ownershipSignal]),
       this.#lifetime.signal,
       this.#admission.signal,
       preparation.signal,
@@ -371,6 +396,10 @@ export class SessionBehavior implements Disposable {
   /** A round still open here did not finish. The turn fails only when cancelled or broken. */
   async leaveTurn(turn: SessionTurn, broke: string): Promise<void> {
     await Promise.all([...this.#finishing.values()].filter((work) => work.owner === turn).map((work) => work.promise));
+    if (this.hooks.canApplyResults?.() === false) {
+      this.dropTurn(turn);
+      return;
+    }
     const state = this.#turns.get(turn);
     if (state == null) {
       this.#signals.delete(turn);
@@ -393,7 +422,7 @@ export class SessionBehavior implements Disposable {
         );
         if (finished.ok) this.#boundaryReport("round", finished.value);
       }
-      if (state.turn != null) {
+      if (this.hooks.canApplyResults?.() !== false && state.turn != null) {
         const finished = await this.#within(
           turn,
           state.turn.finish(failure === "" ? { ok: true, value: false } : { ok: false, error: failure }),
@@ -407,7 +436,7 @@ export class SessionBehavior implements Disposable {
       this.problem("plugin turn boundary", error);
     } finally {
       this.#signals.delete(turn);
-      this.kernel.notes.expireUnused(this.session.sessionId, turn.uuid);
+      if (this.hooks.canApplyResults?.() !== false) this.kernel.notes.expireUnused(this.session.sessionId, turn.uuid);
       this.#recordPluginState(turn);
     }
   }
@@ -417,6 +446,7 @@ export class SessionBehavior implements Disposable {
    * away while its hooks ran must not leave their writes on the new head.
    */
   #recordPluginState(turn: SessionTurn): void {
+    if (this.hooks.canApplyResults?.() === false) return;
     // A turn off the live chain was rewound away. The plugin state in the
     // session now belongs to the head that replaced it: record nothing on the
     // old turn and restore nothing, however late its hooks finish.
@@ -524,7 +554,11 @@ export class SessionBehavior implements Disposable {
   ): Promise<ToolOutcome | null> {
     const { opened } = held;
     const inactive = () =>
-      this.#lifetime.signal.aborted || this.#admission.signal.aborted || signal?.aborted === true || !held.retained();
+      this.hooks.canApplyResults?.() === false ||
+      this.#lifetime.signal.aborted ||
+      this.#admission.signal.aborted ||
+      signal?.aborted === true ||
+      !held.retained();
     if (inactive()) {
       opened.abandon();
       return null;
@@ -532,7 +566,12 @@ export class SessionBehavior implements Disposable {
     try {
       const result = await bounded(opened.finish(settle), {
         ms: this.hooks.hookTimeoutMs(),
-        signal: AbortSignal.any([this.#lifetime.signal, this.#admission.signal, ...(signal == null ? [] : [signal])]),
+        signal: AbortSignal.any([
+          this.#lifetime.signal,
+          this.#admission.signal,
+          ...(this.hooks.ownershipSignal == null ? [] : [this.hooks.ownershipSignal]),
+          ...(signal == null ? [] : [signal]),
+        ]),
         stopped: () => !held.retained(),
       });
       if (result.kind !== "done") {
@@ -566,6 +605,6 @@ export class SessionBehavior implements Disposable {
     this.#releases.clear();
     this.#tools.clear();
     this.#signals.clear();
-    bindBehaviorEntries(this.session, []);
+    if (this.hooks.canApplyResults?.() !== false) bindBehaviorEntries(this.session, []);
   }
 }

@@ -14,7 +14,10 @@ import { PlexusModel, syncing } from "@here.build/plexus";
 
 import { agentNatureOf, type AgentNature } from "../recipe-scope.js";
 import type { KernelRoot } from "./KernelRoot.js";
-import type { SessionUnfinished } from "../session/unfinished.js";
+import type { SessionUnfinished } from "../shared/session-unfinished.js";
+import type { SessionOverviewFace } from "../shared/session-overview.js";
+
+export type { SessionOverviewFace } from "../shared/session-overview.js";
 
 @syncing("harness:kernel:session-overview")
 export class SessionOverview extends PlexusModel<KernelRoot | null> {
@@ -122,28 +125,6 @@ export function hydrateSessionOverview(row: SessionOverview): void {
     row.blocked = false;
   }
 }
-
-/** Fields the daemon projects from a session. `lastMessageAt` is not one of them. */
-export type SessionOverviewFace = {
-  readonly title: string;
-  readonly recipeScope: AgentNature;
-  readonly specName: string;
-  readonly resident: boolean;
-  readonly keepAlive: boolean;
-  readonly oneShot: boolean;
-  readonly model: string;
-  readonly status: string;
-  readonly midMotion: boolean;
-  readonly openTurn: boolean;
-  readonly openToolCount: number;
-  readonly periodArmed: boolean;
-  readonly openCallbackCount: number;
-  readonly asking: boolean;
-  readonly unfinished: SessionUnfinished;
-  readonly lastPrompt: string;
-  readonly askLine: string;
-  readonly questionLine: string;
-};
 
 export function writeOverviewFace(row: SessionOverview, snap: SessionOverviewFace): void {
   if (row.title !== snap.title) row.title = snap.title;

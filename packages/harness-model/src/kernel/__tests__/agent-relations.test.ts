@@ -7,7 +7,8 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import { beforeEach, expect, test } from "vitest";
 
 import { AgentCallJob, BotCallJob, SessionPlexus, SessionSystemPrompt, SessionTurn } from "../../session/index.js";
-import { applyAgentRelations, outgoingAgentRelations } from "../agent-relations.js";
+import { applyAgentRelations } from "../agent-relations.js";
+import { outgoingAgentRelations } from "../../session/agent-relations.js";
 import { KernelRoot } from "../KernelRoot.js";
 
 beforeEach(() => resetLocalIDs());

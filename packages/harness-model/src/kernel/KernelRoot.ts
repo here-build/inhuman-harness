@@ -21,20 +21,25 @@ import {
   writeOverviewFace,
   type SessionOverviewFace,
 } from "./SessionOverview.js";
-import type { PermissionMode } from "../session/eval-context.js";
+import type { PermissionMode } from "../shared/permission-mode.js";
 import type { ActionSpec } from "../shared/ActionSpec.js";
 import { applyKv } from "../shared/KeyValueStorage.js";
 import { ReActLoopIntentDetectedTrigger } from "../shared/ReActLoopIntentDetectedTrigger.js";
 import { SCHEMA_VERSION, type KvProposal } from "../shared/residual.js";
 
-export const DEFAULT_COMPACT_TRIGGERS = { hard: "90%", soft: "80%" } as const;
-/**
- * `config.json` `compactKeepTurns`. 0 is invalid (puts the whole eat in the prefix and
- * orphans the in-flight exchange); the host clamps to >= 1 and rewrites the
- * file. The explicit/mid-turn split lives in the compact host, not here —
- * this is the shared floor the dial owns.
- */
-export const DEFAULT_COMPACT_KEEP_TURNS = 1;
+import {
+  DEFAULT_COMPACT_TRIGGERS,
+  DEFAULT_COMPACT_KEEP_TURNS,
+  DEFAULT_LENGTH_CONTINUATIONS,
+} from "../shared/compact-settings.js";
+
+export {
+  DEFAULT_COMPACT_TRIGGERS,
+  DEFAULT_COMPACT_KEEP_TURNS,
+  DEFAULT_LENGTH_CONTINUATIONS,
+  parseCompactTrigger,
+  parseLoopLimit,
+} from "../shared/compact-settings.js";
 /**
  * Remaining-until-soft-compact fraction where the composer rail starts
  * mixing into warning. `config.json` `contextGlowRemaining`.
@@ -45,18 +50,6 @@ export const DEFAULT_SPECULATIVE_POLICY_PROCESSING_TOOLS = 2;
 export const DEFAULT_APPROVAL_ASK_THROTTLE_MS = 2000;
 /** Live/model shell tail window. `config.json` `shellTailBytes`; 0 = identity only (still spill). */
 export const DEFAULT_SHELL_TAIL_BYTES = 10_240;
-/** Continuation rounds after a `length` stop. `config.json` `lengthContinuations`; 0 = stop at the first. */
-export const DEFAULT_LENGTH_CONTINUATIONS = 3;
-
-/**
- * Loop limits. Omitted, invalid, or 0 is unlimited, except `lengthContinuations`
- * where 0 is off. Fractions floor; negatives are dropped.
- */
-export function parseLoopLimit(value: unknown, fallback = 0): number {
-  if (value === undefined || value === null) return fallback;
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
-}
 /** Ceiling so a huge config cannot pin the TUI. */
 export const MAX_SHELL_TAIL_BYTES = 64 * 1024;
 
@@ -77,18 +70,6 @@ export type SuperKey = "ctrl" | "cmd";
 
 export function parseSuperKey(value: unknown): SuperKey {
   return typeof value === "string" && value.trim().toLowerCase() === "cmd" ? "cmd" : DEFAULT_SUPER_KEY;
-}
-
-/** `"90%"` → 0.9; `"0.8"` → 0.8; `"90"` → 0.9. Empty / 0 / >100% → null (gate off). */
-export function parseCompactTrigger(value: string): number | null {
-  const trimmed = value.trim();
-  if (trimmed === "") return null;
-  const percent = /^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)\s*%$/i.exec(trimmed);
-  const raw = percent == null ? Number(trimmed) : Number(percent[1]);
-  if (!Number.isFinite(raw) || raw <= 0) return null;
-  const ratio = percent != null || raw > 1 ? raw / 100 : raw;
-  if (!(ratio > 0) || ratio > 1) return null;
-  return ratio;
 }
 
 /**

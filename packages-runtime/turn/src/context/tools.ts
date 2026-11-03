@@ -9,10 +9,11 @@ import {
   CompletionExpectation,
   owningTurn,
   SessionRoot,
-} from "@inhuman.tools/harness-model";
+} from "@inhuman.tools/harness-model/session";
 import invariant from "tiny-invariant";
 
-import { catalogOf, KernelToolCatalog } from "../tool-catalog/index.js";
+import { catalogOf } from "../tool-catalog/bindings.js";
+import type { KernelToolCatalog } from "../tool-catalog/catalog.js";
 
 export type ContextTool = {
   readonly name: string;

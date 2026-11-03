@@ -14,11 +14,12 @@ import {
   ProgrammaticJob,
   PromptMessage,
   takeCrossing,
-} from "@inhuman.tools/harness-model";
-import { runInAction, when } from "mobx";
+} from "@inhuman.tools/harness-model/session";
+import { when } from "mobx";
 import { z } from "zod";
 
 import { promptPrelude, renderPrompt } from "./dotprompt.js";
+import invariant from "tiny-invariant";
 
 const AGENT_ASK = "agent__ask";
 
@@ -37,7 +38,6 @@ export const promptProgramCapability = EnvCapability.define("ext/prompt/program"
         requiresConfig: ["job"],
       },
       async function (spec, args) {
-        const bundle = renderPrompt(spec, args);
         const job = this.configuration.job;
         const emission = this.runCtx.emission;
         const path = job.trackMatch && emission != null ? claimCrossing(emission, crossingWindow(this)) : "";
@@ -53,25 +53,27 @@ export const promptProgramCapability = EnvCapability.define("ext/prompt/program"
               }
             }
             existing = takeCrossing(job, emission, path);
-            if (existing == null) throw new Error("replay: no recorded dotprompt/run");
+            invariant(existing != null, "replay: no recorded dotprompt/run");
           }
           if (existing != null) return await existing;
         }
-        const minted = new AgentCallJob({
-          toolCallId: `${job.toolCallId}:prompt:${job.children.length + 1}`,
-          name: AGENT_ASK,
-          argsJson: "{}",
-          voidLegal: false,
-          readonly: this.configuration.readonly === true,
-          responseSchema: bundle.responseSchema,
-          promptMessages: bundle.messages.map(([role, content]) => new PromptMessage({ role, content })),
-          faceName: bundle.faceName.trim(),
-          tools: bundle.tools ?? [],
-          inheritCallerTools: bundle.tools === null,
-          reasoningEffort: bundle.reasoningEffort,
-        });
-        if (path !== "") runInAction(() => (minted.track = path));
-        return await job.registerJob(minted);
+        const bundle = renderPrompt(spec, args);
+        return await job.registerJob(
+          new AgentCallJob({
+            toolCallId: `${job.toolCallId}:prompt:${job.children.length + 1}`,
+            name: AGENT_ASK,
+            argsJson: "{}",
+            voidLegal: false,
+            readonly: this.configuration.readonly === true,
+            responseSchema: bundle.responseSchema,
+            promptMessages: bundle.messages.map(([role, content]) => new PromptMessage({ role, content })),
+            faceName: bundle.faceName.trim(),
+            tools: bundle.tools ?? [],
+            inheritCallerTools: bundle.tools === null,
+            reasoningEffort: bundle.reasoningEffort,
+            track: path !== "" ? path : undefined,
+          }),
+        );
       },
     ),
   }),

@@ -19,6 +19,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "pnpm --filter @inhuman.tools/scope-plane build && tsc -p tsconfig.json --noEmit && vitest run",
+    "test:postgres": "pnpm --filter @inhuman.tools/scope-plane build && tsc -p tsconfig.json --noEmit && SCOPE_PLANE_POSTGRES_TEST=1 vitest run src/__tests__/postgres.test.ts",
     "typecheck": "pnpm --filter @inhuman.tools/scope-plane build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

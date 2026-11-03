@@ -7,6 +7,7 @@ import { PERIOD_BREAKER_ERR, type ProgrammaticJob } from "@inhuman.tools/harness
 import { watchArgsSchema } from "@inhuman.tools/harness-model/schemas";
 import {
   appendNotify,
+  canApplyProgramResults,
   cancelLiveInvocations,
   cancelled,
   displayPrinted,
@@ -32,6 +33,7 @@ export function watchHost(host: ProgramHost): ProgramHost {
   return {
     identity: host.identity,
     signal: host.signal,
+    canApplyResults: host.canApplyResults,
     doors: host.doors,
     root: host.root,
     abort: host.abort,
@@ -61,7 +63,7 @@ export async function runWatch(chunk: ProgrammaticJob, host: ProgramHost): Promi
       return;
     }
     const opened = await openProgram(chunk, watching, parsed.data);
-    if (opened == null) return;
+    if (opened == null || !canApplyProgramResults(watching)) return;
     if (opened.periodMs === undefined || !reachableDoneCondition(opened.forms)) {
       sealChunk(chunk, fail(`Error: ${PERIOD_BREAKER_ERR}`));
       return;
@@ -71,6 +73,7 @@ export async function runWatch(chunk: ProgrammaticJob, host: ProgramHost): Promi
     const runtime = programRuntimeOf(chunk, watching);
     runtime.arm({ watching: true, moduleRoot: root });
     while (!chunk.completed) {
+      if (!canApplyProgramResults(watching)) return;
       if (parked(watching)) return;
       if (cancelled(watching)) {
         cancelLiveInvocations(chunk, watching, hostAbortReason(watching));
@@ -81,6 +84,7 @@ export async function runWatch(chunk: ProgrammaticJob, host: ProgramHost): Promi
         const left = chunk.periodWaitUntilMs - Date.now();
         if (left > 0) {
           const waited = await waitPeriod(left, watching.signal);
+          if (!canApplyProgramResults(watching)) return;
           if (waited === "park") return;
           if (waited === "abort") {
             cancelLiveInvocations(chunk, watching, hostAbortReason(watching));
@@ -109,6 +113,7 @@ export async function runWatch(chunk: ProgrammaticJob, host: ProgramHost): Promi
           runtime,
         ),
       );
+      if (!canApplyProgramResults(watching)) return;
       if (outcome.kind === "park") return;
       if (outcome.kind === "halt") {
         if (cancelled(watching)) return;

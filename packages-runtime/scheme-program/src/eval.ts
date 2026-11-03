@@ -1,5 +1,6 @@
 export { appendNotify } from "./failure.js";
 export {
+  canApplyProgramResults,
   cancelLiveInvocations,
   cancelled,
   displayPrinted,

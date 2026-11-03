@@ -19,7 +19,7 @@
  * sees the picture or a stub.
  */
 import { toSExprString, toSExprStringWithElisions } from "@here.build/arrival-serializer";
-import { ProgrammaticJob, ToolCallJob, type ToolCallRepresentation } from "@inhuman.tools/harness-model";
+import { ProgrammaticJob, ToolCallJob, type ToolCallRepresentation } from "@inhuman.tools/harness-model/session";
 
 import { humanSize, refOfNode } from "./retention/render.js";
 

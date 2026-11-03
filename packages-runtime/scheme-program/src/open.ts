@@ -3,7 +3,7 @@ import { ProgrammaticJob, periodMsOf, SCHEME_REPL_NAMING, SCHEME_REPL_TOOL_NAME 
 import { emptyExprDoor, isUnterminatedDictLiteral, unterminatedDictDoor } from "@inhuman.tools/substrate/doors";
 import { type TopLevelSplice, unwrapTopLevel } from "@inhuman.tools/substrate/unwrap-begin";
 
-import { errorText, fail, sealChunk } from "./evaluate.js";
+import { canApplyProgramResults, errorText, fail, sealChunk } from "./evaluate.js";
 import type { ProgramHost } from "./host.js";
 import { moduleRootOf, programSourceOf, type ProgramSource } from "./source.js";
 
@@ -37,7 +37,7 @@ export async function openProgram(
   seal = true,
 ): Promise<OpenedProgram | undefined> {
   const refuse = (result: Parameters<typeof sealChunk>[1]): undefined => {
-    if (seal) sealChunk(chunk, result);
+    if (seal && canApplyProgramResults(host)) sealChunk(chunk, result);
     return undefined;
   };
   if (data.expr.trim() === "") {
@@ -60,6 +60,7 @@ export async function openProgram(
     }
     return refuse(fail(text));
   }
+  if (!canApplyProgramResults(host)) return undefined;
   const periodMs = typeof data.period === "string" ? periodMsOf(data.period) : undefined;
   return {
     forms,

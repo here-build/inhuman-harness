@@ -2,7 +2,7 @@
  * A bot call's lifetime, stamped from its catalog tool.
  * `show: "omit"` / `"turn"` are not marker hints.
  */
-import { BotCallJob, CallDelivery, CallJob, type CallLifetime } from "@inhuman.tools/harness-model";
+import { BotCallJob, CallDelivery, CallJob, type CallLifetime } from "@inhuman.tools/harness-model/session";
 
 export function stampCallLifetime(call: CallJob, lifetime: CallLifetime): void {
   if (!(call instanceof BotCallJob)) return;

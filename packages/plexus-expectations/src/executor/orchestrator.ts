@@ -81,7 +81,7 @@ export abstract class Orchestrator<
   ) {
     this.#mirrorDisposers.push(
       autorun(() => {
-        if (this.#disposed || !this.#activated.get()) return;
+        if (!this.#activated.get() || !this.canApplyResults) return;
         for (const name of Object.keys(this.drivers)) {
           // Driver discovery is intentionally eager so the kernel catalog can
           // expose class-side offers and live facts before a connection is
@@ -93,7 +93,7 @@ export abstract class Orchestrator<
       }),
     );
     this.#disposeWork = autorun(() => {
-      if (this.#disposed || !this.#activated.get()) return;
+      if (!this.#activated.get() || !this.canApplyResults) return;
       for (const node of collectReachable(this.session.root)) {
         if (node.isDone || isTreeOrphan(node)) continue;
         if (!this.shouldHonor(node)) continue;
@@ -110,7 +110,7 @@ export abstract class Orchestrator<
       }
     });
     this.#disposeAborts = autorun(() => {
-      if (this.#disposed || !this.#activated.get()) return;
+      if (!this.#activated.get() || !this.canApplyResults) return;
       const live = new Set(this.reachableJobs);
       for (const [job, ac] of this.#jobAbort) {
         if (live.has(job) || ac.signal.aborted) continue;
@@ -154,7 +154,7 @@ export abstract class Orchestrator<
     this.#processes.set(
       Class,
       autorun(() => {
-        if (this.#disposed || !this.#activated.get()) return;
+        if (!this.#activated.get() || !this.canApplyResults) return;
         for (const node of this.reachableJobs) {
           if (!(node instanceof Class)) continue;
           const job = node as T;
@@ -182,7 +182,9 @@ export abstract class Orchestrator<
     execute: (job: T, signal: AbortSignal, orchestrator: this) => void | Promise<void>,
     seal: boolean,
   ): void {
+    if (!this.canApplyResults) return;
     const settle = action((ok: boolean) => {
+      if (!this.canApplyResults) return;
       if (job.orchestrationResult !== null || job.completed || job.cancelled) return;
       job.orchestrationResult = ok;
       if (ok) {this.#startExecute(job, execute, seal);}
@@ -190,6 +192,7 @@ export abstract class Orchestrator<
     });
     // A guard that threw never licensed the job: deny it with a crash receipt.
     const crashed = action((error: unknown) => {
+      if (!this.canApplyResults) return;
       if (job.orchestrationResult !== null || job.completed || job.cancelled) return;
       this.#recordCrash(job, "license", error);
       job.orchestrationResult = false;
@@ -228,6 +231,7 @@ export abstract class Orchestrator<
     execute: (job: T, signal: AbortSignal, orchestrator: this) => void | Promise<void>,
     seal: boolean,
   ): void {
+    if (!this.canApplyResults) return;
     if (this.#bodyStarted.has(job) || job.completed || job.cancelled) return;
     if (job.orchestrationResult !== true) return;
     this.#bodyStarted.add(job);
@@ -237,19 +241,19 @@ export abstract class Orchestrator<
     const ac = new AbortController();
     this.#jobAbort.set(job, ac);
     void Promise.resolve()
-      .then(() => execute(job, ac.signal, this))
+      .then(() => this.canApplyResults ? execute(job, ac.signal, this) : undefined)
       .then(
         () => false,
         (error: unknown) => {
           // An abort (cancel, park, leaving the graph) is not a crash: the aborter owns the ending.
-          if (ac.signal.aborted || job.completed || job.cancelled) return false;
+          if (!this.canApplyResults || ac.signal.aborted || job.completed || job.cancelled) return false;
           action(() => this.#recordCrash(job, "body", error))();
           return true;
         },
       )
       .then(
         action((crashed: boolean) => {
-          if (seal || crashed) job.markComplete();
+          if (this.canApplyResults && (seal || crashed)) job.markComplete();
           this.#jobAbort.delete(job);
         }),
       )
@@ -272,6 +276,10 @@ export abstract class Orchestrator<
    * completes the job right after.
    */
   protected stampCrash(_job: Job, _phase: "license" | "body", _detail: string): void {}
+
+  protected get canApplyResults(): boolean {
+    return !this.#disposed;
+  }
 
   /** In-flight claimed Jobs (handler has not `finally`'d). */
   protected inFlightJobs(): Iterable<Job> {

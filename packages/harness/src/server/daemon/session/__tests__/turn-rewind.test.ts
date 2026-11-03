@@ -99,6 +99,12 @@ describe("turn/rewind", () => {
     session.root.head = run;
     session.root.tip = run;
     await when(() => run.work.some((chunk) => tapeCompletion(chunk)?.outcome == null), { timeout: 2_000 });
+    const refusedWhileRunning = await refused(session.handleRequest("turn/rewind", { turnId: missingId }));
+    expect({ reason: refusedWhileRunning, cancelled: run.cancelRequested, exited: run.reducerExited }).toEqual({
+      reason: "unknown-id",
+      cancelled: false,
+      exited: false,
+    });
     admitQueue(session.root, prompt.user`later`, run.uuid);
     admitQueue(session.root, prompt.user`also`, run.uuid);
     await session.handleRequest("turn/rewind", { turnId: one.uuid });
@@ -118,13 +124,13 @@ describe("turn/rewind", () => {
 
     const sessionsDir = join(session.kernel.root, "documents", "sessions");
     const image = documentImagePath(session.kernel.root, documentKey("sessions", session.sessionId));
+    await session.handleRequest("turn/rewind", { turnId: one.uuid });
     await chmod(sessionsDir, 0o555);
     await chmod(image, 0o444);
     onTestFinished(async () => {
       await chmod(image, 0o600);
       await chmod(sessionsDir, 0o755);
     });
-    await session.handleRequest("turn/rewind", { turnId: one.uuid });
     const beforeEval = { head: session.root.head?.prompt, tip: session.root.tip?.prompt };
     const persist = await refused(
       session.handleRequest("eval", { requestId: "req-rewind", expr: "(+ 1 2)", policy: "auto" }),

@@ -29,7 +29,7 @@ const glance = {
   questionLine: "",
 };
 
-function createMemoryScopePlane(): ScopePlane {
+function createMemoryRows(): RowPlane {
   const bags = new Map<TableName, Map<string, Row>>();
   const listeners: Array<{ table: TableName; onChange: () => void }> = [];
 
@@ -84,6 +84,13 @@ function createMemoryScopePlane(): ScopePlane {
       poke(table);
       return true;
     },
+    async replaceIfMatch(table, id, expected, row) {
+      const current = bag(table).get(id);
+      if (current == null || !Object.entries(expected).every(([key, value]) => current[key] === value)) return false;
+      bag(table).set(id, { ...row });
+      poke(table);
+      return true;
+    },
     async removeIf(table, id, expected) {
       const rowsForTable = bag(table);
       const current = rowsForTable.get(id);
@@ -104,7 +111,7 @@ function createMemoryScopePlane(): ScopePlane {
       };
     },
   };
-  return createScopePlane(rows);
+  return rows;
 }
 
 function contract(open: () => Promise<{ plane: ScopePlane; close(): Promise<void> }>): void {
@@ -157,7 +164,7 @@ function contract(open: () => Promise<{ plane: ScopePlane; close(): Promise<void
     expect(await plane.claimGeneration("sess", "root", 1, "worker-b")).toBe(2);
     expect(await plane.releaseGeneration("sess", 2, "worker-a")).toBe(false);
     expect(await plane.releaseGeneration("sess", 2, "worker-b")).toBe(true);
-    expect(await plane.claimGeneration("sess", "root", 0, "worker-a")).toBe(1);
+    expect(await plane.claimGeneration("sess", "root", 0, "worker-a")).toBe(3);
     await opened.close();
   });
 
@@ -279,11 +286,84 @@ function contract(open: () => Promise<{ plane: ScopePlane; close(): Promise<void
 
 describe("scope plane", () => {
   contract(async () => ({
-    plane: createMemoryScopePlane(),
+    plane: createScopePlane(createMemoryRows()),
     async close() {
       return undefined;
     },
   }));
+
+  it("catches a parent update made while the discovered chain is being subscribed", async () => {
+    const rows = createMemoryRows();
+    let changed = false;
+    const plane = createScopePlane({
+      ...rows,
+      watch(table, match, onChange) {
+        if (!changed && table === "config" && "id" in match && match.id === "root") {
+          changed = true;
+          void rows.put("config", "root", { generation: 2, compactKeepTurns: 8 });
+        }
+        return rows.watch(table, match, onChange);
+      },
+    });
+    await plane.ensureScope({ id: "root", parentId: null, path: null });
+    await plane.ensureScope({ id: "child", parentId: "root", path: null });
+    await plane.publishConfig("root", 0, { compactKeepTurns: 4 });
+    let initial: ScopeView | null = null;
+    await new Promise<void>((resolve, reject) => {
+      const stop = plane.watch(
+        "child",
+        (view) => {
+          initial = view;
+          stop();
+          resolve();
+        },
+        reject,
+      );
+    });
+    expect(initial).toMatchObject({ config: { compactKeepTurns: 8 } });
+  });
+
+  it("identifies captured parent dependencies without claiming an atomic snapshot", async () => {
+    const plane = createScopePlane(createMemoryRows());
+    await plane.ensureScope({ id: "root", parentId: null, path: null });
+    await plane.ensureScope({ id: "child", parentId: "root", path: null });
+    const before = await plane.read("child");
+    await plane.putKv("root", "name", "new");
+    const changed = await plane.read("child");
+    expect(changed?.generation).toBe(before?.generation);
+    expect(changed?.revision).not.toBe(before?.revision);
+    expect(changed?.consistency).toBe("observed");
+    expect((await plane.read("child"))?.revision).toBe(changed?.revision);
+    await expect(plane.readSnapshot("child")).rejects.toThrow("does not support atomic snapshots");
+  });
+
+  it("does not take over a generation released between observation and compare-and-set", async () => {
+    const rows = createMemoryRows();
+    let releaseFirst = false;
+    const plane = createScopePlane({
+      ...rows,
+      async replaceIfMatch(table, id, expected, row) {
+        if (releaseFirst && table === "generations") {
+          releaseFirst = false;
+          await rows.replaceIfMatch(
+            table,
+            id,
+            { generation: 1, holder: "worker" },
+            { scopeId: "root", generation: 1, holder: "" },
+          );
+        }
+        return rows.replaceIfMatch(table, id, expected, row);
+      },
+    });
+    expect(await plane.claimGeneration("sess", "root", 0, "worker")).toBe(1);
+    releaseFirst = true;
+    expect(await plane.claimGeneration("sess", "root", 1, "replacement")).toBeNull();
+    expect(await plane.claimGeneration("sess", "root", 0, "worker")).toBe(2);
+    expect(await plane.releaseGeneration("sess", 1, "worker")).toBe(false);
+    await expect(
+      plane.writeOverviewOwned({ sessionId: "sess-1", scopeId: "child", generation: 1, holder: "worker" }, glance),
+    ).rejects.toThrow("does not support fenced writes");
+  });
 });
 
 describe("schemaSql", () => {

@@ -6,12 +6,7 @@
 import * as pew from "@inhuman.tools/plexus-expectations";
 
 import * as models from "./index.js";
+import { registerModelExports } from "./register-models.js";
 
-function keep(mod: Record<string, unknown>): void {
-  for (const value of Object.values(mod)) {
-    if (typeof value === "function") void (value as { modelName?: string }).modelName;
-  }
-}
-
-keep(models as Record<string, unknown>);
-keep(pew as Record<string, unknown>);
+registerModelExports(models);
+registerModelExports(pew);
