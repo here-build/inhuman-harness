@@ -202,8 +202,11 @@ export class SessionRuntime implements AsyncDisposable {
         if (previous !== input) throw new Error("commit operation id was already used for different input");
         return this.flush();
       }
-      if (this.#blocked !== null)
-        throw new SessionPersistenceError("retry the pending checkpoint before another mutation");
+      while (this.#blocked !== null) {
+        await this.flush();
+        this.#assertOwned();
+        signal?.throwIfAborted();
+      }
       runInAction(() => {
         this.#holds += 1;
       });
@@ -238,8 +241,10 @@ export class SessionRuntime implements AsyncDisposable {
         await this.flush();
         return saved.result;
       }
-      if (this.#blocked !== null)
-        throw new SessionPersistenceError("retry the pending checkpoint before admitting new work");
+      while (this.#blocked !== null) {
+        await this.flush();
+        this.#assertHost(host);
+      }
       runInAction(() => {
         this.#holds += 1;
       });
@@ -510,8 +515,10 @@ export class SessionRuntime implements AsyncDisposable {
   #command<T>(host: SessionCommandHost, apply: () => T): Promise<T> {
     return this.#serialize(async () => {
       this.#assertHost(host);
-      if (this.#blocked !== null)
-        throw new SessionPersistenceError("retry the pending checkpoint before admitting new work");
+      while (this.#blocked !== null) {
+        await this.flush();
+        this.#assertHost(host);
+      }
       runInAction(() => {
         this.#holds += 1;
       });

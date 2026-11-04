@@ -3,13 +3,7 @@ import { RegisteredToolsSet, SessionTurn } from "@inhuman.tools/harness-model/se
 import { onTestFinished, describe, expect, it } from "vitest";
 
 import type { SessionCommandHost } from "../../session/types.js";
-import {
-  SessionRuntime,
-  SessionOwnershipError,
-  SessionPersistenceError,
-  type SessionCheckpoint,
-  type SessionReceipt,
-} from "../index.js";
+import { SessionRuntime, SessionOwnershipError, type SessionCheckpoint, type SessionReceipt } from "../index.js";
 
 function commands(runtime: SessionRuntime): SessionCommandHost {
   return {
@@ -59,6 +53,212 @@ function open(store = stored()): SessionRuntime {
 }
 
 describe("portable session lifecycle and durable effects", () => {
+  it.each(["mutation", "admission", "command"] as const)(
+    "queues %s behind a healthy background checkpoint",
+    async (kind) => {
+      const store = stored();
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      let first = true;
+      const runtime = SessionRuntime.create("conversation", {
+        kind: "durable",
+        async commit(checkpoint) {
+          if (first) {
+            first = false;
+            entered.resolve();
+            await release.promise;
+          }
+          return store.durability.commit(checkpoint);
+        },
+      });
+      runtime.root.kvs.connection = "model";
+      runtime.recover();
+      runtime.activate();
+      onTestFinished(async () => {
+        release.resolve();
+        await runtime[Symbol.asyncDispose]();
+        runtime.session.destroy();
+      });
+      const background = runtime.flush();
+      await entered.promise;
+      let applied = false;
+      const host = {
+        ...commands(runtime),
+        applyBotNotice() {
+          applied = true;
+        },
+      };
+      const queued =
+        kind === "mutation"
+          ? runtime.commitMutation("next", "{}", () => {
+              applied = true;
+              runtime.root.kvs.next = "saved";
+            })
+          : kind === "admission"
+            ? runtime.admit(host, { prompt: "next" })
+            : runtime.compact(host);
+      let settled = false;
+      void queued.then(
+        () => {
+          settled = true;
+          return undefined;
+        },
+        () => {
+          settled = true;
+          return undefined;
+        },
+      );
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect({ applied, settled, head: runtime.root.head }).toEqual({ applied: false, settled: false, head: null });
+      release.resolve();
+      await background;
+      await queued;
+      expect(runtime.admissionHeld).toBe(false);
+      if (kind === "mutation") expect(runtime.root.kvs.next).toBe("saved");
+      if (kind === "admission") expect(runtime.root.head?.prompt).toBe("next");
+    },
+  );
+
+  it("queues parallel read tools behind a background save without dispatching them twice", async () => {
+    const store = stored();
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let first = true;
+    const runtime = SessionRuntime.create("conversation", {
+      kind: "durable",
+      async commit(checkpoint) {
+        if (first) {
+          first = false;
+          entered.resolve();
+          await release.promise;
+        }
+        return store.durability.commit(checkpoint);
+      },
+    });
+    runtime.recover();
+    runtime.activate();
+    onTestFinished(async () => {
+      release.resolve();
+      await runtime[Symbol.asyncDispose]();
+      runtime.session.destroy();
+    });
+    const background = runtime.flush();
+    await entered.promise;
+    const dispatches: string[] = [];
+    const reads = ["describe_tool", "list_saved_agents"].map((method) =>
+      runtime.effect(
+        method,
+        method,
+        "{}",
+        {
+          async invoke() {
+            dispatches.push(method);
+            return { kind: "success", payload: method };
+          },
+        },
+        (outcome) => {
+          if (outcome.kind === "success") runtime.root.kvs[method] = outcome.payload;
+        },
+      ),
+    );
+    const done = Promise.all(reads);
+    void done.catch(() => undefined);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(dispatches).toEqual([]);
+    release.resolve();
+    await background;
+    await done;
+    expect(dispatches.sort()).toEqual(["describe_tool", "list_saved_agents"]);
+    const restored = SessionRuntime.restore("conversation", store.bytes(), { kind: "memory" });
+    onTestFinished(async () => {
+      await restored[Symbol.asyncDispose]();
+      restored.session.destroy();
+    });
+    expect([restored.root.kvs.describe_tool, restored.root.kvs.list_saved_agents]).toEqual([
+      "describe_tool",
+      "list_saved_agents",
+    ]);
+  });
+
+  it("retries a failed checkpoint before a new mutation and never applies it while storage fails", async () => {
+    const store = stored();
+    const runtime = open(store);
+    store.fail("before-commit");
+    await expect(runtime.flush()).rejects.toThrow("storage refused commit");
+    let mutations = 0;
+    const mutate = () => {
+      mutations++;
+      runtime.root.kvs.next = "saved";
+    };
+    store.fail("before-commit");
+    await expect(runtime.commitMutation("next", "{}", mutate)).rejects.toThrow("storage refused commit");
+    expect({ mutations, held: runtime.admissionHeld }).toEqual({ mutations: 0, held: true });
+    await runtime.commitMutation("next", "{}", mutate);
+    await runtime.commitMutation("next", "{}", mutate);
+    expect({ mutations, held: runtime.admissionHeld }).toEqual({ mutations: 1, held: false });
+    const restored = SessionRuntime.restore("conversation", store.bytes(), { kind: "memory" });
+    onTestFinished(async () => {
+      await restored[Symbol.asyncDispose]();
+      restored.session.destroy();
+    });
+    expect(restored.root.kvs.next).toBe("saved");
+  });
+
+  it.each(["cancel", "replace"] as const)(
+    "does not apply a mutation after %s while awaiting a checkpoint",
+    async (kind) => {
+      const runtime = open();
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const isolated = new SessionRuntime(runtime.session, {
+        kind: "durable",
+        async commit(checkpoint) {
+          entered.resolve();
+          await release.promise;
+          return {
+            sessionId: checkpoint.sessionId,
+            incarnation: checkpoint.incarnation,
+            revision: checkpoint.revision,
+          };
+        },
+      });
+      isolated.recover();
+      isolated.activate();
+      onTestFinished(async () => {
+        release.resolve();
+        await isolated[Symbol.asyncDispose]();
+      });
+      const background = isolated.flush();
+      const backgroundResult = background.catch((error: unknown) => error);
+      await entered.promise;
+      const controller = new AbortController();
+      let applied = false;
+      const mutation = isolated.commitMutation(
+        "late",
+        "{}",
+        () => {
+          applied = true;
+        },
+        controller.signal,
+      );
+      const rejected = expect(mutation).rejects.toThrow(
+        kind === "cancel" ? "cancelled" : "session execution no longer owns this document",
+      );
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      if (kind === "cancel") controller.abort(new Error("cancelled"));
+      else {
+        const replacement = new SessionRuntime(runtime.session, { kind: "memory" });
+        onTestFinished(async () => {
+          await replacement[Symbol.asyncDispose]();
+        });
+      }
+      release.resolve();
+      await backgroundResult;
+      await rejected;
+      expect(applied).toBe(false);
+    },
+  );
+
   it("retains binding authority for parked drains and revokes it on disposal", async () => {
     const runtime = open();
     runtime.park();
@@ -237,8 +437,9 @@ describe("portable session lifecycle and durable effects", () => {
     store.fail("before-commit");
     await expect(runtime.cancel(commands(runtime), { turnId: turn.uuid })).rejects.toThrow("refused commit");
     expect({ cancelled: turn.cancelRequested, held: runtime.admissionHeld }).toEqual({ cancelled: true, held: true });
-    await expect(runtime.admit(commands(runtime), { prompt: "must wait for cancellation" })).rejects.toBeInstanceOf(
-      SessionPersistenceError,
+    store.fail("before-commit");
+    await expect(runtime.admit(commands(runtime), { prompt: "must wait for cancellation" })).rejects.toThrow(
+      "storage refused commit",
     );
     const unacknowledged = SessionRuntime.restore("conversation", store.bytes(), { kind: "memory" });
     onTestFinished(async () => {
