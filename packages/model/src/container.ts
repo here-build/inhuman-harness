@@ -1,5 +1,6 @@
 import { observable, runInAction } from "mobx";
 
+import { ReactiveAwareness, type AwarenessShape } from "./awareness.js";
 import { BrokenReferenceError } from "./errors.js";
 import { getModelMetadata } from "./metadata.js";
 import type { Model, ModelContainerLink } from "./model.js";
@@ -7,9 +8,14 @@ import { hydrateModel, serializeModel } from "./serialize.js";
 import { CONTAINER_LINK } from "./symbols.js";
 import type { ModelPatch, ModelPatchBatch, SerializedDocument, SerializedDocumentNode } from "./types.js";
 
-export class DocumentContainer<TRoot extends Model = Model> {
+export class DocumentContainer<
+  TRoot extends Model = Model,
+  TAwareness extends AwarenessShape = AwarenessShape,
+> {
   readonly root: TRoot;
+  readonly awareness: ReactiveAwareness<TAwareness>;
   @observable.ref accessor revision: number;
+  #destroyed = false;
 
   readonly #registry = new Map<string, Model>();
   readonly #listeners = new Set<(batch: ModelPatchBatch) => void>();
@@ -17,10 +23,21 @@ export class DocumentContainer<TRoot extends Model = Model> {
   #txDepth = 0;
   #isApplyingPatches = false;
 
-  constructor(root: TRoot, options?: { revision?: number }) {
+  constructor(root: TRoot, options?: { revision?: number; clientId?: number }) {
     this.root = root;
     this.revision = options?.revision ?? 0;
+    this.awareness = new ReactiveAwareness<TAwareness>(options?.clientId ?? 1);
     this.registerNode(root);
+  }
+
+  get isDestroyed(): boolean {
+    return this.#destroyed;
+  }
+
+  destroy(): void {
+    this.#destroyed = true;
+    this.#listeners.clear();
+    this.awareness.clearAll();
   }
 
   static fromSnapshot<T extends Model>(snapshot: SerializedDocument): DocumentContainer<T> {
@@ -49,6 +66,7 @@ export class DocumentContainer<TRoot extends Model = Model> {
 
     const link: ModelContainerLink = {
       isApplyingPatches: this.#isApplyingPatches,
+      awareness: this.awareness,
       recordPatch: (patch: ModelPatch) => this.recordPatch(patch),
       registerNode: (child: Model) => this.registerNode(child),
       transact: <T>(fn: () => T) => this.transact(fn),
@@ -67,6 +85,15 @@ export class DocumentContainer<TRoot extends Model = Model> {
         const list = (node as any)[field.propertyKey] as (Model | null | undefined)[] | undefined;
         if (Array.isArray(list)) {
           for (const child of list) {
+            if (child) {
+              this.registerNode(child);
+            }
+          }
+        }
+      } else if (field.kind === "childRecord") {
+        const rec = (node as any)[field.propertyKey] as Record<string, Model | undefined> | undefined;
+        if (rec && typeof rec === "object") {
+          for (const child of Object.values(rec)) {
             if (child) {
               this.registerNode(child);
             }
@@ -158,7 +185,17 @@ export class DocumentContainer<TRoot extends Model = Model> {
       if (patch.key != null) {
         const rec = (node as any)[patch.field];
         if (rec && typeof rec === "object") {
-          rec[patch.key] = patch.value;
+          if (stateMeta?.kind === "childRecord") {
+            if (patch.value == null) {
+              delete rec[patch.key];
+            } else {
+              const child = hydrateModel<Model>(patch.value as SerializedDocumentNode);
+              this.registerNode(child);
+              rec[patch.key] = child;
+            }
+          } else {
+            rec[patch.key] = patch.value;
+          }
         }
         return;
       }

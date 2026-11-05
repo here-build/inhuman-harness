@@ -1,38 +1,44 @@
-import { action } from "mobx";
+import { action, observable } from "mobx";
 
 import { auditModelClassOnce } from "./audit.js";
+import type { ReactiveAwareness } from "./awareness.js";
 import { getModelMetadata } from "./metadata.js";
 import { CONTAINER_LINK, HYDRATION_DATA } from "./symbols.js";
 import type { ModelPatch } from "./types.js";
 
 export interface ModelContainerLink {
   readonly isApplyingPatches?: boolean;
+  readonly awareness?: ReactiveAwareness<any>;
   recordPatch(patch: ModelPatch): void;
   registerNode(node: Model): void;
   transact<T>(fn: () => T): T;
 }
 
-export abstract class Model<TRow = any> {
+export abstract class Model<TRow = any, TParent = any> {
   readonly uuid: string;
+  @observable.ref accessor parent: TParent | null = null;
+  @observable.ref accessor parentFieldKey: string | number | null = null;
   [HYDRATION_DATA]?: Record<string, unknown>;
   [CONTAINER_LINK]?: ModelContainerLink;
 
-  constructor(props?: Partial<TRow> & Record<string, unknown>) {
+  constructor(props?: (Partial<TRow> & Record<string, unknown>) | symbol) {
     auditModelClassOnce(new.target);
 
-    if (props) {
-      this[HYDRATION_DATA] = props as Record<string, unknown>;
+    const recordProps = props != null && typeof props !== "symbol" ? (props as Record<string, unknown>) : undefined;
+    if (recordProps) {
+      this[HYDRATION_DATA] = recordProps;
     }
 
     let resolvedId: string | undefined;
 
-    if (typeof props?.uuid === "string" && props.uuid.length > 0) {
-      resolvedId = props.uuid;
-    } else if (props) {
+    if (typeof recordProps?.uuid === "string" && recordProps.uuid.length > 0) {
+      resolvedId = recordProps.uuid;
+    } else if (recordProps) {
       const meta = getModelMetadata(new.target);
       for (const col of meta.columns.values()) {
         if (col.primary) {
-          const val = props[col.propertyKey] !== undefined ? props[col.propertyKey] : props[col.columnName];
+          const val =
+            recordProps[col.propertyKey] !== undefined ? recordProps[col.propertyKey] : recordProps[col.columnName];
           if (typeof val === "string" && val.length > 0) {
             resolvedId = val;
             break;
@@ -42,6 +48,14 @@ export abstract class Model<TRow = any> {
     }
 
     this.uuid = resolvedId ?? crypto.randomUUID();
+  }
+
+  get container(): ModelContainerLink | null {
+    return this[CONTAINER_LINK] ?? null;
+  }
+
+  get plexus(): ModelContainerLink | null {
+    return this[CONTAINER_LINK] ?? null;
   }
 
   @action

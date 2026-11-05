@@ -24,7 +24,7 @@ export interface ColumnMetadata {
   readonly codec?: ColumnCodec<unknown, unknown>;
 }
 
-export type StateFieldKind = "scalar" | "ref" | "child" | "list" | "refList" | "childList" | "record";
+export type StateFieldKind = "scalar" | "ref" | "child" | "list" | "refList" | "childList" | "record" | "childRecord";
 
 export interface StateFieldMetadata {
   readonly propertyKey: string;
@@ -96,6 +96,7 @@ export interface SerializedDocumentNode {
   readonly refLists: Record<string, readonly string[]>;
   readonly children: Record<string, SerializedDocumentNode | null>;
   readonly childLists: Record<string, readonly SerializedDocumentNode[]>;
+  readonly childRecords?: Record<string, Record<string, SerializedDocumentNode>>;
 }
 
 export interface SerializedDocument {

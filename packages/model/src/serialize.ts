@@ -18,6 +18,7 @@ export function serializeModel(root: Model): SerializedDocumentNode {
   const refLists: Record<string, string[]> = {};
   const children: Record<string, SerializedDocumentNode | null> = {};
   const childLists: Record<string, SerializedDocumentNode[]> = {};
+  const childRecords: Record<string, Record<string, SerializedDocumentNode>> = {};
 
   for (const field of meta.stateFields.values()) {
     const val = (root as any)[field.propertyKey];
@@ -42,6 +43,16 @@ export function serializeModel(root: Model): SerializedDocumentNode {
       case "childList":
         childLists[field.propertyKey] = Array.isArray(val) ? val.map((m: Model) => serializeModel(m)) : [];
         break;
+      case "childRecord": {
+        const rec: Record<string, SerializedDocumentNode> = {};
+        if (val && typeof val === "object") {
+          for (const [k, child] of Object.entries(val as Record<string, Model | undefined>)) {
+            if (child) rec[k] = serializeModel(child);
+          }
+        }
+        childRecords[field.propertyKey] = rec;
+        break;
+      }
       case "record":
         state[field.propertyKey] = val && typeof val === "object" ? { ...val } : {};
         break;
@@ -57,6 +68,7 @@ export function serializeModel(root: Model): SerializedDocumentNode {
     refLists,
     children,
     childLists,
+    childRecords,
   };
 }
 
@@ -85,6 +97,16 @@ function materializeNode(node: SerializedDocumentNode, registry: Map<string, Mod
 
   for (const [key, childList] of Object.entries(node.childLists)) {
     props[key] = childList.map((childNode) => materializeNode(childNode, registry));
+  }
+
+  if (node.childRecords) {
+    for (const [key, rec] of Object.entries(node.childRecords)) {
+      const hydratedRec: Record<string, Model> = {};
+      for (const [k, childNode] of Object.entries(rec)) {
+        hydratedRec[k] = materializeNode(childNode, registry);
+      }
+      props[key] = hydratedRec;
+    }
   }
 
   const instance = new ctor(props) as Model;
@@ -140,6 +162,14 @@ function linkReferences(node: SerializedDocumentNode, registry: Map<string, Mode
   for (const childList of Object.values(node.childLists)) {
     for (const childNode of childList) {
       linkReferences(childNode, registry);
+    }
+  }
+
+  if (node.childRecords) {
+    for (const rec of Object.values(node.childRecords)) {
+      for (const childNode of Object.values(rec)) {
+        linkReferences(childNode, registry);
+      }
     }
   }
 }
