@@ -2,11 +2,9 @@
  * Turn admission identity survives reconstruction; context follows the
  * owning turn, not session head.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { type WorkContainer } from "@inhuman.tools/plexus-expectations";
-import { beforeEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
+import { describe, expect, it } from "vitest";
 
 import { documentRoot } from "../document-root.js";
 import { evalProgramOf, findEvalTurnByRequestId, findTurnById, hostingTurnOf } from "../eval-context.js";
@@ -43,27 +41,22 @@ function evalContextOfJob(root: SessionRoot, job: WorkContainer) {
 
 /** The `Agent.head` child edge reaches the session. */
 function headOwned(turn: SessionTurn): boolean {
-  return turn.parentField === "head" && turn.rootAncestor?.isRoot === true;
+  return turn.parentFieldKey === "head" && documentRoot(turn) != null;
 }
 
 function replicaOf(owner: SessionPlexus): { readonly root: SessionPlexus["root"]; [Symbol.dispose](): void } {
-  const doc = new Y.Doc({ guid: owner.doc.guid });
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(owner.doc));
-  const plexus = SessionPlexus.connect(doc);
+  const plexus = SessionPlexus.fromSnapshot(owner.toSnapshot());
   return {
     get root() {
       return plexus.root;
     },
     [Symbol.dispose]() {
       plexus.destroy();
-      doc.destroy();
     },
   };
 }
 
 describe("SessionTurn admission and reconstruction", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("skipped continuations survive reconstruction without reopening a finished turn", () => {
     const owner = SessionPlexus.create("skipped-continuation", "/tmp/skipped-continuation");
     try {
@@ -227,7 +220,8 @@ describe("SessionTurn admission and reconstruction", () => {
     });
     source.root.head = turn;
     source.root.tip = turn;
-    turn.__yjsFieldsMap__?.clearParentData();
+    (turn as unknown as { parent: unknown }).parent = null;
+    (turn as unknown as { parentFieldKey: unknown }).parentFieldKey = null;
     using replica = replicaOf(source);
     const head = replica.root.head;
     expect({
@@ -236,14 +230,13 @@ describe("SessionTurn admission and reconstruction", () => {
         head instanceof SessionTurn
           ? {
               live: headOwned(head),
-              field: head.parentField,
-              root: head.rootAncestor === replica.root,
-              persisted: head.__yjsFieldsMap__?.hasParent === true,
+              field: head.parentFieldKey,
+              root: documentRoot(head) === replica.root,
             }
           : null,
     }).toEqual({
       sourceLive: false,
-      replica: { live: true, field: "head", root: true, persisted: true },
+      replica: { live: true, field: "head", root: true },
     });
     source.destroy();
   });
@@ -270,7 +263,7 @@ describe("SessionTurn admission and reconstruction", () => {
     const replicaHead = replica.root.head;
     const replicaPrior = replicaHead instanceof SessionTurn ? replicaHead.turnTail : null;
     const owned = {
-      live: headOwned(head) && head.rootAncestor === plexus.root,
+      live: headOwned(head) && documentRoot(head) === plexus.root,
       owner: head.parent?.constructor.name ?? null,
       recipeLink: head.parent?.parent ?? null,
     };
@@ -281,7 +274,8 @@ describe("SessionTurn admission and reconstruction", () => {
       prior: { live: headOwned(prior), parent: prior.parent, tail: head.turnTail === prior },
       leaf: documentRoot(leaf) === plexus.root,
       replica: {
-        live: replicaHead instanceof SessionTurn && headOwned(replicaHead) && replicaHead.rootAncestor === replica.root,
+        live:
+          replicaHead instanceof SessionTurn && headOwned(replicaHead) && documentRoot(replicaHead) === replica.root,
         priorLive: replicaPrior instanceof SessionTurn && headOwned(replicaPrior),
       },
       inbound: inbound instanceof SessionTurn && headOwned(inbound) && inbound !== head && !headOwned(head),
@@ -305,8 +299,6 @@ describe("SessionTurn admission and reconstruction", () => {
 });
 
 describe("tail walks", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("fold the spine oldest first without recursing per turn", () => {
     const genesis = new SessionSystemPrompt({ constitution: prompt.system`base`, env: { cwd: "/a" } });
     const tools = new RegisteredToolsSet();

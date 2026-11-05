@@ -2,13 +2,13 @@
  * Worker return. Completes when kernel has written the Call. Mints only
  * if this session has an open `agentCallbacks` row for the requestId.
  */
-import { syncing } from "@here.build/plexus";
+import { model } from "@inhuman.tools/model";
 import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ToolCallJob } from "./ToolCallJob.js";
 
-@syncing("harness:job:agent-callback")
+@model("harness:job:agent-callback")
 export class AgentCallbackJob extends ToolCallJob {
   override readonly owner: JobEffectOwner = "agent-calls";
   override readonly intent: string =

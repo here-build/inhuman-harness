@@ -36,4 +36,5 @@ export * from "./kernel/ProjectRoot.js";
 export * from "./kernel/ProjectPlexus.js";
 export * from "./kernel/CommandSpec.js";
 export * from "./kernel/KernelPlexus.js";
+export * from "./records.js";
 export * from "./session/index.js";

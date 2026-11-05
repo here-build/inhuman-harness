@@ -1,7 +1,7 @@
-import { Plexus } from "@here.build/plexus";
 import { describe, expect, it } from "vitest";
 
 import { isReadRootable, readRootOf, underReadRoot } from "../read-roots.js";
+import { SessionPlexus } from "../SessionPlexus.js";
 import { SessionRoot } from "../SessionRoot.js";
 
 describe("read roots", () => {
@@ -34,7 +34,7 @@ describe("read roots", () => {
   });
   it("SessionRoot.addReadRoot records a session root and refuses a fenced one", () => {
     const root = new SessionRoot({ sessionId: "s", path: "/w/proj" });
-    const plexus = Plexus.bootstrap(root);
+    const plexus = SessionPlexus.bootstrap(root);
     expect(root.addReadRoot("/opt/shared")).toBe(true);
     expect(root.addReadRoot("/Users")).toBe(false);
     expect(Object.keys(root.readRoots)).toEqual(["/opt/shared"]);

@@ -1,6 +1,5 @@
 import { prompt } from "@inhuman.tools/harness-commons";
 import { expect, it, onTestFinished } from "vitest";
-import * as Y from "yjs";
 
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
@@ -40,9 +39,7 @@ it("retains tool and program policies when the session is reloaded", () => {
     doneWork: [tool, program],
     queue: [],
   });
-  const doc = new Y.Doc();
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(session.doc));
-  const restored = SessionPlexus.connect(doc);
+  const restored = SessionPlexus.fromSnapshot(session.toSnapshot());
   onTestFinished(() => {
     restored.destroy();
     session.destroy();

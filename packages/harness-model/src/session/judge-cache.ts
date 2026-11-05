@@ -30,7 +30,7 @@ export function owningTurnId(job: ToolCallJob): string | null {
     if (seen.has(node)) return null;
     seen.add(node);
     const parent: unknown = node.parent;
-    if (parent instanceof SessionTurn) return parent.__doc__ == null ? null : parent.uuid;
+    if (parent instanceof SessionTurn) return parent.container == null ? null : parent.uuid;
     node = parent !== null && typeof parent === "object" && "parent" in parent ? (parent as { parent: unknown }) : null;
   }
   return null;

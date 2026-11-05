@@ -1,5 +1,5 @@
-import { syncing } from "@here.build/plexus";
 import { prompt, asUserPrompt, type SystemPrompt, type UserPrompt } from "@inhuman.tools/harness-commons";
+import { model as modelDecorator, state } from "@inhuman.tools/model";
 import { WorkExpectation } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
@@ -96,107 +96,107 @@ export function cacheStatusLog(chunk: CompletionExpectation): string {
   return chunk.cacheHit ? `cache hit · ${cached} cached` : `cache miss · ${cached} cached`;
 }
 
-@syncing("harness:expectation:completion")
+@modelDecorator("harness:expectation:completion")
 export class CompletionExpectation extends WorkExpectation<CompletionResult, CompletionReport> {
-  @syncing accessor background: boolean = false;
+  @state accessor background: boolean = false;
   /**
    * Stored user line for a session round. Isolated rounds leave this empty
    * and keep the messages; the line to read is {@link userPrompt}. Holds only the
    * head once the line went to the blob bucket ({@link promptTextBlobJson}).
    */
-  @syncing accessor promptText: UserPrompt = prompt.user``;
+  @state accessor promptText: UserPrompt = prompt.user``;
   /**
    * The line's blob reference (a `StoredBlob` as JSON) when it was too large to stay inline;
    * {@link promptText} then holds the head. Null while the line is inline, and in documents
    * from before lines could leave.
    */
-  @syncing accessor promptTextBlobJson: string | null = null;
+  @state accessor promptTextBlobJson: string | null = null;
   /** Isolated completions use only promptMessages, without ambient session context or tools. */
-  @syncing accessor completionMode: "session" | "isolated" = "session";
+  @state accessor completionMode: "session" | "isolated" = "session";
   /** Ordered authored messages. The joined user line is {@link userPrompt}. */
-  @syncing.child.list accessor promptMessages: PromptMessage[] = [];
+  @state.childList accessor promptMessages: PromptMessage[] = [];
   /** Host system line for this round only. Empty = omit. */
-  @syncing accessor systemNote: SystemPrompt = prompt.system``;
-  @syncing accessor model: string = "";
+  @state accessor systemNote: SystemPrompt = prompt.system``;
+  @state accessor model: string = "";
   /**
    * Canonical reasoning effort for this round. Null = omit (vendor default).
    * `none` disables when the dialect allows; otherwise the driver clamps.
    */
-  @syncing accessor reasoningEffort: ReasoningEffort | null = null;
+  @state accessor reasoningEffort: ReasoningEffort | null = null;
   /** Compiled JSON Schema text. Null = unstructured. */
-  @syncing accessor responseSchemaJson: string | null = null;
+  @state accessor responseSchemaJson: string | null = null;
 
   /** JSON Schema for this round's response. Null is unstructured. */
   @serializingInto("responseSchemaJson")
   accessor responseSchema: ReadonlyDeep<Record<string, unknown>> | null = null;
 
-  @syncing accessor responseText: string = "";
-  @syncing accessor responseThought: string = "";
+  @state accessor responseText: string = "";
+  @state accessor responseThought: string = "";
   /**
    * How {@link responseThought} was produced. `raw` = as-is CoT;
    * `summary` = provider summary. Null = none or unknown.
    */
-  @syncing accessor responseThoughtKind: "raw" | "summary" | null = null;
+  @state accessor responseThoughtKind: "raw" | "summary" | null = null;
   /**
    * Responses `reasoning.encrypted_content` for this round. Empty on Chat
    * Completions. Echoed on the next Responses input with `summary` (required);
    * item `id` stays off the wire (`store: false` 400s unknown ids).
    */
-  @syncing accessor responseReasoningEncrypted: string = "";
-  @syncing.child.list accessor responseCalls: ResponseCall[] = [];
-  @syncing accessor failReason: string | null = null;
+  @state accessor responseReasoningEncrypted: string = "";
+  @state.childList accessor responseCalls: ResponseCall[] = [];
+  @state accessor failReason: string | null = null;
   /**
    * The provider's stop reason for the answer: `stop`, `tool_calls`, `length`,
    * `content_filter`. Empty until the provider reports one.
    */
-  @syncing accessor finishReason: string = "";
+  @state accessor finishReason: string = "";
   /** Transient-error retry budget in force, recorded when the round starts. 0 is no limit. */
-  @syncing accessor retryMaxMs: number = 0;
-  @syncing accessor retryMaxAttempts: number = 0;
+  @state accessor retryMaxMs: number = 0;
+  @state accessor retryMaxAttempts: number = 0;
   /** Window occupancy after this call — a gauge, not a spend weight. Null until usage reports it. */
-  @syncing accessor totalTokens: number | null = null;
+  @state accessor totalTokens: number | null = null;
   /** Prefix-cache *read* size. 0 until reported or on miss. Included in input, not extra. */
-  @syncing accessor cachedTokens: number = 0;
+  @state accessor cachedTokens: number = 0;
   /** Prompt/input tokens. Null until usage reports them. Cache-read is included. */
-  @syncing accessor inputTokens: number | null = null;
+  @state accessor inputTokens: number | null = null;
   /** Completion/output tokens. Null until usage reports them. Reasoning is a subset, not extra. */
-  @syncing accessor outputTokens: number | null = null;
+  @state accessor outputTokens: number | null = null;
   /** Cache-creation / cache-write tokens. Null until usage reports them. */
-  @syncing accessor cacheWriteTokens: number | null = null;
+  @state accessor cacheWriteTokens: number | null = null;
   /** Thinking/reasoning tokens (subset of output). Null until usage reports them. */
-  @syncing accessor reasoningTokens: number | null = null;
+  @state accessor reasoningTokens: number | null = null;
   /**
    * Provider-billed USD for this round. Null until usage reports a cost.
    * 0 is free, not omitted. Never list-price fallback.
    */
-  @syncing accessor costUsd: number | null = null;
+  @state accessor costUsd: number | null = null;
   /**
    * Whether this round's usage reported a prefix-cache hit.
    * Null = provider omitted `cached_tokens` (do not compare).
    */
-  @syncing accessor cacheHit: boolean | null = null;
+  @state accessor cacheHit: boolean | null = null;
   /**
    * Whether a hit was expected when the round was sent: a prior live-tape
    * completion still within TTL, and this round did not follow a cutoff.
    */
-  @syncing accessor expectedCacheHit: boolean = false;
+  @state accessor expectedCacheHit: boolean = false;
   /** Model window. Null until usage reports one. */
-  @syncing accessor contextLimit: number | null = null;
+  @state accessor contextLimit: number | null = null;
   /** Epoch ms. `warmUntil` is the Date face; Plexus cannot store Date. */
-  @syncing accessor warmUntilMs: number | null = null;
+  @state accessor warmUntilMs: number | null = null;
   /**
    * Epoch ms. Write-once. When speech first arrives, or on settlement if
    * there was never speech. Reasoning duration is this minus `startedAtMs`,
    * not the completion's end.
    */
-  @syncing accessor thoughtEndedAtMs: number | null = null;
-  @syncing.list accessor messages: CompletionMessage[] = [];
+  @state accessor thoughtEndedAtMs: number | null = null;
+  @state.list accessor messages: CompletionMessage[] = [];
   /**
    * R3. The retention clock read once at round open:
    * `{at: <completion uuid>, reason, coldByMs?, freedTokens?}`. Empty =
    * unstamped (no deep expiry). The projection reads only `at`.
    */
-  @syncing accessor retentionClockJson: string = "";
+  @state accessor retentionClockJson: string = "";
 
   /**
    * User line. Authored user messages win, so an isolated round does not
@@ -293,7 +293,7 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
    * Clear the previous attempt's wire. `expectedCacheHit` is decided by the
    * caller — this method must not walk the spine.
    */
-  @syncing.action
+  @state.action
   beginAttempt(expectedCacheHit: boolean): void {
     this.setResponseCalls([]);
     this.responseReasoningEncrypted = "";
@@ -311,7 +311,7 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
     this.expectedCacheHit = expectedCacheHit;
   }
 
-  @syncing.action
+  @state.action
   stampAnswer(next: {
     readonly calls: readonly ResponseCall[];
     readonly text: string;
@@ -327,7 +327,7 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
   }
 
   /** Record the retry budget once, when the round is first driven. */
-  @syncing.action
+  @state.action
   stampRetryLimits(limits: { readonly maxMs: number; readonly maxAttempts: number }): void {
     if (this.retryMaxMs === 0) this.retryMaxMs = limits.maxMs;
     if (this.retryMaxAttempts === 0) this.retryMaxAttempts = limits.maxAttempts;

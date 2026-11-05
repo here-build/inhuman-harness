@@ -1,6 +1,6 @@
 import { action, observable, observe, runInAction } from "mobx";
 
-import { registerStateMetadata } from "./metadata.js";
+import { getModelMetadata, registerStateMetadata } from "./metadata.js";
 import type { Model } from "./model.js";
 import { serializeModel } from "./serialize.js";
 import { CONTAINER_LINK, HYDRATION_DATA } from "./symbols.js";
@@ -101,9 +101,28 @@ state.ref = function stateRef<This, TValue extends Model | null>(
 
 function attachParent(child: unknown, parent: unknown, key: string | number | null): void {
   if (child && typeof child === "object" && "parent" in child) {
+    const ctor = (child as object).constructor;
+    const meta = ctor ? getModelMetadata(ctor) : undefined;
+    if (meta?.stateFields?.has("parent")) {
+      return;
+    }
     runInAction(() => {
       (child as Model).parent = parent;
       (child as Model).parentFieldKey = key;
+    });
+  }
+}
+
+function detachParent(child: unknown): void {
+  if (child && typeof child === "object" && "parent" in child) {
+    const ctor = (child as object).constructor;
+    const meta = ctor ? getModelMetadata(ctor) : undefined;
+    if (meta?.stateFields?.has("parent")) {
+      return;
+    }
+    runInAction(() => {
+      (child as Model).parent = null;
+      (child as Model).parentFieldKey = null;
     });
   }
 }
@@ -126,6 +145,9 @@ function stateChildImpl<This, TValue extends Model | null>(
     },
     set(this: This, value: TValue): void {
       const oldVal = getter.call(this);
+      if (oldVal !== value && oldVal) {
+        detachParent(oldVal);
+      }
       attachParent(value, this, propertyKey);
       setter.call(this, value);
       if (oldVal !== value) {

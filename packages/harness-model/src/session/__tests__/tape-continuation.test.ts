@@ -1,9 +1,8 @@
 /**
  * CompletionJob / Compact `.turnTail` is continuation, not parent.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { CompletionExpectation, owningTurn } from "../expectations/CompletionExpectation.js";
 import { CompactJob } from "../jobs/CompactJob.js";
@@ -19,8 +18,6 @@ function pew(text: string): CompletionExpectation {
 }
 
 describe("tape continuation", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("stamps predecessor on construct and enqueue; intern and remainder stay off-spine", () => {
     const plexus = SessionPlexus.create("tape-tail");
     try {

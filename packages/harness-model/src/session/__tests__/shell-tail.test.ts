@@ -2,20 +2,16 @@
  * Two live shells share one awareness lane. A lane per job uuid exhausts
  * the 64-cap and crashes the daemon on the 65th announce.
  */
-import { applyAwarenessUpdate, encodeAwarenessUpdate, PlexusAwareness, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { SHELL_TAILS_LANE } from "@inhuman.tools/plexus-expectations";
 import { reaction } from "mobx";
-import { beforeEach, expect, it, onTestFinished } from "vitest";
-import * as Y from "yjs";
+import { expect, it, onTestFinished } from "vitest";
 
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
 import { SessionPlexus } from "../SessionPlexus.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { reportShellTail, retractShellTail, shellTailOf } from "../shell-tail.js";
 import { SessionTurn } from "../turn/session-turn.js";
-
-beforeEach(() => resetLocalIDs());
 
 function mount(plexus: SessionPlexus, ...jobs: SystemToolJob[]): void {
   const turn = new SessionTurn({
@@ -72,11 +68,7 @@ it("a homed tail is MobX-observable through the awareness lane", () => {
 
 it("a peer frame is the tail until this base reports", () => {
   const plexus = SessionPlexus.create("shell-tail-peer");
-  const doc = new Y.Doc();
-  const peer = new PlexusAwareness(doc);
   onTestFinished(() => {
-    peer.destroy();
-    doc.destroy();
     plexus.destroy();
   });
   const job = new SystemToolJob({ toolCallId: "u", name: "shell", argsJson: "{}" });
@@ -89,8 +81,8 @@ it("a peer frame is the tail until this base reports", () => {
     },
     { fireImmediately: true },
   );
-  peer.setField(SHELL_TAILS_LANE, { [job.uuid]: { text: "peer", totalBytes: 4 } });
-  applyAwarenessUpdate(plexus.awareness, encodeAwarenessUpdate(peer, [...peer.meta.keys()]), "remote");
+  const peerClientId = 2;
+  plexus.awareness.setField(SHELL_TAILS_LANE, { [job.uuid]: { text: "peer", totalBytes: 4 } }, peerClientId);
   reportShellTail(job, { text: "local", totalBytes: 1 });
   stop();
   expect(seen).toEqual([null, "peer", "local"]);

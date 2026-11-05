@@ -2,7 +2,7 @@
  * One URL→markdown attempt. Rides the web-extract connection named `connectionId`.
  * Settlement stamps the enclosing ToolCallJob receipt. Seal is the Job executor.
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { WorkExpectation, type EndCause } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
@@ -27,11 +27,11 @@ export type WebExtractResult = {
   readonly value?: WebExtractValue;
 };
 
-@syncing("harness:expectation:web-extract")
+@model("harness:expectation:web-extract")
 export class WebExtractExpectation extends WorkExpectation<WebExtractResult, WebExtractResult> {
-  @syncing accessor url: string = "";
-  @syncing accessor charLimit: number = 15_000;
-  @syncing private accessor valueJson: string | null = null;
+  @state accessor url: string = "";
+  @state accessor charLimit: number = 15_000;
+  @state private accessor valueJson: string | null = null;
 
   constructor(
     props:
@@ -59,7 +59,7 @@ export class WebExtractExpectation extends WorkExpectation<WebExtractResult, Web
     sealEnclosingToolCall(this, snapOf(result));
   }
 
-  @syncing.action
+  @state.action
   override fail(cause: EndCause, detail: string, outcomeReport: string): boolean {
     const wrote = super.fail(cause, detail, outcomeReport);
     if (wrote) {

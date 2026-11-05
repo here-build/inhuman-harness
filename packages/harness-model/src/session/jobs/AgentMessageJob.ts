@@ -2,13 +2,13 @@
  * A2A send (name or id). Completes when the target turn is written.
  * No `agentCallbacks` row. Not a DAG edge.
  */
-import { syncing } from "@here.build/plexus";
+import { model } from "@inhuman.tools/model";
 import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ToolCallJob } from "./ToolCallJob.js";
 
-@syncing("harness:job:agent-message")
+@model("harness:job:agent-message")
 export class AgentMessageJob extends ToolCallJob {
   override readonly owner: JobEffectOwner = "agent-calls";
   override readonly intent: string =

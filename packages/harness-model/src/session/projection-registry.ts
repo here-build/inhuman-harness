@@ -2,7 +2,6 @@
  * Kernel-owned projection formulas. Bound per session root — not a process Map.
  * `install` is the only writer: clear + reseed so a disabled pack drops out of the projection.
  */
-import { docPlexus } from "@here.build/plexus/internals";
 import { action, observable } from "mobx";
 
 import type { HostPluginProjection } from "./trajectory-projection.js";
@@ -62,11 +61,9 @@ export function bindSessionProjections(root: object, registry: PluginProjectionR
 function rootOf(node: object | null | undefined): object | undefined {
   if (node == null) return undefined;
   if (registriesByRoot.has(node)) return node;
-  const doc = (node as { readonly __doc__?: unknown }).__doc__;
-  if (doc != null) {
-    const homed = docPlexus.get(doc as never)?.root;
-    if (homed != null) return homed;
-  }
+  const container = (node as { readonly container?: { container?: { root?: object } } }).container;
+  const homed = container?.container?.root;
+  if (homed != null) return homed;
   type Parented = { readonly parent?: unknown };
   let cell: Parented | null = node as Parented;
   const seen = new Set<object>();

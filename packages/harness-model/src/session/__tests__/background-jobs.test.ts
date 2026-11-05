@@ -1,6 +1,5 @@
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import { autorun } from "mobx";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { liveBackgroundJobs, liveJobsCheckIn, programKind } from "../background-jobs.js";
 import { AgentCallJob } from "../jobs/AgentCallJob.js";
@@ -8,13 +7,12 @@ import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
 import { programKindNow } from "../program-kind.js";
 import { SCHEME_WATCH_TOOL_NAME } from "../scheme-syntax.js";
+import { SessionPlexus } from "../SessionPlexus.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
 import { attached } from "./_helpers/fixtures.js";
 
 describe("background jobs", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("classifies every host call, and leaves the job unsettled until the reader finishes", async () => {
     const shellExpr = '(shell "echo hi")';
     const shell = new ProgrammaticJob({ argsJson: JSON.stringify({ expr: shellExpr }) });
@@ -157,7 +155,7 @@ describe("background jobs", () => {
 
   it("lists a live background program", async () => {
     const session = attached({ sessionId: "s-jobs", path: "/tmp/j" });
-    const plexus = Plexus.bootstrap(session);
+    const plexus = SessionPlexus.bootstrap(session);
     const bag = new ProgrammaticJob({
       toolCallId: "job-scheme",
       toolName: "scheme_repl",

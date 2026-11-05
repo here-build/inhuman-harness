@@ -1,5 +1,4 @@
-import { resetLocalIDs } from "@here.build/plexus";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { liveBackgroundJobs } from "../background-jobs.js";
 import { AgentCallJob } from "../jobs/AgentCallJob.js";
@@ -9,8 +8,6 @@ import { SuccessfulOutcome } from "../jobs/CallOutcome.js";
 import { applyCancelReceipt, applyDenyReceipt, cancelUnstarted } from "../outcome-receipts.js";
 
 describe("call ownership", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("keeps bot acceptance separate from terminal reply and uses shared receipts", () => {
     const bot = new BotCallJob({ botName: "review", toolCallId: "bot-1", background: true, voidLegal: false });
     expect(bot.acceptPreparedInput({ message: "check" }, "review-session")).toBe(true);

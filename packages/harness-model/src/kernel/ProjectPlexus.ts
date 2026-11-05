@@ -1,11 +1,8 @@
 /**
- * Path is the project identity. The Y.Doc guid is minted (nanoid), not
- * hashed from the path — a hash pulled `node:crypto` and made the
- * browser recompute an id the room already has (`?path=`).
+ * Path is the project identity.
  */
-import { Plexus, type AwarenessShape, type PlexusOptions } from "@here.build/plexus";
+import { DocumentContainer, type AwarenessShape, type SerializedDocument } from "@inhuman.tools/model";
 import { nanoid } from "nanoid";
-import * as Y from "yjs";
 
 import { ProjectRoot } from "./ProjectRoot.js";
 
@@ -15,13 +12,45 @@ export function mintProjectDocGuid(): string {
   return `${PROJECT_DOC_KIND}:${nanoid()}`;
 }
 
-export class ProjectPlexus extends Plexus<ProjectRoot, AwarenessShape> {
-  static connect(doc: Y.Doc, options?: PlexusOptions): ProjectPlexus {
-    return super.connect(doc, options) as ProjectPlexus;
+export type ProjectPlexusCreateOptions = {
+  readonly clientId?: number;
+  readonly revision?: number;
+};
+
+export class ProjectDocument extends DocumentContainer<ProjectRoot, AwarenessShape> {
+  static override fromSnapshot(snapshot: SerializedDocument): ProjectDocument {
+    const doc = DocumentContainer.fromSnapshot<ProjectRoot>(snapshot);
+    return new ProjectDocument(doc.root, { revision: snapshot.revision });
   }
 
-  static create(path: string, doc?: Y.Doc): ProjectPlexus {
-    const guid = doc?.guid ?? mintProjectDocGuid();
-    return super.bootstrap(new ProjectRoot({ path }), guid, doc ?? new Y.Doc({ guid })) as ProjectPlexus;
+  static create(path: string, options?: ProjectPlexusCreateOptions): ProjectDocument {
+    const root = new ProjectRoot({ path });
+    return new ProjectDocument(root, { revision: options?.revision, clientId: options?.clientId });
+  }
+
+  static bootstrap(
+    root: ProjectRoot,
+    _documentId?: string,
+    _doc?: unknown,
+    options?: ProjectPlexusCreateOptions,
+  ): ProjectDocument {
+    return new ProjectDocument(root, { revision: options?.revision, clientId: options?.clientId });
+  }
+
+  static connect(
+    source: ProjectDocument | SerializedDocument,
+    _options?: { readOnly?: boolean; clientId?: number },
+  ): ProjectDocument {
+    const snapshot = source instanceof DocumentContainer ? source.toSnapshot() : source;
+    const replica = ProjectDocument.fromSnapshot(snapshot);
+    if (source instanceof DocumentContainer) {
+      source.onPatch((batch) => {
+        replica.applyPatchBatch(batch);
+      });
+    }
+    return replica;
   }
 }
+
+export const ProjectPlexus = ProjectDocument;
+export type ProjectPlexus = ProjectDocument;

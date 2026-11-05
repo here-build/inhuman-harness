@@ -3,7 +3,7 @@
  * BODY is the Job executor after an allow-side guard.
  * {@link FileMutateToolJob} is the write_file / edit_file slice.
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { type JobEffectOwner, type JobKind, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 
 import { AgentCallNotification, rememberJobResult, RESULT_NOTE_CHARS } from "./AgentCallNotification.js";
@@ -11,7 +11,7 @@ import { ToolCallJob, type ToolCallJobProps } from "./ToolCallJob.js";
 import { parseStoredBlob, type PriorText } from "../blob-ref.js";
 import { finishedText, outcomeText } from "../tool-outcome.js";
 
-@syncing("harness:job:system-tool")
+@model("harness:job:system-tool")
 export class SystemToolJob extends ToolCallJob {
   override readonly owner: JobEffectOwner = "tool-runtime";
   override readonly intent: string =
@@ -30,10 +30,10 @@ export class SystemToolJob extends ToolCallJob {
   override readonly intentRequired: boolean = true;
 
   /** Background shell completion. Calls and programs use their notify list instead. */
-  @syncing.child accessor resultNote: AgentCallNotification | null = null;
+  @state.child accessor resultNote: AgentCallNotification | null = null;
 
   /** Every terminal path ends here, so a background shell posts its result once. */
-  @syncing.action
+  @state.action
   override markComplete(now = Date.now()): void {
     if (!this.completed) {
       const snap = this.outcomeSnap;
@@ -68,7 +68,7 @@ export class SystemToolJob extends ToolCallJob {
  *
  * Leftover docs stay `harness:job:system-tool`. Paint falls back to tape.
  */
-@syncing("harness:job:file-mutate")
+@model("harness:job:file-mutate")
 export class FileMutateToolJob extends SystemToolJob {
   override readonly owner: JobEffectOwner = "tool-runtime";
   override readonly intent: string =
@@ -87,23 +87,23 @@ export class FileMutateToolJob extends SystemToolJob {
    * write_file: path was a file at admit. Null = not stamped (old docs).
    * Paint injects this as pretty-mcp `existed`; BODY may still door.
    */
-  @syncing accessor existed: boolean | null = null;
+  @state accessor existed: boolean | null = null;
   /**
    * UTF-8 prior bytes at admit / apply, when they fit inline (`BLOB_INLINE_MAX_CHARS`).
    * Null = missing, binary, over the read budget, or externalized to {@link priorBlobJson}.
    */
-  @syncing accessor priorContent: string | null = null;
+  @state accessor priorContent: string | null = null;
   /**
    * The prior text's blob reference (a `StoredBlob` as JSON) when it was too large to stay
    * inline. At most one of {@link priorContent} and this is non-null. Old documents have neither
    * or only `priorContent`.
    */
-  @syncing accessor priorBlobJson: string | null = null;
+  @state accessor priorBlobJson: string | null = null;
   /**
    * 1-based file line of `edit_file` `old_string`. Null when the span is missing or already line 1.
    * Survives when the TUI replica has the span but not {@link priorContent}.
    */
-  @syncing accessor priorLineStart: number | null = null;
+  @state accessor priorLineStart: number | null = null;
 
   /** The captured prior text, inline or by reference. Null when none was captured. */
   get prior(): PriorText | null {

@@ -1,7 +1,6 @@
 /** Context request validation and successful legacy-call projection. */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 
 import { CONTEXT_NEED_FOCUS_MAX_CHARS, contextNeedAdmitSchema } from "../../schemas/index.js";
 import { CONTEXT_NEED_TOOL_NAME, type ContextNeed } from "../context-need.js";
@@ -10,8 +9,6 @@ import { ContextNeedToolJob } from "../jobs/ContextNeedToolJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
-
-beforeEach(() => resetLocalIDs());
 
 function need(id: string, args: Record<string, unknown>): ContextNeedToolJob {
   return new ContextNeedToolJob({

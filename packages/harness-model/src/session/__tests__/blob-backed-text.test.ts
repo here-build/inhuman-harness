@@ -3,10 +3,8 @@
  * completion's stored line (`promptTextBlobJson`) hold a blob reference, and the text field keeps only the
  * head. `body` / `promptTextBody` read the field either way; `userPrompt` keeps joining the stored `content`.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
+import { describe, expect, it } from "vitest";
 
 import { storedBlobJson, type StoredBlob } from "../blob-ref.js";
 import { CompletionExpectation } from "../expectations/CompletionExpectation.js";
@@ -21,8 +19,6 @@ const HEAD = "Fold this conversation prefix";
 const blob: StoredBlob = { sha256: SHA, bytes: 780_000, mime: "text/plain", head: HEAD };
 
 describe("PromptMessage.body", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("is the inline text while no reference is stored", () => {
     const message = new PromptMessage({ role: "user", content: "short" });
     expect({ body: message.body, json: message.contentBlobJson }).toEqual({
@@ -62,8 +58,6 @@ describe("PromptMessage.body", () => {
 });
 
 describe("CompletionExpectation prompt bodies", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("promptTextBody reads the stored line inline, by reference, and as inline again on a bad reference", () => {
     const inline = new CompletionExpectation({ connectionId: "c", promptText: prompt.user`what is 2 + 2` });
     const external = new CompletionExpectation({
@@ -116,11 +110,8 @@ describe("CompletionExpectation prompt bodies", () => {
 });
 
 describe("blob references replicate with the document", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("a replica reads the same references and heads", () => {
     const plexus = SessionPlexus.create("s-blob-text", "/tmp/blob-text");
-    const replicaDoc = new Y.Doc({ guid: plexus.doc.guid });
     try {
       const round = new CompletionExpectation({
         connectionId: "c",
@@ -133,10 +124,9 @@ describe("blob references replicate with the document", () => {
       turn.pushChild(new CompletionJob({ expectation: round }));
       plexus.root.head = turn;
 
-      Y.applyUpdate(replicaDoc, Y.encodeStateAsUpdate(plexus.doc));
-      const replica = SessionPlexus.connect(replicaDoc);
+      const replica = SessionPlexus.connect(plexus);
       try {
-        const copy = replica.getAllOfType(CompletionExpectation).at(0);
+        const copy = (replica.root.head?.children[0] as CompletionJob).expectation as CompletionExpectation;
         const message = copy?.promptMessages.at(0);
         expect({
           promptText: copy?.promptText,
@@ -154,7 +144,6 @@ describe("blob references replicate with the document", () => {
       }
     } finally {
       plexus.destroy();
-      replicaDoc.destroy();
     }
   });
 });

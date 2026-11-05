@@ -4,7 +4,7 @@
  * `question` / `effect` / `caption` is uncovered; the TUI then falls
  * through. Mustache grain matches pretty-mcp.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model, state } from "@inhuman.tools/model";
 
 import type { KernelRoot } from "./KernelRoot.js";
 
@@ -15,26 +15,26 @@ export type PluginToolFace = {
   readonly caption?: string | null;
 };
 
-@syncing("harness:plugin-tool-spec")
-export class PluginToolSpec extends PlexusModel<PluginSpec | null> {
+@model("harness:plugin-tool-spec")
+export class PluginToolSpec extends Model<any, PluginSpec | null> {
   get id(): string {
     return (this.parentFieldKey as string | null) ?? this.name;
   }
 
-  @syncing accessor name: string = "";
-  @syncing accessor question: string | null = null;
-  @syncing accessor effect: string | null = null;
-  @syncing accessor caption: string | null = null;
+  @state accessor name: string = "";
+  @state accessor question: string | null = null;
+  @state accessor effect: string | null = null;
+  @state accessor caption: string | null = null;
 }
 
-@syncing("harness:plugin-spec")
-export class PluginSpec extends PlexusModel<KernelRoot | null> {
+@model("harness:plugin-spec")
+export class PluginSpec extends Model<any, KernelRoot | null> {
   get id(): string {
     return (this.parentFieldKey as string | null) ?? this.pluginName;
   }
 
-  @syncing accessor pluginName: string = "";
-  @syncing.child.record accessor tools: Record<string, PluginToolSpec> = {};
+  @state accessor pluginName: string = "";
+  @state.childRecord accessor tools: Record<string, PluginToolSpec> = {};
 
   constructor(
     opts?:

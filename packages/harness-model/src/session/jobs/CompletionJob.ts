@@ -2,7 +2,7 @@
  * Tape/program/judge cell that owns a CompletionExpectation. Sequence is
  * this Job; honor walks `.work`.
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import {
   Job,
   type JobEffectOwner,
@@ -16,10 +16,10 @@ import type { ProgrammaticJob } from "./ProgrammaticJob.js";
 import type { ToolCallJob } from "./ToolCallJob.js";
 import type { CompletionExpectation } from "../expectations/CompletionExpectation.js";
 
-/** Predecessor this cell continues. Ref, not `@syncing.child` — child would reparent X. */
+/** Predecessor this cell continues. Ref, not `@state.child` — child would reparent X. */
 type CompletionJobTail = Job;
 
-@syncing("harness:job:completion")
+@model("harness:job:completion")
 export class CompletionJob extends Job<unknown, string> {
   override readonly owner: JobEffectOwner = "honor";
   override readonly intent: string =
@@ -36,15 +36,15 @@ export class CompletionJob extends Job<unknown, string> {
     "Same attempt is not auto-retried after owner death. A new CompletionJob is a new attempt.";
   override readonly intentRequired: boolean = true;
 
-  @syncing.child accessor expectation!: CompletionExpectation;
-  @syncing accessor turnTail: CompletionJobTail | null = null;
+  @state.child accessor expectation!: CompletionExpectation;
+  @state.ref accessor turnTail: CompletionJobTail | null = null;
   /** Prefix already summarized. The same key does not start another summarizer. */
-  @syncing accessor ambientCompactKey: string = "";
+  @state accessor ambientCompactKey: string = "";
   /** Provider settlement and response expansion are separate recovery checkpoints. */
-  @syncing accessor managesResponse: boolean = false;
-  @syncing accessor responseExpanded: boolean = false;
+  @state accessor managesResponse: boolean = false;
+  @state accessor responseExpanded: boolean = false;
   /** Admitted calls in response-processing order. Refs to turn-owned jobs; no second ownership. */
-  @syncing.list accessor responseWork: Array<ToolCallJob | ProgrammaticJob> = [];
+  @state.refList accessor responseWork: Array<ToolCallJob | ProgrammaticJob> = [];
 
   constructor(
     props:

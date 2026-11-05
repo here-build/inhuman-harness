@@ -1,5 +1,5 @@
 /** A request to an independently managed bot. Acceptance does not settle the request. */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { type JobEffectOwner, type JobKind, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
@@ -27,7 +27,7 @@ export type BotCallJobProps = CallJobProps & {
   readonly delivery?: CallDelivery | null;
 };
 
-@syncing("harness:job:bot-call")
+@model("harness:job:bot-call")
 export class BotCallJob extends CallJob {
   override readonly owner: JobEffectOwner = "agent-calls";
   override readonly intent: string =
@@ -46,16 +46,16 @@ export class BotCallJob extends CallJob {
   override readonly intentRequired: boolean = true;
 
   /** Resolved target pinned at admission, independent of tool argument spelling. */
-  @syncing accessor botName: string = "";
+  @state accessor botName: string = "";
   /** Serialized prepare output, as delivered. */
-  @syncing private accessor preparedInputJson: string | null = null;
+  @state private accessor preparedInputJson: string | null = null;
   /** When the caller handed the prepared input to its worker. */
-  @syncing accessor acceptedAt: number | null = null;
-  @syncing accessor contributionPluginName: string = "";
-  @syncing accessor contributionBotName: string = "";
-  @syncing accessor contributionRevision: string = "";
-  @syncing private accessor diagnosticJson: string | null = null;
-  @syncing.child accessor delivery: CallDelivery | null = null;
+  @state accessor acceptedAt: number | null = null;
+  @state accessor contributionPluginName: string = "";
+  @state accessor contributionBotName: string = "";
+  @state accessor contributionRevision: string = "";
+  @state private accessor diagnosticJson: string | null = null;
+  @state.child accessor delivery: CallDelivery | null = null;
 
   constructor(props?: BotCallJobProps | symbol) {
     super(props);
@@ -87,7 +87,7 @@ export class BotCallJob extends CallJob {
   }
 
   /** Pin a contribution once; subsequent registry changes cannot retarget the call. */
-  @syncing.action
+  @state.action
   stampContribution(plugin: string, botName: string, revision: string): void {
     if (this.contributionPluginName !== "" || revision === "" || plugin === "") return;
     this.contributionPluginName = plugin;
@@ -95,7 +95,7 @@ export class BotCallJob extends CallJob {
     this.contributionRevision = revision;
   }
 
-  @syncing.action
+  @state.action
   acceptPreparedInput(prepared: unknown, workerSessionId: string): boolean {
     if (this.completed) return false;
     this.preparedInputJson = stringifyOutcomeValue(prepared);
@@ -104,7 +104,7 @@ export class BotCallJob extends CallJob {
     return true;
   }
 
-  @syncing.action
+  @state.action
   recordDiagnostic(code: string, message: string, attempts: number): void {
     this.diagnosticJson = JSON.stringify({ code, message, attempts, recordedAt: Date.now() });
   }

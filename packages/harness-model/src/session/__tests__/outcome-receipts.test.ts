@@ -1,6 +1,5 @@
 /** Cancel writes `cancelled`, not `approved`. Deny-side stamps a receipt. */
-import { resetLocalIDs } from "@here.build/plexus";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { AgentCallJob } from "../jobs/AgentCallJob.js";
 import { FailureOutcome } from "../jobs/CallOutcome.js";
@@ -14,8 +13,6 @@ import {
   cancelUnstarted,
   USER_REFUSED,
 } from "../outcome-receipts.js";
-
-beforeEach(() => resetLocalIDs());
 
 describe("refusalReasonOf", () => {
   it("names the actor: user, classifier, policy message, then the floor", () => {

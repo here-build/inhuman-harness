@@ -1,14 +1,11 @@
 /**
  * ProgrammaticJob is the scheme bag. Printed string[] is text parts; other snaps stringify.
  */
-import { resetLocalIDs } from "@here.build/plexus";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 
 describe("ProgrammaticJob", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("expr reads argsJson; printed values are text parts", () => {
     const object = new ProgrammaticJob({
       toolCallId: "c1",

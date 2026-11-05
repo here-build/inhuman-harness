@@ -1,4 +1,4 @@
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
@@ -8,15 +8,15 @@ import type { CompletionJob } from "../jobs/CompletionJob.js";
 
 export type RoundContextNote = { readonly id: string; readonly text: string; readonly mode: "ambient" | "activating" };
 
-@syncing("harness:session:react")
+@model("harness:session:react")
 export class ReACTChunk extends WorkContainer {
   /** A durable settlement boundary, not permission to invoke the model. Ref, never owner. */
-  @syncing accessor source: CompletionJob | null = null;
+  @state.ref accessor source: CompletionJob | null = null;
   /** Ref committed with turn admission; UUID is read only after materialization. */
-  @syncing accessor successor: CompletionJob | null = null;
-  @syncing private accessor decisionJson: string | null = null;
-  @syncing private accessor intentJson: string | null = null;
-  @syncing private accessor notesJson: string = "[]";
+  @state.ref accessor successor: CompletionJob | null = null;
+  @state private accessor decisionJson: string | null = null;
+  @state private accessor intentJson: string | null = null;
+  @state private accessor notesJson: string = "[]";
   /** Context that authorized/enriched this boundary survives a new runtime's empty NoteLog. */
   @computed get contextNotes(): readonly RoundContextNote[] {
     return deepFreeze(JSON.parse(this.notesJson) as RoundContextNote[]);
@@ -39,9 +39,9 @@ export class ReACTChunk extends WorkContainer {
     this.intentJson = value == null ? null : JSON.stringify(value);
   }
   /** Round hooks are entered at most once per wrap; a parked boundary remains resumable. */
-  @syncing accessor roundClosed: boolean = false;
+  @state accessor roundClosed: boolean = false;
   /** Admission can wait without granting another invocation or losing its causes. */
-  @syncing accessor waitingFor: "" | "inbound" | "round-hook" = "";
+  @state accessor waitingFor: "" | "inbound" | "round-hook" = "";
   get work(): WorkContainer[] {
     return [];
   }
@@ -49,21 +49,21 @@ export class ReACTChunk extends WorkContainer {
   /**
    * Legacy tape compatibility. New boundaries use source + decision.
    */
-  @syncing accessor openPage: boolean = false;
+  @state accessor openPage: boolean = false;
   /** A conditional continuation resolved without opening another model round. */
-  @syncing accessor skipped: boolean = false;
+  @state accessor skipped: boolean = false;
 
   /**
    * Text-only intern nudge. Not OPEN PAGE. Reducer keeps this round and
    * stamps the intern system note.
    */
-  @syncing accessor intentContinue: boolean = false;
+  @state accessor intentContinue: boolean = false;
 
   /**
    * The previous round stopped on the provider's output limit. This round
    * continues it; the stop reason is a fact on that completion.
    */
-  @syncing accessor truncated: boolean = false;
+  @state accessor truncated: boolean = false;
 
   constructor(
     props?:

@@ -2,7 +2,7 @@
  * One MCP `tools/call`. Rides the MCP connection named `connectionId`.
  * Settlement stamps the enclosing ToolCallJob receipt. Seal (`completed`) is the Job executor.
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { WorkExpectation, type EndCause } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
@@ -18,12 +18,12 @@ export type McpToolResult = {
   readonly value?: unknown;
 };
 
-@syncing("harness:expectation:mcp-tool")
+@model("harness:expectation:mcp-tool")
 export class McpToolExpectation extends WorkExpectation<McpToolResult, McpToolResult> {
-  @syncing accessor serverToolName: string = "";
-  @syncing accessor argsJson: string | null = "{}";
-  @syncing private accessor valueJson: string | null = null;
-  @syncing accessor dispatched: boolean = false;
+  @state accessor serverToolName: string = "";
+  @state accessor argsJson: string | null = "{}";
+  @state private accessor valueJson: string | null = null;
+  @state accessor dispatched: boolean = false;
 
   constructor(
     props:
@@ -54,12 +54,12 @@ export class McpToolExpectation extends WorkExpectation<McpToolResult, McpToolRe
     sealEnclosingToolCall(this, snapOf(result));
   }
 
-  @syncing.action
+  @state.action
   markDispatched(): void {
     this.dispatched = true;
   }
 
-  @syncing.action
+  @state.action
   override fail(cause: EndCause, detail: string, outcomeReport: string): boolean {
     const wrote = super.fail(cause, detail, outcomeReport);
     if (wrote) {

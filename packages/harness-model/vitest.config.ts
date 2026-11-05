@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-const dedupe = ["yjs", "@here.build/plexus"];
+const dedupe = ["mobx"];
 
 export default defineConfig({
   resolve: { dedupe },

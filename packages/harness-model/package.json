@@ -90,9 +90,7 @@
     "eslint": "10.13.0",
     "typescript": "6.0.3",
     "vitest": "5.0.5",
-    "yjs": "13.6.33",
-    "mobx": "6.16.1",
-    "@here.build/plexus": "^0.9.6"
+    "mobx": "6.16.1"
   },
   "license": "MIT",
   "repository": {
@@ -101,9 +99,7 @@
     "directory": "packages/harness-model"
   },
   "peerDependencies": {
-    "yjs": "13.6.33",
-    "mobx": "6.16.1",
-    "@here.build/plexus": "^0.9.6"
+    "mobx": "6.16.1"
   },
   "browserslist": [
     "last 2 chrome versions",

@@ -1,9 +1,8 @@
 /**
  * Turn occupancy: window gauge, soft-compact tokens, remaining-until-compact fill.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 
 import { CompletionExpectation } from "../expectations/CompletionExpectation.js";
 import { CompactJob } from "../jobs/CompactJob.js";
@@ -33,8 +32,6 @@ function turnOf(...chunks: Array<CompletionJob | CompactJob>): SessionTurn {
     queue: [],
   });
 }
-
-beforeEach(() => resetLocalIDs());
 
 test("Turn occupancy: used, limit, soft-compact tokens, remaining fill", () => {
   const empty = turnOf();

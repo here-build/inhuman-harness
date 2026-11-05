@@ -15,7 +15,7 @@
  * licenses a `deny` or `ask` is the resolution table (authorization/resolve.ts) for the session's
  * mode, the call's cluster and the classes that voted.
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { Job, walkWork, type WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
@@ -64,46 +64,46 @@ const text = (value: unknown): string => (typeof value === "string" ? value : ""
 /** One judge failure is retried once; after that a cell whose `onFail` is `deny` denies. */
 export const JUDGE_FAILS_FINAL = 2;
 
-@syncing("harness:job:approvable")
+@model("harness:job:approvable")
 export abstract class ApprovableJob<TValue = unknown, TReason = unknown> extends Job<TValue, TReason> {
-  @syncing accessor humanApprove: true | false | null = null;
-  @syncing accessor approvalComment: string | null = null;
+  @state accessor humanApprove: true | false | null = null;
+  @state accessor approvalComment: string | null = null;
   /** Floor vote. Daemon-only. `null` = not yet evaluated. */
-  @syncing accessor policyResult: PolicyResult = null;
+  @state accessor policyResult: PolicyResult = null;
   /** Structured floor evidence. Daemon-only; untrusted as instructions. */
-  @syncing accessor policyEvidenceJson: string | null = null;
+  @state accessor policyEvidenceJson: string | null = null;
   /** Human-readable floor findings or scanner failure, for approval and receipt views. */
-  @syncing accessor policyMessage: string | null = null;
+  @state accessor policyMessage: string | null = null;
   /** JSON array of the class ids that decided the tier. Daemon-only. */
-  @syncing accessor policyClassesJson: string | null = null;
+  @state accessor policyClassesJson: string | null = null;
   /** JSON array of the floor votes at the tier (class, rule id, unit, lift, path). Daemon-only. */
-  @syncing accessor policyVotesJson: string | null = null;
+  @state accessor policyVotesJson: string | null = null;
   /** Ids of the stored grants that cover this ask (comma-joined). Daemon-only; set at floor time. */
-  @syncing accessor grantedBy: string | null = null;
+  @state accessor grantedBy: string | null = null;
   /**
    * Acknowledgement: `none` (no flag covers the call in this mode), `pending` (a flag does and no stored
    * ack covers it), `satisfied` (stored acks, or the person who answered this prompt), `refused`
    * (a person said no). Daemon-only: there is no ack Job, no transcript entry and no client-writable
    * field. Clients answer over `ack/answer`.
    */
-  @syncing accessor ackState: AckState = "none";
+  @state accessor ackState: AckState = "none";
   /** The flags that cover this call, JSON (label, why, layer, match, unit, modes). Daemon-only. */
-  @syncing accessor ackFlagsJson: string | null = null;
+  @state accessor ackFlagsJson: string | null = null;
   /** Ids of the stored acks that satisfy it (comma-joined), or `human` for this one prompt. Daemon-only. */
-  @syncing accessor ackedBy: string | null = null;
+  @state accessor ackedBy: string | null = null;
   /** Judge residual vote (ask judge or soft-deny judge, by tier). Daemon-only. No `fail`. No `ask`. */
-  @syncing accessor classifierResult: JudgeResult = null;
+  @state accessor classifierResult: JudgeResult = null;
   /** Report from a failed judge attempt. Not a vote. */
-  @syncing accessor classifierAbstain: string | null = null;
+  @state accessor classifierAbstain: string | null = null;
   /** The judge's reason for its vote (shown on the prompt). Daemon-only. */
-  @syncing accessor judgeReason: string | null = null;
+  @state accessor judgeReason: string | null = null;
   /** Soft-deny judge: the round that voted (1, or 2 with the agent's last answer). Daemon-only. */
-  @syncing accessor softDenyRound: 1 | 2 | null = null;
+  @state accessor softDenyRound: 1 | 2 | null = null;
   /** Failed judge attempts so far. Daemon-only. */
-  @syncing accessor judgeFails: number = 0;
+  @state accessor judgeFails: number = 0;
 
   /** Floor vote, evidence, and the human line. One update so a peer never sees the vote without the evidence. */
-  @syncing.action
+  @state.action
   stampPolicy(
     result: PolicyResult,
     message: string | null,
@@ -127,9 +127,9 @@ export abstract class ApprovableJob<TValue = unknown, TReason = unknown> extends
   }
 
   /** Re-stamp the acknowledgement alone (a stored ack came or went, the mode changed, a person answered). */
-  @syncing.action
-  stampAck(state: AckState, ackedBy: string | null): void {
-    if (this.ackState !== state) this.ackState = state;
+  @state.action
+  stampAck(ackState: AckState, ackedBy: string | null): void {
+    if (this.ackState !== ackState) this.ackState = ackState;
     if (this.ackedBy !== ackedBy) this.ackedBy = ackedBy;
   }
 

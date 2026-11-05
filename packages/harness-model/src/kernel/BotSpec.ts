@@ -3,8 +3,8 @@
  * this record is the visible face. `error` set means the file did not admit.
  * Detached, `name` is the identity; on a parent map, the key wins.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
 import { prompt, type SystemPrompt } from "@inhuman.tools/harness-commons";
+import { Model, model, state } from "@inhuman.tools/model";
 import type { ReadonlyDeep } from "type-fest";
 
 import { serializingInto } from "../json-record.js";
@@ -33,8 +33,8 @@ export type BotSpecProps = {
   error?: string | null;
 };
 
-@syncing("harness:bot-spec")
-export class BotSpec extends PlexusModel<BotSpecParent> {
+@model("harness:bot-spec")
+export class BotSpec extends Model<any, BotSpecParent> {
   get id(): string {
     return (this.parentFieldKey as string | null) ?? this.name;
   }
@@ -43,26 +43,26 @@ export class BotSpec extends PlexusModel<BotSpecParent> {
     return this.id;
   }
 
-  @syncing accessor name: string = "";
-  @syncing accessor description: string = "";
-  @syncing accessor recipeScope: RecipeScope = "session";
-  @syncing accessor keepAlive: boolean = false;
-  @syncing accessor instructions: SystemPrompt = prompt.system``;
-  @syncing.list accessor tools: string[] = [];
-  @syncing.list accessor invokes: string[] = [];
+  @state accessor name: string = "";
+  @state accessor description: string = "";
+  @state accessor recipeScope: RecipeScope = "session";
+  @state accessor keepAlive: boolean = false;
+  @state accessor instructions: SystemPrompt = prompt.system``;
+  @state.list accessor tools: string[] = [];
+  @state.list accessor invokes: string[] = [];
   /** Null = omit (vendor default). `none` disables when the dialect allows. */
-  @syncing accessor reasoningEffort: ReasoningEffort | null = null;
-  @syncing.list accessor skills: string[] = [];
-  @syncing.list accessor modelPreferences: string[] = [];
+  @state accessor reasoningEffort: ReasoningEffort | null = null;
+  @state.list accessor skills: string[] = [];
+  @state.list accessor modelPreferences: string[] = [];
   /** Authored behavior selection JSON. Null = no custom behavior. Not a closure. */
-  @syncing accessor behaviorJson: string | null = null;
+  @state accessor behaviorJson: string | null = null;
   /** JSON list of `{ server, tools?, account?, session? }`. Blank means none. */
-  @syncing accessor mcpJson: string = "";
+  @state accessor mcpJson: string = "";
 
   @serializingInto("behaviorJson")
   accessor behavior: ReadonlyDeep<Record<string, unknown>> | null = null;
   /** Null = admitted. A string is why the file did not admit. */
-  @syncing accessor error: string | null = null;
+  @state accessor error: string | null = null;
 
   constructor(opts?: BotSpecProps | symbol) {
     super(opts);

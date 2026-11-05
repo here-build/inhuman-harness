@@ -2,13 +2,13 @@
  * Sequence bag. Approval cursor over coverable Approvable leaves.
  * Not collectors. Not `.work`.
  */
-import { syncing } from "@here.build/plexus";
+import { model } from "@inhuman.tools/model";
 import { Job } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ApprovableJob } from "./ApprovableJob.js";
 
-@syncing("harness:job:sequence")
+@model("harness:job:sequence")
 export abstract class SequenceJob<TValue = unknown, TReason = unknown> extends Job<TValue, TReason> {
   @computed
   get approvalLeaves(): ApprovableJob[] {

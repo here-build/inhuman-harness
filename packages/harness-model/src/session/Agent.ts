@@ -4,8 +4,8 @@
  * inherit the parent spine or tools unless the spawn demand says so
  * (fail-closed).
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
 import { prompt, type SystemPrompt, type UserPrompt } from "@inhuman.tools/harness-commons";
+import { Model, model, state } from "@inhuman.tools/model";
 
 import { syncingText } from "../json-record.js";
 import type { ReasoningEffort } from "../reasoning-effort.js";
@@ -16,44 +16,44 @@ import { SessionTurn } from "./turn/index.js";
 export { agentNatureOf, type AgentNature, type RecipeScope } from "../recipe-scope.js";
 
 /** Recipe only. Not cwd, frozen tools, permissionMode, or last-used model. */
-@syncing("harness:session:agent-spec")
-export class AgentSpec extends PlexusModel {
-  @syncing accessor name: string = "";
-  @syncing accessor description: string = "";
+@model("harness:session:agent-spec")
+export class AgentSpec extends Model {
+  @state accessor name: string = "";
+  @state accessor description: string = "";
   /**
    * Keep interpreting without a TUI/web seat. Occupancy park is
    * `!occupied && !resident` — not `keepAlive` (ReACT stretch).
    */
-  @syncing accessor resident: boolean = false;
-  @syncing accessor instructions: SystemPrompt = HARNESS_CONSTITUTION;
+  @state accessor resident: boolean = false;
+  @state accessor instructions: SystemPrompt = HARNESS_CONSTITUTION;
   /** Recipe scope. Empty until first mint (foreground / one-shot). */
-  @syncing accessor recipeScope: AgentNature = "";
+  @state accessor recipeScope: AgentNature = "";
   /** Stretch this ReACT loop after `agentCallbacks` empties. Not a roster bit. */
-  @syncing accessor keepAlive: boolean = false;
+  @state accessor keepAlive: boolean = false;
   /**
    * False when this session was minted for an ask. Hides `agent__void`.
    * Default true so send-minted and standing workers keep void.
    */
-  @syncing accessor voidLegal: boolean = true;
+  @state accessor voidLegal: boolean = true;
   /** Ask desk: drop write_file / edit_file / write-class MCP. Shell stays. */
-  @syncing accessor readonly: boolean = false;
+  @state accessor readonly: boolean = false;
   /**
    * Recipe snapshot. Null = omit on the PEW (vendor default).
    * `none` disables when the dialect allows.
    */
-  @syncing accessor reasoningEffort: ReasoningEffort | null = null;
+  @state accessor reasoningEffort: ReasoningEffort | null = null;
   /**
    * Child spawns (`agent/ask`) between the foreground agent and this one. Written by the
    * daemon when it mints or delivers to the worker; the model cannot reach it.
    */
-  @syncing accessor depth: number = 0;
+  @state accessor depth: number = 0;
   /** Bot hops (`bot/ask`) behind this agent. A separate count from {@link depth}. */
-  @syncing accessor botDepth: number = 0;
+  @state accessor botDepth: number = 0;
   /**
    * Pinned behavior revision: identities, sources, configuration, grants.
    * Empty = standard host environment. Never an executable closure.
    */
-  @syncing private accessor behaviorPinJson: string = "";
+  @state accessor behaviorPinJson: string = "";
 
   /**
    * Pin text. Empty is unstamped.
@@ -69,7 +69,7 @@ export class AgentSpec extends PlexusModel {
   }
 
   /** First name on an empty spec. Pin is written only when the caller has one (`null` = none). */
-  @syncing.action
+  @state.action
   adoptNamedRecipe(bot: {
     readonly name: string;
     readonly recipeScope: RecipeScope;
@@ -124,11 +124,11 @@ export class AgentSpec extends PlexusModel {
  * comms-only floor. `toolsOnly` makes `tools` the whole overlay: a matching
  * recipe adds nothing (a caller narrowed it).
  */
-@syncing("harness:session:ask-agent-spec")
+@model("harness:session:ask-agent-spec")
 export class AskAgentSpec extends AgentSpec {
-  @syncing.list accessor tools: string[] = [];
-  @syncing accessor inheritCallerTools: boolean = false;
-  @syncing accessor toolsOnly: boolean = false;
+  @state.list accessor tools: string[] = [];
+  @state accessor inheritCallerTools: boolean = false;
+  @state accessor toolsOnly: boolean = false;
 
   constructor(
     props?:
@@ -169,18 +169,18 @@ export function callbackRequiredNote(voidLegal: boolean, calls: readonly OpenAge
   return prompt.system`${[head, close, ...lines].join("\n")}`;
 }
 
-@syncing("harness:session:agent")
-export class Agent extends PlexusModel {
-  @syncing.child accessor spec: AgentSpec = new AgentSpec();
+@model("harness:session:agent")
+export class Agent extends Model {
+  @state.child accessor spec: AgentSpec = new AgentSpec();
   /** `SessionRoot.head` writes this field. */
-  @syncing.child accessor head: SessionTurn | null = null;
+  @state.child accessor head: SessionTurn | null = null;
 
   /**
    * Same-value `head = head` writes the parent edge only inside an action.
    * Connect calls this for images saved while `head` was a reference: the
    * field holds the turn and `hasParent` was never written.
    */
-  @syncing.action
+  @state.action
   reownHead(): void {
     const head = this.head;
     if (head != null && head.parent == null) this.head = head;
@@ -191,9 +191,9 @@ export class Agent extends PlexusModel {
    * means at-tip (`head`). Torn (`head` not on `tip`'s tail walk) is repaired
    * to `head`.
    */
-  @syncing accessor tip: SessionTurn | null = null;
-  @syncing accessor parent: Agent | null = null;
-  @syncing accessor nickname: string = "";
+  @state.ref accessor tip: SessionTurn | null = null;
+  @state.ref accessor parent: Agent | null = null;
+  @state accessor nickname: string = "";
 
   constructor(
     props?:

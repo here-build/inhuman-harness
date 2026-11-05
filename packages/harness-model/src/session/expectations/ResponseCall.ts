@@ -3,22 +3,22 @@
  * correlator, name, args JSON string. Not the Chat Completions
  * `{ type, function: {} }` envelope and not a ToolCallJob (admit mints that).
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model, state } from "@inhuman.tools/model";
 import type { ReadonlyDeep } from "type-fest";
 
 import { serializingInto } from "../../json-record.js";
 
-@syncing("harness:expectation:response-call")
-export class ResponseCall extends PlexusModel {
-  @syncing accessor toolCallId: string = "";
-  @syncing accessor name: string = "";
-  @syncing accessor argsJson: string | null = "{}";
+@model("harness:expectation:response-call")
+export class ResponseCall extends Model {
+  @state accessor toolCallId: string = "";
+  @state accessor name: string = "";
+  @state accessor argsJson: string | null = "{}";
   /**
    * Why the args cannot be trusted: the stream ended inside the call (`truncated`) or
    * the arguments did not parse. Empty for a call that arrived whole. A flagged call
    * is never run; its receipt tells the model to issue it again.
    */
-  @syncing accessor dropReason: string = "";
+  @state accessor dropReason: string = "";
 
   constructor(
     props?:

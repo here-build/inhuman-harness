@@ -5,8 +5,9 @@
  */
 import * as pew from "@inhuman.tools/plexus-expectations";
 
-import * as models from "./index.js";
 import { registerModelExports } from "./register-models.js";
+
+import * as models from "./index.js";
 
 registerModelExports(models);
 registerModelExports(pew);

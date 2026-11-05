@@ -7,7 +7,7 @@
  * callback, and notify are COMM FIRST — they skip the floor. Child tools
  * still license.
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { type JobResolution } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
@@ -63,43 +63,43 @@ export function isShellHatch(command: string): boolean {
   return /\b(?:npx|bunx|uvx|(?:pnpm|yarn)\s+dlx)\b/.test(command);
 }
 
-@syncing("harness:job:tool-call")
+@model("harness:job:tool-call")
 export abstract class ToolCallJob extends ApprovableJob<unknown, string> {
-  @syncing accessor toolCallId: string = "";
-  @syncing accessor name: string = "";
+  @state accessor toolCallId: string = "";
+  @state accessor name: string = "";
   /**
    * The MCP server a host-run tool belongs to (a system tool the catalog admits under a server name).
    * Empty: a plain native tool. An {@link MCPToolJob} gets its server from the connection instead.
    */
-  @syncing accessor mcpServer: string = "";
-  @syncing private accessor argsJson: string | null = null;
-  @syncing protected accessor outcomeJson: string | null = null;
+  @state accessor mcpServer: string = "";
+  @state private accessor argsJson: string | null = null;
+  @state protected accessor outcomeJson: string | null = null;
   /**
    * Catalog `read` — re-invoke instead of `/tmp`. Default persist.
    * Admit stamps this from catalog class so a denied read is not persistable.
    */
-  @syncing accessor regenerateable: boolean = false;
+  @state accessor regenerateable: boolean = false;
   /**
    * R2. The resolved retention rule (`{kind, keep, leave, minChars, onError}`
    * as JSON) stamped at admit. Empty = unstamped; the projection falls back
    * to the legacy rule. Catalog churn and config edits cannot reclassify
    * history because this is read instead of the live catalog.
    */
-  @syncing accessor retentionJson: string = "";
+  @state accessor retentionJson: string = "";
   /** Plugin id → envelope JSON. The projection is computed; this is the fact. */
-  @syncing.record accessor pluginMeta: Record<string, string> = {};
+  @state.record accessor pluginMeta: Record<string, string> = {};
   /** Stamped from the catalog at admission. */
   /** Normalized definition policy frozen when this invocation was admitted. Empty on legacy documents. */
-  @syncing accessor continuationJson: string = "";
-  @syncing accessor triggersReactLoop: boolean = true;
+  @state accessor continuationJson: string = "";
+  @state accessor triggersReactLoop: boolean = true;
   /** Stamped from the catalog at admission. Skips the license floor. */
-  @syncing accessor isSideChannel: boolean = false;
-  @syncing accessor tapeHidden: boolean = false;
+  @state accessor isSideChannel: boolean = false;
+  @state accessor tapeHidden: boolean = false;
   /**
    * Claimed when the crossing starts: `[tick origin, …closure window, n]`.
    * Empty means this child predates tracks and resume still walks by position.
    */
-  @syncing accessor track: string = "";
+  @state accessor track: string = "";
 
   constructor(props?: ToolCallJobProps | symbol) {
     super(props);
@@ -179,7 +179,7 @@ export abstract class ToolCallJob extends ApprovableJob<unknown, string> {
     return "";
   }
 
-  @syncing.action
+  @state.action
   stampPluginMeta(pluginId: string, encoded: string): void {
     this.pluginMeta[pluginId] = encoded;
   }

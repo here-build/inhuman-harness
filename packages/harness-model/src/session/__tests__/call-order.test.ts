@@ -1,5 +1,4 @@
-import { resetLocalIDs } from "@here.build/plexus";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { ResponseCallOrder, type CallOrderFacts } from "../call-order.js";
 import { McpToolExpectation } from "../expectations/McpToolExpectation.js";
@@ -47,8 +46,6 @@ function orderOf(...jobs: Array<SystemToolJob | MCPToolJob | ProgrammaticJob | W
 }
 
 describe("response call order", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("runs shell, edit, shell in response order", () => {
     const first = system("shell");
     const edit = system("edit_file");

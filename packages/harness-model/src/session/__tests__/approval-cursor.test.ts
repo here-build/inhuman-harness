@@ -1,9 +1,8 @@
 /**
  * Leaves license. Sequences project. Cursor walks children, not collectors.
  */
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { CompletionExpectation } from "../expectations/CompletionExpectation.js";
 import { McpToolExpectation } from "../expectations/McpToolExpectation.js";
@@ -11,6 +10,7 @@ import { CompletionJob } from "../jobs/CompletionJob.js";
 import { MCPToolJob } from "../jobs/MCPToolJob.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
+import { SessionPlexus } from "../SessionPlexus.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
 import { attached } from "./_helpers/fixtures.js";
@@ -23,11 +23,9 @@ function leaf(approved: true | false | null = null): SystemToolJob {
 }
 
 describe("approval cursor", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("queue and head flatten pending leaves in tree order; skip deny, PEW, sequences", () => {
     const session = attached({ sessionId: "s-cursor", path: "/tmp/demo" });
-    const plexus = Plexus.bootstrap(session);
+    const plexus = SessionPlexus.bootstrap(session);
 
     const first = leaf();
     const inner = leaf();

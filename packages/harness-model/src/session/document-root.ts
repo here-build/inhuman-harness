@@ -1,16 +1,25 @@
-/**
- * The root the document was bootstrapped with.
- *
- * `Agent.head` owns the head turn, so `rootAncestor` from that turn reaches
- * the session. Replacing head orphans the previous turn; `turnTail` and `tip`
- * keep it in the document, and license on that turn still uses this lookup.
- * `Agent.parent` is the recipe link and shadows the ownership getter.
- */
-import type { PlexusModel } from "@here.build/plexus";
-import { docPlexus } from "@here.build/plexus/internals";
+import type { Model } from "@inhuman.tools/model";
 
-export function documentRoot(entity: PlexusModel): PlexusModel | undefined {
-  const doc = entity.__doc__;
-  if (doc == null) return undefined;
-  return docPlexus.get(doc)?.root;
+import type { SessionRoot } from "./SessionRoot.js";
+
+export function documentRoot(entity: Model): SessionRoot | undefined {
+  const root = entity.container?.container?.root;
+  if (root != null && (root.constructor.name === "SessionRoot" || "sessionId" in root)) {
+    return root as SessionRoot;
+  }
+
+  let curr: unknown = entity;
+  const visited = new Set<unknown>();
+  while (curr != null && typeof curr === "object" && !visited.has(curr)) {
+    visited.add(curr);
+    if ((curr as any).constructor.name === "SessionRoot" || ("sessionId" in curr && "head" in curr)) {
+      return curr as SessionRoot;
+    }
+    if ("turnTail" in curr && (curr as any).turnTail != null && !visited.has((curr as any).turnTail)) {
+      const tailRoot = documentRoot((curr as any).turnTail as Model);
+      if (tailRoot) return tailRoot;
+    }
+    curr = (curr as Model).parent;
+  }
+  return undefined;
 }

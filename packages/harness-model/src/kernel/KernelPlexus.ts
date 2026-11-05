@@ -1,29 +1,52 @@
-import { Plexus, type PlexusModel, type PlexusOptions } from "@here.build/plexus";
-import invariant from "tiny-invariant";
-import * as Y from "yjs";
+import { DocumentContainer, type SerializedDocument } from "@inhuman.tools/model";
 
 import { hydrateKernelRoot, KernelRoot } from "./KernelRoot.js";
 import type { KernelAwareness } from "./seat.js";
 
 export const KERNEL_DOC_GUID = "harness:kernel";
 
-export class KernelPlexus extends Plexus<KernelRoot, KernelAwareness> {
-  static connect(doc: Y.Doc, options?: PlexusOptions): KernelPlexus {
-    invariant(
-      doc.guid === KERNEL_DOC_GUID,
-      () => `KernelPlexus.connect: guid ${JSON.stringify(doc.guid)} is not ${KERNEL_DOC_GUID}`,
-    );
-    const plexus = super.connect(doc, options) as KernelPlexus;
-    hydrateKernelRoot(plexus.root);
-    return plexus;
+export type KernelPlexusCreateOptions = {
+  readonly clientId?: number;
+  readonly revision?: number;
+};
+
+export class KernelDocument extends DocumentContainer<KernelRoot, KernelAwareness> {
+  static override fromSnapshot(snapshot: SerializedDocument): KernelDocument {
+    const doc = DocumentContainer.fromSnapshot<KernelRoot>(snapshot);
+    const kernelDoc = new KernelDocument(doc.root, { revision: snapshot.revision });
+    hydrateKernelRoot(kernelDoc.root);
+    return kernelDoc;
+  }
+
+  static create(root: KernelRoot = new KernelRoot(), options?: KernelPlexusCreateOptions): KernelDocument {
+    const doc = new KernelDocument(root, { revision: options?.revision, clientId: options?.clientId });
+    hydrateKernelRoot(doc.root);
+    return doc;
   }
 
   static bootstrap(
-    root: PlexusModel = new KernelRoot(),
-    documentId: string = KERNEL_DOC_GUID,
-    doc?: Y.Doc,
-    options?: PlexusOptions,
-  ): KernelPlexus {
-    return super.bootstrap(root, documentId, doc ?? new Y.Doc({ guid: documentId }), options) as KernelPlexus;
+    root: KernelRoot = new KernelRoot(),
+    _documentId?: string,
+    _doc?: unknown,
+    options?: KernelPlexusCreateOptions,
+  ): KernelDocument {
+    return KernelDocument.create(root, options);
+  }
+
+  static connect(
+    source: KernelDocument | SerializedDocument,
+    _options?: { readOnly?: boolean; clientId?: number },
+  ): KernelDocument {
+    const snapshot = source instanceof DocumentContainer ? source.toSnapshot() : source;
+    const replica = KernelDocument.fromSnapshot(snapshot);
+    if (source instanceof DocumentContainer) {
+      source.onPatch((batch) => {
+        replica.applyPatchBatch(batch);
+      });
+    }
+    return replica;
   }
 }
+
+export const KernelPlexus = KernelDocument;
+export type KernelPlexus = KernelDocument;

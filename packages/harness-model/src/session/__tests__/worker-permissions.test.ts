@@ -1,5 +1,4 @@
-import { resetLocalIDs } from "@here.build/plexus";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { KernelAgentRelation } from "../../kernel/KernelAgentRelation.js";
 import { AskAgentSpec } from "../Agent.js";
@@ -12,8 +11,6 @@ import {
 } from "../worker-permissions.js";
 
 describe("worker permissions", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("delegates one-shot and session; project and global stay roots", () => {
     const oneShot = new SessionRoot({ sessionId: "w-ask", path: "/tmp/p" });
     oneShot.agent.spec = new AskAgentSpec({ name: "explore" });

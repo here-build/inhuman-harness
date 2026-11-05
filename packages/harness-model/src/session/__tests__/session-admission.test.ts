@@ -2,10 +2,8 @@
  * Session inbox reconstructs empty on older documents; admit / demote
  * write cells.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
+import { describe, expect, it } from "vitest";
 
 import {
   admitQueue,
@@ -31,23 +29,18 @@ import {
 } from "../index.js";
 
 function replicaOf(owner: SessionPlexus): { readonly root: SessionPlexus["root"]; [Symbol.dispose](): void } {
-  const doc = new Y.Doc({ guid: owner.doc.guid });
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(owner.doc));
-  const plexus = SessionPlexus.connect(doc);
+  const plexus = SessionPlexus.fromSnapshot(owner.toSnapshot());
   return {
     get root() {
       return plexus.root;
     },
     [Symbol.dispose]() {
       plexus.destroy();
-      doc.destroy();
     },
   };
 }
 
 describe("Session admission decks", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("older replica has empty decks; admit / demote / steer-first / retract write cells", () => {
     const plexus = SessionPlexus.create("s-old-ad", "/tmp/old-ad");
     plexus.root.head = new SessionTurn({
@@ -98,8 +91,6 @@ describe("Session admission decks", () => {
 });
 
 describe("steerTurn", () => {
-  beforeEach(() => resetLocalIDs());
-
   const open = (props: ConstructorParameters<typeof SessionTurn>[0] & object = {}) =>
     new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`hi`, ...props });
 
@@ -149,8 +140,6 @@ describe("steerTurn", () => {
 });
 
 describe("running turn chrome", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("an ask on the running predecessor of a waiting inbound head is the session's ask", () => {
     const plexus = SessionPlexus.create("s-ask-in", "/tmp/ask-in");
     const leaf = new SystemToolJob({ toolCallId: "a", name: "shell", argsJson: "{}" });
@@ -170,8 +159,6 @@ describe("running turn chrome", () => {
 });
 
 describe("inbox claims", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("each claim moves the inbox onto the turn in one write transaction", () => {
     const plexus = SessionPlexus.create("s-claim", "/tmp/claim");
     const call = new AgentCallJob({ toolCallId: "c", name: "agent__send", background: true });
@@ -190,12 +177,11 @@ describe("inbox claims", () => {
     admitSteer(plexus.root, prompt.user`two`, turn.uuid);
     const writes = (claim: () => void): number => {
       let count = 0;
-      const record = (tr: Y.Transaction) => {
-        if (tr.changed.size > 0) count += 1;
-      };
-      plexus.doc.on("afterTransaction", record);
-      claim();
-      plexus.doc.off("afterTransaction", record);
+      const unsub = plexus.onPatch(() => {
+        count += 1;
+      });
+      plexus.transact(claim);
+      unsub();
       return count;
     };
     expect({
@@ -270,8 +256,6 @@ describe("contextNeedRound", () => {
 });
 
 describe("lastTurnIncomplete", () => {
-  beforeEach(() => resetLocalIDs());
-
   it.each([
     {
       name: "successful last completion is a true finish",

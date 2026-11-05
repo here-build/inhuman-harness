@@ -2,13 +2,13 @@
  * Worker yield. Same mint ownership as {@link AgentCallbackJob}; appends
  * on the Call and does not complete it.
  */
-import { syncing } from "@here.build/plexus";
+import { model } from "@inhuman.tools/model";
 import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ToolCallJob } from "./ToolCallJob.js";
 
-@syncing("harness:job:agent-notify")
+@model("harness:job:agent-notify")
 export class AgentNotifyJob extends ToolCallJob {
   override readonly owner: JobEffectOwner = "agent-calls";
   override readonly intent: string =

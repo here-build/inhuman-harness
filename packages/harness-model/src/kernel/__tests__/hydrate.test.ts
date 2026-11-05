@@ -1,18 +1,16 @@
 import { expect, test } from "vitest";
-import * as Y from "yjs";
 
 import { ReActLoopIntentDetectedTrigger } from "../../shared/ReActLoopIntentDetectedTrigger.js";
 import { InstalledPlugin } from "../InstalledPlugin.js";
-import { KERNEL_DOC_GUID, KernelPlexus } from "../KernelPlexus.js";
+import { KernelPlexus } from "../KernelPlexus.js";
 import { SessionGlance } from "../SessionOverview.js";
 
 test("connect hydrates leftover reActLoopIntentDetectedTrigger omitted from the kernel image", () => {
   const source = KernelPlexus.bootstrap();
   source.root.reActLoopIntentDetectedTrigger = null as unknown as ReActLoopIntentDetectedTrigger;
-  const doc = new Y.Doc({ guid: KERNEL_DOC_GUID });
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(source.doc));
+  const snapshot = source.toSnapshot();
   source.destroy();
-  const plexus = KernelPlexus.connect(doc);
+  const plexus = KernelPlexus.connect(snapshot);
   expect({
     present: plexus.root.reActLoopIntentDetectedTrigger != null,
     enabled: plexus.root.reActLoopIntentDetectedTrigger.enabled,
@@ -27,10 +25,9 @@ test("connect reads a session-glance row and copies the old field names once", (
   glance.daemon = true;
   glance.blocked = true;
   source.root.sessions.kept = glance;
-  const doc = new Y.Doc({ guid: KERNEL_DOC_GUID });
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(source.doc));
+  const snapshot = source.toSnapshot();
   source.destroy();
-  const plexus = KernelPlexus.connect(doc);
+  const plexus = KernelPlexus.connect(snapshot);
   const row = plexus.root.sessions.kept;
   expect({
     title: row?.title ?? "",
@@ -59,10 +56,9 @@ test("connect leaves leftover plugin.problem omitted from the kernel image as nu
   const plugin = new InstalledPlugin({ pluginName: "demo" });
   source.root.plugins.demo = plugin;
   plugin.problem = null;
-  const doc = new Y.Doc({ guid: KERNEL_DOC_GUID });
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(source.doc));
+  const snapshot = source.toSnapshot();
   source.destroy();
-  const plexus = KernelPlexus.connect(doc);
+  const plexus = KernelPlexus.connect(snapshot);
   expect(plexus.root.plugins.demo?.problem).toBeNull();
   plexus.destroy();
 });

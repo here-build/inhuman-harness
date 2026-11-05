@@ -4,19 +4,19 @@
  * results. Tape paint reads `approvalComment` on the leaf — this chunk is
  * not a watch-surface row.
  */
-import { syncing } from "@here.build/plexus";
 import { prompt, type UserPrompt } from "@inhuman.tools/harness-commons";
+import { model, state } from "@inhuman.tools/model";
 import { WorkContainer } from "@inhuman.tools/plexus-expectations";
 
-@syncing("harness:session:turn-approval-note")
+@model("harness:session:turn-approval-note")
 export class TurnApprovalNoteChunk extends WorkContainer {
   get work(): WorkContainer[] {
     return [];
   }
-  @syncing accessor leafId: string = "";
-  @syncing accessor toolName: string = "";
-  @syncing accessor allowed: boolean = false;
-  @syncing accessor text: UserPrompt = prompt.user``;
+  @state accessor leafId: string = "";
+  @state accessor toolName: string = "";
+  @state accessor allowed: boolean = false;
+  @state accessor text: UserPrompt = prompt.user``;
 
   constructor(
     props?:

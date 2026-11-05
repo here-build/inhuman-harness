@@ -5,7 +5,7 @@
  * `enabled: false` turns it off. A non-object is off. Actor of the
  * sealed speech, not the judge wire.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model as modelDecorator, state } from "@inhuman.tools/model";
 
 import { reActLoopIntentDetectedTriggerFlagsSchema } from "../schemas/re-act-loop-intent-detected-trigger.js";
 
@@ -23,16 +23,16 @@ export type ReActLoopIntentDetectedTriggerFlags = {
   readonly models: Readonly<Record<string, boolean>>;
 };
 
-@syncing("harness:re-act-loop-intent-detected-trigger")
-export class ReActLoopIntentDetectedTrigger extends PlexusModel {
-  @syncing accessor enabled: boolean = true;
-  @syncing.record accessor models: Record<string, boolean> = {};
+@modelDecorator("harness:re-act-loop-intent-detected-trigger")
+export class ReActLoopIntentDetectedTrigger extends Model {
+  @state accessor enabled: boolean = true;
+  @state.record accessor models: Record<string, boolean> = {};
 
   constructor(props?: { readonly enabled?: boolean; readonly models?: Record<string, boolean> } | symbol) {
     super(typeof props === "symbol" ? props : { ...props });
   }
 
-  @syncing.action
+  @state.action
   applyFlags(flags: ReActLoopIntentDetectedTriggerFlags): void {
     this.enabled = flags.enabled;
     const next = { ...flags.models };
@@ -44,7 +44,7 @@ export class ReActLoopIntentDetectedTrigger extends PlexusModel {
 }
 
 /** Documents that still name this `harness:text-only-continue`. */
-@syncing("harness:text-only-continue")
+@modelDecorator("harness:text-only-continue")
 export class TextOnlyContinue extends ReActLoopIntentDetectedTrigger {}
 
 export function parseTextOnlyContinue(value: unknown): ReActLoopIntentDetectedTriggerFlags {

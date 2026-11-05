@@ -5,7 +5,7 @@
  * `expectation`; new BODY does not mint when it is already set. Retries
  * replace (do not append).
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { type JobEffectOwner, type UnknownOutcomeRecovery, WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
@@ -13,7 +13,7 @@ import { ToolCallJob, type ToolCallJobProps } from "./ToolCallJob.js";
 import type { CallSubject } from "../authorization/resolve.js";
 import { McpToolExpectation } from "../expectations/McpToolExpectation.js";
 
-@syncing("harness:job:mcp-tool")
+@model("harness:job:mcp-tool")
 export class MCPToolJob extends ToolCallJob {
   override readonly owner: JobEffectOwner = "tool-runtime";
   override readonly intent: string =
@@ -32,15 +32,15 @@ export class MCPToolJob extends ToolCallJob {
   override readonly intentRequired: boolean = true;
 
   /** Kernel ConnectionSpec key — the MCP server this call rides. */
-  @syncing accessor connectionKey: string = "";
-  @syncing accessor serverToolName: string = "";
+  @state accessor connectionKey: string = "";
+  @state accessor serverToolName: string = "";
   /**
    * `tools/call` has left this process. Park waits when true.
    * Written immediately before interned `callTool` / leftover PEW dispatch.
    */
-  @syncing accessor dispatched: boolean = false;
+  @state accessor dispatched: boolean = false;
   /** Leftover intern PEW is a pre-set `expectation`; new BODY does not mint when it is already set. */
-  @syncing.child accessor expectation!: McpToolExpectation;
+  @state.child accessor expectation!: McpToolExpectation;
 
   constructor(
     props:

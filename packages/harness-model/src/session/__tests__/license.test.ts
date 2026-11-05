@@ -3,9 +3,8 @@
  * evalSpec is admission, not a per-leaf mode. What licenses a soft-deny or an ask is the resolution
  * table; a block is checked before any human answer; a grant only ever turns an ask into allow.
  */
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { McpToolExpectation } from "../expectations/McpToolExpectation.js";
 import { AgentCallbackJob } from "../jobs/AgentCallbackJob.js";
@@ -16,12 +15,11 @@ import type { ApprovableJob } from "../jobs/ApprovableJob.js";
 import { MCPToolJob } from "../jobs/MCPToolJob.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
+import { SessionPlexus } from "../SessionPlexus.js";
 import { SessionRoot } from "../SessionRoot.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurnEvalSpec } from "../turn/eval-spec.js";
 import { SessionTurn } from "../turn/session-turn.js";
-
-beforeEach(() => resetLocalIDs());
 
 type Mode = "manual" | "auto" | "yolo";
 type Vote = "policyApprove" | "ask" | "deny" | "block";
@@ -67,7 +65,7 @@ function home(opts: {
     authorizationProjectJson: opts.project ?? "",
     authorizationOverlayJson: opts.overlay === undefined ? "" : JSON.stringify(opts.overlay),
   });
-  const plexus = Plexus.bootstrap(root);
+  const plexus = SessionPlexus.bootstrap(root);
   const leaf =
     opts.kind === "mcp"
       ? new MCPToolJob({
@@ -124,7 +122,7 @@ const unit = (argv0: string, spine: string[] = [], familyArgs: string[] = []) =>
 describe("permissionMode overlay", () => {
   it("join follows live-head overlay; unclosed eval stays in work", () => {
     const overlayRoot = new SessionRoot({ sessionId: "s-eval", path: "/tmp/eval" });
-    const overlayPlexus = Plexus.bootstrap(overlayRoot);
+    const overlayPlexus = SessionPlexus.bootstrap(overlayRoot);
     const inner = new SystemToolJob({ name: "shell" });
     const program = new ProgrammaticJob({ toolCallId: "program" });
     program.pushInvocation(inner);
@@ -152,7 +150,7 @@ describe("permissionMode overlay", () => {
 describe("LICENSE WHEN", () => {
   it("spawn, deliver, callback, and notify never cover, even with a leftover vote", () => {
     const root = new SessionRoot({ sessionId: "s-spawn", path: "/tmp/spawn", standingPermissionMode: "manual" });
-    const plexus = Plexus.bootstrap(root);
+    const plexus = SessionPlexus.bootstrap(root);
     const leaves = [
       new AgentCallJob({ name: "agent__send", argsJson: '{"spec":"echo","message":"hi"}' }),
       new AgentMessageJob({ name: "agent__message", argsJson: '{"targetName":"echo","message":"hi"}' }),

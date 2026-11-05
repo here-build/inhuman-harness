@@ -1,9 +1,8 @@
 /**
  * Completion spine is the parent turn tape plus a cutoff's card.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   cacheStatusLog,
@@ -32,8 +31,6 @@ function mount(turn: SessionTurn, ...cells: Array<CompletionExpectation | Compac
 }
 
 describe("CompletionExpectation.spine", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("walks prior completions on the tape and starts at a cutoff card", () => {
     const plexus = SessionPlexus.create("spine");
     try {

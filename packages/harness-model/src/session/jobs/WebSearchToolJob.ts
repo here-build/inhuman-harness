@@ -4,7 +4,7 @@
  * Leftover intern PEW is a pre-set `expectation`; new BODY does not mint
  * when it is already set. Retries replace (do not append).
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { type JobEffectOwner, type UnknownOutcomeRecovery, WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
@@ -15,7 +15,7 @@ import { WebSearchExpectation } from "../expectations/WebSearchExpectation.js";
 /** Model-facing tool name. Not a DriverSpec.abilityClaim token. */
 export const WEB_SEARCH_TOOL_NAME = "web_search";
 
-@syncing("harness:job:web-search")
+@model("harness:job:web-search")
 export class WebSearchToolJob extends ToolCallJob {
   override readonly owner: JobEffectOwner = "tool-runtime";
   override readonly intent: string =
@@ -33,9 +33,9 @@ export class WebSearchToolJob extends ToolCallJob {
   override readonly intentRequired: boolean = true;
 
   /** Kernel ConnectionSpec key — picked at intern, not admit. */
-  @syncing accessor connectionKey: string = "";
+  @state accessor connectionKey: string = "";
   /** Leftover intern PEW is a pre-set `expectation`; new BODY does not mint when it is already set. */
-  @syncing.child accessor expectation!: WebSearchExpectation;
+  @state.child accessor expectation!: WebSearchExpectation;
 
   constructor(
     props:

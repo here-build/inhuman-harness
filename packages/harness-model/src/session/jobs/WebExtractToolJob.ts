@@ -4,7 +4,7 @@
  * Leftover intern PEW is a pre-set `expectation`; new BODY does not mint
  * when it is already set. Retries replace (do not append).
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { type JobEffectOwner, type UnknownOutcomeRecovery, WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
@@ -15,7 +15,7 @@ import { WebExtractExpectation } from "../expectations/WebExtractExpectation.js"
 /** Model-facing tool name. Not a DriverSpec.abilityClaim token. */
 export const WEB_EXTRACT_TOOL_NAME = "web_extract";
 
-@syncing("harness:job:web-extract")
+@model("harness:job:web-extract")
 export class WebExtractToolJob extends ToolCallJob {
   override readonly owner: JobEffectOwner = "tool-runtime";
   override readonly intent: string =
@@ -32,9 +32,9 @@ export class WebExtractToolJob extends ToolCallJob {
     "Durable unsettled intent or leftover in-flight PEW is unknown, not queued work.";
   override readonly intentRequired: boolean = true;
 
-  @syncing accessor connectionKey: string = "";
+  @state accessor connectionKey: string = "";
   /** Leftover intern PEW is a pre-set `expectation`; new BODY does not mint when it is already set. */
-  @syncing.child accessor expectation!: WebExtractExpectation;
+  @state.child accessor expectation!: WebExtractExpectation;
 
   constructor(
     props:

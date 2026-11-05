@@ -2,17 +2,17 @@
  * Packets of a system prompt snapshot. Values, not live catalog rows.
  * A session copies these at genesis; a turn overlays a sparse derivation.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model, state } from "@inhuman.tools/model";
 import type { ReadonlyDeep } from "type-fest";
 
 import { serializingInto } from "../json-record.js";
 
-@syncing("harness:session:tool-spec")
-export class ToolSpec extends PlexusModel {
-  @syncing accessor name: string = "";
-  @syncing accessor description: string = "";
-  @syncing accessor argsJson: string | null = "{}";
-  @syncing accessor mutates: boolean = false;
+@model("harness:session:tool-spec")
+export class ToolSpec extends Model {
+  @state accessor name: string = "";
+  @state accessor description: string = "";
+  @state accessor argsJson: string | null = "{}";
+  @state accessor mutates: boolean = false;
 
   constructor(
     props?:
@@ -30,15 +30,24 @@ export class ToolSpec extends PlexusModel {
   /** JSON Schema for this tool. Not call arguments. */
   @serializingInto("argsJson")
   accessor parameters: ReadonlyDeep<Record<string, unknown>> | null = null;
+
+  clone(): ToolSpec {
+    return new ToolSpec({
+      name: this.name,
+      description: this.description,
+      argsJson: this.argsJson,
+      mutates: this.mutates,
+    });
+  }
 }
 
-@syncing("harness:session:skill-spec")
-export class SkillSpec extends PlexusModel {
-  @syncing accessor name: string = "";
-  @syncing accessor description: string = "";
-  @syncing accessor location: string = "";
+@model("harness:session:skill-spec")
+export class SkillSpec extends Model {
+  @state accessor name: string = "";
+  @state accessor description: string = "";
+  @state accessor location: string = "";
   /** Slash verb. Equals `name` unless a collision forced a qualified id. */
-  @syncing accessor invoke: string = "";
+  @state accessor invoke: string = "";
 
   constructor(
     props?:
@@ -51,6 +60,15 @@ export class SkillSpec extends PlexusModel {
       | symbol,
   ) {
     super(props);
+  }
+
+  clone(): SkillSpec {
+    return new SkillSpec({
+      name: this.name,
+      description: this.description,
+      location: this.location,
+      invoke: this.invoke,
+    });
   }
 }
 

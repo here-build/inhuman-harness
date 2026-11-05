@@ -1,9 +1,8 @@
 /**
  * POLICY FOLLOWS HEAD.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { callbackRequiredNote } from "../Agent.js";
 import { sessionMintPermissionMode } from "../eval-context.js";
@@ -12,8 +11,6 @@ import { SessionTurn } from "../turn/index.js";
 import { attached } from "./_helpers/fixtures.js";
 
 describe("Agent", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("policy follows head", () => {
     const session = attached({ sessionId: "s-policy", path: "/tmp/demo" });
     const genesis = new SessionSystemPrompt();

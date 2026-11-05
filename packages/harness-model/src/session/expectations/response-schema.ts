@@ -60,14 +60,14 @@ function matchNode(value: unknown, schema: unknown, path: string): void {
     return;
   }
   if (type === "array") {
-    if (!Array.isArray(value)) throw new Error(`response schema${at(path)}: expected array`);
+    if (!Array.isArray(value)) throw new TypeError(`response schema${at(path)}: expected array`);
     if (schema.items !== undefined) {
       for (const [i, item] of value.entries()) matchNode(item, schema.items, `${path}[${i}]`);
     }
     return;
   }
   if (type === "string") {
-    if (typeof value !== "string") throw new Error(`response schema${at(path)}: expected string`);
+    if (typeof value !== "string") throw new TypeError(`response schema${at(path)}: expected string`);
     enumCheck(value, schema.enum, path);
     return;
   }
@@ -85,7 +85,7 @@ function matchNode(value: unknown, schema: unknown, path: string): void {
     return;
   }
   if (type === "boolean") {
-    if (typeof value !== "boolean") throw new Error(`response schema${at(path)}: expected boolean`);
+    if (typeof value !== "boolean") throw new TypeError(`response schema${at(path)}: expected boolean`);
     return;
   }
   throw new Error(`response schema${at(path)}: unsupported type ${String(type)}`);

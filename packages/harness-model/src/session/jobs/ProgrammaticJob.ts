@@ -10,7 +10,7 @@
  * `notifications` are origin atoms (`self/notify`). Incomplete bags feed
  * the session pending-notify computed; a `TurnNotificationChunk` consumes them.
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import {
   Job,
   type JobEffectOwner,
@@ -30,7 +30,7 @@ import { AgentCallNotification, rememberJobResult, RESULT_NOTE_CHARS } from "./A
 import { SequenceJob } from "./SequenceJob.js";
 import { ToolCallJob } from "./ToolCallJob.js";
 
-@syncing("harness:job:programmatic")
+@model("harness:job:programmatic")
 export class ProgrammaticJob extends SequenceJob<unknown, string> {
   override readonly owner: JobEffectOwner = "scheme-runtime";
   override readonly intent: string =
@@ -47,29 +47,29 @@ export class ProgrammaticJob extends SequenceJob<unknown, string> {
     "Resume the interpreter from durable periodChildAt. Inner unknown follows inner rows (no remint, no replay of unsettled MCP/system/web).";
   override readonly intentRequired: boolean = false;
 
-  @syncing accessor toolCallId: string = "";
-  @syncing accessor toolName: string = SCHEME_REPL_TOOL_NAME;
-  @syncing private accessor argsJson: string | null = "{}";
-  @syncing private accessor outcomeJson: string | null = null;
-  @syncing.child.list accessor notifications: AgentCallNotification[] = [];
-  @syncing accessor periodChildAt: number = 0;
-  @syncing accessor periodWaitUntilMs: number | null = null;
-  @syncing.record accessor pluginMeta: Record<string, string> = {};
+  @state accessor toolCallId: string = "";
+  @state accessor toolName: string = SCHEME_REPL_TOOL_NAME;
+  @state private accessor argsJson: string | null = "{}";
+  @state private accessor outcomeJson: string | null = null;
+  @state.childList accessor notifications: AgentCallNotification[] = [];
+  @state accessor periodChildAt: number = 0;
+  @state accessor periodWaitUntilMs: number | null = null;
+  @state.record accessor pluginMeta: Record<string, string> = {};
   /** Normalized definition policy frozen when this invocation was admitted. Empty on legacy documents. */
-  @syncing accessor continuationJson: string = "";
-  @syncing accessor triggersReactLoop: boolean = true;
-  @syncing accessor isSideChannel: boolean = false;
-  @syncing accessor tapeHidden: boolean = false;
+  @state accessor continuationJson: string = "";
+  @state accessor triggersReactLoop: boolean = true;
+  @state accessor isSideChannel: boolean = false;
+  @state accessor tapeHidden: boolean = false;
   /** R2. Resolved retention rule stamped at admit. See {@link ToolCallJob.retentionJson}. */
-  @syncing accessor retentionJson: string = "";
+  @state accessor retentionJson: string = "";
   /** This run stamps a call-start track on every child. Stories and old jobs leave it false. */
-  @syncing accessor trackMatch: boolean = false;
+  @state accessor trackMatch: boolean = false;
   /** `require` / `.prompt` bytes, keyed by the loader's root-relative path. */
-  @syncing.record accessor modules: Record<string, string> = {};
+  @state.record accessor modules: Record<string, string> = {};
   /** Host reads that are not jobs, keyed by the crossing track. JSON text. */
-  @syncing.record accessor world: Record<string, string> = {};
+  @state.record accessor world: Record<string, string> = {};
   /** Pack-tool names bound for this run. The standard verbs are always bound. */
-  @syncing.record accessor boundTools: Record<string, string> = {};
+  @state.record accessor boundTools: Record<string, string> = {};
 
   constructor(
     props?:
@@ -105,7 +105,7 @@ export class ProgrammaticJob extends SequenceJob<unknown, string> {
   }
 
   /** Every terminal path ends here, so a background program posts its result once. */
-  @syncing.action
+  @state.action
   override markComplete(now = Date.now()): void {
     if (!this.completed) {
       rememberJobResult(
@@ -211,7 +211,7 @@ export class ProgrammaticJob extends SequenceJob<unknown, string> {
     return "";
   }
 
-  @syncing.action
+  @state.action
   stampPluginMeta(pluginId: string, encoded: string): void {
     this.pluginMeta[pluginId] = encoded;
   }

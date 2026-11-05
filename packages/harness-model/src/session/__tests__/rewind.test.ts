@@ -2,10 +2,8 @@
  * `tip` is a synced pointer next to `head`. Pin = nonempty prompt.
  * Suffix tape keeps blank turns. Torn ceiling collapses to at-tip.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
+import { describe, expect, it } from "vitest";
 
 import {
   futurePins,
@@ -23,16 +21,13 @@ import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
 
 function replicaOf(owner: SessionPlexus): { readonly root: SessionPlexus["root"]; [Symbol.dispose](): void } {
-  const doc = new Y.Doc({ guid: owner.doc.guid });
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(owner.doc));
-  const plexus = SessionPlexus.connect(doc);
+  const plexus = SessionPlexus.connect(owner);
   return {
     get root() {
       return plexus.root;
     },
     [Symbol.dispose]() {
       plexus.destroy();
-      doc.destroy();
     },
   };
 }
@@ -42,8 +37,6 @@ function turn(tail: SessionSystemPrompt | SessionTurn, text: string): SessionTur
 }
 
 describe("Agent.tip / rewind walks", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("tip rehydrates next to head", () => {
     const plexus = SessionPlexus.create("s-tip", "/tmp/tip");
     const a = turn(new SessionSystemPrompt(), "one");

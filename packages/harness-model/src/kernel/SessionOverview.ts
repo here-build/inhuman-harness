@@ -10,64 +10,64 @@
  * map so the caller tape can dim live status and `Client.agents` can
  * project state without attaching.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model, state } from "@inhuman.tools/model";
 
 import { agentNatureOf, type AgentNature } from "../recipe-scope.js";
 import type { KernelRoot } from "./KernelRoot.js";
-import type { SessionUnfinished } from "../shared/session-unfinished.js";
 import type { SessionOverviewFace } from "../shared/session-overview.js";
+import type { SessionUnfinished } from "../shared/session-unfinished.js";
 
 export type { SessionOverviewFace } from "../shared/session-overview.js";
 
-@syncing("harness:kernel:session-overview")
-export class SessionOverview extends PlexusModel<KernelRoot | null> {
+@model("harness:kernel:session-overview")
+export class SessionOverview extends Model<any, KernelRoot | null> {
   get sessionId(): string {
     return (this.parentFieldKey as string | null) ?? "";
   }
 
-  @syncing accessor title: string = "";
+  @state accessor title: string = "";
   /** Unix ms. Null until the intern stamps it. */
-  @syncing accessor lastMessageAt: number | null = null;
+  @state accessor lastMessageAt: number | null = null;
   /** Recipe scope. Empty = conversation or one-shot. Resume skips non-empty. */
-  @syncing accessor recipeScope: AgentNature = "";
+  @state accessor recipeScope: AgentNature = "";
   /** Snapshotted `Agent.spec.name`. Empty on a conversation / anonymous ask. */
-  @syncing accessor specName: string = "";
+  @state accessor specName: string = "";
   /** Snapshotted `Agent.spec.resident`. Occupancy park skips this row. */
-  @syncing accessor resident: boolean = false;
+  @state accessor resident: boolean = false;
   /** Snapshotted `Agent.spec.keepAlive`. */
-  @syncing accessor keepAlive: boolean = false;
+  @state accessor keepAlive: boolean = false;
   /** `spec instanceof AskAgentSpec`. Resume skips. Not a recipe scope. */
-  @syncing accessor oneShot: boolean = false;
+  @state accessor oneShot: boolean = false;
   /** Worker `kvs.model`. Empty until inherited / set. */
-  @syncing accessor model: string = "";
+  @state accessor model: string = "";
   /** `SessionRoot.turnDescription`. Empty until `update_metadata` writes one. */
-  @syncing accessor status: string = "";
+  @state accessor status: string = "";
   /** Worker `SessionRoot.isMidMotion()`. Not recency. */
-  @syncing accessor midMotion: boolean = false;
+  @state accessor midMotion: boolean = false;
   /** Snapshotted `SessionRoot.openTurn`. Head turn still open. */
-  @syncing accessor openTurn: boolean = false;
+  @state accessor openTurn: boolean = false;
   /** Snapshotted `SessionRoot.openToolCount`. Unsealed tool calls. */
-  @syncing accessor openToolCount: number = 0;
+  @state accessor openToolCount: number = 0;
   /** Snapshotted `SessionRoot.periodArmed`. `scheme_watch` idle deadline. */
-  @syncing accessor periodArmed: boolean = false;
+  @state accessor periodArmed: boolean = false;
   /** Open `agentCallbacks` rows on the worker. */
-  @syncing accessor openCallbackCount: number = 0;
+  @state accessor openCallbackCount: number = 0;
   /** Sitting ask on the running turn. `SessionRoot.asking`. */
-  @syncing accessor asking: boolean = false;
+  @state accessor asking: boolean = false;
   /** Snapshotted `SessionRoot.unfinished`. Ask > tools > turn. Empty = none. */
-  @syncing accessor unfinished: SessionUnfinished = "";
+  @state accessor unfinished: SessionUnfinished = "";
   /** Latest interactive user prompt. Flattened. Empty until a turn has `prompt`. */
-  @syncing accessor lastPrompt: string = "";
+  @state accessor lastPrompt: string = "";
   /**
    * Sitting-ask question line. Empty unless `unfinished === "ask"`.
    * Listing TUI paints this verbatim.
    */
-  @syncing accessor askLine: string = "";
+  @state accessor askLine: string = "";
   /**
    * Speech-question pin. Empty unless `unfinished === "question"`.
    * Not license `askLine`.
    */
-  @syncing accessor questionLine: string = "";
+  @state accessor questionLine: string = "";
 
   constructor(
     opts?:
@@ -103,11 +103,11 @@ export class SessionOverview extends PlexusModel<KernelRoot | null> {
  * `harness:kernel:session-glance`. `scope`, `daemon`, and `blocked` are the
  * previous field names; {@link hydrateSessionOverview} copies each once.
  */
-@syncing("harness:kernel:session-glance")
+@model("harness:kernel:session-glance")
 export class SessionGlance extends SessionOverview {
-  @syncing accessor scope: string = "";
-  @syncing accessor daemon: boolean = false;
-  @syncing accessor blocked: boolean = false;
+  @state accessor scope: string = "";
+  @state accessor daemon: boolean = false;
+  @state accessor blocked: boolean = false;
 }
 
 export function hydrateSessionOverview(row: SessionOverview): void {

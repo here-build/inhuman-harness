@@ -1,17 +1,17 @@
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model as modelDecorator, state } from "@inhuman.tools/model";
 
 import { BotSpec, writeAuthoredBots } from "./BotSpec.js";
 import type { CommandSpec } from "./CommandSpec.js";
-import type { PermissionMode } from "../shared/permission-mode.js";
 import type { ActionSpec } from "../shared/ActionSpec.js";
 import { applyKv } from "../shared/KeyValueStorage.js";
+import type { PermissionMode } from "../shared/permission-mode.js";
 import type { KvProposal } from "../shared/residual.js";
 
-@syncing("harness:project:root")
-export class ProjectRoot extends PlexusModel<null> {
-  @syncing.record accessor kvs: Record<string, string> = {};
+@modelDecorator("harness:project:root")
+export class ProjectRoot extends Model<any, null> {
+  @state.record accessor kvs: Record<string, string> = {};
 
-  @syncing.action
+  @state.action
   applyKvs(proposals: readonly KvProposal[]): void {
     applyKv(this.kvs, proposals);
   }
@@ -21,9 +21,9 @@ export class ProjectRoot extends PlexusModel<null> {
    * model selection writes through; a project-scope kv/set can pin it. Session
    * mint prefers this over the kernel record.
    */
-  @syncing.record accessor lastUsedConnectionModel: Record<string, string> = {};
+  @state.record accessor lastUsedConnectionModel: Record<string, string> = {};
 
-  @syncing.action
+  @state.action
   stampLastUsedConnectionModel(connection: string, model: string): void {
     const conn = connection.trim();
     const mid = model.trim();
@@ -31,31 +31,31 @@ export class ProjectRoot extends PlexusModel<null> {
     this.lastUsedConnectionModel[conn] = mid;
   }
 
-  @syncing.action
+  @state.action
   replaceAuthoredBots(specs: readonly BotSpec[]): void {
     writeAuthoredBots(this, specs);
   }
 
-  @syncing accessor path: string = "";
+  @state accessor path: string = "";
   /**
    * Last-choice permission mode for a new session in this project.
    * Empty inherits kernel `defaultPermissionMode` at mint. A set id wins, including
    * `manual`. Not a kv key. Attach does not re-seed.
    */
-  @syncing accessor defaultPermissionMode: PermissionMode | "" = "";
-  @syncing accessor trusted: boolean = false;
-  @syncing accessor contentHash: string = "";
+  @state accessor defaultPermissionMode: PermissionMode | "" = "";
+  @state accessor trusted: boolean = false;
+  @state accessor contentHash: string = "";
   /** Project-authored bots (`<repo>/.inhuman/bots`). Overrides home / stdlib. */
-  @syncing.child.record accessor bots: Record<string, BotSpec> = {};
-  @syncing.child.record accessor commands: Record<string, CommandSpec> = {};
-  @syncing.child.record accessor actions: Record<string, ActionSpec> = {};
+  @state.childRecord accessor bots: Record<string, BotSpec> = {};
+  @state.childRecord accessor commands: Record<string, CommandSpec> = {};
+  @state.childRecord accessor actions: Record<string, ActionSpec> = {};
   /** Project-scope roster: recipe name → bot `sessionId`. */
-  @syncing.record accessor botsRoster: Record<string, string> = {};
+  @state.record accessor botsRoster: Record<string, string> = {};
   /** Conversations. Key = `sessionId`. Value is membership (`""`). Not the bot roster. */
-  @syncing.record accessor sessions: Record<string, ""> = {};
+  @state.record accessor sessions: Record<string, ""> = {};
 
   constructor(
-    opts:
+    opts?:
       | symbol
       | {
           path?: string;

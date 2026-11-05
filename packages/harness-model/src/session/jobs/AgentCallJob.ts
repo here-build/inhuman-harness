@@ -1,6 +1,6 @@
 /** An invocation of an owned child agent. Bot requests use BotCallJob. */
-import { syncing } from "@here.build/plexus";
 import { asSystemPrompt, prompt, type SystemPrompt } from "@inhuman.tools/harness-commons";
+import { model, state } from "@inhuman.tools/model";
 import {
   type JobEffectOwner,
   type JobResolution,
@@ -21,7 +21,7 @@ export type AgentCallJobProps = CallJobProps & {
   readonly reasoningEffort?: ReasoningEffort | null;
 };
 
-@syncing("harness:job:child-agent-call")
+@model("harness:job:child-agent-call")
 export class AgentCallJob extends CallJob {
   override readonly owner: JobEffectOwner = "agent-calls";
   override readonly intent: string =
@@ -42,14 +42,14 @@ export class AgentCallJob extends CallJob {
    * Stored system line for a wire ask. A call that stores
    * {@link promptMessages} leaves this empty; the line to read is {@link systemPrompt}.
    */
-  @syncing accessor constitution: SystemPrompt = prompt.system``;
+  @state accessor constitution: SystemPrompt = prompt.system``;
   /** Ordered authored rows. The system line is {@link systemPrompt}; the worker turn is {@link speech}. */
-  @syncing.child.list accessor promptMessages: PromptMessage[] = [];
-  @syncing accessor faceName: string = "";
-  @syncing.list accessor tools: string[] = [];
+  @state.childList accessor promptMessages: PromptMessage[] = [];
+  @state accessor faceName: string = "";
+  @state.list accessor tools: string[] = [];
   /** Omitted prompt tools inherit the caller's catalog. */
-  @syncing accessor inheritCallerTools: boolean = false;
-  @syncing accessor reasoningEffort: ReasoningEffort | null = null;
+  @state accessor inheritCallerTools: boolean = false;
+  @state accessor reasoningEffort: ReasoningEffort | null = null;
 
   constructor(props?: AgentCallJobProps | symbol) {
     super(props);
@@ -128,7 +128,7 @@ export class AgentCallJob extends CallJob {
   }
 
   /** A guard's rewritten prompt. System rows stay; the new text is one user row. */
-  @syncing.action
+  @state.action
   replaceSpeech(content: string): void {
     const systems = this.promptMessages.filter((row) => row.role === "system");
     this.promptMessages.splice(0, this.promptMessages.length, ...systems, new PromptMessage({ role: "user", content }));

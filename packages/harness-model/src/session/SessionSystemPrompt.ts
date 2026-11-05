@@ -2,8 +2,8 @@
  * Genesis snapshot of system-prompt packets. Not a work node — first-turn
  * `tail` fallback. Compaction reads assembled parts; it does not walk the spine.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
 import { prompt, type SystemPrompt } from "@inhuman.tools/harness-commons";
+import { Model, model, state } from "@inhuman.tools/model";
 
 import { SkillSpec, type ToolSpec } from "./prompt-parts.js";
 import { RegisteredToolsSet } from "./RegisteredToolsSet.js";
@@ -24,17 +24,17 @@ export type SystemPromptParts = {
   readonly skills: readonly SkillSpec[];
 };
 
-@syncing("harness:session:system-prompt")
-export class SessionSystemPrompt extends PlexusModel {
+@model("harness:session:system-prompt")
+export class SessionSystemPrompt extends Model {
   readonly turnTail: null = null;
-  @syncing accessor constitution: SystemPrompt = prompt.system``;
-  @syncing.record accessor env: Record<string, string> = {};
+  @state accessor constitution: SystemPrompt = prompt.system``;
+  @state.record accessor env: Record<string, string> = {};
   /**
    * Empty fallback so `turn.tools` can walk `tail.tools`. The choice itself
    * is attributed to the first turn (`toolsDefinition`), not genesis.
    */
-  @syncing.child accessor tools: RegisteredToolsSet = new RegisteredToolsSet();
-  @syncing.child.list accessor skills: SkillSpec[] = [];
+  @state.child accessor tools: RegisteredToolsSet = new RegisteredToolsSet();
+  @state.childList accessor skills: SkillSpec[] = [];
 
   parts(): SystemPromptParts {
     return {

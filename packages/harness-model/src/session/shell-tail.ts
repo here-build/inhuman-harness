@@ -12,8 +12,7 @@
  * job has no hub, so a report there is absence. A process-local atom
  * would miss every peer frame.
  */
-import { type PlexusAwareness } from "@here.build/plexus";
-import { docPlexus } from "@here.build/plexus/internals";
+import { type PlexusAwareness } from "@inhuman.tools/model";
 import { MapFieldAwareness, SHELL_TAILS_LANE, type SessionAwareness } from "@inhuman.tools/plexus-expectations";
 
 import { ToolCallJob } from "./jobs/ToolCallJob.js";
@@ -63,9 +62,7 @@ export function shellTailOf(job: ToolCallJob): ShellTail | null {
 }
 
 function laneOf(job: ToolCallJob): ShellTailAwareness | null {
-  const doc = job.__doc__;
-  if (doc == null) return null;
-  const awareness = docPlexus.get(doc)?.awareness;
+  const awareness = job.container?.awareness ?? job.container?.container?.awareness;
   if (awareness == null) return null;
   return new ShellTailAwareness(awareness as PlexusAwareness<SessionAwareness>);
 }

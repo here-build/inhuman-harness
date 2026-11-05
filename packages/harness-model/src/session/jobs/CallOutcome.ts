@@ -2,7 +2,7 @@
  * Terminal receipt on {@link CallJob}. Kind is the class.
  * Fail `message` is an error string (approval comment, door text) — not the result.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model, state } from "@inhuman.tools/model";
 import { computed } from "mobx";
 
 import { deepFreeze, syncingText } from "../../json-record.js";
@@ -25,9 +25,9 @@ export const CALL_FAIL_CODES = [
 ] as const;
 export type CallFailCode = (typeof CALL_FAIL_CODES)[number];
 
-@syncing("harness:job:call-outcome:success")
-export class SuccessfulOutcome extends PlexusModel {
-  @syncing private accessor valueJson: string | null = null;
+@model("harness:job:call-outcome:success")
+export class SuccessfulOutcome extends Model {
+  @state private accessor valueJson: string | null = null;
 
   constructor(props?: { readonly valueJson?: string | null } | symbol) {
     super(props);
@@ -48,11 +48,11 @@ export class SuccessfulOutcome extends PlexusModel {
   }
 }
 
-@syncing("harness:job:call-outcome:failure")
-export class FailureOutcome extends PlexusModel {
+@model("harness:job:call-outcome:failure")
+export class FailureOutcome extends Model {
   /** Empty is unstamped, outside CALL_FAIL_CODES. */
-  @syncing accessor code: CallFailCode | "" = "";
-  @syncing accessor message: string = "";
+  @state accessor code: CallFailCode | "" = "";
+  @state accessor message: string = "";
 
   constructor(props?: { readonly code?: CallFailCode; readonly message?: string } | symbol) {
     super(props);

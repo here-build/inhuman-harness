@@ -3,7 +3,7 @@
  * Presence is awareness (drops on disconnect / 30s timeout), not KernelRoot.
  * Origin (tui / web / mobile) is a later field on the same object — not a second lane.
  */
-import { FieldAwareness, type PlexusAwareness } from "@here.build/plexus";
+import { FieldAwareness, type PlexusAwareness } from "@inhuman.tools/model";
 import type { KernelAwareness as PewKernelAwareness } from "@inhuman.tools/plexus-expectations";
 
 import type { AgentNature } from "../recipe-scope.js";

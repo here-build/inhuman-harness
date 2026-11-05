@@ -1,8 +1,7 @@
 import "../register.js";
-import { entityClasses } from "@here.build/plexus/internals";
 import { asUserPrompt } from "@inhuman.tools/harness-commons";
+import { getModelByTag } from "@inhuman.tools/model";
 import { expect, test } from "vitest";
-import * as Y from "yjs";
 
 import { TextOnlyContinue } from "../../shared/ReActLoopIntentDetectedTrigger.js";
 import {
@@ -19,8 +18,8 @@ import {
 
 test("session registration restores nested work before the aggregate model entry is loaded", async () => {
   expect({
-    kernelLoaded: entityClasses.has("harness:kernel:root"),
-    legacyRegistered: entityClasses.get("harness:text-only-continue") === TextOnlyContinue,
+    kernelLoaded: getModelByTag("harness:kernel:root") != null,
+    legacyRegistered: getModelByTag("harness:text-only-continue") === TextOnlyContinue,
   }).toEqual({ kernelLoaded: false, legacyRegistered: true });
 
   const owner = SessionPlexus.create("registered-session");
@@ -38,9 +37,7 @@ test("session registration restores nested work before the aggregate model entry
     prompt: asUserPrompt("keep this work"),
     queue: [program, call, new CompactJob({ resourceSnapshotJson: '{"revision":"one"}' })],
   });
-  const replicaDoc = new Y.Doc({ guid: owner.doc.guid });
-  Y.applyUpdate(replicaDoc, Y.encodeStateAsUpdate(owner.doc));
-  const replica = SessionPlexus.connect(replicaDoc);
+  const replica = SessionPlexus.connect(owner);
   try {
     const turn = replica.root.head;
     if (!(turn instanceof SessionTurn)) throw new TypeError("restored head is not a turn");

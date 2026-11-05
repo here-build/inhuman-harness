@@ -1,5 +1,5 @@
 /** Legacy serialized context calls use the normal system-tool executor. New calls are SystemToolJobs. */
-import { syncing } from "@here.build/plexus";
+import { model } from "@inhuman.tools/model";
 import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
@@ -7,7 +7,7 @@ import { SystemToolJob } from "./SystemToolJob.js";
 import { contextNeedAdmitSchema } from "../../schemas/context-need.js";
 import type { ContextNeed } from "../context-need.js";
 
-@syncing("harness:job:context-need")
+@model("harness:job:context-need")
 export class ContextNeedToolJob extends SystemToolJob {
   override readonly owner: JobEffectOwner = "tool-runtime";
   override readonly intent: string = "Resume the legacy context request through the catalog tool body.";

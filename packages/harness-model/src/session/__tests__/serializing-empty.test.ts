@@ -1,6 +1,5 @@
-import { PlexusModel, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 
 import { CompletionExpectation } from "../expectations/CompletionExpectation.js";
 import { McpToolExpectation } from "../expectations/McpToolExpectation.js";
@@ -10,8 +9,6 @@ import { SuccessfulOutcome } from "../jobs/CallOutcome.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
 import { ToolSpec } from "../prompt-parts.js";
-
-beforeEach(() => resetLocalIDs());
 
 test("a null record face stores null, and {} stores {}", () => {
   const tool = new SystemToolJob({ toolCallId: "t", name: "shell", argsJson: '{"command":"ls"}' });
@@ -57,7 +54,7 @@ test("a null record face stores null, and {} stores {}", () => {
 });
 
 test("a rehydrated call reads an empty response schema", () => {
-  const job = PlexusModel.__materializeRaw__(BotCallJob);
+  const job = new BotCallJob();
   expect(job.responseSchema).toBeNull();
   job.responseSchema = { type: "object" };
   expect({ face: job.responseSchema, cell: Reflect.get(job, "responseSchemaJson") }).toEqual({

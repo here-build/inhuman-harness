@@ -3,13 +3,13 @@
  * `TurnNotificationChunk` records consumption; rollback of that turn
  * re-enters the atom. Not a callback and not Call / bag settlement.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model, state } from "@inhuman.tools/model";
 
-@syncing("harness:session:agent-call-notification")
-export class AgentCallNotification extends PlexusModel {
-  @syncing accessor message: string = "";
+@model("harness:session:agent-call-notification")
+export class AgentCallNotification extends Model {
+  @state accessor message: string = "";
   /** Completion of a background job. Ordinary `self/notify` leaves this false. */
-  @syncing accessor result: boolean = false;
+  @state accessor result: boolean = false;
 
   constructor(props?: { readonly message?: string; readonly result?: boolean } | symbol) {
     super(props);

@@ -1,5 +1,4 @@
-import { resetLocalIDs } from "@here.build/plexus";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   BLOB_HEAD_CHARS,
@@ -16,8 +15,6 @@ const SHA = "a".repeat(64);
 const blob: StoredBlob = { sha256: SHA, bytes: 9000, mime: "text/plain", head: "const x = 1;" };
 
 describe("blob references", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("round-trips through JSON and rejects what is not a reference", () => {
     expect(parseStoredBlob(storedBlobJson(blob))).toEqual(blob);
     expect(parseStoredBlob(null)).toBeNull();
@@ -49,8 +46,6 @@ describe("blob references", () => {
 });
 
 describe("FileMutateToolJob.prior", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("is null when nothing was captured", () => {
     const job = new FileMutateToolJob({ toolCallId: "c1", name: "write_file", argsJson: "{}" });
     expect(job.prior).toBeNull();

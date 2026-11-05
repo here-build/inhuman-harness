@@ -5,7 +5,7 @@
  * {@link drivers} / {@link connections}. Plugin consent is the install-root
  * `package.json`. Secrets never ride this document.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model as modelDecorator, state } from "@inhuman.tools/model";
 import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { DEFAULT_STATUSLINE } from "@inhuman.tools/statusline/constants";
 
@@ -21,17 +21,16 @@ import {
   writeOverviewFace,
   type SessionOverviewFace,
 } from "./SessionOverview.js";
-import type { PermissionMode } from "../shared/permission-mode.js";
 import type { ActionSpec } from "../shared/ActionSpec.js";
-import { applyKv } from "../shared/KeyValueStorage.js";
-import { ReActLoopIntentDetectedTrigger } from "../shared/ReActLoopIntentDetectedTrigger.js";
-import { SCHEMA_VERSION, type KvProposal } from "../shared/residual.js";
-
 import {
   DEFAULT_COMPACT_TRIGGERS,
   DEFAULT_COMPACT_KEEP_TURNS,
   DEFAULT_LENGTH_CONTINUATIONS,
 } from "../shared/compact-settings.js";
+import { applyKv } from "../shared/KeyValueStorage.js";
+import type { PermissionMode } from "../shared/permission-mode.js";
+import { ReActLoopIntentDetectedTrigger } from "../shared/ReActLoopIntentDetectedTrigger.js";
+import { SCHEMA_VERSION, type KvProposal } from "../shared/residual.js";
 
 export {
   DEFAULT_COMPACT_TRIGGERS,
@@ -119,26 +118,26 @@ export function parseStatuslineRefresh(value: unknown): StatuslineRefresh {
   };
 }
 
-@syncing("harness:kernel:compact-triggers")
-export class CompactTriggers extends PlexusModel<KernelRoot | null> {
-  @syncing accessor hard: string = DEFAULT_COMPACT_TRIGGERS.hard;
-  @syncing accessor soft: string = DEFAULT_COMPACT_TRIGGERS.soft;
+@modelDecorator("harness:kernel:compact-triggers")
+export class CompactTriggers extends Model<any, KernelRoot | null> {
+  @state accessor hard: string = DEFAULT_COMPACT_TRIGGERS.hard;
+  @state accessor soft: string = DEFAULT_COMPACT_TRIGGERS.soft;
 
   constructor(props?: { readonly hard?: string; readonly soft?: string } | symbol) {
     super(typeof props === "symbol" ? props : { ...props });
   }
 }
 
-@syncing("harness:kernel:root")
-export class KernelRoot extends PlexusModel<null> {
-  @syncing.record accessor kvs: Record<string, string> = {};
+@modelDecorator("harness:kernel:root")
+export class KernelRoot extends Model<any, null> {
+  @state.record accessor kvs: Record<string, string> = {};
 
-  @syncing.action
+  @state.action
   applyKvs(proposals: readonly KvProposal[]): void {
     applyKv(this.kvs, proposals);
   }
 
-  @syncing.action
+  @state.action
   stampModelUsage(connection: string, model: string, at: number = Date.now()): void {
     const conn = connection.trim();
     const mid = model.trim();
@@ -147,23 +146,23 @@ export class KernelRoot extends PlexusModel<null> {
     this.lastUsedConnectionModel[conn] = mid;
   }
 
-  @syncing.action
+  @state.action
   replaceAuthoredBots(specs: readonly BotSpec[]): void {
     writeAuthoredBots(this, specs);
   }
 
-  @syncing.action
+  @state.action
   replacePluginTools(pluginName: string, tools: readonly PluginToolFace[]): PluginSpec {
     return writePluginTools(this, pluginName, tools);
   }
 
-  @syncing.action
+  @state.action
   reconcileAgentRelations(callerSessionId: string, calls: readonly AgentRelationSnap[]): void {
     writeAgentRelations(this, callerSessionId, calls);
   }
 
   /** Create-or-update one glance row and its caller edges. `atMs` is only the create stamp. */
-  @syncing.action
+  @state.action
   projectSessionGlance(
     sessionId: string,
     snap: SessionOverviewFace & { readonly calls: readonly AgentRelationSnap[] },
@@ -198,66 +197,66 @@ export class KernelRoot extends PlexusModel<null> {
     writeAgentRelations(this, sessionId, snap.calls);
   }
 
-  @syncing accessor schemaVersion: number = SCHEMA_VERSION;
-  @syncing accessor compactStrategy: string = DEFAULT_COMPACT_STRATEGY;
+  @state accessor schemaVersion: number = SCHEMA_VERSION;
+  @state accessor compactStrategy: string = DEFAULT_COMPACT_STRATEGY;
   /** Ask residual processor. `config.json` `autoModeClassifier`. */
-  @syncing accessor autoModeClassifier: string = DEFAULT_AUTO_MODE_JUDGE;
+  @state accessor autoModeClassifier: string = DEFAULT_AUTO_MODE_JUDGE;
   /**
    * Last-choice permission mode for a new session. `config.json`
    * `defaultPermissionMode`. Not a kv key. Project `defaultPermissionMode` wins at mint
    * when set. Omitted / unknown → `manual`.
    */
-  @syncing accessor defaultPermissionMode: PermissionMode = "manual";
+  @state accessor defaultPermissionMode: PermissionMode = "manual";
   /**
    * The user layer of the authorization table: `config.json` `authorization`, as JSON text.
    * Empty: dist defaults. Daemon-stamped from the file; a client does not write it.
    */
-  @syncing accessor authorizationJson: string = "";
+  @state accessor authorizationJson: string = "";
   /**
    * Stored grants of project, bot and global scope (`~/.harness/grants.json`), JSON `GrantRow[]`.
    * Daemon-written; sessions read the rows that are visible to them.
    */
-  @syncing accessor grantsJson: string = "";
+  @state accessor grantsJson: string = "";
   /**
    * Text-only continuation intern. `config.json` `reActLoopIntentDetectedTrigger`.
    * Omitted bag and leftover images hydrate on. Explicit `enabled: false`
    * turns it off. Live overlay.
    */
-  @syncing.child accessor reActLoopIntentDetectedTrigger: ReActLoopIntentDetectedTrigger =
+  @state.child accessor reActLoopIntentDetectedTrigger: ReActLoopIntentDetectedTrigger =
     new ReActLoopIntentDetectedTrigger();
 
-  @syncing.child accessor compactTriggers: CompactTriggers = new CompactTriggers();
+  @state.child accessor compactTriggers: CompactTriggers = new CompactTriggers();
   /** `config.json` `compactKeepTurns`; host clamps to >= 1. 0 is invalid. */
-  @syncing accessor compactKeepTurns: number = DEFAULT_COMPACT_KEEP_TURNS;
+  @state accessor compactKeepTurns: number = DEFAULT_COMPACT_KEEP_TURNS;
   /**
    * `config.json` `contextRetention`, validated and serialized by the host
    * (`parseContextRetention`). Empty = dist defaults. Resolved onto each
    * turn at mint (R1); the layering lives in `@inhuman.tools/turn/context`.
    */
-  @syncing accessor contextRetentionJson: string = "";
+  @state accessor contextRetentionJson: string = "";
   /** Remaining-until-soft-compact fraction where the composer rail starts warning chroma. */
-  @syncing accessor contextGlowRemaining: string = DEFAULT_CONTEXT_GLOW_REMAINING;
-  @syncing accessor speculativePolicyProcessingTools: number = DEFAULT_SPECULATIVE_POLICY_PROCESSING_TOOLS;
+  @state accessor contextGlowRemaining: string = DEFAULT_CONTEXT_GLOW_REMAINING;
+  @state accessor speculativePolicyProcessingTools: number = DEFAULT_SPECULATIVE_POLICY_PROCESSING_TOOLS;
   /** First-ask cover throttle when the base draft is nonempty. Milliseconds. 0 = off. */
-  @syncing accessor approvalAskThrottleMs: number = DEFAULT_APPROVAL_ASK_THROTTLE_MS;
+  @state accessor approvalAskThrottleMs: number = DEFAULT_APPROVAL_ASK_THROTTLE_MS;
   /** Last-N bytes of a live/sealed shell. `config.json` `shellTailBytes`. 0 = no peek. */
-  @syncing accessor shellTailBytes: number = DEFAULT_SHELL_TAIL_BYTES;
+  @state accessor shellTailBytes: number = DEFAULT_SHELL_TAIL_BYTES;
   /** Model rounds in one turn. `config.json` `maxRounds`; 0 = unlimited. Recorded on the turn at start. */
-  @syncing accessor maxRounds: number = 0;
+  @state accessor maxRounds: number = 0;
   /** `agent/ask` spawns deep. `config.json` `maxDepth`; 0 = unlimited. Recorded on the call at start. */
-  @syncing accessor maxDepth: number = 0;
+  @state accessor maxDepth: number = 0;
   /** Model rounds in one turn of a bot thread (a `bot/ask` worker). `config.json` `maxBotRounds`; 0 = unlimited. */
-  @syncing accessor maxBotRounds: number = 0;
+  @state accessor maxBotRounds: number = 0;
   /** `bot/ask` hops deep, counted apart from `maxDepth`. `config.json` `maxBotDepth`; 0 = unlimited. */
-  @syncing accessor maxBotDepth: number = 0;
+  @state accessor maxBotDepth: number = 0;
   /** Rounds that may continue an answer cut off by the output limit. `config.json` `lengthContinuations`. */
-  @syncing accessor lengthContinuations: number = DEFAULT_LENGTH_CONTINUATIONS;
+  @state accessor lengthContinuations: number = DEFAULT_LENGTH_CONTINUATIONS;
   /** Total time a model round may keep retrying a transient error. `config.json` `retryMaxMs`; 0 = no deadline. */
-  @syncing accessor retryMaxMs: number = 0;
+  @state accessor retryMaxMs: number = 0;
   /** Attempts before a transient error ends the round. `config.json` `retryMaxAttempts`; 0 = no limit. */
-  @syncing accessor retryMaxAttempts: number = 0;
+  @state accessor retryMaxAttempts: number = 0;
   /** Persist-mod key. `config.json` `superKey`; `ctrl` (default) or `cmd`. */
-  @syncing accessor superKey: SuperKey = DEFAULT_SUPER_KEY;
+  @state accessor superKey: SuperKey = DEFAULT_SUPER_KEY;
   /**
    * Compact tape omits floor-allow calls (`tapeFuse`). `config.json`
    * `hideFloorTools`. Default off: the call stays on the tape while it is
@@ -265,59 +264,59 @@ export class KernelRoot extends PlexusModel<null> {
    * drop out of the compact column; a live omitted row does not eat the
    * occupancy pin.
    */
-  @syncing accessor hideFloorTools: boolean = false;
+  @state accessor hideFloorTools: boolean = false;
   /** `git`, a shell command, or empty for cwd-only. */
-  @syncing accessor statusline: string = DEFAULT_STATUSLINE;
+  @state accessor statusline: string = DEFAULT_STATUSLINE;
   /** `round` / `turn` / duration. */
-  @syncing accessor statuslineRefresh: string = DEFAULT_STATUSLINE_REFRESH;
+  @state accessor statuslineRefresh: string = DEFAULT_STATUSLINE_REFRESH;
   /**
    * Home-authored bots (`~/.inhuman/bots`). Disk is the store; this is the
    * visible face. Catalog lookup prefers these over compiled stdlib.
    */
-  @syncing.child.record accessor bots: Record<string, BotSpec> = {};
-  @syncing.child.record accessor plugins: Record<string, InstalledPlugin> = {};
+  @state.childRecord accessor bots: Record<string, BotSpec> = {};
+  @state.childRecord accessor plugins: Record<string, InstalledPlugin> = {};
   /**
    * Authored tool faces for TUI tape paint. Install consent is {@link plugins}.
    * Always-on host plugins write here even when they are not an install row.
    */
-  @syncing.child.record accessor pluginSpecs: Record<string, PluginSpec> = {};
-  @syncing.child.record accessor drivers: Record<string, DriverSpec> = {};
-  @syncing.child.record accessor connections: Record<string, ConnectionSpec> = {};
-  @syncing.child.record accessor commands: Record<string, CommandSpec> = {};
-  @syncing.child.record accessor actions: Record<string, ActionSpec> = {};
+  @state.childRecord accessor pluginSpecs: Record<string, PluginSpec> = {};
+  @state.childRecord accessor drivers: Record<string, DriverSpec> = {};
+  @state.childRecord accessor connections: Record<string, ConnectionSpec> = {};
+  @state.childRecord accessor commands: Record<string, CommandSpec> = {};
+  @state.childRecord accessor actions: Record<string, ActionSpec> = {};
   /** Global-scope roster: recipe name → bot `sessionId`. */
-  @syncing.record accessor botsRoster: Record<string, string> = {};
+  @state.record accessor botsRoster: Record<string, string> = {};
   /**
    * Operator recency: `"connection/model"` → last-used epoch ms.
    * First slash is the connection. One-shot `:model` does not write this.
    */
-  @syncing.record accessor modelsUsage: Record<string, number> = {};
+  @state.record accessor modelsUsage: Record<string, number> = {};
   /**
    * `"connection"` → the model last selected or run on that wire. Denormalized
    * from {@link stampModelUsage} so `/connect` reads one lookup instead of a
    * recency scan. Session mint snapshots `{...kernel, ...project}`; session
    * model writes project through to here.
    */
-  @syncing.record accessor lastUsedConnectionModel: Record<string, string> = {};
+  @state.record accessor lastUsedConnectionModel: Record<string, string> = {};
   /** Known projects. Key = daemon-canonical path. Value is membership (`""`). */
-  @syncing.record accessor projects: Record<string, string> = {};
+  @state.record accessor projects: Record<string, string> = {};
   /**
    * Tab/pane → last conversation sessionId. Control-plane index, not the roster.
    * Kernel plane is a lens: clients write this via `term-continue/set|clear`, not CRDT.
    */
-  @syncing.record accessor termContinue: Record<string, string> = {};
+  @state.record accessor termContinue: Record<string, string> = {};
   /**
    * Glance roster (every interned session). Key = sessionId. Daemon-projected
    * from the session document; not a client CRDT write. Not `ProjectRoot.sessions`
    * (cwd conversation membership `""`).
    */
-  @syncing.child.record accessor sessions: Record<string, SessionOverview> = {};
+  @state.childRecord accessor sessions: Record<string, SessionOverview> = {};
   /**
    * Caller → worker edges. Key = `CallJob.uuid`. Daemon-projected from
    * interned caller tapes. Duplicates the Call's relation so listing TUI
    * can walk nested spawns without interning the worker.
    */
-  @syncing.child.record accessor agentCalls: Record<string, KernelAgentRelation> = {};
+  @state.childRecord accessor agentCalls: Record<string, KernelAgentRelation> = {};
 
   /** First plugin that authored this wire name. Catalog collisions are a load fail. */
   pluginTool(wireName: string): PluginToolSpec | undefined {

@@ -1,6 +1,5 @@
 /**
- * Free entities by default. Materialize only for CRDT wire / plane attach.
- * Determinism: `resetLocalIDs()` + fixed creation order — never UUID literals.
+ * Free entities by default. Materialize only for wire / plane attach.
  */
 import { SessionRoot } from "../../SessionRoot.js";
 

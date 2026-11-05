@@ -1,6 +1,5 @@
-import { FieldAwareness, syncing } from "@here.build/plexus";
-import { docPlexus } from "@here.build/plexus/internals";
 import { prompt, type UserPrompt } from "@inhuman.tools/harness-commons";
+import { FieldAwareness, model as modelDecorator, state } from "@inhuman.tools/model";
 import { STATUSLINE_LANE, walkWork, WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { comparer, computed, observable, type IObservableValue } from "mobx";
 
@@ -64,16 +63,15 @@ function localStatusline(root: SessionRoot): IObservableValue<string> {
 }
 
 function statuslineLane(root: SessionRoot) {
-  const doc = root.__doc__;
-  const hub = doc == null ? null : docPlexus.get(doc)?.awareness;
+  const hub = root.container?.awareness ?? root.container?.container?.awareness;
   return hub == null ? null : new FieldAwareness(hub, STATUSLINE_LANE);
 }
 
-@syncing("harness:session:root")
+@modelDecorator("harness:session:root")
 export class SessionRoot extends WorkContainer {
-  @syncing.record accessor kvs: Record<string, string> = {};
+  @state.record accessor kvs: Record<string, string> = {};
 
-  @syncing.action
+  @state.action
   applyKvs(proposals: readonly KvProposal[]): void {
     applyKv(this.kvs, proposals);
   }
@@ -83,9 +81,9 @@ export class SessionRoot extends WorkContainer {
    * snapshots `{...kernel, ...project}`; later model selection writes here and
    * through to project/kernel. `/connect` reads this before the kernel record.
    */
-  @syncing.record accessor lastUsedConnectionModel: Record<string, string> = {};
+  @state.record accessor lastUsedConnectionModel: Record<string, string> = {};
 
-  @syncing.action
+  @state.action
   stampLastUsedConnectionModel(connection: string, model: string): void {
     const conn = connection.trim();
     const mid = model.trim();
@@ -93,12 +91,12 @@ export class SessionRoot extends WorkContainer {
     this.lastUsedConnectionModel[conn] = mid;
   }
 
-  @syncing.action
+  @state.action
   allowTool(connectionKey: string, serverToolName: string, scope: McpPersistScope): void {
     this.toolAllowlist[mcpToolRefKey(connectionKey, serverToolName)] = scope;
   }
 
-  @syncing.action
+  @state.action
   blockTool(connectionKey: string, serverToolName: string, scope: McpPersistScope): void {
     this.toolBlocklist[mcpToolRefKey(connectionKey, serverToolName)] = scope;
   }
@@ -107,7 +105,7 @@ export class SessionRoot extends WorkContainer {
    * "Treat <folder> as part of this session?" answered yes. The folder becomes a read root, so reads
    * under it follow the in-workspace rules. Returns false for a path that may not be a root.
    */
-  @syncing.action
+  @state.action
   addReadRoot(path: string): boolean {
     const root = readRootOf(this.path, path);
     if (root === undefined) return false;
@@ -116,13 +114,13 @@ export class SessionRoot extends WorkContainer {
   }
 
   /** Session-scope grant rows (JSON). A stored human "yes" to an ask; ends with the session. */
-  @syncing.action
+  @state.action
   replaceGrantsJson(json: string): void {
     this.grantsJson = json;
   }
 
   /** The human's overlay for this session. Set only through the human RPC. */
-  @syncing.action
+  @state.action
   replaceAuthorizationOverlay(json: string): void {
     this.authorizationOverlayJson = json;
   }
@@ -131,7 +129,7 @@ export class SessionRoot extends WorkContainer {
    * Worker-side: callback row plus inbound turn in one graph transaction. A
    * request with no reply (a message) seats the turn and opens no row.
    */
-  @syncing.action
+  @state.action
   enqueueAgentRequest(
     requestId: string,
     callerSessionId: string,
@@ -151,14 +149,14 @@ export class SessionRoot extends WorkContainer {
   }
 
   /** A new turn becomes head and tip together, so no update lands it off its tip. */
-  @syncing.action
+  @state.action
   seatHead(turn: SessionTurn): void {
     this.head = turn;
     this.tip = turn;
   }
 
   /** Rewind: head moves to `turn` under `ceiling`; both inbox lists are abandoned with the future. */
-  @syncing.action
+  @state.action
   rewindHead(turn: SessionTurn, ceiling: SessionTurn | null): void {
     this.promptQueue.splice(0);
     this.steerQueue.splice(0);
@@ -166,88 +164,88 @@ export class SessionRoot extends WorkContainer {
     this.head = turn;
   }
 
-  @syncing.action
+  @state.action
   removeAgentCallback(requestId: string): void {
     delete this.agentCallbacks[requestId];
   }
 
-  @syncing.action
+  @state.action
   ensureAgentCallback(requestId: string, callerSessionId: string): void {
     this.agentCallbacks[requestId] = callerSessionId;
   }
 
-  @syncing accessor sessionId!: string;
-  @syncing accessor path!: string;
-  @syncing accessor mode: string = "act";
+  @state accessor sessionId!: string;
+  @state accessor path!: string;
+  @state accessor mode: string = "act";
   /**
    * Standing tri-state, not a program id. Pre-head and first-turn attribute.
    * Live overlay is `head.permissionMode`. New sessions copy
    * `sessionMintPermissionMode` (project `defaultPermissionMode`, else kernel).
    */
-  @syncing accessor standingPermissionMode: PermissionMode = "manual";
+  @state accessor standingPermissionMode: PermissionMode = "manual";
   /** Floor match body. Not a kernel path token. */
-  @syncing accessor policyProgram: string = "";
+  @state accessor policyProgram: string = "";
   /** Auto residual ask processor body. */
-  @syncing accessor judgeAskProgram: string = "";
+  @state accessor judgeAskProgram: string = "";
   /**
    * Why this session's plugin behavior is not fully attached, or which of its
    * hooks failed this turn. Report only; never a vote.
    */
-  @syncing accessor pluginProblem: string | null = null;
+  @state accessor pluginProblem: string | null = null;
   /**
    * Each session-scoped plugin state owner's action log as JSON, keyed
    * `plugin:namespace`. It survives a park and a restart; a rewind replaces
    * it with the target turn's plugin state.
    */
-  @syncing.record accessor pluginState: Record<string, string> = {};
+  @state.record accessor pluginState: Record<string, string> = {};
   /** Leftover document record. Does not authorize. Empty on older documents. */
-  @syncing.record accessor judgeCache: Record<string, string> = {};
-  @syncing.child.record accessor actions: Record<string, ActionSpec> = {};
-  @syncing.child.list accessor skills: SkillSpec[] = [];
+  @state.record accessor judgeCache: Record<string, string> = {};
+  @state.childRecord accessor actions: Record<string, ActionSpec> = {};
+  @state.childList accessor skills: SkillSpec[] = [];
   /**
    * Live-turn inbox. Claimed at Prompt/ReACT. Not `.work`.
    * Kind is which list, not a timing enum.
    */
-  @syncing.child.list accessor steerQueue: SessionAdmission[] = [];
+  @state.childList accessor steerQueue: SessionAdmission[] = [];
   /** Next-turn inbox. Claimed when the head is closed. Not `.work`. */
-  @syncing.child.list accessor promptQueue: SessionAdmission[] = [];
-  @syncing.child accessor agent: Agent = new Agent();
+  @state.childList accessor promptQueue: SessionAdmission[] = [];
+  @state.child accessor agent: Agent = new Agent();
   /** Session-scope roster: recipe name → bot `sessionId`. Several names may share one id (rename). */
-  @syncing.record accessor botsRoster: Record<string, string> = {};
+  @state.record accessor botsRoster: Record<string, string> = {};
   /** Open Call obligations: `CallJob.uuid` → caller `sessionId`. */
-  @syncing.record accessor agentCallbacks: Record<string, string> = {};
+  @state.record accessor agentCallbacks: Record<string, string> = {};
   /** Request ids cancelled before or after admission. Empty on older documents. */
-  @syncing.record accessor cancelledEvalRequests: Record<string, "1"> = {};
+  @state.record accessor cancelledEvalRequests: Record<string, "1"> = {};
   /**
    * Session-remembered MCP look-ups. Key is `connection:serverToolName`.
    * Value is `session` or `always`. Always also lands on connection
    * `alwaysAllow`. Not a license without the read floor.
    */
-  @syncing.record accessor toolAllowlist: Record<string, McpPersistScope> = {};
+  @state.record accessor toolAllowlist: Record<string, McpPersistScope> = {};
   /**
    * Session-hidden MCP names. Same key. Hide + deny this session.
    * `always` also appends `!name` to connection `tools`. Not a silent
    * ask→deny while the name stays listed.
    */
-  @syncing.record accessor toolBlocklist: Record<string, McpPersistScope> = {};
+  @state.record accessor toolBlocklist: Record<string, McpPersistScope> = {};
   /**
    * Session read roots: absolute folders the human said to treat as part of this session. Reads under
    * one follow the in-workspace rules; `block` rules still block. Not remembered across sessions.
    */
-  @syncing.record accessor readRoots: Record<string, string> = {};
+  @state.record accessor readRoots: Record<string, string> = {};
   /** Session-scope grant rows, JSON `GrantRow[]`. Daemon-only; a client does not write it. */
-  @syncing accessor grantsJson: string = "";
+  @state accessor grantsJson: string = "";
   /** `config.json` `authorization`, the user layer. Daemon-stamped; a client does not write it. */
-  @syncing accessor authorizationUserJson: string = "";
+  @state accessor authorizationUserJson: string = "";
   /** `<repo>/.inhuman/authorization.json`, the project layer (tighten only). Daemon-stamped. */
-  @syncing accessor authorizationProjectJson: string = "";
+  @state accessor authorizationProjectJson: string = "";
   /** The human's session overlay. Loosens only via human RPC, capped by the project layer. */
-  @syncing accessor authorizationOverlayJson: string = "";
+  @state accessor authorizationOverlayJson: string = "";
   /**
    * Operator-set session name. Empty means derive from tape
    * (`update_metadata`) or the first prompt. Survives rewind.
    */
-  @syncing accessor manualTitle: string = "";
+  @state accessor manualTitle: string = "";
   /**
    * Last successful statusline left slot. Empty omits the left. Awareness
    * last-write, not a Yjs body: the round clock rewrites it on every tool
@@ -339,19 +337,19 @@ export class SessionRoot extends WorkContainer {
     this.#assignCurrentPolicy(id);
   }
 
-  @syncing.action
+  @state.action
   #assignCurrentPolicy(id: PermissionMode): void {
     this.standingPermissionMode = id;
     if (this.head) this.head.permissionMode = id;
   }
 
   /** Assign this session's choice. Remembering it in another scope belongs to the host. */
-  @syncing.action
+  @state.action
   writeChoicePermissionMode(policy: PermissionMode): void {
     this.permissionMode = policy;
   }
 
-  @syncing.action
+  @state.action
   replaceSkills(
     rows: readonly {
       readonly name?: string;
@@ -365,7 +363,7 @@ export class SessionRoot extends WorkContainer {
   }
 
   /** A child takes the caller's mode, roots, session grants and overlay: never looser than the caller. */
-  @syncing.action
+  @state.action
   applyPermissionSnap(snap: PermissionSnap): void {
     this.permissionMode = snap.policy;
     // The caller's session grants become this session's own: same ids, so a revoke on the desk follows.
@@ -593,7 +591,7 @@ export class SessionRoot extends WorkContainer {
   }
 
   /** Sitting steers become cells on `turn` when it is `steerTurn`. One transaction with the inbox. */
-  @syncing.action
+  @state.action
   claimSteers(turn: SessionTurn): void {
     if (this.steerTurn !== turn) return;
     for (const row of this.steerQueue.splice(0)) {
@@ -609,7 +607,7 @@ export class SessionRoot extends WorkContainer {
   }
 
   /** `pendingNotices` become one cell on `turn`. */
-  @syncing.action
+  @state.action
   claimNotices(turn: SessionTurn): void {
     const notifications = [...this.pendingNotices];
     if (notifications.length > 0) turn.doneWork.push(new TurnNotificationChunk({ notifications }));
@@ -738,7 +736,7 @@ function replaceStringRecord<V extends string>(into: Record<string, V>, from: Re
   }
 }
 
-/** Leftover session images omit later `@syncing` fields. Constructor hydrate does not survive `connect` bind. */
+/** Leftover session images omit later `@state` fields. Constructor hydrate does not survive `connect` bind. */
 export function hydrateSessionRoot(root: SessionRoot): void {
   root.agent.reownHead();
   const seen = new Set<SessionTurn>();

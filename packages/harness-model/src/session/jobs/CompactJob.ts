@@ -7,7 +7,7 @@
  * ContextNeed before the job (else the keep-turns dial). `reason` and the
  * dial reading are facts, because occupancy and config move.
  */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import {
   Job,
   type JobEffectOwner,
@@ -19,7 +19,7 @@ import { computed } from "mobx";
 /** Why this compact ran, recorded before the cutoff changes context. */
 export type CompactReason = "overflow" | "need" | "user";
 
-@syncing("harness:job:compact")
+@model("harness:job:compact")
 export class CompactJob extends Job<string, string> {
   override readonly owner: JobEffectOwner = "session-runtime";
   override readonly intent: string =
@@ -38,15 +38,15 @@ export class CompactJob extends Job<string, string> {
   override readonly intentRequired: boolean = false;
 
   /** Why this compact was enqueued. Not derivable once occupancy moves. */
-  @syncing accessor reason: CompactReason = "overflow";
+  @state accessor reason: CompactReason = "overflow";
   /**
    * Strategy card text. Empty until a successful cutoff. The wire shows this
    * instead of the replaced rounds — not a cursor into old completions.
    */
-  @syncing accessor standIn: string = "";
+  @state accessor standIn: string = "";
   /** Human-visible failure. Empty on success. Never a model prompt. */
-  @syncing accessor notice: string = "";
-  @syncing accessor failed: boolean = false;
+  @state accessor notice: string = "";
+  @state accessor failed: boolean = false;
   /**
    * `compactKeepTurns` dial, stamped when the job is minted. Null only on a
    * job that was never stamped (hand-built in a test). Preserve widths stay on
@@ -54,14 +54,14 @@ export class CompactJob extends Job<string, string> {
    * reading, because the card only matches the cut taken at that dial.
    * Floors are computed from this and `kvKeepTurns`, never from live settings.
    */
-  @syncing accessor keepTurns: number | null = null;
+  @state accessor keepTurns: number | null = null;
   /**
    * Session kv `compact.keep-turns` as read when the job was minted. 0 = unset
    * or invalid. Stamped together with `keepTurns`: the second input to the cut.
    */
-  @syncing accessor kvKeepTurns: number = 0;
+  @state accessor kvKeepTurns: number = 0;
   /** Versioned strategy and module bytes, pinned before the strategy's effects. */
-  @syncing accessor resourceSnapshotJson: string = "";
+  @state accessor resourceSnapshotJson: string = "";
 
   constructor(
     props?:

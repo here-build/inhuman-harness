@@ -2,8 +2,8 @@
  * Job. `.work` is raw `children` — COLLECTORS ARE NOT `.work`.
  * `reducerExited` is the reducer exit. Background is a flag on the child.
  */
-import { syncing } from "@here.build/plexus";
 import { prompt, type UserPrompt } from "@inhuman.tools/harness-commons";
+import { model as modelDecorator, state } from "@inhuman.tools/model";
 import {
   Job,
   type JobEffectOwner,
@@ -78,7 +78,7 @@ function metadataOf(job: ToolCallJob): TurnMetadata | null {
   return title !== "" ? { title, description } : null;
 }
 
-@syncing("harness:session:turn")
+@modelDecorator("harness:session:turn")
 export class SessionTurn extends SequenceJob {
   override readonly owner: JobEffectOwner = "session-runtime";
   override readonly intent: string =
@@ -94,49 +94,49 @@ export class SessionTurn extends SequenceJob {
     "If cancelRequested, settle cancel. Else restore the last pending doneWork chunk onto the queue; a model round the park or restart interrupted gets a fresh round (a new CompletionJob is a new attempt). Children follow their rows.";
   override readonly intentRequired: boolean = false;
 
-  @syncing accessor turnTail!: SessionUnit;
-  @syncing accessor prompt: UserPrompt = prompt.user``;
+  @state.child accessor turnTail!: SessionUnit;
+  @state accessor prompt: UserPrompt = prompt.user``;
   /**
    * Model-facing text when it differs from {@link prompt}. Null on an
    * ordinary turn. Skill expansion stores the injection here and leaves
    * `prompt` as the typed slash.
    */
-  @syncing accessor derivedMessage: UserPrompt | null = null;
+  @state accessor derivedMessage: UserPrompt | null = null;
   /** Inbound comms wait for the preceding turn at its next model-input boundary. */
-  @syncing accessor inbound: boolean = false;
-  @syncing accessor agentRequestId: string = "";
-  @syncing accessor derivation: SessionSystemPromptDerivation | null = null;
+  @state accessor inbound: boolean = false;
+  @state accessor agentRequestId: string = "";
+  @state.child accessor derivation: SessionSystemPromptDerivation | null = null;
   /**
    * Frozen tools choice for this turn. Null inherits `tail.tools`.
    * First turn attributes the set; a later turn only holds a new one when
    * its tail has `reloadTools`.
    */
-  @syncing.child accessor toolsDefinition: RegisteredToolsSet | null = null;
+  @state.child accessor toolsDefinition: RegisteredToolsSet | null = null;
   /**
    * The turn whose `tail` is this must snapshot a new RegisteredToolsSet.
    * Compact sets this; it does not rewrite this turn's choice. A new MCP is
    * not a flag — successor mint compares `tools.mcpConnections` to kernel.
    */
-  @syncing accessor reloadTools: boolean = false;
+  @state accessor reloadTools: boolean = false;
   /** ReACT tape (done). Refs: a Job's owning list is `children`; other chunks have none. */
-  @syncing.list accessor doneWork: TurnChunk[] = [];
+  @state.list accessor doneWork: TurnChunk[] = [];
   /** ReACT tape (pending). Refs: a Job's owning list is `children`; other chunks have none. */
-  @syncing.list accessor queue: TurnChunk[] = [new TurnPromptChunk()];
+  @state.list accessor queue: TurnChunk[] = [new TurnPromptChunk()];
   /** Reducer exited. Open background children do not block. */
-  @syncing accessor reducerExited: boolean = false;
+  @state accessor reducerExited: boolean = false;
   /**
    * Tri-state overlay for this turn. Null inherits `tail`; first turn
    * attributes from standing.
    */
-  @syncing accessor permissionMode: PermissionMode | null = null;
+  @state accessor permissionMode: PermissionMode | null = null;
   /**
    * Unattended admission. Null is an ordinary interactive turn. Presence
    * fixes this run's request identity and policy; observer `permissionMode`
    * must not replace it.
    */
-  @syncing.child accessor evalSpec: SessionTurnEvalSpec | null = null;
+  @state.child accessor evalSpec: SessionTurnEvalSpec | null = null;
   /** Persist before acknowledging cancel. Default false on older documents. */
-  @syncing accessor cancelRequested: boolean = false;
+  @state accessor cancelRequested: boolean = false;
   /**
    * Why the turn stopped before the model finished: the error that broke the
    * reducer, a plugin/guard failure, or a limit the loop enforced (round cap, output
@@ -144,19 +144,19 @@ export class SessionTurn extends SequenceJob {
    * record of an early stop: every client and the transcript can say "this turn
    * stopped because ..." instead of showing a silent stop.
    */
-  @syncing accessor broke: string = "";
+  @state accessor broke: string = "";
   /**
    * Round cap in force for this turn, recorded when the loop starts so a live
    * config change cannot move a running turn. Null until stamped; 0 is unlimited.
    */
-  @syncing accessor maxRounds: number | null = null;
+  @state accessor maxRounds: number | null = null;
   /** Consecutive `length` continuation rounds allowed, recorded with {@link maxRounds}. 0 is off. */
-  @syncing accessor lengthContinuations: number | null = null;
+  @state accessor lengthContinuations: number | null = null;
   /**
    * Speech-question pin. Empty unless intern A voted `awaiting_user`.
    * Not license `ask`. Glance unfinished `question`.
    */
-  @syncing accessor questionLine: string = "";
+  @state accessor questionLine: string = "";
   /**
    * The session's plugin state logs (`SessionRoot.pluginState`) when this
    * turn ended. Rewinding to this turn restores them. Null: not recorded.
@@ -165,7 +165,7 @@ export class SessionTurn extends SequenceJob {
    * Picture identity for this user turn. Bytes are a sidecar file, not
    * this cell. `[]` is a turn with no picture.
    */
-  @syncing private accessor visualsJson: string = "[]";
+  @state private accessor visualsJson: string = "[]";
 
   /**
    * R1. The context-retention policy resolved when this turn was minted
@@ -173,9 +173,9 @@ export class SessionTurn extends SequenceJob {
    * retention existed, or an inbound turn that inherits its tail's stamp.
    * Later config edits apply from the next turn on.
    */
-  @syncing accessor retentionJson: string = "";
+  @state accessor retentionJson: string = "";
 
-  @syncing private accessor pluginStateJson: string | null = null;
+  @state private accessor pluginStateJson: string | null = null;
 
   @computed
   get pluginState(): ReadonlyDeep<Record<string, string>> | null {
@@ -246,7 +246,7 @@ export class SessionTurn extends SequenceJob {
   }
 
   /** Parent a Job onto `children`, then push the ReACT queue (refs). */
-  @syncing.action
+  @state.action
   enqueue(chunk: TurnChunk): void {
     bindContinuation(chunk, tapePredecessor(this));
     this.pushChild(chunk);
@@ -254,14 +254,14 @@ export class SessionTurn extends SequenceJob {
   }
 
   /** Response admission and its expansion cursor are one durable fact. */
-  @syncing.action
+  @state.action
   recordResponseWork(source: CompletionJob, work: ToolCallJob | ProgrammaticJob): void {
     source.responseWork.push(work);
     this.enqueue(work);
   }
 
   /** A response cannot be marked expanded without a reachable settlement boundary. */
-  @syncing.action
+  @state.action
   finishResponseExpansion(source: CompletionJob, compact: CompactJob | null = null): void {
     if (compact != null) this.enqueue(compact);
     this.enqueue(new ReACTChunk({ source }));
@@ -269,7 +269,7 @@ export class SessionTurn extends SequenceJob {
   }
 
   /** Persist the successor together with the edge authorizing it. */
-  @syncing.action
+  @state.action
   admitRound(boundary: ReACTChunk | null, next: CompletionJob): void {
     this.enqueue(next);
     if (boundary?.decision != null) {
@@ -279,7 +279,7 @@ export class SessionTurn extends SequenceJob {
   }
 
   /** Decision, presentation and terminal notice become visible together. */
-  @syncing.action
+  @state.action
   commitBoundary(
     boundary: ReACTChunk,
     decision: RoundDecision,
@@ -300,21 +300,21 @@ export class SessionTurn extends SequenceJob {
   }
 
   /** Re-enter a taken cell without losing it between the two cursor lists. */
-  @syncing.action
+  @state.action
   requeueTaken(index: number): void {
     const [cell] = this.doneWork.splice(index, 1);
     if (cell != null) this.queue.unshift(cell);
   }
 
   /** Account for an abandoned attempt exactly once before a fresh attempt is admitted. */
-  @syncing.action
+  @state.action
   recoverRound(source: CompletionJob, boundary: ReACTChunk): void {
     this.enqueue(boundary);
     source.responseExpanded = true;
   }
 
   /** Move the next queued cell onto `doneWork` in one transaction: a crash cannot drop it from both. */
-  @syncing.action
+  @state.action
   take(): TurnChunk | undefined {
     const cell = this.queue.shift();
     if (cell != null) this.doneWork.push(cell);
@@ -325,7 +325,7 @@ export class SessionTurn extends SequenceJob {
    * One note cell per leaf of the round since the last completion that a
    * human allowed or refused with a comment, unless it already has one.
    */
-  @syncing.action
+  @state.action
   claimApprovalNotes(): void {
     const noted = new Set<string>();
     for (const cell of reactChunks(this)) {
@@ -354,7 +354,7 @@ export class SessionTurn extends SequenceJob {
   }
 
   /** Record the loop limits once, when the turn starts. Later calls keep the first reading. */
-  @syncing.action
+  @state.action
   stampLoopLimits(limits: { readonly maxRounds: number; readonly lengthContinuations: number }): void {
     if (this.maxRounds == null) this.maxRounds = limits.maxRounds;
     if (this.lengthContinuations == null) this.lengthContinuations = limits.lengthContinuations;
@@ -364,7 +364,7 @@ export class SessionTurn extends SequenceJob {
    * End the loop on purpose. The words are the turn's `broke` fact, and land on the tape
    * as a notification cell, which the user's transcript shows and the next round reads.
    */
-  @syncing.action
+  @state.action
   stopLoop(message: string): void {
     if (this.broke !== "") return;
     this.broke = message;

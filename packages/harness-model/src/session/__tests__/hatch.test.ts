@@ -1,12 +1,9 @@
 /**
  * Hatch is computed from name + argsJson. Download-exec only.
  */
-import { resetLocalIDs } from "@here.build/plexus";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
-
-beforeEach(() => resetLocalIDs());
 
 function leaf(name: string, args: Record<string, unknown>) {
   return new SystemToolJob({

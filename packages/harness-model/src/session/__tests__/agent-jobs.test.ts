@@ -2,9 +2,8 @@
  * Agent jobs are ToolCallJob siblings, not SystemToolJob.
  * Rosters and open callbacks live on the documents.
  */
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { documentRoot } from "../document-root.js";
 import { PromptMessage } from "../expectations/PromptMessage.js";
@@ -14,6 +13,7 @@ import { BotCallJob } from "../jobs/BotCallJob.js";
 import { CallDelivery } from "../jobs/CallDelivery.js";
 import { FailureOutcome, SuccessfulOutcome } from "../jobs/CallOutcome.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
+import { SessionPlexus } from "../SessionPlexus.js";
 import { isNoteClaimed } from "../SessionRoot.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { TurnNotificationChunk } from "../turn/notification-chunk.js";
@@ -21,11 +21,9 @@ import { SessionTurn } from "../turn/session-turn.js";
 import { attached } from "./_helpers/fixtures.js";
 
 describe("named-agent models", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("a Call notification claimed by a notice cell leaves the Call open", () => {
     const session = attached({ sessionId: "s-note", path: "/tmp/n" });
-    const plexus = Plexus.bootstrap(session);
+    const plexus = SessionPlexus.bootstrap(session);
     const call = new AgentCallJob();
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
@@ -60,7 +58,7 @@ describe("named-agent models", () => {
 
   it("Call delivery is a child node, not JSON", () => {
     const session = attached({ sessionId: "s-deliv", path: "/tmp/d" });
-    const plexus = Plexus.bootstrap(session);
+    const plexus = SessionPlexus.bootstrap(session);
     const call = new BotCallJob({
       delivery: new CallDelivery({ lifetime: "call" }),
     });
@@ -80,7 +78,7 @@ describe("named-agent models", () => {
 
   it("prompt rows are the atoms; speech and systemPrompt are views", () => {
     const session = attached({ sessionId: "s-prompt", path: "/tmp/p" });
-    const plexus = Plexus.bootstrap(session);
+    const plexus = SessionPlexus.bootstrap(session);
     const wire = new AgentCallJob({
       argsJson: JSON.stringify({ message: "from the wire" }),
       constitution: prompt.system`standing`,
@@ -137,7 +135,7 @@ describe("named-agent models", () => {
 
   it("Call outcome is success or failure child", () => {
     const session = attached({ sessionId: "s-out", path: "/tmp/o" });
-    const plexus = Plexus.bootstrap(session);
+    const plexus = SessionPlexus.bootstrap(session);
     const answered = new AgentCallJob({
       outcome: new SuccessfulOutcome({ valueJson: JSON.stringify({ answer: 1 }) }),
     });
@@ -170,7 +168,7 @@ describe("named-agent models", () => {
 
   it("mid-motion is derived from the open turn and in-flight jobs", () => {
     const session = attached({ sessionId: "s-mid", path: "/tmp/mid" });
-    const plexus = Plexus.bootstrap(session);
+    const plexus = SessionPlexus.bootstrap(session);
     const empty = {
       mid: session.isMidMotion(),
       turn: session.openTurn,

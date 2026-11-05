@@ -1,7 +1,7 @@
-import { syncing } from "@here.build/plexus";
+import { model } from "@inhuman.tools/model";
 import { WorkContainer } from "@inhuman.tools/plexus-expectations";
 
-@syncing("harness:session:turn-prompt")
+@model("harness:session:turn-prompt")
 export class TurnPromptChunk extends WorkContainer {
   get work(): WorkContainer[] {
     return [];

@@ -1,5 +1,5 @@
 /** A correlated request/reply operation. Subclasses own execution and worker lifetime. */
-import { syncing } from "@here.build/plexus";
+import { model, state } from "@inhuman.tools/model";
 import { type JobKind } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
@@ -21,23 +21,23 @@ export type CallJobProps = Omit<ToolCallJobProps, "outcomeJson"> & {
   readonly notifications?: readonly AgentCallNotification[];
 };
 
-@syncing("harness:job:call")
+@model("harness:job:call")
 export abstract class CallJob extends ToolCallJob {
-  @syncing accessor workerSessionId: string = "";
+  @state accessor workerSessionId: string = "";
   /** False on ask. Default true preserves existing send calls. */
-  @syncing accessor voidLegal: boolean = true;
+  @state accessor voidLegal: boolean = true;
   /** Restrict the responding worker's Scheme desk. */
-  @syncing accessor readonly: boolean = false;
-  @syncing accessor responseSchemaJson: string | null = null;
+  @state accessor readonly: boolean = false;
+  @state accessor responseSchemaJson: string | null = null;
   /**
    * Hops behind the caller once this call starts: agent spawns for `agent/ask`, bot hops for
    * `bot/ask`. Recorded with {@link depthLimit}, never recomputed.
    */
-  @syncing accessor depth: number = 0;
+  @state accessor depth: number = 0;
   /** Cap in force when the call started. Null until stamped; 0 is unlimited. */
-  @syncing accessor depthLimit: number | null = null;
-  @syncing.child accessor outcome: CallOutcome | null = null;
-  @syncing.child.list accessor notifications: AgentCallNotification[] = [];
+  @state accessor depthLimit: number | null = null;
+  @state.child accessor outcome: CallOutcome | null = null;
+  @state.childList accessor notifications: AgentCallNotification[] = [];
 
   constructor(props?: CallJobProps | symbol) {
     if (props == null || typeof props === "symbol") {
@@ -72,7 +72,7 @@ export abstract class CallJob extends ToolCallJob {
   accessor responseSchema: ReadonlyDeep<Record<string, unknown>> | null = null;
 
   /** Record depth and its cap the first time the call runs. A rerun after restart keeps them. */
-  @syncing.action
+  @state.action
   stampDepth(depth: number, limit: number): void {
     if (this.depthLimit != null) return;
     this.depth = depth;
@@ -80,7 +80,7 @@ export abstract class CallJob extends ToolCallJob {
   }
 
   /** First outcome wins. A reply after a cancel completes the call with the cancel. */
-  @syncing.action
+  @state.action
   settleResult(outcome: CallOutcome): boolean {
     if (this.completed) return false;
     const first = this.outcome == null;
@@ -90,7 +90,7 @@ export abstract class CallJob extends ToolCallJob {
   }
 
   /** Every terminal path ends here, so a background call posts its result once. */
-  @syncing.action
+  @state.action
   override markComplete(now = Date.now()): void {
     if (!this.completed) rememberJobResult(this, outcomeText(this.outcome));
     super.markComplete(now);
