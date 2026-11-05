@@ -36,6 +36,10 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
     return this.#clients.get(clientId)?.get(lane) as S[K] | undefined;
   }
 
+  getField<K extends string & keyof S>(lane: K, clientId: number = this.clientId): S[K] | undefined {
+    return this.getLane(lane, clientId);
+  }
+
   @action
   setLane<K extends string & keyof S>(lane: K, value: S[K], clientId: number = this.clientId): void {
     let bag = this.#clients.get(clientId);
@@ -46,9 +50,17 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
     bag.set(lane, value);
   }
 
+  setField<K extends string & keyof S>(lane: K, value: S[K], clientId: number = this.clientId): void {
+    this.setLane(lane, value, clientId);
+  }
+
   @action
   clearLane<K extends string & keyof S>(lane: K, clientId: number = this.clientId): void {
     this.#clients.get(clientId)?.delete(lane);
+  }
+
+  clearField<K extends string & keyof S>(lane: K, clientId: number = this.clientId): void {
+    this.clearLane(lane, clientId);
   }
 
   @action
@@ -93,6 +105,18 @@ export class FieldAwareness<
 
   getOther(clientId: number): ShapeOfAwareness<A>[K] | undefined {
     return this.hub.getLane(this.field, clientId);
+  }
+
+  getOthers(): Map<number, ShapeOfAwareness<A>[K]> {
+    const out = new Map<number, ShapeOfAwareness<A>[K]>();
+    for (const clientId of this.hub.clientIds) {
+      if (clientId === this.hub.clientId) continue;
+      const val = this.hub.getLane(this.field, clientId);
+      if (val !== undefined) {
+        out.set(clientId, val);
+      }
+    }
+    return out;
   }
 
   set(value: ShapeOfAwareness<A>[K]): void {
