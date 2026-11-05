@@ -1,7 +1,7 @@
 {
   "info": {
     "title": "inhuman-harness daemon RPC",
-    "version": "0.1.0",
+    "version": "0.2.1",
     "description": "HTTP projection of the daemon contract, generated from @inhuman.tools/harness-contract. The daemon's only transport today is JSON-RPC 2.0 over WebSocket (see openrpc.json); each operation here names its wire method in `x-rpc-method`."
   },
   "openapi": "3.1.1",
