@@ -21,8 +21,16 @@
     "test": "tsc -p tsconfig.json --noEmit && vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "@inhuman.tools/harness-contract": "workspace:^",
+    "@inhuman.tools/model": "workspace:^",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.44.5",
+    "mobx": "6.16.1"
+  },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
+    "@types/better-sqlite3": "9.6.0",
     "@types/node": "^24.19.2",
     "eslint": "10.13.0",
     "typescript": "6.0.3",
