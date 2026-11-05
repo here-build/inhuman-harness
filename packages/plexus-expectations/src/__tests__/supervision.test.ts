@@ -1,3 +1,4 @@
+import { runInAction } from "mobx";
 import { describe, expect, it } from "vitest";
 
 import { activateThroughLoad, flushMicrotasks, makeHost, TestParent, TestExpectation } from "./_helpers/test-host.js";
@@ -12,7 +13,9 @@ describe("supervision", () => {
     await flushMicrotasks();
 
     const judge = new TestExpectation({ connectionId: connection.name });
-    parent.nested["auto"] = judge;
+    runInAction(() => {
+      parent.nested["auto"] = judge;
+    });
     const spawnsBefore = loader.spawnCalls;
     await flushMicrotasks();
 

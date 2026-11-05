@@ -57,10 +57,7 @@
     "eslint": "10.13.0",
     "prettier": "3.9.10",
     "typescript": "6.0.3",
-    "vitest": "5.0.5",
-    "yjs": "13.6.33",
-    "mobx": "6.16.1",
-    "@here.build/plexus": "^0.9.6"
+    "vitest": "5.0.5"
   },
   "repository": {
     "type": "git",
@@ -68,8 +65,7 @@
     "directory": "packages/plexus-expectations"
   },
   "peerDependencies": {
-    "mobx": "6.16.1",
-    "@here.build/plexus": "^0.9.6"
+    "mobx": "6.16.1"
   },
   "browserslist": [
     "last 2 chrome versions",

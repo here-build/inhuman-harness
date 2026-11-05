@@ -4,7 +4,7 @@
  * expectation exhausts the budget. Retract the uuid on leave — occupancy
  * is presence, not a durable outcome. `""` occupies without a report frame.
  */
-import { type PlexusAwareness } from "@here.build/plexus";
+import { type PlexusAwareness } from "@inhuman.tools/model";
 
 import { MapFieldAwareness } from "./map-field-awareness.js";
 import { ROLE_EXPECTATIONS_LANE } from "./types.js";

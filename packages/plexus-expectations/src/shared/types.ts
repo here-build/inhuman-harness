@@ -1,4 +1,4 @@
-import type { AwarenessSerializable, AwarenessShape, Plexus, PlexusModel } from "@here.build/plexus";
+import type { AwarenessSerializable, AwarenessShape, DocumentContainer, Model } from "@inhuman.tools/model";
 
 import type { ConnectionSpec } from "./models/ConnectionSpec.js";
 import type { DriverSpec } from "./models/DriverSpec.js";
@@ -43,7 +43,7 @@ export type SessionAwareness = AwarenessShape & {
  * Catalog parent of {@link DriverSpec} / {@link ConnectionSpec}.
  * Ordinary records, not virtual maps.
  */
-export type SpecCatalog = PlexusModel<null> & {
+export type SpecCatalog = Model & {
   readonly drivers: Record<string, DriverSpec>;
   readonly connections: Record<string, ConnectionSpec>;
 };
@@ -53,5 +53,5 @@ export type KernelRootModel = SpecCatalog;
 
 export type SessionRootModel = WorkContainer;
 
-export type KernelPlexus = Plexus<KernelRootModel, KernelAwareness>;
-export type SessionPlexus = Plexus<SessionRootModel, SessionAwareness>;
+export type KernelPlexus = DocumentContainer<KernelRootModel, KernelAwareness>;
+export type SessionPlexus = DocumentContainer<SessionRootModel, SessionAwareness>;

@@ -55,9 +55,12 @@ export function resetModelRegistry(): void {
 export function registerColumnMetadata(context: ClassAccessorDecoratorContext, metadata: ColumnMetadata): void {
   const ctxMeta = context.metadata as Record<symbol, unknown> | null;
   if (ctxMeta) {
-    let colMap = ctxMeta[COLUMN_META_SYMBOL] as Map<string, ColumnMetadata> | undefined;
+    let colMap = Object.prototype.hasOwnProperty.call(ctxMeta, COLUMN_META_SYMBOL)
+      ? (ctxMeta[COLUMN_META_SYMBOL] as Map<string, ColumnMetadata>)
+      : undefined;
     if (!colMap) {
-      colMap = new Map();
+      const parentMap = ctxMeta[COLUMN_META_SYMBOL] as Map<string, ColumnMetadata> | undefined;
+      colMap = new Map(parentMap);
       ctxMeta[COLUMN_META_SYMBOL] = colMap;
     }
     colMap.set(metadata.propertyKey, metadata);
@@ -66,9 +69,12 @@ export function registerColumnMetadata(context: ClassAccessorDecoratorContext, m
   context.addInitializer(function (this: unknown) {
     const self = this as { constructor: ClassLike };
     const ctor = self.constructor as unknown as Record<symbol, unknown>;
-    let colMap = ctor[COLUMN_META_SYMBOL] as Map<string, ColumnMetadata> | undefined;
+    let colMap = Object.prototype.hasOwnProperty.call(ctor, COLUMN_META_SYMBOL)
+      ? (ctor[COLUMN_META_SYMBOL] as Map<string, ColumnMetadata>)
+      : undefined;
     if (!colMap) {
-      colMap = new Map();
+      const parentMap = ctor[COLUMN_META_SYMBOL] as Map<string, ColumnMetadata> | undefined;
+      colMap = new Map(parentMap);
       ctor[COLUMN_META_SYMBOL] = colMap;
     }
     colMap.set(metadata.propertyKey, metadata);
@@ -78,9 +84,12 @@ export function registerColumnMetadata(context: ClassAccessorDecoratorContext, m
 export function registerStateMetadata(context: ClassAccessorDecoratorContext, metadata: StateFieldMetadata): void {
   const ctxMeta = context.metadata as Record<symbol, unknown> | null;
   if (ctxMeta) {
-    let stateMap = ctxMeta[STATE_META_SYMBOL] as Map<string, StateFieldMetadata> | undefined;
+    let stateMap = Object.prototype.hasOwnProperty.call(ctxMeta, STATE_META_SYMBOL)
+      ? (ctxMeta[STATE_META_SYMBOL] as Map<string, StateFieldMetadata>)
+      : undefined;
     if (!stateMap) {
-      stateMap = new Map();
+      const parentMap = ctxMeta[STATE_META_SYMBOL] as Map<string, StateFieldMetadata> | undefined;
+      stateMap = new Map(parentMap);
       ctxMeta[STATE_META_SYMBOL] = stateMap;
     }
     stateMap.set(metadata.propertyKey, metadata);
@@ -89,9 +98,12 @@ export function registerStateMetadata(context: ClassAccessorDecoratorContext, me
   context.addInitializer(function (this: unknown) {
     const self = this as { constructor: ClassLike };
     const ctor = self.constructor as unknown as Record<symbol, unknown>;
-    let stateMap = ctor[STATE_META_SYMBOL] as Map<string, StateFieldMetadata> | undefined;
+    let stateMap = Object.prototype.hasOwnProperty.call(ctor, STATE_META_SYMBOL)
+      ? (ctor[STATE_META_SYMBOL] as Map<string, StateFieldMetadata>)
+      : undefined;
     if (!stateMap) {
-      stateMap = new Map();
+      const parentMap = ctor[STATE_META_SYMBOL] as Map<string, StateFieldMetadata> | undefined;
+      stateMap = new Map(parentMap);
       ctor[STATE_META_SYMBOL] = stateMap;
     }
     stateMap.set(metadata.propertyKey, metadata);

@@ -1,5 +1,4 @@
-import { type PlexusAwareness, syncing } from "@here.build/plexus";
-import { docPlexus } from "@here.build/plexus/internals";
+import { model, state, type PlexusAwareness } from "@inhuman.tools/model";
 import { comparer, computed, observable, reaction, when } from "mobx";
 import invariant from "tiny-invariant";
 
@@ -15,16 +14,16 @@ import { WorkContainer } from "./WorkContainer.js";
  */
 export const ROLE_LANE_OCCUPIED = "";
 
-@syncing("@inhuman.tools/plexus-expectations:WorkExpectation")
+@model("@inhuman.tools/plexus-expectations:WorkExpectation")
 export abstract class WorkExpectation<TResult = unknown, TReport = unknown>
   extends WorkContainer
   implements Promise<ExpectationOutcome>
 {
   /**
    * Kernel catalog key this work rides. Required at construction.
-   * Plexus materialization passes a symbol through unchanged.
+   * Model materialization passes a symbol through unchanged.
    */
-  @syncing
+  @state
   accessor connectionId!: string;
 
   constructor(init: { readonly connectionId: string } | symbol) {
@@ -37,34 +36,47 @@ export abstract class WorkExpectation<TResult = unknown, TReport = unknown>
     super(init);
   }
 
-  @syncing
+  @state
   accessor outcome: ExpectationOutcome | null = null;
 
-  @syncing
+  @state
   accessor endCause: EndCause | null = null;
 
-  @syncing
+  @state
   accessor endDetail: string | null = null;
 
   /** Durable last frame as JSON. `"null"` when the work ended without a report. */
-  @syncing
+  @state
   accessor outcomeReport: string | null = null;
 
   /** Last live role-map frame this process saw. Retract does not clear it. */
   @observable.ref private accessor lastProgress: TReport | null = null;
   #progressCacheStarted = false;
   #settledPromise: Promise<ExpectationOutcome> | null = null;
+  #attachedContainer: SessionPlexus | null = null;
+  #attachedAwareness: PlexusAwareness<SessionAwareness> | null = null;
 
-  get plexus(): SessionPlexus | null {
-    const doc = this.__doc__;
-    if (!doc) return null;
-    const plexus = docPlexus.get(doc);
-    if (!plexus) return null;
-    return plexus as SessionPlexus;
+  attachPlexus(plexus: SessionPlexus | null): void {
+    this.#attachedContainer = plexus;
+  }
+
+  attachAwareness(awareness: PlexusAwareness<SessionAwareness> | null): void {
+    this.#attachedAwareness = awareness;
+  }
+
+  override get plexus(): SessionPlexus | null {
+    if (this.#attachedContainer != null) return this.#attachedContainer;
+    const plex = super.plexus;
+    if (plex != null) return plex as SessionPlexus;
+    return null;
   }
 
   get awareness(): PlexusAwareness<SessionAwareness> | null {
-    const hub = this.plexus?.awareness ?? null;
+    if (this.#attachedAwareness != null) {
+      this.#ensureProgressCache();
+      return this.#attachedAwareness;
+    }
+    const hub = (this.plexus?.awareness ?? this.container?.awareness ?? null) as PlexusAwareness<SessionAwareness> | null;
     if (hub != null) this.#ensureProgressCache();
     return hub;
   }
@@ -178,7 +190,7 @@ export abstract class WorkExpectation<TResult = unknown, TReport = unknown>
     return this.progressAwareness;
   }
 
-  @syncing.action
+  @state.action
   succeed(cause: EndCause, detail: string, outcomeReport: string, settlement?: { readonly result: TResult }): boolean {
     if (this.isDone) return false;
     if (settlement !== undefined) {
@@ -201,7 +213,7 @@ export abstract class WorkExpectation<TResult = unknown, TReport = unknown>
     return true;
   }
 
-  @syncing.action
+  @state.action
   fail(cause: EndCause, detail: string, outcomeReport: string): boolean {
     if (this.isDone) return false;
     this.outcome = "failed";

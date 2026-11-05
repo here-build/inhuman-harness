@@ -1,5 +1,5 @@
 import { DefaultedWeakMap } from "@here.build/collections";
-import type { PlexusAwareness } from "@here.build/plexus";
+import type { PlexusAwareness } from "@inhuman.tools/model";
 import { action, computed, observable, toJS } from "mobx";
 
 import type { ExpectationActor } from "./ExpectationActor.js";

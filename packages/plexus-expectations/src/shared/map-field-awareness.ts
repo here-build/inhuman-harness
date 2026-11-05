@@ -14,7 +14,8 @@ import {
   type AwarenessShape,
   type PlexusAwareness,
   type ShapeOfAwareness,
-} from "@here.build/plexus";
+} from "@inhuman.tools/model";
+import { action } from "mobx";
 
 export class MapFieldAwareness<
   A extends PlexusAwareness<AwarenessShape> = PlexusAwareness,
@@ -30,10 +31,12 @@ export class MapFieldAwareness<
     return undefined;
   }
 
+  @action
   mapSet(key: string, value: unknown): void {
     this.#write({ ...this.#record(), [key]: value });
   }
 
+  @action
   mapDelete(key: string): void {
     const current = this.#record();
     if (!(key in current)) return;

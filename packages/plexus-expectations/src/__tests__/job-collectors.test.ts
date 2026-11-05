@@ -1,10 +1,10 @@
-import { syncing } from "@here.build/plexus";
+import { model } from "@inhuman.tools/model";
 import { describe, expect, it } from "vitest";
 
 import { Job, walkWork, WorkContainer } from "../shared/index.js";
 import { homeJobs, PewJudge, StoredJob } from "./_helpers/test-jobs.js";
 
-@syncing("test:PlainWork")
+@model("test:PlainWork")
 class PlainWork extends WorkContainer {
   get work(): readonly WorkContainer[] {
     return [this];

@@ -3,7 +3,7 @@
  * PEW process facts are `readyState` / `error` / `offersJson` plus {@link live}.
  * YAML file fill does not touch process facts.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model, state } from "@inhuman.tools/model";
 import { computed } from "mobx";
 import invariant from "tiny-invariant";
 
@@ -13,21 +13,21 @@ import { readJsonRecord, writeJsonRecord, type LiveFacts } from "./jsonRecord.js
 /** How a new connection of this driver is offered, before the class loads. */
 export type DriverMultiplicity = "add-by-default" | "add-as-secondary";
 
-@syncing("@inhuman.tools/plexus-expectations:DriverSpec")
-export class DriverSpec extends PlexusModel<SpecCatalog | null> {
-  @syncing accessor name: string = "";
-  @syncing accessor description: string = "";
-  @syncing accessor importPath: string = "";
+@model("@inhuman.tools/plexus-expectations:DriverSpec")
+export class DriverSpec extends Model<any, SpecCatalog | null> {
+  @state accessor name: string = "";
+  @state accessor description: string = "";
+  @state accessor importPath: string = "";
   /** Expectation kind names this driver handles. Not tool names. */
-  @syncing.list accessor abilityClaim: string[] = [];
-  @syncing accessor multiplicity: DriverMultiplicity = "add-as-secondary";
+  @state.list accessor abilityClaim: string[] = [];
+  @state accessor multiplicity: DriverMultiplicity = "add-as-secondary";
 
   /** Module-load self-report. `null` = never loaded. YAML fill does not touch this. */
-  @syncing accessor readyState: ReadyState = null;
-  @syncing accessor error: string = "";
+  @state accessor readyState: ReadyState = null;
+  @state accessor error: string = "";
   /** Offer list JSON. Null = no offers. */
-  @syncing private accessor offersJson: string | null = null;
-  @syncing.record private accessor liveMap: Record<string, string> = {};
+  @state private accessor offersJson: string | null = null;
+  @state.record private accessor liveMap: Record<string, string> = {};
 
   @computed
   get live(): LiveFacts {
@@ -38,7 +38,7 @@ export class DriverSpec extends PlexusModel<SpecCatalog | null> {
     this.#writeLive(next);
   }
 
-  @syncing.action
+  @state.action
   #writeLive(next: Readonly<Record<string, unknown>> | undefined): void {
     writeJsonRecord(this.liveMap, next);
   }
@@ -47,7 +47,7 @@ export class DriverSpec extends PlexusModel<SpecCatalog | null> {
    * Module-load self-report. Omitted `offersJson` / `live` stay
    * (failure must not wipe a previous load).
    */
-  @syncing.action
+  @state.action
   stampLoad(next: {
     readonly readyState: ReadyState;
     readonly error: string;
@@ -73,7 +73,7 @@ export class DriverSpec extends PlexusModel<SpecCatalog | null> {
     this.#writeOffers(next);
   }
 
-  @syncing.action
+  @state.action
   #writeOffers(next: readonly object[] | null): void {
     this.offersJson = next == null ? null : JSON.stringify(next);
   }

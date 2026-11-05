@@ -1,5 +1,5 @@
-import { type PlexusAwareness } from "@here.build/plexus";
 import { ErrorWithInvariant } from "@inhuman.tools/error-with-invariant";
+import { type PlexusAwareness } from "@inhuman.tools/model";
 import { reaction, runInAction } from "mobx";
 import invariant from "tiny-invariant";
 import { createActor } from "xstate";

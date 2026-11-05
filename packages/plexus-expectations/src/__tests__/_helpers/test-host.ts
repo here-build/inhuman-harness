@@ -1,14 +1,13 @@
 import {
-  applyAwarenessUpdate,
-  encodeAwarenessUpdate,
-  Plexus,
-  PlexusAwareness,
-  PlexusModel,
-  syncing,
-} from "@here.build/plexus";
-import { computed, when } from "mobx";
+  DocumentContainer,
+  Model,
+  model,
+  state,
+  ReactiveAwareness,
+  type PlexusAwareness,
+} from "@inhuman.tools/model";
+import { computed, runInAction, when } from "mobx";
 import invariant from "tiny-invariant";
-import * as Y from "yjs";
 
 import { ExpectationActor } from "../../driver/ExpectationActor.js";
 import { PEWDriver, type DriverConnectionClass } from "../../driver/PEWDriver.js";
@@ -25,7 +24,7 @@ import {
   type SessionPlexus,
 } from "../../shared/index.js";
 
-/** Dual local Y.Docs, no wire. */
+/** Dual local containers, no wire. */
 
 export type TestResult = { value?: string };
 export type TestReport = { note?: string };
@@ -44,10 +43,10 @@ export type TestCatalogFace = {
   readonly driver?: TestCatalogFace;
 };
 
-@syncing("test:PewExpectation")
+@model("test:PewExpectation")
 export class TestExpectation extends WorkExpectation<TestResult, TestReport> {
-  @syncing accessor payload: string = "";
-  @syncing accessor resultValue: string = "";
+  @state accessor payload: string = "";
+  @state accessor resultValue: string = "";
 
   override applySettlement(result: TestResult): void {
     this.resultValue = result.value ?? "";
@@ -55,9 +54,9 @@ export class TestExpectation extends WorkExpectation<TestResult, TestReport> {
 }
 
 /** Parent PEW that can own nested work (judge channel) for tree-orphan tests. */
-@syncing("test:ParentExpectation")
+@model("test:ParentExpectation")
 export class TestParent extends TestExpectation {
-  @syncing.child.record accessor nested: Record<string, WorkExpectation> = {};
+  @state.childRecord accessor nested: Record<string, WorkExpectation> = {};
 
   @computed
   override get work(): readonly WorkExpectation[] {
@@ -65,7 +64,7 @@ export class TestParent extends TestExpectation {
   }
 }
 
-@syncing("test:ThrowingExpectation")
+@model("test:ThrowingExpectation")
 export class ThrowingExpectation extends TestExpectation {
   override applySettlement(result: TestResult): void {
     this.resultValue = result.value ?? "";
@@ -74,16 +73,16 @@ export class ThrowingExpectation extends TestExpectation {
 }
 
 /** Kernel catalog. Live faces live on these records, not awareness lanes. */
-@syncing("test:PewKernelRoot")
-export class PewKernelRoot extends PlexusModel<null> implements KernelRootModel {
-  @syncing.child.record accessor connections: Record<string, ConnectionSpec> = {};
-  @syncing.child.record accessor drivers: Record<string, DriverSpec> = {};
+@model("test:PewKernelRoot")
+export class PewKernelRoot extends Model implements KernelRootModel {
+  @state.childRecord accessor connections: Record<string, ConnectionSpec> = {};
+  @state.childRecord accessor drivers: Record<string, DriverSpec> = {};
 }
 
-@syncing("test:PewSessionRoot")
+@model("test:PewSessionRoot")
 export class PewSessionRoot extends WorkContainer {
   /** PEW does not parent PEW; `walkWork` follows `.work`. */
-  @syncing.child.list accessor declared: WorkExpectation[] = [];
+  @state.childList accessor declared: WorkExpectation[] = [];
 
   get work(): WorkExpectation[] {
     return this.declared;
@@ -169,9 +168,8 @@ export class PewTestHost extends Orchestrator implements Disposable {
   constructor(shared?: { readonly kernel: KernelPlexus; readonly kernelRoot: PewKernelRoot }) {
     const kernelRoot = shared?.kernelRoot ?? new PewKernelRoot();
     const sessionRoot = new PewSessionRoot();
-    // Plexus.bootstrap is not yet shape-generic — dual-doc PEW handles.
-    const kernel = shared?.kernel ?? (Plexus.bootstrap(kernelRoot) as KernelPlexus);
-    const session = Plexus.bootstrap(sessionRoot) as SessionPlexus;
+    const kernel = shared?.kernel ?? (new DocumentContainer(kernelRoot) as KernelPlexus);
+    const session = new DocumentContainer(sessionRoot) as SessionPlexus;
     super(kernel, session);
     this.kernelRoot = kernelRoot;
     this.sessionRoot = sessionRoot;
@@ -235,8 +233,10 @@ export class PewTestHost extends Orchestrator implements Disposable {
       this.loaders.set(row, loader);
       this.#loadersByDriver.set(driver.name, loader);
     }
-    this.kernelRoot.drivers[id] = driver;
-    this.kernelRoot.connections[id] ??= new ConnectionSpec({ driver, name: id });
+    runInAction(() => {
+      this.kernelRoot.drivers[id] = driver;
+      this.kernelRoot.connections[id] ??= new ConnectionSpec({ driver, name: id });
+    });
     return id;
   }
 
@@ -254,7 +254,7 @@ export class PewTestHost extends Orchestrator implements Disposable {
       },
       get error() {
         const live = liveOf();
-        if (live == null || live.readyState === null) return null;
+        if (live?.readyState == null) return null;
         return live.error === "" ? null : live.error;
       },
     };
@@ -284,7 +284,9 @@ export class PewTestHost extends Orchestrator implements Disposable {
       const id = this.#byId.keys().next().value ?? this.register("test", null);
       entity = new TestExpectation({ connectionId: id });
     }
-    this.sessionRoot.declared.push(entity);
+    runInAction(() => {
+      this.sessionRoot.declared.push(entity!);
+    });
     return entity;
   }
 
@@ -371,28 +373,50 @@ export async function flushMicrotasks(): Promise<void> {
   await Promise.resolve();
 }
 
+let nextAuthorClientId = 1000;
+
 /**
- * A remote author: own Y.Doc, own awareness, synced onto the worker hub.
- * Plexus: not createLocalClient — that would be a second pen on the same map.
+ * A remote author: own awareness, synced onto the worker hub.
  */
 export function connectAuthor(hub: PlexusAwareness): {
   author: PlexusAwareness;
   sync: () => void;
   [Symbol.dispose](): void;
 } {
-  const doc = new Y.Doc();
-  const author = new PlexusAwareness(doc);
+  const authorClientId = ++nextAuthorClientId;
+  const author = new ReactiveAwareness(authorClientId);
+  const lanes = new Set<string>();
+
+  const originalSet = author.setLane.bind(author);
+  const originalClear = author.clearLane.bind(author);
+
+  author.setLane = ((lane: string, value: unknown, clientId?: number) => {
+    lanes.add(lane);
+    originalSet(lane as never, value as never, clientId ?? authorClientId);
+  }) as typeof author.setLane;
+
+  author.clearLane = ((lane: string, clientId?: number) => {
+    lanes.add(lane);
+    originalClear(lane as never, clientId ?? authorClientId);
+  }) as typeof author.clearLane;
+
   const sync = (): void => {
-    const clients = [...author.meta.keys()];
-    if (clients.length === 0) return;
-    applyAwarenessUpdate(hub, encodeAwarenessUpdate(author, clients), "remote");
+    for (const lane of lanes) {
+      const val = author.getLane(lane as never, authorClientId);
+      if (val === undefined) {
+        hub.clearLane(lane as never, authorClientId);
+      } else {
+        hub.setLane(lane as never, val as never, authorClientId);
+      }
+    }
   };
+
   return {
     author,
     sync,
     [Symbol.dispose]() {
-      author.destroy();
-      doc.destroy();
+      hub.removeClient(authorClientId);
+      author.clearAll();
     },
   };
 }

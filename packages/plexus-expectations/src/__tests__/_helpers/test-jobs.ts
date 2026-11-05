@@ -1,4 +1,4 @@
-import { Plexus, syncing } from "@here.build/plexus";
+import { DocumentContainer, model, state } from "@inhuman.tools/model";
 
 import {
   Job,
@@ -9,7 +9,7 @@ import {
 } from "../../shared/index.js";
 
 /** Tests that need a Job executor register StoredJob themselves. */
-@syncing("test:ContractJob")
+@model("test:ContractJob")
 export class ContractJob<TValue = unknown, TReason = unknown> extends Job<TValue, TReason> {
   override readonly owner: JobEffectOwner = "session-runtime";
   override readonly intent: string = "";
@@ -22,29 +22,30 @@ export class ContractJob<TValue = unknown, TReason = unknown> extends Job<TValue
   override readonly intentRequired: boolean = false;
 }
 
-@syncing("test:StoredJob")
+@model("test:StoredJob")
 export class StoredJob extends ContractJob {}
 
-@syncing("test:PewJudge")
+@model("test:PewJudge")
 export class PewJudge extends WorkExpectation {}
 
-@syncing("test:JobsSessionRoot")
+@model("test:JobsSessionRoot")
 export class JobsSessionRoot extends WorkContainer {
-  @syncing.child.list accessor declared: Job[] = [];
+  @state.childList accessor declared: Job[] = [];
 
   get work(): readonly WorkContainer[] {
     return this.declared;
   }
 }
 
-export function homeJobs(...jobs: Job[]): Disposable & { readonly root: JobsSessionRoot } {
+export function homeJobs(...jobs: Job[]): Disposable & { readonly root: JobsSessionRoot; readonly container: DocumentContainer<JobsSessionRoot> } {
   const root = new JobsSessionRoot();
-  const plexus = Plexus.bootstrap(root);
+  const container = new DocumentContainer(root);
   for (const job of jobs) root.declared.push(job);
   return {
     root,
+    container,
     [Symbol.dispose]() {
-      plexus.destroy();
+      container.destroy();
     },
   };
 }
