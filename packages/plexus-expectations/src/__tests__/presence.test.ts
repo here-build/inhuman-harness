@@ -1,4 +1,4 @@
-import { autorun, observable } from "mobx";
+import { autorun, observable, runInAction } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { activateThroughLoad, flushMicrotasks, makeHost, PewTestHost, ScriptedActor } from "./_helpers/test-host.js";
@@ -71,7 +71,10 @@ describe("catalog presence", () => {
     class NamedDriver extends PEWDriver<WorkExpectation> {
       @observable.shallow override accessor state = namedLiveState();
       async bootstrap(): Promise<void> {
-        this.state.models = await boot;
+        const models = await boot;
+        runInAction(() => {
+          this.state.models = models;
+        });
       }
       protected resolve(expectation: WorkExpectation): ScriptedActor {
         return new ScriptedActor(expectation, this);
@@ -122,7 +125,9 @@ describe("catalog presence", () => {
       @observable.shallow override accessor state = namedLiveState();
       async bootstrap(): Promise<void> {
         boots += 1;
-        this.state.models = ["m"];
+        runInAction(() => {
+          this.state.models = ["m"];
+        });
       }
       override async [Symbol.asyncDispose](): Promise<void> {
         disposed += 1;

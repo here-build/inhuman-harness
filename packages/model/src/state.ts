@@ -1,4 +1,4 @@
-import { action, observable, observe } from "mobx";
+import { action, observable, observe, runInAction } from "mobx";
 
 import { registerStateMetadata } from "./metadata.js";
 import type { Model } from "./model.js";
@@ -101,8 +101,10 @@ state.ref = function stateRef<This, TValue extends Model | null>(
 
 function attachParent(child: unknown, parent: unknown, key: string | number | null): void {
   if (child && typeof child === "object" && "parent" in child) {
-    (child as Model).parent = parent;
-    (child as Model).parentFieldKey = key;
+    runInAction(() => {
+      (child as Model).parent = parent;
+      (child as Model).parentFieldKey = key;
+    });
   }
 }
 
@@ -241,7 +243,10 @@ export function stateList<This, TItem>(
     },
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
-      const obsArr = observable.array(value, { deep: false });
+      const obsArr = observable.array(value, {
+        deep: false,
+        name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,
+      });
       const prevDisposer = disposers.get(self as object);
       if (prevDisposer) {
         prevDisposer();
@@ -265,7 +270,10 @@ export function stateList<This, TItem>(
       const self = this as unknown as Linkable;
       const props = self[HYDRATION_DATA];
       const raw = props && Array.isArray(props[propertyKey]) ? (props[propertyKey] as TItem[]) : initialValue;
-      const obsArr = observable.array(raw, { deep: false });
+      const obsArr = observable.array(raw, {
+        deep: false,
+        name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,
+      });
       const disposer = bindArrayObserver(self, propertyKey, obsArr, "list");
       disposers.set(self as object, disposer);
       return initter ? initter.call(this, obsArr as unknown as TItem[]) : (obsArr as unknown as TItem[]);
@@ -294,7 +302,10 @@ export function stateRefList<This, TItem extends Model>(
     },
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
-      const obsArr = observable.array(value, { deep: false });
+      const obsArr = observable.array(value, {
+        deep: false,
+        name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,
+      });
       const prevDisposer = disposers.get(self as object);
       if (prevDisposer) {
         prevDisposer();
@@ -318,7 +329,10 @@ export function stateRefList<This, TItem extends Model>(
       const self = this as unknown as Linkable;
       const props = self[HYDRATION_DATA];
       const raw = props && Array.isArray(props[propertyKey]) ? (props[propertyKey] as TItem[]) : initialValue;
-      const obsArr = observable.array(raw, { deep: false });
+      const obsArr = observable.array(raw, {
+        deep: false,
+        name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,
+      });
       const disposer = bindArrayObserver(self, propertyKey, obsArr, "refList");
       disposers.set(self as object, disposer);
       return initter ? initter.call(this, obsArr as unknown as TItem[]) : (obsArr as unknown as TItem[]);
@@ -348,7 +362,10 @@ export function stateChildList<This, TItem extends Model>(
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
       value.forEach((child, idx) => attachParent(child, this, idx));
-      const obsArr = observable.array(value, { deep: false });
+      const obsArr = observable.array(value, {
+        deep: false,
+        name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,
+      });
       const prevDisposer = disposers.get(self as object);
       if (prevDisposer) {
         prevDisposer();
@@ -376,7 +393,10 @@ export function stateChildList<This, TItem extends Model>(
       const props = self[HYDRATION_DATA];
       const raw = props && Array.isArray(props[propertyKey]) ? (props[propertyKey] as TItem[]) : initialValue;
       raw.forEach((child, idx) => attachParent(child, this, idx));
-      const obsArr = observable.array(raw, { deep: false });
+      const obsArr = observable.array(raw, {
+        deep: false,
+        name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,
+      });
       const disposer = bindArrayObserver(self, propertyKey, obsArr, "childList");
       disposers.set(self as object, disposer);
       return initter ? initter.call(this, obsArr as unknown as TItem[]) : (obsArr as unknown as TItem[]);

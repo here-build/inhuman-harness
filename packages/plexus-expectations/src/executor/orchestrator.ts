@@ -94,7 +94,7 @@ export abstract class Orchestrator<
     );
     this.#disposeWork = autorun(() => {
       if (!this.#activated.get() || !this.canApplyResults) return;
-      for (const node of collectReachable(this.session.root)) {
+      for (const node of collectReachable(this.session.root, this.session)) {
         if (node.isDone || isTreeOrphan(node)) continue;
         if (!this.shouldHonor(node)) continue;
         const spec = this.connections[node.connectionId];
@@ -127,10 +127,18 @@ export abstract class Orchestrator<
   protected get reachableJobs(): Job[] {
     const root = this.session.root;
     const jobs = new Set<Job>();
-    if (root instanceof Job) jobs.add(root);
+    if (root instanceof Job) {
+      if (typeof this.session.registerNode === "function") {
+        this.session.registerNode(root);
+      }
+      jobs.add(root);
+    }
     if (root instanceof WorkContainer) {
-      for (const job of Iterator.from(walkWork(root)).filter((node): node is Job => node instanceof Job)) {
-        jobs.add(job);
+      for (const node of walkWork(root)) {
+        if (typeof this.session.registerNode === "function") {
+          this.session.registerNode(node);
+        }
+        if (node instanceof Job) jobs.add(node);
       }
     }
     return [...jobs];
@@ -461,10 +469,13 @@ export abstract class Orchestrator<
   }
 }
 
-function collectReachable(root: unknown): Set<WorkExpectation> {
+function collectReachable(root: unknown, session?: SessionPlexus): Set<WorkExpectation> {
   if (!(root instanceof WorkContainer)) return new Set();
   const found = new Set<WorkExpectation>();
   for (const node of walkWork(root)) {
+    if (session && typeof session.registerNode === "function") {
+      session.registerNode(node);
+    }
     if (node instanceof WorkExpectation) found.add(node);
   }
   return found;

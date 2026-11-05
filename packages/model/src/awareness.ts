@@ -60,6 +60,16 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
   clearAll(): void {
     this.#clients.clear();
   }
+
+  getSchema(): string[] {
+    const lanes = new Set<string>();
+    for (const bag of this.#clients.values()) {
+      for (const lane of bag.keys()) {
+        lanes.add(lane);
+      }
+    }
+    return [...lanes];
+  }
 }
 
 type ObservableLaneBag = ReturnType<typeof observable.map<string, unknown>>;

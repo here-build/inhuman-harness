@@ -1,4 +1,4 @@
-import { syncing } from "@here.build/plexus";
+import { model } from "@inhuman.tools/model";
 import { computed } from "mobx";
 import { describe, expect, it } from "vitest";
 
@@ -24,13 +24,12 @@ describe("Job", () => {
 
   it("markComplete seals completed and the end clock in one update", () => {
     const job = new StoredJob();
-    using _home = homeJobs(job);
-    const doc = job.__doc__;
-    let updates = 0;
-    doc?.on("update", () => updates++);
+    using home = homeJobs(job);
+    let batches = 0;
+    home.container.onPatch(() => batches++);
     job.markComplete(2000);
-    expect({ updates, completed: job.completed, ended: job.endedAtMs }).toEqual({
-      updates: 1,
+    expect({ batches, completed: job.completed, ended: job.endedAtMs }).toEqual({
+      batches: 1,
       completed: true,
       ended: 2000,
     });
@@ -66,7 +65,7 @@ describe("Job", () => {
   });
 });
 
-@syncing("test:NamedJob")
+@model("test:NamedJob")
 class NamedJob extends ContractJob<string, string> {
   fail = false;
 

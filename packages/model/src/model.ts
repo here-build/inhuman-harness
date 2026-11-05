@@ -7,6 +7,7 @@ import { CONTAINER_LINK, HYDRATION_DATA } from "./symbols.js";
 import type { ModelPatch } from "./types.js";
 
 export interface ModelContainerLink {
+  readonly container?: any;
   readonly isApplyingPatches?: boolean;
   readonly awareness?: ReactiveAwareness<any>;
   recordPatch(patch: ModelPatch): void;
@@ -54,8 +55,8 @@ export abstract class Model<TRow = any, TParent = any> {
     return this[CONTAINER_LINK] ?? null;
   }
 
-  get plexus(): ModelContainerLink | null {
-    return this[CONTAINER_LINK] ?? null;
+  get plexus(): any {
+    return this[CONTAINER_LINK]?.container ?? this[CONTAINER_LINK] ?? null;
   }
 
   @action

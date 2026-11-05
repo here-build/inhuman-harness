@@ -65,6 +65,7 @@ export class DocumentContainer<
     this.#registry.set(node.uuid, node);
 
     const link: ModelContainerLink = {
+      container: this,
       isApplyingPatches: this.#isApplyingPatches,
       awareness: this.awareness,
       recordPatch: (patch: ModelPatch) => this.recordPatch(patch),

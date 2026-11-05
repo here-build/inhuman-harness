@@ -10,7 +10,7 @@
  * outcome. {@link Job} fulfills or rejects from `result`. The promise value
  * here is `unknown` so both stay containers.
  */
-import { PlexusModel, syncing } from "@here.build/plexus";
+import { Model, model, state } from "@inhuman.tools/model";
 import { when } from "mobx";
 
 export const workContainer: unique symbol = Symbol.for("work:container") as never;
@@ -18,23 +18,25 @@ export const workContainer: unique symbol = Symbol.for("work:container") as neve
 /** Base promise value. An expectation narrows it to the outcome; a job narrows it per class. */
 export type WorkFulfillment = unknown;
 
-@syncing("@inhuman.tools/plexus-expectations:WorkContainer")
-export abstract class WorkContainer extends PlexusModel implements Promise<WorkFulfillment> {
+@model("@inhuman.tools/plexus-expectations:WorkContainer")
+export abstract class WorkContainer extends Model implements Promise<WorkFulfillment> {
   readonly [workContainer] = true as const;
   #settledPromise: Promise<WorkFulfillment> | null = null;
 
   /** Epoch ms. Write-once. BODY / actor start — not mint, not the guard. */
-  @syncing accessor startedAtMs: number | null = null;
+  @state accessor startedAtMs: number | null = null;
   /** Epoch ms. Write-once. Job complete / PEW succeed|fail. This class's thenable settles on this. */
-  @syncing accessor endedAtMs: number | null = null;
+  @state accessor endedAtMs: number | null = null;
 
   abstract readonly work: readonly WorkContainer[];
 
+  @state.action
   markStarted(now = Date.now()): void {
     if (this.startedAtMs != null) return;
     this.startedAtMs = now;
   }
 
+  @state.action
   markEnded(now = Date.now()): void {
     if (this.endedAtMs != null) return;
     this.endedAtMs = now;

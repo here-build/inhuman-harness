@@ -3,7 +3,7 @@
  * none | secondary | primary. Interned connections outlive a session wrap, so
  * occupancy is not session-plane. Drivers read the reduced token — never clientIds.
  */
-import { FieldAwareness, type PlexusAwareness } from "@here.build/plexus";
+import { FieldAwareness, type PlexusAwareness } from "@inhuman.tools/model";
 
 import { ConnectionSpec } from "./models/ConnectionSpec.js";
 import { DriverSpec } from "./models/DriverSpec.js";
