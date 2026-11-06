@@ -2,8 +2,6 @@ import { z } from "zod";
 
 /**
  * Session Trajectory Patch & Snapshot protocol contract definitions.
- * Replaces implicit Yjs binary update vectors with an explicit, language-agnostic
- * patch protocol representing MobX domain mutations and snapshots.
  */
 
 export type SerializedNode = {

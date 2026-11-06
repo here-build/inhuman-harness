@@ -9,7 +9,6 @@ import type {
   StateFieldMetadata,
 } from "./types.js";
 
-// Ensure Symbol.metadata is available at runtime
 const symbolMetadata = (Symbol as { metadata?: symbol }).metadata ?? Symbol.for("Symbol.metadata");
 (Symbol as { metadata: symbol }).metadata = symbolMetadata;
 
@@ -118,7 +117,6 @@ export function getModelMetadata(ctor: ClassLike): ModelClassMetadata {
   const columns = new Map<string, ColumnMetadata>();
   const stateFields = new Map<string, StateFieldMetadata>();
 
-  // 1. Read from Symbol.metadata if present
   const metaObj = (ctor as unknown as Record<symbol, unknown>)[Symbol.metadata] as Record<symbol, unknown> | undefined;
   if (metaObj) {
     const metaCols = metaObj[COLUMN_META_SYMBOL] as Map<string, ColumnMetadata> | undefined;
@@ -135,7 +133,6 @@ export function getModelMetadata(ctor: ClassLike): ModelClassMetadata {
     }
   }
 
-  // 2. Read prototype chain fallback maps
   let curr: ClassLike | null = ctor;
   const hierarchy: ClassLike[] = [];
   while (curr && (curr as unknown) !== Object && (curr as unknown) !== Function) {

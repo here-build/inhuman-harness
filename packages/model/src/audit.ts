@@ -18,7 +18,6 @@ export function auditModelClassOnce(ctor: ClassLike): void {
     const tableColumns = getTableColumns(meta.table);
     const mappedColumns = new Set<string>();
 
-    // 1. Verify every @column belongs to `meta.table` and has no duplicate mapping
     for (const field of meta.columns.values()) {
       const colTableName = getTableName(field.column.table);
       if (colTableName !== tableConfig.name) {
@@ -34,7 +33,6 @@ export function auditModelClassOnce(ctor: ClassLike): void {
       mappedColumns.add(field.columnName);
     }
 
-    // 2. Verify every column in the Drizzle SQLiteTable is accounted for on the class
     for (const [colKey, drizzleCol] of Object.entries(tableColumns)) {
       if (
         !mappedColumns.has(drizzleCol.name) &&

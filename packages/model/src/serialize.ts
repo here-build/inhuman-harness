@@ -5,6 +5,17 @@ import { getModelByTag, getModelMetadata } from "./metadata.js";
 import { Model } from "./model.js";
 import type { SerializedDocument, SerializedDocumentNode } from "./types.js";
 
+export function isSerializedDocumentNode(val: unknown): val is SerializedDocumentNode {
+  return (
+    val !== null &&
+    typeof val === "object" &&
+    "tag" in val &&
+    typeof (val as Record<string, unknown>).tag === "string" &&
+    "uuid" in val &&
+    typeof (val as Record<string, unknown>).uuid === "string"
+  );
+}
+
 export function serializeModel(root: Model): SerializedDocumentNode {
   const ctor = root.constructor;
   const meta = getModelMetadata(ctor);
@@ -34,9 +45,9 @@ export function serializeModel(root: Model): SerializedDocumentNode {
       case "child":
         children[field.propertyKey] =
           val instanceof Model
-            ? serializeModel(val as Model)
-            : val && typeof val === "object" && "tag" in val && "uuid" in val
-              ? (val as SerializedDocumentNode)
+            ? serializeModel(val)
+            : isSerializedDocumentNode(val)
+              ? val
               : null;
         break;
       case "list":
@@ -44,8 +55,8 @@ export function serializeModel(root: Model): SerializedDocumentNode {
           ? val.map((item) =>
               item instanceof Model
                 ? serializeModel(item)
-                : item && typeof item === "object" && "tag" in item && "uuid" in item
-                  ? (item as SerializedDocumentNode)
+                : isSerializedDocumentNode(item)
+                  ? item
                   : item,
             )
           : [];
@@ -57,26 +68,26 @@ export function serializeModel(root: Model): SerializedDocumentNode {
         break;
       case "childList":
         childLists[field.propertyKey] = Array.isArray(val)
-          ? val.map((m: any) =>
+          ? val.map((m: unknown) =>
               m instanceof Model
                 ? serializeModel(m)
-                : m && typeof m === "object" && "tag" in m && "uuid" in m
-                  ? (m as SerializedDocumentNode)
-                  : m,
+                : isSerializedDocumentNode(m)
+                  ? m
+                  : (m as SerializedDocumentNode),
             )
           : [];
         break;
       case "childRecord": {
         const rec: Record<string, SerializedDocumentNode> = {};
         if (val && typeof val === "object") {
-          for (const [k, child] of Object.entries(val as Record<string, any>)) {
+          for (const [k, child] of Object.entries(val as Record<string, unknown>)) {
             if (child) {
               rec[k] =
                 child instanceof Model
                   ? serializeModel(child)
-                  : child && typeof child === "object" && "tag" in child && "uuid" in child
-                    ? (child as SerializedDocumentNode)
-                    : child;
+                  : isSerializedDocumentNode(child)
+                    ? child
+                    : (child as SerializedDocumentNode);
             }
           }
         }
@@ -151,8 +162,8 @@ function materializeNode(node: SerializedDocumentNode, registry: Map<string, Mod
     for (const [key, val] of Object.entries(node.state)) {
       if (Array.isArray(val)) {
         props[key] = val.map((item) => {
-          if (item && typeof item === "object" && "tag" in item && "uuid" in item) {
-            return materializeNode(item as SerializedDocumentNode, registry);
+          if (isSerializedDocumentNode(item)) {
+            return materializeNode(item, registry);
           }
           return item;
         });
@@ -228,8 +239,8 @@ function linkReferences(node: SerializedDocumentNode, registry: Map<string, Mode
     for (const val of Object.values(node.state)) {
       if (Array.isArray(val)) {
         for (const item of val) {
-          if (item && typeof item === "object" && "tag" in item && "uuid" in item) {
-            linkReferences(item as SerializedDocumentNode, registry);
+          if (isSerializedDocumentNode(item)) {
+            linkReferences(item, registry);
           }
         }
       }
@@ -245,10 +256,7 @@ export function hydrateModel<T extends Model>(
     const rootNode = "root" in snapshot ? snapshot.root : snapshot;
     const registry = existingRegistry ?? new Map<string, Model>();
 
-    // Pass 1: Tree Materialization
     const root = materializeNode(rootNode, registry);
-
-    // Pass 2: Reference Linking
     linkReferences(rootNode, registry);
 
     return root as T;

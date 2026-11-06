@@ -14,7 +14,6 @@ export {
 } from "@inhuman.tools/harness-model";
 export { publishRevalidationDemand } from "@inhuman.tools/plexus-expectations";
 
-// The daemon's Yjs server speaks these frames too (`forwardPlexusAwareness` is among them).
 export * from "./frames.js";
 export * from "./awareness.js";
 export * from "./doc.js";

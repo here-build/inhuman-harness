@@ -33,6 +33,8 @@ export type WebsocketProviderOptions = {
   readonly disableBc?: boolean;
 };
 
+const WS_OPEN = 1;
+
 export class WebsocketProvider {
   readonly url: string;
   readonly roomname: string;
@@ -77,7 +79,7 @@ export class WebsocketProvider {
     const onDocUpdate = (update: Uint8Array, origin?: unknown): void => {
       if (origin === this) return;
       const ws = this.ws;
-      if (ws != null && ws.readyState === 1 /* OPEN */) {
+      if (ws != null && ws.readyState === WS_OPEN) {
         ws.send(encodeDocUpdate(update));
       }
     };
@@ -94,7 +96,7 @@ export class WebsocketProvider {
       try {
         const update = encodeAwarenessUpdate(this.awareness, clients);
         const ws = this.ws;
-        if (ws != null && ws.readyState === 1 /* OPEN */) {
+        if (ws != null && ws.readyState === WS_OPEN) {
           ws.send(encodeAwarenessFrame(update));
         }
       } catch {
@@ -107,7 +109,7 @@ export class WebsocketProvider {
     this.messageHandlers[MESSAGE_SYNC] = (_encoder: unknown, decoder: { arr: Uint8Array; pos: number }) => {
       const frameBytes = decoder.arr;
       const reply = applyPeerSyncFrame(frameBytes, this.doc, this);
-      if (reply != null && this.ws != null && this.ws.readyState === 1 /* OPEN */) {
+      if (reply != null && this.ws != null && this.ws.readyState === WS_OPEN) {
         this.ws.send(reply);
       }
       if (frameBytes.length >= 2 && (frameBytes[1] === SYNC_STEP2 || frameBytes[1] === SYNC_UPDATE)) {
@@ -200,7 +202,7 @@ export class WebsocketProvider {
         customHandler(null, { arr: bytes, pos: 1 }, this);
       } else if (type === MESSAGE_SYNC) {
         const reply = applyPeerSyncFrame(bytes, this.doc, this);
-        if (reply != null && ws.readyState === 1 /* OPEN */) {
+        if (reply != null && ws.readyState === WS_OPEN) {
           ws.send(reply);
         }
         if (bytes.length >= 2 && (bytes[1] === SYNC_STEP2 || bytes[1] === SYNC_UPDATE)) {
@@ -220,7 +222,7 @@ export class WebsocketProvider {
         }
       } else if (type === MESSAGE_QUERY_AWARENESS) {
         const localAw = encodeLocalAwarenessFrame(this.awareness);
-        if (localAw != null && ws.readyState === 1 /* OPEN */) {
+        if (localAw != null && ws.readyState === WS_OPEN) {
           ws.send(localAw);
         }
       } else if (type === MESSAGE_SHAPE) {
@@ -265,7 +267,7 @@ export class WebsocketProvider {
 
     if (this.options.resyncInterval != null && this.options.resyncInterval > 0) {
       this.#resyncTimer = setInterval(() => {
-        if (this.ws != null && this.ws.readyState === 1 /* OPEN */) {
+        if (this.ws != null && this.ws.readyState === WS_OPEN) {
           this.ws.send(encodeSyncStep1(this.doc));
         }
       }, this.options.resyncInterval);
@@ -291,9 +293,7 @@ export class WebsocketProvider {
     }
   }
 
-  disconnectBc(): void {
-    // compatibility stub with y-websocket
-  }
+  disconnectBc(): void {}
 
   destroy(): void {
     if (this.#destroyed) return;

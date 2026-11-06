@@ -3,9 +3,27 @@ import { observable, runInAction } from "mobx";
 import { ReactiveAwareness, type AwarenessShape } from "./awareness.js";
 import { getModelMetadata } from "./metadata.js";
 import { Model, type ModelContainerLink } from "./model.js";
-import { hydrateModel, serializeModel } from "./serialize.js";
+import { hydrateModel, isSerializedDocumentNode, serializeModel } from "./serialize.js";
 import { CONTAINER_LINK } from "./symbols.js";
 import type { ModelPatch, ModelPatchBatch, SerializedDocument, SerializedDocumentNode } from "./types.js";
+
+function isSerializedDocument(val: unknown): val is SerializedDocument {
+  return (
+    val !== null &&
+    typeof val === "object" &&
+    "root" in val &&
+    isSerializedDocumentNode((val as Record<string, unknown>).root)
+  );
+}
+
+function isModelPatchBatch(val: unknown): val is ModelPatchBatch {
+  return (
+    val !== null &&
+    typeof val === "object" &&
+    "patches" in val &&
+    Array.isArray((val as Record<string, unknown>).patches)
+  );
+}
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -304,12 +322,7 @@ export class DocumentContainer<
       if (patch.key != null) {
         if (rec && typeof rec === "object") {
           const recObj = rec as Record<string, unknown>;
-          const isModelNode =
-            patch.value != null &&
-            typeof patch.value === "object" &&
-            "tag" in patch.value &&
-            "uuid" in patch.value;
-          if (stateMeta?.kind === "childRecord" || isModelNode) {
+          if (stateMeta?.kind === "childRecord" || isSerializedDocumentNode(patch.value)) {
             if (patch.value == null) {
               delete recObj[patch.key];
             } else {
@@ -340,13 +353,8 @@ export class DocumentContainer<
         const modelVal = colMeta.codec ? colMeta.codec.toModel(patch.value) : patch.value;
         (node as unknown as Record<string, unknown>)[patch.field] = modelVal;
       } else {
-        const isModelNode =
-          patch.value != null &&
-          typeof patch.value === "object" &&
-          "tag" in patch.value &&
-          "uuid" in patch.value;
-        if (isModelNode) {
-          const child = hydrateModel<Model>(patch.value as SerializedDocumentNode, this.#registry);
+        if (isSerializedDocumentNode(patch.value)) {
+          const child = hydrateModel<Model>(patch.value, this.#registry);
           this.registerNode(child);
           (node as unknown as Record<string, unknown>)[patch.field] = child;
         } else {
@@ -375,8 +383,8 @@ export class DocumentContainer<
         });
       } else {
         items = (patch.items as unknown[]).map((item) => {
-          if (item && typeof item === "object" && "tag" in item && "uuid" in item) {
-            const child = hydrateModel<Model>(item as SerializedDocumentNode, this.#registry);
+          if (isSerializedDocumentNode(item)) {
+            const child = hydrateModel<Model>(item, this.#registry);
             this.registerNode(child);
             return child;
           }
@@ -554,18 +562,18 @@ export class DocumentContainer<
     if (update.byteLength === 0) return;
     if (update.byteLength === 2 && update[0] === 0 && update[1] === 0) return;
     const text = textDecoder.decode(update);
-    let parsed: Record<string, unknown>;
+    let parsed: unknown;
     try {
-      parsed = JSON.parse(text) as Record<string, unknown>;
+      parsed = JSON.parse(text);
     } catch {
       return;
     }
-    if ("root" in parsed && parsed.root && typeof parsed.root === "object") {
-      this.hydrateFromSnapshot(parsed as unknown as SerializedDocument, origin);
+    if (isSerializedDocument(parsed)) {
+      this.hydrateFromSnapshot(parsed, origin);
       return;
     }
-    if ("patches" in parsed && Array.isArray(parsed.patches)) {
-      this.applyPatchBatch(parsed as unknown as ModelPatchBatch);
+    if (isModelPatchBatch(parsed)) {
+      this.applyPatchBatch(parsed);
       if (this.#updateListeners.size > 0) {
         for (const listener of this.#updateListeners) {
           listener(update, origin);
@@ -617,17 +625,17 @@ export function mergeDocumentUpdates(updates: readonly Uint8Array[]): Uint8Array
   for (const update of nonEmpty) {
     const text = textDecoder.decode(update);
     try {
-      const parsed = JSON.parse(text) as Record<string, unknown>;
-      if ("root" in parsed && parsed.root && typeof parsed.root === "object") {
-        latestSnapshot = parsed as unknown as SerializedDocument;
+      const parsed: unknown = JSON.parse(text);
+      if (isSerializedDocument(parsed)) {
+        latestSnapshot = parsed;
         allPatches.length = 0;
         latestRevision = Math.max(latestRevision, typeof parsed.revision === "number" ? parsed.revision : 0);
-      } else if ("patches" in parsed && Array.isArray(parsed.patches)) {
-        allPatches.push(...(parsed.patches as ModelPatch[]));
+      } else if (isModelPatchBatch(parsed)) {
+        allPatches.push(...parsed.patches);
         latestRevision = Math.max(latestRevision, typeof parsed.revision === "number" ? parsed.revision : 0);
       }
     } catch {
-      // not JSON, keep going
+      // ignore non-JSON frame
     }
   }
 

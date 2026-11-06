@@ -1,10 +1,5 @@
 /**
- * Plexus awareness on the plane socket.
- *
- * This module is the only MESSAGE_AWARENESS speaker. y-websocket still
- * constructs a stock Awareness — `detachProtocolAwareness` at the unix dial
- * mutes it. Passing `plexus.awareness` as `opts.awareness` is rejected:
- * y-websocket would encode/apply through y-protocols, not this hub.
+ * Ephemeral awareness on the plane socket.
  *
  * Local writes go on the wire. Frames applied with {@link REMOTE_AWARENESS_ORIGIN}
  * do not — ingesting a replica frame and forwarding it loops the plane, and the

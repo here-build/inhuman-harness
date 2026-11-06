@@ -329,8 +329,8 @@ describe("@inhuman.tools/model", () => {
       expect(h3.parentJob).toBe(hydrated);
     });
 
-    it("throws BrokenReferenceError deterministically on missing target UUID", () => {
-      const snap = {
+    it("throws BrokenReferenceError when ref or refList points to a missing UUID", () => {
+      const brokenRefSnap = {
         uuid: "root-1",
         tag: "test:graph:job",
         columns: {},
@@ -341,12 +341,10 @@ describe("@inhuman.tools/model", () => {
         childLists: {},
       };
 
-      expect(() => hydrateModel(snap)).toThrowError(BrokenReferenceError);
-      expect(() => hydrateModel(snap)).toThrowError(/references missing node "non-existent-uuid"/);
-    });
+      expect(() => hydrateModel(brokenRefSnap)).toThrowError(BrokenReferenceError);
+      expect(() => hydrateModel(brokenRefSnap)).toThrowError(/references missing node "non-existent-uuid"/);
 
-    it("throws BrokenReferenceError when refList points to a missing UUID", () => {
-      const snap = {
+      const brokenListSnap = {
         uuid: "root-2",
         tag: "test:graph:job",
         columns: {},
@@ -357,8 +355,8 @@ describe("@inhuman.tools/model", () => {
         childLists: {},
       };
 
-      expect(() => hydrateModel(snap)).toThrowError(BrokenReferenceError);
-      expect(() => hydrateModel(snap)).toThrowError(/references missing node "missing-uuid-123"/);
+      expect(() => hydrateModel(brokenListSnap)).toThrowError(BrokenReferenceError);
+      expect(() => hydrateModel(brokenListSnap)).toThrowError(/references missing node "missing-uuid-123"/);
     });
   });
 

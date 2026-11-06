@@ -8,10 +8,6 @@ import { createAtom, observable, runInAction, type IAtom, type ObservableMap } f
 
 import type { UpdateLaneHub } from "./lane-server.js";
 
-function toModelRow<TRow extends Record<string, unknown>>(raw: Record<string, unknown>): TRow {
-  return raw as TRow;
-}
-
 function hasApplyRow<T>(val: unknown): val is { applyRow: (row: T) => void } {
   return typeof val === "object" && val !== null && "applyRow" in val && typeof (val as Record<string, unknown>).applyRow === "function";
 }
@@ -157,7 +153,7 @@ export class LiveShape<
       if (upserts) {
         for (const raw of upserts) {
           if (raw && typeof raw === "object") {
-            const row = toModelRow<TRow>(raw as Record<string, unknown>);
+            const row = raw as TRow;
             const id = this.#keyFn
               ? String(this.#keyFn(row))
               : this.#keyField

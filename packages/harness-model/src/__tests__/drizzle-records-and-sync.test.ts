@@ -23,7 +23,7 @@ import {
 
 describe("Drizzle row models & live DocumentContainer synchronization", () => {
   describe("Node 1 Drizzle Schema Audit & Row Round-trip", () => {
-    it("KernelRecord passes Drizzle schema audit and round-trips toRow / applyRow", () => {
+    it("KernelRecord, SessionSummaryRecord, PendingAskRecord, and SessionTurnRecord pass Drizzle schema audit and round-trip toRow / applyRow", () => {
       const initialKernel: KernelStateRow = {
         id: "singleton",
         defaultModel: "anthropic/claude-3-7-sonnet",
@@ -31,12 +31,10 @@ describe("Drizzle row models & live DocumentContainer synchronization", () => {
         kvsJson: JSON.stringify({ theme: "dark" }),
         updatedAtMs: 1700000000000,
       };
-
       const kernelRec = new KernelRecord(initialKernel);
       expect(kernelRec.id).toBe("singleton");
       expect(kernelRec.defaultModel).toBe("anthropic/claude-3-7-sonnet");
       expect(kernelRec.toRow()).toEqual(initialKernel);
-
       kernelRec.applyRow({ permissionMode: "yolo", updatedAtMs: 1700000001000 });
       expect(kernelRec.permissionMode).toBe("yolo");
       expect(kernelRec.toRow()).toEqual({
@@ -44,9 +42,7 @@ describe("Drizzle row models & live DocumentContainer synchronization", () => {
         permissionMode: "yolo",
         updatedAtMs: 1700000001000,
       });
-    });
 
-    it("SessionSummaryRecord passes Drizzle schema audit and round-trips toRow / applyRow", () => {
       const initialSession: SessionRow = {
         sessionId: "s-123",
         title: "Rebuild Session",
@@ -63,12 +59,10 @@ describe("Drizzle row models & live DocumentContainer synchronization", () => {
         lastActiveAtMs: 1700000002000,
         archivedAtMs: null,
       };
-
       const sessionRec = new SessionSummaryRecord(initialSession);
       expect(sessionRec.sessionId).toBe("s-123");
       expect(sessionRec.title).toBe("Rebuild Session");
       expect(sessionRec.toRow()).toEqual(initialSession);
-
       sessionRec.applyRow({ running: false, archivedAtMs: 1700000005000 });
       expect(sessionRec.running).toBe(false);
       expect(sessionRec.archivedAtMs).toBe(1700000005000);
@@ -77,9 +71,7 @@ describe("Drizzle row models & live DocumentContainer synchronization", () => {
         running: false,
         archivedAtMs: 1700000005000,
       });
-    });
 
-    it("PendingAskRecord passes Drizzle schema audit and round-trips toRow / applyRow", () => {
       const initialAsk: PendingAskRow = {
         jobId: "job-ask-1",
         sessionId: "s-123",
@@ -89,17 +81,13 @@ describe("Drizzle row models & live DocumentContainer synchronization", () => {
         summary: "Run destructive shell command",
         createdAtMs: 1700000003000,
       };
-
       const askRec = new PendingAskRecord(initialAsk);
       expect(askRec.jobId).toBe("job-ask-1");
       expect(askRec.toRow()).toEqual(initialAsk);
-
       askRec.applyRow({ summary: "Updated summary" });
       expect(askRec.summary).toBe("Updated summary");
       expect(askRec.toRow()).toEqual({ ...initialAsk, summary: "Updated summary" });
-    });
 
-    it("SessionTurnRecord passes Drizzle schema audit and round-trips toRow / applyRow", () => {
       const initialTurn: SessionTurnRow = {
         turnId: "turn-1",
         sessionId: "s-123",
@@ -112,11 +100,9 @@ describe("Drizzle row models & live DocumentContainer synchronization", () => {
         startedAtMs: 1700000000000,
         endedAtMs: null,
       };
-
       const turnRec = new SessionTurnRecord(initialTurn);
       expect(turnRec.turnId).toBe("turn-1");
       expect(turnRec.toRow()).toEqual(initialTurn);
-
       turnRec.applyRow({ status: "completed", reducerExited: true, endedAtMs: 1700000010000 });
       expect(turnRec.status).toBe("completed");
       expect(turnRec.reducerExited).toBe(true);

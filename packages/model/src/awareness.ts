@@ -1,5 +1,5 @@
 /**
- * Pure-MobX reactive awareness hub replacing Yjs/Plexus awareness.
+ * Pure-MobX reactive awareness hub.
  * Tracks per-client ephemeral state lanes (`clientId -> lane -> value`) in an
  * observable map so `@computed` and `reaction` readers track lane reads automatically.
  */
@@ -95,6 +95,9 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
     return obj;
   }
 
+  on(event: "update" | "change", listener: AwarenessUpdateListener): void;
+  on(event: "destroy", listener: () => void): void;
+  on(event: "update" | "change" | "destroy", listener: AwarenessUpdateListener | (() => void)): void;
   on(event: "update" | "change" | "destroy", listener: AwarenessUpdateListener | (() => void)): void {
     if (event === "destroy") {
       this.#destroyListeners.add(listener as () => void);
@@ -103,6 +106,9 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
     }
   }
 
+  off(event: "update" | "change", listener: AwarenessUpdateListener): void;
+  off(event: "destroy", listener: () => void): void;
+  off(event: "update" | "change" | "destroy", listener: AwarenessUpdateListener | (() => void)): void;
   off(event: "update" | "change" | "destroy", listener: AwarenessUpdateListener | (() => void)): void {
     if (event === "destroy") {
       this.#destroyListeners.delete(listener as () => void);
