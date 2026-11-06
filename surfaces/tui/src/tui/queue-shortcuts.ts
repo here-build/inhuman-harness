@@ -3,9 +3,9 @@
  * this list is only the leftover draft face.
  */
 import { parseSuperKey, type SuperKey } from "@inhuman.tools/harness-model";
-import type { ChromeHotkey } from "@inhuman.tools/quickdraw/layout";
 
 import { HOTKEY_EVENT, superChord } from "./ask-shortcuts.js";
+import type { ChromeHotkey } from "./input-primitives.js";
 
 function hk(key: string, action: string, event: string): ChromeHotkey {
   return { key, action, event };

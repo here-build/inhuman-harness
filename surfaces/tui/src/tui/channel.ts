@@ -3,8 +3,7 @@
  * HELD_KEYS: do not replay input_events into the new session — those
  * keys belonged to the dying seat.
  */
-import type { BoxBusUpMessage } from "@inhuman.tools/quickdraw/runtime";
-
+import type { BoxBusUpMessage } from "./input-primitives.js";
 import type { PaintDownMessage } from "./paint-transport.js";
 import type { WorkerBoot } from "../schemas/worker-boot.js";
 

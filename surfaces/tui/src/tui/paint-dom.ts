@@ -3,11 +3,11 @@
  * Writer and reader share these models. The TUI mutates the reader only through
  * applyPatch; declared actions are the worker write API.
  */
-import type { ChromeHotkey, ChromeQuotaWindow, ChromeStatusItem } from "@inhuman.tools/quickdraw/layout";
 import equal from "fast-deep-equal";
 import { detach, types, type IAnyType, type Instance, type SnapshotOut } from "mobx-state-tree";
 
 import type { AgentsReplicaFace } from "./agents-drawer.js";
+import type { ChromeHotkey, ChromeQuotaWindow, ChromeStatusItem } from "./input-primitives.js";
 import type {
   CompletionPaintState,
   ComposerErrorLevel,

@@ -5,6 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Widget;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubagentStatus {
@@ -62,10 +63,19 @@ impl Widget for AgentsMeterWidget {
         let total_count = self.agents.len();
 
         let mut spans = Vec::new();
-        spans.push(Span::styled("Subagents: ", Style::default().fg(Color::DarkGray)));
+        spans.push(Span::styled(
+            "Subagents: ",
+            Style::default().fg(Color::DarkGray),
+        ));
         spans.push(Span::styled(
             format!("{active_count}/{total_count} active "),
-            Style::default().fg(if active_count > 0 { Color::Cyan } else { Color::Gray }).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(if active_count > 0 {
+                    Color::Cyan
+                } else {
+                    Color::Gray
+                })
+                .add_modifier(Modifier::BOLD),
         ));
 
         for agent in &self.agents {
@@ -79,5 +89,48 @@ impl Widget for AgentsMeterWidget {
         }
 
         buf.set_line(area.left(), area.top(), &Line::from(spans), area.width);
+    }
+}
+
+/// Replica-facing 1-row closed subagent meter (`PaintReplica::render_ratatui`).
+pub struct AgentsMeterReplicaWidget<'a> {
+    pub left: &'a str,
+    pub right: &'a str,
+}
+
+impl<'a> AgentsMeterReplicaWidget<'a> {
+    pub fn new(left: &'a str, right: &'a str) -> Self {
+        Self { left, right }
+    }
+}
+
+impl Widget for AgentsMeterReplicaWidget<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        if area.is_empty() {
+            return;
+        }
+        let line = Line::from(vec![
+            Span::styled(
+                "  ◈ ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(self.left, Style::default().fg(Color::White)),
+        ]);
+        buf.set_line(area.left(), area.top(), &line, area.width);
+
+        if !self.right.is_empty() {
+            let rw = self.right.width() as u16;
+            if rw + 4 < area.width {
+                buf.set_stringn(
+                    area.right().saturating_sub(rw),
+                    area.top(),
+                    self.right,
+                    rw as usize,
+                    Style::default().fg(Color::DarkGray),
+                );
+            }
+        }
     }
 }

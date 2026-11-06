@@ -283,3 +283,124 @@ fn test_buffer_bridge_conversions() {
     assert!(!stats.ansi.is_empty());
     assert!(stats.ansi.contains("hello"));
 }
+
+#[test]
+fn test_paint_replica_render_ratatui_full_scene() {
+    use qd::paint_replica::PaintReplica;
+
+    let mut replica = PaintReplica::new();
+    let init_json = r#"{
+        "kind": "paint_init",
+        "epoch": "e1",
+        "snapshot": {
+            "kind": "root",
+            "seat": "rim",
+            "children": [
+                {
+                    "kind": "statusline",
+                    "left": "claude-sonnet-4-5 · auto",
+                    "note": "5h 42%",
+                    "cwd": "~/projects/harness",
+                    "cwdRoot": "harness"
+                },
+                {
+                    "kind": "rewind",
+                    "atTip": false,
+                    "past": [{"key": "p1", "text": "initial setup"}],
+                    "future": [{"key": "f1", "text": "follow-up step"}]
+                },
+                {
+                    "kind": "stack",
+                    "children": [
+                        {
+                            "kind": "turn",
+                            "children": [
+                                {
+                                    "kind": "speech",
+                                    "voice": "user",
+                                    "text": "Refactor the highlighter"
+                                },
+                                {
+                                    "kind": "completion",
+                                    "state": "done",
+                                    "thoughtLive": false,
+                                    "durationMs": 1400,
+                                    "model": "claude-sonnet-4-5",
+                                    "children": [
+                                        {
+                                            "kind": "thinking",
+                                            "text": "Inspecting scope table"
+                                        },
+                                        {
+                                            "kind": "speech",
+                                            "voice": "assistant",
+                                            "text": "Updated `syntax.rs`:\n```rust\npub fn highlight() {}\n```"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "kind": "tool",
+                                    "name": "Edit",
+                                    "object": "src/syntax.rs",
+                                    "status": "0.2s",
+                                    "state": "done",
+                                    "receiptKind": "diff",
+                                    "diffPath": "src/syntax.rs",
+                                    "diffOld": "fn old() {}\n",
+                                    "diffNew": "fn new() {}\n"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "kind": "agents",
+                    "open": false,
+                    "meterLeft": "2 subagents active",
+                    "meterRight": "Ctrl+A"
+                },
+                {
+                    "kind": "composer",
+                    "draft": "/mo",
+                    "cursor": 3,
+                    "interactive": true,
+                    "selectedCommandKey": "/model",
+                    "commandChoices": [
+                        {
+                            "key": "/model",
+                            "name": "model",
+                            "annotation": "sonnet-4-5",
+                            "description": "Switch active model"
+                        }
+                    ],
+                    "hotkeys": [
+                        {"key": "Enter", "action": "run"},
+                        {"key": "Esc", "action": "close"}
+                    ]
+                }
+            ]
+        }
+    }"#;
+
+    replica
+        .apply(init_json.as_bytes())
+        .expect("valid paint_init");
+    let qd_buf = replica.render_ratatui_to_qd(90, 28, 10_000.0);
+    let r_buf = qd_to_ratatui_buffer(&qd_buf);
+    let rendered = buffer_to_lines(&r_buf);
+    let full = rendered.join("\n");
+
+    assert!(full.contains("claude-sonnet-4-5"), "missing statusline model:\n{full}");
+    assert!(full.contains("harness"), "missing statusline cwdRoot:\n{full}");
+    assert!(full.contains("initial setup"), "missing past rewind pin:\n{full}");
+    assert!(full.contains("follow-up step"), "missing future rewind pin:\n{full}");
+    assert!(full.contains("Refactor the highlighter"), "missing user speech:\n{full}");
+    assert!(full.contains("Thought · 1.4s"), "missing sealed thinking header:\n{full}");
+    assert!(full.contains("pub fn highlight()"), "missing fenced code block:\n{full}");
+    assert!(full.contains("Edit src/syntax.rs"), "missing tool cell header:\n{full}");
+    assert!(full.contains("diff: src/syntax.rs"), "missing PierreDiff header:\n{full}");
+    assert!(full.contains("2 subagents active"), "missing closed agents meter:\n{full}");
+    assert!(full.contains("▸ model"), "missing composer command choice:\n{full}");
+    assert!(full.contains("Switch active model"), "missing choice description:\n{full}");
+}
+

@@ -1934,6 +1934,614 @@ impl PaintReplica {
         }
         None
     }
+
+    /// Render the replicated paint tree into a Ratatui [`ratatui::buffer::Buffer`]
+    /// using the native Ratatui custom widgets in [`crate::widgets`].
+    pub fn render_ratatui(
+        &self,
+        area: ratatui::layout::Rect,
+        buf: &mut ratatui::buffer::Buffer,
+        now_ms: f64,
+    ) {
+        use ratatui::layout::Rect as RRect;
+        use ratatui::style::{Color, Modifier, Style as RStyle};
+        use ratatui::text::{Line, Span};
+        use ratatui::widgets::{Block, BorderType, Borders, Clear, Widget as RWidget};
+
+        use crate::widgets::{
+            AgentsMeterReplicaWidget, AgentsPeekWidget, AgentsReplicaDrawerWidget,
+            ComposerReplicaWidget, ReplicaWorkCellWidget, RewindPinsWidget,
+            StatuslineReplicaWidget, WaitPinWidget,
+        };
+
+        if area.is_empty() {
+            return;
+        }
+        let Some(root) = self.root else {
+            return;
+        };
+
+        let mut top_y = area.top();
+        let mut bot_y = area.bottom();
+
+        // 1. Statusline at top
+        if let Some(st_id) = self.child_kind(root, Kind::Statusline) {
+            if top_y < bot_y {
+                let (left, cwd) = self
+                    .arena
+                    .data(st_id)
+                    .ok()
+                    .and_then(|d| d.widget.statusline())
+                    .map(|(l, c)| (l.to_string(), c.to_string()))
+                    .unwrap_or_default();
+                let cwd_root = self.tail_str(st_id, "cwdRoot");
+                let note = self.tail_str(st_id, "note");
+                let st_rect = RRect::new(area.left(), top_y, area.width, 1);
+                StatuslineReplicaWidget::new(&left, &note, &cwd, &cwd_root).render(st_rect, buf);
+                top_y = top_y.saturating_add(1);
+            }
+        }
+
+        // 2. Composer at bottom (when seat_rim is true)
+        if self.seat_rim() {
+            if let Some(comp_id) = self.child_kind(root, Kind::Composer) {
+                let face = self.extract_composer_replica_face(comp_id);
+                let comp_widget = ComposerReplicaWidget::new(&face);
+                let comp_h = comp_widget.height().min(bot_y.saturating_sub(top_y));
+                if comp_h >= 2 {
+                    bot_y = bot_y.saturating_sub(comp_h);
+                    let comp_rect = RRect::new(area.left(), bot_y, area.width, comp_h);
+                    comp_widget.render(comp_rect, buf);
+                }
+            }
+        }
+
+        // 3. Closed agents meter above composer
+        if let Some(ag_id) = self.child_kind(root, Kind::Agents) {
+            if !self.tail_bool(ag_id, "open", false) && top_y < bot_y {
+                if let Some((left, right)) = self
+                    .arena
+                    .data(ag_id)
+                    .ok()
+                    .and_then(|d| d.widget.agents())
+                    .map(|(l, r)| (l.to_string(), r.to_string()))
+                {
+                    if !left.is_empty() || !right.is_empty() {
+                        bot_y = bot_y.saturating_sub(1);
+                        let meter_rect = RRect::new(area.left(), bot_y, area.width, 1);
+                        AgentsMeterReplicaWidget::new(&left, &right).render(meter_rect, buf);
+                    }
+                }
+            }
+        }
+
+        // 4. Ask pin or Wait pin above agents meter / composer
+        let has_ask = self.child_kind(root, Kind::Ask).is_some();
+        if let Some(ask_id) = self.child_kind(root, Kind::Ask) {
+            if let Some(cell) = self.extract_work_cell_item(ask_id, false) {
+                if cell.receipt_kind != "none" && top_y < bot_y {
+                    let w = ReplicaWorkCellWidget::new(&cell);
+                    let h = w.height().min(bot_y.saturating_sub(top_y));
+                    if h > 0 {
+                        bot_y = bot_y.saturating_sub(h);
+                        let ask_rect = RRect::new(area.left(), bot_y, area.width, h);
+                        w.render(ask_rect, buf);
+                    }
+                }
+            }
+        } else if let Some(wait_id) = self.child_kind(root, Kind::Wait) {
+            if !has_ask && top_y < bot_y {
+                let (status, error) = self
+                    .arena
+                    .data(wait_id)
+                    .ok()
+                    .and_then(|d| d.widget.work())
+                    .map(|w| (w.status.clone(), w.object.clone()))
+                    .unwrap_or_default();
+                let effective_status = self.phase.as_deref().unwrap_or(status.as_str());
+                let started_at = self.tail_f64(wait_id, "startedAt");
+                let retry_until_ms = self.tail_f64(wait_id, "retryUntilMs");
+                bot_y = bot_y.saturating_sub(1);
+                let wait_rect = RRect::new(area.left(), bot_y, area.width, 1);
+                WaitPinWidget::new(
+                    effective_status,
+                    &error,
+                    started_at,
+                    retry_until_ms,
+                    now_ms,
+                )
+                .render(wait_rect, buf);
+            }
+        }
+
+        // 5. Rewind past & future pins
+        if let Some(rw_id) = self.child_kind(root, Kind::Rewind) {
+            let past = parse_rewind_pins(self.tail_json(rw_id, "past").as_ref());
+            if !past.is_empty() && top_y < bot_y {
+                let pw = RewindPinsWidget::new(&past);
+                let ph = pw.height().min(bot_y.saturating_sub(top_y));
+                if ph > 0 {
+                    let prect = RRect::new(area.left(), top_y, area.width, ph);
+                    pw.render(prect, buf);
+                    top_y = top_y.saturating_add(ph);
+                }
+            }
+            let at_tip = self
+                .arena
+                .data(rw_id)
+                .ok()
+                .and_then(|d| d.widget.at_tip())
+                .unwrap_or(true);
+            if !at_tip {
+                let future = parse_rewind_pins(self.tail_json(rw_id, "future").as_ref());
+                if !future.is_empty() && top_y < bot_y {
+                    let fw = RewindPinsWidget::new(&future);
+                    let fh = fw.height().min(bot_y.saturating_sub(top_y));
+                    if fh > 0 {
+                        bot_y = bot_y.saturating_sub(fh);
+                        let frect = RRect::new(area.left(), bot_y, area.width, fh);
+                        fw.render(frect, buf);
+                    }
+                }
+            }
+        }
+
+        // 6. Main tape stack
+        if top_y < bot_y {
+            let tape_rect = RRect::new(area.left(), top_y, area.width, bot_y - top_y);
+            if self.fresh_home(root) {
+                let mid_y = tape_rect.top() + tape_rect.height / 2;
+                let banner = Line::from(vec![
+                    Span::styled(
+                        " ◈ Harness ",
+                        RStyle::default()
+                            .fg(Color::Rgb(120, 190, 255))
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        "— ready for your prompt",
+                        RStyle::default()
+                            .fg(Color::Rgb(140, 148, 168))
+                            .add_modifier(Modifier::DIM),
+                    ),
+                ]);
+                buf.set_line(
+                    tape_rect.left().saturating_add(2),
+                    mid_y,
+                    &banner,
+                    tape_rect.width.saturating_sub(2),
+                );
+            } else {
+                let container = self.child_kind(root, Kind::Stack).unwrap_or(root);
+                self.render_ratatui_nodes_in_area(container, tape_rect, buf, now_ms);
+            }
+        }
+
+        // 7. Open Agents Drawer + Peek Plaque overlay
+        if let Some(ag_id) = self.child_kind(root, Kind::Agents) {
+            if self.tail_bool(ag_id, "open", false) {
+                let (left, right) = self
+                    .arena
+                    .data(ag_id)
+                    .ok()
+                    .and_then(|d| d.widget.agents())
+                    .map(|(l, r)| (l.to_string(), r.to_string()))
+                    .unwrap_or_default();
+                let focus_key = self.tail_str(ag_id, "focusKey");
+                let scroll = self.tail_i64(ag_id, "scroll", 0).max(0) as usize;
+                let rows = parse_agent_rows(self.tail_json(ag_id, "rows").as_ref());
+                let panel_w = (area.width / 2).max(24).min(area.width);
+                let panel_h = area.height.saturating_sub(2).max(4).min(area.height);
+                let drawer_rect = RRect::new(area.left(), area.top() + 1, panel_w, panel_h);
+                Clear.render(drawer_rect, buf);
+                AgentsReplicaDrawerWidget::new(&left, &right, &rows, &focus_key, scroll)
+                    .render(drawer_rect, buf);
+
+                if !focus_key.is_empty() && drawer_rect.right() + 12 < area.right() {
+                    if let Some(focused_row) = rows.iter().find(|r| r.key == focus_key) {
+                        if !focused_row.ask_line.is_empty()
+                            || !focused_row.unfinished.is_empty()
+                            || !focused_row.result.is_empty()
+                            || !focused_row.recap.is_empty()
+                        {
+                            let peek_w = area.right().saturating_sub(drawer_rect.right() + 2);
+                            let peek_h = 9u16.min(panel_h);
+                            let peek_rect = RRect::new(
+                                drawer_rect.right() + 1,
+                                drawer_rect.top(),
+                                peek_w,
+                                peek_h,
+                            );
+                            Clear.render(peek_rect, buf);
+                            AgentsPeekWidget::new(focused_row).render(peek_rect, buf);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 8. Agents Preview modal overlay
+        if let Some(ag_id) = self.child_kind(root, Kind::Agents) {
+            let preview_key = self.tail_str(ag_id, "previewKey");
+            if !preview_key.is_empty() {
+                if let Some(prev_id) = self.child_kind(root, Kind::Preview) {
+                    let rows = parse_agent_rows(self.tail_json(ag_id, "rows").as_ref());
+                    let title = rows
+                        .into_iter()
+                        .find(|r| r.key == preview_key)
+                        .map(|r| r.name)
+                        .filter(|n| !n.is_empty())
+                        .unwrap_or_else(|| preview_key.clone());
+                    let modal_w = area.width.saturating_sub(6).max(20).min(area.width);
+                    let modal_h = area.height.saturating_sub(4).max(6).min(area.height);
+                    let modal_x = area.left() + (area.width.saturating_sub(modal_w)) / 2;
+                    let modal_y = area.top() + (area.height.saturating_sub(modal_h)) / 2;
+                    let modal_rect = RRect::new(modal_x, modal_y, modal_w, modal_h);
+                    Clear.render(modal_rect, buf);
+                    let block = Block::default()
+                        .title(Line::from(Span::styled(
+                            format!(" {title} "),
+                            RStyle::default()
+                                .fg(Color::Rgb(130, 215, 200))
+                                .add_modifier(Modifier::BOLD),
+                        )))
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(RStyle::default().fg(Color::Rgb(95, 110, 140)))
+                        .style(RStyle::default().bg(Color::Rgb(16, 18, 24)));
+                    let inner = block.inner(modal_rect);
+                    block.render(modal_rect, buf);
+                    if !inner.is_empty() {
+                        self.render_ratatui_nodes_in_area(prev_id, inner, buf, now_ms);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Render the replicated paint tree through Ratatui custom widgets and convert
+    /// the resulting grid into a [`crate::Buffer`].
+    pub fn render_ratatui_to_qd(&self, cols: u16, rows: u16, now_ms: f64) -> crate::Buffer {
+        let area = ratatui::layout::Rect::new(0, 0, cols, rows);
+        let mut rbuf = ratatui::buffer::Buffer::empty(area);
+        self.render_ratatui(area, &mut rbuf, now_ms);
+        crate::bridge::ratatui_to_qd_buffer(&rbuf)
+    }
+
+    fn render_ratatui_nodes_in_area(
+        &self,
+        container_id: u32,
+        area: ratatui::layout::Rect,
+        buf: &mut ratatui::buffer::Buffer,
+        now_ms: f64,
+    ) {
+        use ratatui::layout::Rect as RRect;
+        use ratatui::widgets::Widget as RWidget;
+
+        use crate::widgets::{
+            CompactBlock, CompactWidget, FailureBlock, FailureWidget, ReplicaRecallWidget,
+            ReplicaThinkingBlock, ReplicaThinkingWidget, ReplicaWorkCellWidget, SpeechWidget,
+        };
+
+        let mut y = area.top();
+        let mut walk_ids = Vec::new();
+        for child in self.arena.child_ids(container_id) {
+            match self.arena.kind_of(child).ok() {
+                Some(Kind::Turn | Kind::Stack) => {
+                    walk_ids.extend(self.arena.child_ids(child));
+                }
+                Some(k) if !is_root_chrome(k) => {
+                    walk_ids.push(child);
+                }
+                _ => {}
+            }
+        }
+
+        for id in walk_ids {
+            if y >= area.bottom() {
+                break;
+            }
+            let Some(kind) = self.arena.kind_of(id).ok() else {
+                continue;
+            };
+            match kind {
+                Kind::Speech => {
+                    if let Some(sp) = self.arena.data(id).ok().and_then(|d| d.widget.speech()) {
+                        let hotkeys = self
+                            .arena
+                            .data(id)
+                            .ok()
+                            .and_then(|d| d.tail.get("recapHotkeys"))
+                            .map(|j| chrome_hotkeys_of(Some(j)))
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|hk| (hk.key, hk.action))
+                            .collect();
+                        let w = if sp.voice == "user" {
+                            SpeechWidget::user(&sp.text)
+                                .with_at_ms(sp.at_ms)
+                                .with_recap(sp.recap || self.browsing(), &sp.annotation, hotkeys)
+                        } else {
+                            SpeechWidget::assistant(&sp.text).with_at_ms(sp.at_ms)
+                        };
+                        let h = w.height().min(area.bottom().saturating_sub(y));
+                        if h > 0 {
+                            w.render(RRect::new(area.left(), y, area.width, h), buf);
+                            y = y.saturating_add(h);
+                        }
+                    }
+                }
+                Kind::Thinking => {
+                    let text = self.arena.widget_text(id).unwrap_or_default();
+                    if !text.trim().is_empty() {
+                        let block = ReplicaThinkingBlock::new(text)
+                            .collapsed(true)
+                            .sealed(true)
+                            .with_timing(None, None, None, Some(now_ms));
+                        let w = ReplicaThinkingWidget::new(&block);
+                        let h = w.height().min(area.bottom().saturating_sub(y));
+                        if h > 0 {
+                            w.render(RRect::new(area.left(), y, area.width, h), buf);
+                            y = y.saturating_add(h);
+                        }
+                    }
+                }
+                Kind::Recall => {
+                    let text = self.arena.widget_text(id).unwrap_or_default();
+                    ReplicaRecallWidget::new(&text)
+                        .render(RRect::new(area.left(), y, area.width, 1), buf);
+                    y = y.saturating_add(1);
+                }
+                Kind::Compact => {
+                    let text = self.arena.widget_text(id).unwrap_or_default();
+                    let block = CompactBlock { summary: text };
+                    CompactWidget::new(&block)
+                        .render(RRect::new(area.left(), y, area.width, 1), buf);
+                    y = y.saturating_add(1);
+                }
+                Kind::Failure => {
+                    if let Some((detail, reason)) =
+                        self.arena.data(id).ok().and_then(|d| d.widget.failure())
+                    {
+                        let block = FailureBlock::new(detail, reason);
+                        FailureWidget::new(&block)
+                            .render(RRect::new(area.left(), y, area.width, 1), buf);
+                        y = y.saturating_add(1);
+                    }
+                }
+                Kind::Completion => {
+                    let comp_data = self
+                        .arena
+                        .data(id)
+                        .ok()
+                        .and_then(|d| d.widget.completion())
+                        .cloned();
+                    let started_at = self.tail_f64(id, "startedAt");
+                    let duration_ms = self.tail_f64(id, "durationMs");
+                    let model = self.tail_str(id, "model");
+                    let thought_kind = self.tail_str(id, "thoughtKind");
+                    let live = comp_data.as_ref().is_some_and(|c| c.state == "live");
+                    let failed = comp_data.as_ref().is_some_and(|c| c.state == "failed");
+                    let thought_live = comp_data.as_ref().is_some_and(|c| c.thought_live);
+
+                    if let Some(th_id) = self.child_kind(id, Kind::Thinking) {
+                        let t_text = self.arena.widget_text(th_id).unwrap_or_default();
+                        if !t_text.trim().is_empty() || thought_live {
+                            let t_block = ReplicaThinkingBlock::new(t_text)
+                                .collapsed(true)
+                                .sealed(!thought_live)
+                                .with_timing(started_at, None, duration_ms, Some(now_ms))
+                                .with_model(model)
+                                .with_thought_kind(thought_kind);
+                            let tw = ReplicaThinkingWidget::new(&t_block);
+                            let th = tw.height().min(area.bottom().saturating_sub(y));
+                            if th > 0 {
+                                tw.render(RRect::new(area.left(), y, area.width, th), buf);
+                                y = y.saturating_add(th);
+                            }
+                        }
+                    }
+
+                    if y >= area.bottom() {
+                        break;
+                    }
+
+                    if let Some(sp_id) = self.child_kind(id, Kind::Speech) {
+                        if let Some(sp) =
+                            self.arena.data(sp_id).ok().and_then(|d| d.widget.speech())
+                        {
+                            if !sp.text.is_empty() {
+                                let sw = SpeechWidget::assistant(&sp.text)
+                                    .live(live)
+                                    .failed(failed)
+                                    .with_at_ms(sp.at_ms);
+                                let sh = sw.height().min(area.bottom().saturating_sub(y));
+                                if sh > 0 {
+                                    sw.render(RRect::new(area.left(), y, area.width, sh), buf);
+                                    y = y.saturating_add(sh);
+                                }
+                            } else if failed {
+                                if let Some(f_id) = self.child_kind(id, Kind::Failure) {
+                                    if let Some((detail, reason)) =
+                                        self.arena.data(f_id).ok().and_then(|d| d.widget.failure())
+                                    {
+                                        let f_block =
+                                            FailureBlock::new(detail, reason).with_at_ms(sp.at_ms);
+                                        FailureWidget::new(&f_block).render(
+                                            RRect::new(area.left(), y, area.width, 1),
+                                            buf,
+                                        );
+                                        y = y.saturating_add(1);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Kind::Tool | Kind::Scheme | Kind::Loop => {
+                    let fused = self
+                        .arena
+                        .data(id)
+                        .ok()
+                        .and_then(|d| d.widget.work())
+                        .is_some_and(|w| w.fuse);
+                    if !fused {
+                        if let Some(cell) = self.extract_work_cell_item(id, false) {
+                            let w = ReplicaWorkCellWidget::new(&cell);
+                            let h = w.height().min(area.bottom().saturating_sub(y));
+                            if h > 0 {
+                                w.render(RRect::new(area.left(), y, area.width, h), buf);
+                                y = y.saturating_add(h);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn extract_work_cell_item(
+        &self,
+        id: u32,
+        collapsed: bool,
+    ) -> Option<crate::widgets::ReplicaWorkCellItem> {
+        let data = self.arena.data(id).ok()?;
+        let work = data.widget.work()?;
+        let kind_str = data.widget.kind().as_str();
+        let caption = self.tail_str(id, "caption");
+        let indent = usize::from(self.tail_bool(id, "indent", false));
+        let agent = self.tail_bool(id, "agent", false);
+        let pretty_block = self.tail_str(id, "prettyBlock");
+        let line_start = self.tail_i64(id, "diffLineStart", 1).max(1) as usize;
+
+        Some(crate::widgets::ReplicaWorkCellItem::from_replica_fields(
+            id,
+            kind_str,
+            &work.name,
+            &work.object,
+            &work.status,
+            &caption,
+            &work.state,
+            indent,
+            agent,
+            &pretty_block,
+            &work.receipt_kind,
+            &work.receipt_text,
+            &work.diff_old,
+            &work.diff_new,
+            &work.diff_path,
+            line_start,
+            collapsed,
+        ))
+    }
+
+    fn extract_composer_replica_face(&self, id: u32) -> crate::widgets::ComposerReplicaFace {
+        use crate::widgets::{ComposerReplicaChoice, ComposerReplicaFace};
+
+        let Some(data) = self.arena.data(id).ok() else {
+            return ComposerReplicaFace::default();
+        };
+        let Some(comp) = data.widget.composer() else {
+            return ComposerReplicaFace::default();
+        };
+
+        let hotkeys = chrome_hotkeys_of(data.tail.get("hotkeys"))
+            .into_iter()
+            .map(|hk| (hk.key, hk.action))
+            .collect();
+        let stacked_hotkeys = chrome_hotkeys_of(data.tail.get("stackedHotkeys"))
+            .into_iter()
+            .map(|hk| (hk.key, hk.action))
+            .collect();
+
+        let stacked_glyphs: Vec<String> = match data.tail.get("stackedGlyphs") {
+            Some(Json::Array(items)) => items
+                .iter()
+                .map(|v| match v {
+                    Json::String(s) => s.clone(),
+                    _ => String::new(),
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        let mut stacked_rows = Vec::new();
+        if let Some(Json::Array(rows)) = data.tail.get("stackedBodyRows") {
+            for (idx, row) in rows.iter().enumerate() {
+                let text = match row {
+                    Json::String(s) => s.clone(),
+                    Json::Array(segs) => segs
+                        .iter()
+                        .filter_map(|seg| match seg {
+                            Json::String(s) => Some(s.as_str()),
+                            Json::Object(map) => match map.get("text") {
+                                Some(Json::String(s)) => Some(s.as_str()),
+                                _ => None,
+                            },
+                            _ => None,
+                        })
+                        .collect::<String>(),
+                    _ => String::new(),
+                };
+                let glyph = stacked_glyphs.get(idx).cloned().unwrap_or_default();
+                stacked_rows.push((glyph, text));
+            }
+        }
+
+        let mut choices = Vec::new();
+        if let Some(Json::Array(items)) = data.tail.get("commandChoices") {
+            for item in items {
+                if let Json::Object(map) = item {
+                    let get_s = |k: &str| match map.get(k) {
+                        Some(Json::String(s)) => s.clone(),
+                        _ => String::new(),
+                    };
+                    choices.push(ComposerReplicaChoice {
+                        key: get_s("key"),
+                        name: get_s("name"),
+                        annotation: get_s("annotation"),
+                        description: get_s("description"),
+                    });
+                }
+            }
+        }
+
+        let mut status_items = Vec::new();
+        if let Some(Json::Array(items)) = data.tail.get("statusItems") {
+            for item in items {
+                match item {
+                    Json::String(s) if !s.trim().is_empty() => status_items.push(s.clone()),
+                    Json::Object(map) => {
+                        if let Some(Json::String(s)) = map.get("text") {
+                            if !s.trim().is_empty() {
+                                status_items.push(s.clone());
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        ComposerReplicaFace {
+            draft: comp.draft.clone(),
+            placeholder: comp.placeholder.clone(),
+            annotation: comp.annotation.clone(),
+            join_annotation: self.tail_str(id, "joinAnnotation"),
+            error_message: self.tail_str(id, "errorMessage"),
+            completion: self.tail_str(id, "completion"),
+            interactive: comp.interactive,
+            read_only: comp.read_only,
+            hotkeys,
+            stacked_rows,
+            stacked_hotkeys,
+            choices,
+            selected_command_key: self.tail_str(id, "selectedCommandKey"),
+            status_items,
+            context_used: self.tail_f64(id, "contextUsed").unwrap_or(0.0),
+            context_limit: self.tail_f64(id, "contextLimit").unwrap_or(0.0),
+        }
+    }
 }
 
 fn number_cursor(value: f64) -> i64 {

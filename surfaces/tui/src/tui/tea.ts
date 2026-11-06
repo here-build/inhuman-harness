@@ -68,31 +68,32 @@ import {
 } from "@inhuman.tools/harness-sdk/text";
 import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { CLASSES } from "@inhuman.tools/policy/floor";
-import { applyDraftOp, type DraftState } from "@inhuman.tools/quickdraw/input";
-import { type ChromeQuotaWindow, type ChromeStatusItem, eventMatchesChord } from "@inhuman.tools/quickdraw/layout";
 import {
   agentsRowKeyFromHit,
+  applyDraftOp,
   type BoxBusUpMessage,
-  keyEventToDraftOp,
-  maybeVisualMotion,
-  receiveSubmit,
-  rootInnerWidth,
-  sessionIdFromAgentsKey,
-  type SubmitCommand,
-  type SubmitPart,
-} from "@inhuman.tools/quickdraw/runtime";
-import {
   catalogKey,
+  type ChromeQuotaWindow,
+  type ChromeStatusItem,
   COMPOSER_COMMAND_MAX_VISIBLE,
   type ComposerCommand,
   type ComposerCommandAction,
   type ComposerCommandChoice,
   type ComposerCommandFallback,
   type ComposerErrorAnnotation,
+  type DraftState,
+  eventMatchesChord,
+  keyEventToDraftOp,
   matchComposerCommand,
+  maybeVisualMotion,
   peekScroll,
+  receiveSubmit,
   reconcileSelectedKey,
-} from "@inhuman.tools/quickdraw/widgets";
+  rootInnerWidth,
+  sessionIdFromAgentsKey,
+  type SubmitCommand,
+  type SubmitPart,
+} from "./input-primitives.js";
 import { action, comparer, computed, type IReactionDisposer, observable, reaction, runInAction, when } from "mobx";
 import invariant from "tiny-invariant";
 

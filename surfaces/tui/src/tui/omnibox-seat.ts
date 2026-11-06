@@ -19,11 +19,16 @@
  */
 
 import type { SuperKey } from "@inhuman.tools/harness-model";
-import type { DraftState } from "@inhuman.tools/quickdraw/input";
-import type { ChromeHotkey, ChromeQuotaWindow, ChromeStatusItem } from "@inhuman.tools/quickdraw/layout";
-import type { ComposerCommandChoice, ComposerCommandFallback } from "@inhuman.tools/quickdraw/widgets";
 
 import { askCoverShortcuts, HOTKEY_EVENT } from "./ask-shortcuts.js";
+import type {
+  ChromeHotkey,
+  ChromeQuotaWindow,
+  ChromeStatusItem,
+  ComposerCommandChoice,
+  ComposerCommandFallback,
+  DraftState,
+} from "./input-primitives.js";
 import { paintComposerFace, type ComposerErrorFace, type ComposerFace } from "./paint-controller.js";
 import { busyDraftShortcuts } from "./queue-shortcuts.js";
 

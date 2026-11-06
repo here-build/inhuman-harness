@@ -8,7 +8,8 @@
  * bears the named event Tea fires on a match.
  */
 import { DEFAULT_SUPER_KEY, parseSuperKey, type SuperKey } from "@inhuman.tools/harness-model";
-import type { ChromeHotkey } from "@inhuman.tools/quickdraw/layout";
+
+import type { ChromeHotkey } from "./input-primitives.js";
 
 export const HOTKEY_EVENT = {
   allow: "allow",

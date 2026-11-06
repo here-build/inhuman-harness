@@ -4,7 +4,10 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget};
+use ratatui::widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget};
+
+use crate::drawers::{compact_pin_draft, RewindPin};
+use crate::widgets::speech::format_duration_compact;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TapeRole {
@@ -143,14 +146,27 @@ impl StatefulWidget for TapeWidget {
                     .map_or(false, |(start, end)| idx >= start && idx <= end);
 
             let role_badge = match turn.role {
-                TapeRole::User => Span::styled("❯ User", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                TapeRole::Assistant => Span::styled("● Assistant", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                TapeRole::User => Span::styled(
+                    "❯ User",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                TapeRole::Assistant => Span::styled(
+                    "● Assistant",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 TapeRole::System => Span::styled("■ System", Style::default().fg(Color::Yellow)),
             };
             let mut header_spans = vec![role_badge];
             if let Some(ts) = &turn.timestamp {
                 header_spans.push(Span::raw(" "));
-                header_spans.push(Span::styled(format!("({ts})"), Style::default().fg(Color::DarkGray)));
+                header_spans.push(Span::styled(
+                    format!("({ts})"),
+                    Style::default().fg(Color::DarkGray),
+                ));
             }
             display_rows.push(DisplayRow {
                 line: Line::from(header_spans),
@@ -213,5 +229,114 @@ impl StatefulWidget for TapeWidget {
                 .track_style(Style::default().fg(Color::DarkGray));
             scrollbar.render(area, buf, &mut sb_state);
         }
+    }
+}
+
+/// Rewind pins widget rendering past or future rewind pins at the top/bottom of the tape.
+pub struct RewindPinsWidget<'a> {
+    pub pins: &'a [RewindPin],
+}
+
+impl<'a> RewindPinsWidget<'a> {
+    pub fn new(pins: &'a [RewindPin]) -> Self {
+        Self { pins }
+    }
+
+    pub fn height(&self) -> u16 {
+        self.pins.len() as u16
+    }
+}
+
+impl Widget for RewindPinsWidget<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        if area.is_empty() {
+            return;
+        }
+        for (i, pin) in self.pins.iter().enumerate() {
+            let y = area.top() + i as u16;
+            if y >= area.bottom() {
+                break;
+            }
+            let row_style = Style::default().fg(Color::Gray);
+            let spans = vec![
+                Span::styled("  │ ", Style::default().fg(Color::DarkGray)),
+                Span::styled(compact_pin_draft(&pin.text), row_style),
+            ];
+            buf.set_line(area.left(), y, &Line::from(spans), area.width);
+        }
+    }
+}
+
+/// Wait/spinner pin widget rendered at the bottom of the tape when the harness is working.
+pub struct WaitPinWidget<'a> {
+    pub status: &'a str,
+    pub error: &'a str,
+    pub started_at: Option<f64>,
+    pub retry_until_ms: Option<f64>,
+    pub now_ms: f64,
+}
+
+impl<'a> WaitPinWidget<'a> {
+    pub fn new(
+        status: &'a str,
+        error: &'a str,
+        started_at: Option<f64>,
+        retry_until_ms: Option<f64>,
+        now_ms: f64,
+    ) -> Self {
+        Self {
+            status,
+            error,
+            started_at,
+            retry_until_ms,
+            now_ms,
+        }
+    }
+}
+
+impl Widget for WaitPinWidget<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        if area.is_empty() {
+            return;
+        }
+        let mut spans = vec![
+            Span::styled(
+                "  ◐ ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                if self.status.is_empty() {
+                    "Working..."
+                } else {
+                    self.status
+                },
+                Style::default().fg(Color::Gray),
+            ),
+        ];
+        if let Some(start) = self.started_at.filter(|s| s.is_finite()) {
+            if self.now_ms >= start {
+                spans.push(Span::styled(
+                    format!(" · {}", format_duration_compact(self.now_ms - start)),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+        }
+        if let Some(until) = self.retry_until_ms.filter(|u| u.is_finite()) {
+            if until > self.now_ms {
+                spans.push(Span::styled(
+                    format!(" (retry in {})", format_duration_compact(until - self.now_ms)),
+                    Style::default().fg(Color::Yellow),
+                ));
+            }
+        }
+        if !self.error.is_empty() {
+            spans.push(Span::styled(
+                format!(" — {}", self.error),
+                Style::default().fg(Color::LightRed),
+            ));
+        }
+        buf.set_line(area.left(), area.top(), &Line::from(spans), area.width);
     }
 }

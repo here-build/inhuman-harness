@@ -5,6 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Widget;
+use unicode_width::UnicodeWidthStr;
 
 const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
@@ -75,7 +76,9 @@ impl Widget for StatuslineWidget {
 
         let bar_style = Style::default().bg(Color::Rgb(30, 32, 40)).fg(Color::Gray);
         for x in area.left()..area.right() {
-            buf.get_mut(x, area.top()).set_symbol(" ").set_style(bar_style);
+            buf.get_mut(x, area.top())
+                .set_symbol(" ")
+                .set_style(bar_style);
         }
 
         // Left section: cwd + model/connection
@@ -84,7 +87,10 @@ impl Widget for StatuslineWidget {
             let frame = SPINNER_FRAMES[phase % SPINNER_FRAMES.len()];
             left_spans.push(Span::styled(
                 format!(" {frame} "),
-                Style::default().fg(Color::Cyan).bg(Color::Rgb(30, 32, 40)).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .bg(Color::Rgb(30, 32, 40))
+                    .add_modifier(Modifier::BOLD),
             ));
         } else {
             left_spans.push(Span::raw(" "));
@@ -97,19 +103,26 @@ impl Widget for StatuslineWidget {
             ));
             left_spans.push(Span::styled(
                 " │ ",
-                Style::default().fg(Color::DarkGray).bg(Color::Rgb(30, 32, 40)),
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .bg(Color::Rgb(30, 32, 40)),
             ));
         }
 
         left_spans.push(Span::styled(
             &self.model,
-            Style::default().fg(Color::Cyan).bg(Color::Rgb(30, 32, 40)).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .bg(Color::Rgb(30, 32, 40))
+                .add_modifier(Modifier::BOLD),
         ));
 
         if let Some(conn) = &self.connection {
             left_spans.push(Span::styled(
                 format!(" ({conn})"),
-                Style::default().fg(Color::DarkGray).bg(Color::Rgb(30, 32, 40)),
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .bg(Color::Rgb(30, 32, 40)),
             ));
         }
 
@@ -126,14 +139,19 @@ impl Widget for StatuslineWidget {
         let mut right_spans = Vec::new();
         right_spans.push(Span::styled(
             format!("[{}]", self.permission_mode),
-            Style::default().fg(mode_color).bg(Color::Rgb(30, 32, 40)).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(mode_color)
+                .bg(Color::Rgb(30, 32, 40))
+                .add_modifier(Modifier::BOLD),
         ));
 
         if let Some(quota) = &self.quota {
             right_spans.push(Span::raw(" "));
             right_spans.push(Span::styled(
                 quota,
-                Style::default().fg(Color::DarkGray).bg(Color::Rgb(30, 32, 40)),
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .bg(Color::Rgb(30, 32, 40)),
             ));
         }
         right_spans.push(Span::raw(" "));
@@ -143,6 +161,79 @@ impl Widget for StatuslineWidget {
         if right_width < area.width {
             let right_x = area.right().saturating_sub(right_width);
             buf.set_line(right_x, area.top(), &right_line, right_width);
+        }
+    }
+}
+
+/// Replica-facing statusline widget used by `PaintReplica::render_ratatui`.
+pub struct StatuslineReplicaWidget<'a> {
+    pub left: &'a str,
+    pub note: &'a str,
+    pub cwd: &'a str,
+    pub cwd_root: &'a str,
+}
+
+impl<'a> StatuslineReplicaWidget<'a> {
+    pub fn new(left: &'a str, note: &'a str, cwd: &'a str, cwd_root: &'a str) -> Self {
+        Self {
+            left,
+            note,
+            cwd,
+            cwd_root,
+        }
+    }
+}
+
+impl Widget for StatuslineReplicaWidget<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        if area.is_empty() {
+            return;
+        }
+        let mut left_spans = Vec::new();
+        if !self.left.is_empty() {
+            left_spans.push(Span::styled(
+                self.left,
+                Style::default().fg(Color::Gray),
+            ));
+        }
+        if !self.note.is_empty() {
+            if !left_spans.is_empty() {
+                left_spans.push(Span::styled(" · ", Style::default().fg(Color::DarkGray)));
+            }
+            left_spans.push(Span::styled(
+                self.note,
+                Style::default().fg(Color::Yellow),
+            ));
+        }
+        buf.set_line(area.left(), area.top(), &Line::from(left_spans), area.width);
+
+        if !self.cwd.is_empty() {
+            let cw = self.cwd.width() as u16;
+            if cw + 2 < area.width {
+                let rx = area.right().saturating_sub(cw);
+                if !self.cwd_root.is_empty() && self.cwd.ends_with(self.cwd_root) {
+                    let prefix_len = self.cwd.len() - self.cwd_root.len();
+                    let prefix = &self.cwd[..prefix_len];
+                    let right_line = Line::from(vec![
+                        Span::styled(prefix, Style::default().fg(Color::DarkGray)),
+                        Span::styled(
+                            self.cwd_root,
+                            Style::default()
+                                .fg(Color::White)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ]);
+                    buf.set_line(rx, area.top(), &right_line, cw);
+                } else {
+                    buf.set_stringn(
+                        rx,
+                        area.top(),
+                        self.cwd,
+                        cw as usize,
+                        Style::default().fg(Color::Gray),
+                    );
+                }
+            }
         }
     }
 }

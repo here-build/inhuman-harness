@@ -12,8 +12,7 @@ import path from "node:path";
 import type { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
-import type { BoxBusUpMessage } from "@inhuman.tools/quickdraw/runtime";
-
+import type { BoxBusUpMessage } from "./input-primitives.js";
 import type { PaintDownMessage } from "./paint-transport.js";
 
 const FRAME_CAP = 32 * 1024 * 1024;

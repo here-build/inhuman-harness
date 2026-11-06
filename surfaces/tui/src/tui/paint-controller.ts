@@ -36,12 +36,17 @@ import {
   createAskTapeCut,
   type EmptyWaitChrome,
 } from "@inhuman.tools/harness-sdk/text";
-import type { ChromeHotkey, ChromeQuotaWindow, ChromeStatusItem } from "@inhuman.tools/quickdraw/layout";
-import type { ComposerCommandChoice, ComposerCommandFallback } from "@inhuman.tools/quickdraw/widgets";
 import { comparer, computed, reaction, type IComputedValue, type IReactionDisposer } from "mobx";
 import { destroy, isAlive, isStateTreeNode } from "mobx-state-tree";
 
 import type { AgentsReplicaFace } from "./agents-drawer.js";
+import type {
+  ChromeHotkey,
+  ChromeQuotaWindow,
+  ChromeStatusItem,
+  ComposerCommandChoice,
+  ComposerCommandFallback,
+} from "./input-primitives.js";
 import {
   createAgents,
   createCompletion,
