@@ -71,7 +71,7 @@ export class DocumentContainer<
     this.awareness.clearAll();
   }
 
-  static fromSnapshot<T extends Model = Model>(snapshot: SerializedDocument): DocumentContainer<T> {
+  static fromSnapshot<T extends Model = Model>(snapshot: SerializedDocument): DocumentContainer<any> {
     const root = hydrateModel<T>(snapshot);
     return new DocumentContainer<T>(root, { revision: snapshot.revision, meta: snapshot.meta });
   }
