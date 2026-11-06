@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.server.json && vite build",
-    "build:wasm": "cargo build --target wasm32-unknown-unknown --release --lib --manifest-path ../../packages/quickdraw/rust/qd/Cargo.toml && cp ../../packages/quickdraw/rust/qd/target/wasm32-unknown-unknown/release/qd.wasm src/shell/syntax.wasm",
+    "build:wasm": "cargo build --target wasm32-unknown-unknown --release --lib --manifest-path ../../packages/quickdraw/rust/qd/Cargo.toml && wasm-opt -Oz --all-features --strip-debug ../../packages/quickdraw/rust/qd/target/wasm32-unknown-unknown/release/qd.wasm -o src/shell/syntax.wasm",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --project logic",
     "storybook": "storybook dev -p 6006 --no-open",

@@ -9,11 +9,20 @@ description = "Quickdraw runtime process. Modules land only with the TypeScript 
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-irosashi = "0.3"
-regex = "1"
+irosashi = { version = "0.3.0", path = "../irosashi" }
+regex = { version = "1", default-features = false, features = ["std", "perf", "unicode-perl", "unicode-case"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.release.package.ferroni]
+opt-level = 3
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 libc = "0.2"

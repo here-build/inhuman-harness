@@ -12,14 +12,13 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 
 use irosashi::{CodeToTokensOptions, DiagnosticKind, Highlighter, TokensResult};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{Rgb, Style};
 
-const ARRIVAL: &[u8] = include_bytes!("arrival.tmLanguage.json");
 const DARK: &str = "github-dark";
 const LIGHT: &str = "github-light";
 
@@ -94,9 +93,6 @@ pub(crate) fn engine() -> Option<&'static Highlighter> {
 
 fn load_engine() -> Option<Highlighter> {
     let engine = Highlighter::new().ok()?;
-    engine
-        .load_language("scm", Arc::<[u8]>::from(ARRIVAL))
-        .ok()?;
     engine.register_alias("scheme", "scm");
     engine.register_alias("arrival", "scm");
     engine.register_extension("scm", "scm");
