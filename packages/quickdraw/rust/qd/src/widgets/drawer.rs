@@ -7,7 +7,22 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, StatefulWidget, Widget};
 use unicode_width::UnicodeWidthStr;
 
-use crate::drawers::AgentRow;
+/// One drawer row. `kind` is `call`, `bot`, or `session`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentRow {
+    pub key: String,
+    pub kind: String,
+    pub name: String,
+    pub recap: String,
+    pub indent: i64,
+    pub mark: String,
+    pub model: String,
+    pub ask_line: String,
+    pub unfinished: String,
+    pub notifies: Vec<String>,
+    pub result: String,
+    pub current: bool,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DrawerKind {

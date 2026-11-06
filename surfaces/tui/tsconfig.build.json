@@ -6,7 +6,6 @@
   "exclude": [
     "dist",
     "node_modules",
-    "src/e2e",
     "**/__tests__",
     "**/__visual__",
     "**/*.test.ts"

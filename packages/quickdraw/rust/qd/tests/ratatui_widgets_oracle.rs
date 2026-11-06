@@ -404,3 +404,119 @@ fn test_paint_replica_render_ratatui_full_scene() {
     assert!(full.contains("Switch active model"), "missing choice description:\n{full}");
 }
 
+#[test]
+fn test_dirty_ratatui_rows_diffing() {
+    use qd::bridge::dirty_ratatui_rows;
+    use ratatui::style::{Color, Modifier, Style};
+
+    let area = Rect::new(0, 0, 10, 3);
+    let mut prev = Buffer::empty(area);
+    prev.set_string(0, 0, "row0", Style::default());
+    prev.set_string(0, 1, "row1", Style::default());
+    prev.set_string(0, 2, "row2", Style::default());
+
+    assert_eq!(dirty_ratatui_rows(None, &prev), vec![0, 1, 2]);
+    assert_eq!(dirty_ratatui_rows(Some(&prev), &prev), Vec::<usize>::new());
+
+    let mut next = prev.clone();
+    next.set_string(0, 1, "row1-mod", Style::default().fg(Color::Red));
+    assert_eq!(dirty_ratatui_rows(Some(&prev), &next), vec![1]);
+
+    let mut mod_only = prev.clone();
+    mod_only
+        .get_mut(0, 2)
+        .set_style(Style::default().add_modifier(Modifier::BOLD));
+    assert_eq!(dirty_ratatui_rows(Some(&prev), &mod_only), vec![2]);
+}
+
+#[test]
+fn test_emit_ratatui_ansi_sync2026_zero_diff_and_wide_glyphs() {
+    use qd::bridge::ratatui_cell_sgr;
+    use qd::EmitAnsiOpts;
+    use ratatui::style::{Color, Modifier, Style};
+
+    let area = Rect::new(0, 0, 4, 1);
+    let mut buf = Buffer::empty(area);
+    buf.set_string(0, 0, "漢a", Style::default());
+
+    // Identical buffers emit 0 bytes
+    let zero_stats = emit_ratatui_ansi(&buf, Some(&buf), &EmitAnsiOpts { sync2026: true, force_full: false });
+    assert_eq!(zero_stats.bytes, 0);
+    assert_eq!(zero_stats.dirty_rows, 0);
+    assert!(zero_stats.ansi.is_empty());
+
+    // sync2026: true wraps output with ?2026h and ?2026l, and wide glyph "漢" has no trailing placeholder space
+    let sync_stats = emit_ratatui_ansi(&buf, None, &EmitAnsiOpts { sync2026: true, force_full: false });
+    assert!(sync_stats.ansi.starts_with("\u{001B}[?2026h"));
+    assert!(sync_stats.ansi.ends_with("\u{001B}[?2026l"));
+    assert_eq!(sync_stats.dirty_rows, 1);
+    assert!(
+        sync_stats.ansi.contains("漢a "),
+        "expected wide glyph without extra continuation space, got: {:?}",
+        sync_stats.ansi
+    );
+    assert!(!sync_stats.ansi.contains("漢 a"));
+
+    // Two-column symbol U+23CE (⏎) emits its space mate
+    let mut ret_buf = Buffer::empty(area);
+    ret_buf.get_mut(0, 0).set_symbol("⏎");
+    ret_buf.get_mut(2, 0).set_symbol(":");
+    let ret_stats = emit_ratatui_ansi(&ret_buf, None, &EmitAnsiOpts::default());
+    assert!(
+        ret_stats.ansi.contains("⏎ : "),
+        "expected two-column symbol space mate, got: {:?}",
+        ret_stats.ansi
+    );
+
+    // Verify ratatui_cell_sgr formatting
+    let default_cell = ratatui::buffer::Cell::default();
+    assert_eq!(ratatui_cell_sgr(&default_cell).as_ref(), "\u{001B}[0m");
+
+    let mut styled_cell = ratatui::buffer::Cell::default();
+    styled_cell.set_style(
+        Style::default()
+            .fg(Color::Rgb(10, 20, 30))
+            .bg(Color::Indexed(42))
+            .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+    );
+    assert_eq!(
+        ratatui_cell_sgr(&styled_cell).as_ref(),
+        "\u{001B}[0;1;4;38;2;10;20;30;48;5;42m"
+    );
+}
+
+#[test]
+fn test_resolve_ratatui_style_truecolor() {
+    use qd::theme::{
+        default_theme, resolve_ratatui_style, BgP, ColorDepth, FgP, ResolveCtx, Role, StyleIntent,
+    };
+    use ratatui::style::{Color, Modifier};
+
+    let theme = default_theme();
+    let ctx = ResolveCtx::new(&theme, ColorDepth::Truecolor);
+    let intent = StyleIntent {
+        role: Some(Role::Accent),
+        prominence: Some(FgP::PRIMARY),
+        bg_role: Some(Role::Surface),
+        bg_prominence: Some(BgP::SOLID),
+        bold: true,
+        italic: true,
+        ..StyleIntent::default()
+    };
+
+    let r_style = resolve_ratatui_style(&theme, &intent, &ctx);
+    assert!(
+        matches!(r_style.fg, Some(Color::Rgb(_, _, _))),
+        "expected truecolor Color::Rgb fg, got: {:?}",
+        r_style.fg
+    );
+    assert!(
+        matches!(r_style.bg, Some(Color::Rgb(_, _, _))),
+        "expected truecolor Color::Rgb bg, got: {:?}",
+        r_style.bg
+    );
+    assert!(r_style.add_modifier.contains(Modifier::BOLD));
+    assert!(r_style.add_modifier.contains(Modifier::ITALIC));
+}
+
+

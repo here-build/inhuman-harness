@@ -17,7 +17,7 @@ export type ChromeQuotaWindow = {
   resetAt?: number;
 };
 
-export type ChromeStatusChip = {
+type ChromeStatusChip = {
   text: string;
   role?: string;
   prominence?: number;
@@ -25,7 +25,7 @@ export type ChromeStatusChip = {
 
 export type ChromeStatusItem = string | ChromeStatusChip;
 
-export type ChordMods = {
+type ChordMods = {
   readonly key: string;
   readonly ctrl: boolean;
   readonly alt: boolean;
@@ -43,7 +43,7 @@ function normalizeKeyName(part: string): string {
   return part;
 }
 
-export function parseChord(chord: string): ChordMods | null {
+function parseChord(chord: string): ChordMods | null {
   const raw = chord.trim();
   if (raw === "") return null;
   let body = raw;
@@ -107,7 +107,7 @@ export function eventMatchesChord(
 
 // ── Host <-> Worker Up-Messages ──────────────────────────────────────────────
 
-export interface DecodedKeyEvent {
+interface DecodedKeyEvent {
   readonly key: string;
   readonly ctrl?: boolean;
   readonly alt?: boolean;
@@ -115,43 +115,43 @@ export interface DecodedKeyEvent {
   readonly meta?: boolean;
 }
 
-export interface InputEventsMessage {
+interface InputEventsMessage {
   readonly kind: "input_events";
   readonly events: readonly DecodedKeyEvent[];
 }
 
-export interface ResizeMessage {
+interface ResizeMessage {
   readonly kind: "resize";
   readonly cols: number;
   readonly rows: number;
 }
 
-export interface PickerActivateMessage {
+interface PickerActivateMessage {
   readonly kind: "picker_activate";
   readonly key: string;
 }
 
-export interface PickerScrollMessage {
+interface PickerScrollMessage {
   readonly kind: "picker_scroll";
   readonly delta: 1 | -1;
 }
 
-export interface ActivateMessage {
+interface ActivateMessage {
   readonly kind: "activate";
   readonly key: string;
 }
 
-export interface AgentsScrollMessage {
+interface AgentsScrollMessage {
   readonly kind: "agents_scroll";
   readonly delta: 1 | -1;
 }
 
-export interface AgentsFocusMessage {
+interface AgentsFocusMessage {
   readonly kind: "agents_focus";
   readonly key: string;
 }
 
-export interface AgentsHoverMessage {
+interface AgentsHoverMessage {
   readonly kind: "agents_hover";
   readonly key: string | null;
 }
@@ -166,7 +166,7 @@ export interface SubmitCommand {
   readonly args: Readonly<Record<string, string>>;
 }
 
-export interface SubmitMessage {
+interface SubmitMessage {
   readonly kind: "submit";
   readonly parts: readonly SubmitPart[];
   readonly command: SubmitCommand | null;
@@ -231,18 +231,18 @@ export type DraftState = {
   readonly mark: number | null;
 };
 
-export function clampCursor(draft: string, cursor: number): number {
+function clampCursor(draft: string, cursor: number): number {
   return Math.max(0, Math.min(draft.length, cursor));
 }
 
-export function normalizeDraft(s: DraftState): DraftState {
+function normalizeDraft(s: DraftState): DraftState {
   const draft = s.draft;
   const cursor = clampCursor(draft, s.cursor);
   const mark = s.mark === null || s.mark === undefined ? null : clampCursor(draft, s.mark);
   return { draft, cursor, mark: mark === cursor ? null : mark };
 }
 
-export function selectionRange(s: DraftState): { a: number; b: number } | null {
+function selectionRange(s: DraftState): { a: number; b: number } | null {
   const n = normalizeDraft(s);
   if (n.mark === null || n.mark === n.cursor) return null;
   const a = Math.min(n.mark, n.cursor);
@@ -259,7 +259,7 @@ function graphemeStarts(s: string): number[] {
   return starts;
 }
 
-export function moveByGrapheme(draft: string, cursor: number, dir: -1 | 1): number {
+function moveByGrapheme(draft: string, cursor: number, dir: -1 | 1): number {
   const starts = graphemeStarts(draft);
   const positions = [...starts, draft.length];
   const c = clampCursor(draft, cursor);
@@ -281,14 +281,14 @@ function isWordChar(ch: string): boolean {
   return /[\p{L}\p{N}_]/u.test(ch);
 }
 
-export function wordLeft(draft: string, cursor: number): number {
+function wordLeft(draft: string, cursor: number): number {
   let i = clampCursor(draft, cursor);
   while (i > 0 && !isWordChar(draft[i - 1]!)) i--;
   while (i > 0 && isWordChar(draft[i - 1]!)) i--;
   return i;
 }
 
-export function wordRight(draft: string, cursor: number): number {
+function wordRight(draft: string, cursor: number): number {
   let i = clampCursor(draft, cursor);
   const n = draft.length;
   while (i < n && !isWordChar(draft[i]!)) i++;
@@ -296,7 +296,7 @@ export function wordRight(draft: string, cursor: number): number {
   return i;
 }
 
-export type DraftMotion =
+type DraftMotion =
   | "left"
   | "right"
   | "home"
@@ -306,7 +306,7 @@ export type DraftMotion =
   | "line_up"
   | "line_down";
 
-export function hardLineBounds(draft: string, cursor: number): { start: number; end: number; col: number } {
+function hardLineBounds(draft: string, cursor: number): { start: number; end: number; col: number } {
   const c = clampCursor(draft, cursor);
   const start = draft.lastIndexOf("\n", Math.max(0, c - 1)) + 1;
   const nl = draft.indexOf("\n", c);
@@ -314,7 +314,7 @@ export function hardLineBounds(draft: string, cursor: number): { start: number; 
   return { start, end, col: c - start };
 }
 
-export function lineUp(draft: string, cursor: number): number {
+function lineUp(draft: string, cursor: number): number {
   const { start, col } = hardLineBounds(draft, cursor);
   if (start === 0) return clampCursor(draft, cursor);
   const prevEnd = start - 1;
@@ -322,7 +322,7 @@ export function lineUp(draft: string, cursor: number): number {
   return Math.min(prevStart + col, prevEnd);
 }
 
-export function lineDown(draft: string, cursor: number): number {
+function lineDown(draft: string, cursor: number): number {
   const { end, col } = hardLineBounds(draft, cursor);
   if (end >= draft.length) return clampCursor(draft, cursor);
   const nextStart = end + 1;
@@ -360,7 +360,7 @@ function collapseOnly(to: DraftMotion): boolean {
   return to === "left" || to === "right" || to === "word_left" || to === "word_right";
 }
 
-export function moveDraft(s: DraftState, to: DraftMotion, select = false): DraftState {
+function moveDraft(s: DraftState, to: DraftMotion, select = false): DraftState {
   const n = normalizeDraft(s);
   if (!select) {
     const range = selectionRange(n);
@@ -378,13 +378,13 @@ export function moveDraft(s: DraftState, to: DraftMotion, select = false): Draft
   return normalizeDraft({ draft: n.draft, cursor: nextCursor, mark });
 }
 
-export function selectAllDraft(s: DraftState): DraftState {
+function selectAllDraft(s: DraftState): DraftState {
   const n = normalizeDraft(s);
   if (n.draft.length === 0) return n;
   return { draft: n.draft, cursor: n.draft.length, mark: 0 };
 }
 
-export function insertDraft(s: DraftState, text: string): DraftState {
+function insertDraft(s: DraftState, text: string): DraftState {
   const n = normalizeDraft(s);
   const range = selectionRange(n);
   if (range) {
@@ -395,7 +395,7 @@ export function insertDraft(s: DraftState, text: string): DraftState {
   return { draft, cursor: n.cursor + text.length, mark: null };
 }
 
-export function backspaceDraft(s: DraftState): DraftState {
+function backspaceDraft(s: DraftState): DraftState {
   const n = normalizeDraft(s);
   const range = selectionRange(n);
   if (range) {
@@ -414,7 +414,7 @@ export function backspaceDraft(s: DraftState): DraftState {
   };
 }
 
-export function deleteDraft(s: DraftState): DraftState {
+function deleteDraft(s: DraftState): DraftState {
   const n = normalizeDraft(s);
   const range = selectionRange(n);
   if (range) {
@@ -433,7 +433,7 @@ export function deleteDraft(s: DraftState): DraftState {
   };
 }
 
-export function killDraft(s: DraftState, mode: "word" | "to_start" | "to_end"): DraftState {
+function killDraft(s: DraftState, mode: "word" | "to_start" | "to_end"): DraftState {
   const n = normalizeDraft(s);
   const range = selectionRange(n);
   if (range) {
@@ -465,7 +465,7 @@ export function killDraft(s: DraftState, mode: "word" | "to_start" | "to_end"): 
   };
 }
 
-export type DraftOp =
+type DraftOp =
   | { readonly type: "insert"; readonly text: string }
   | { readonly type: "backspace" }
   | { readonly type: "delete" }
@@ -501,17 +501,17 @@ export function applyDraftOp(state: DraftState, op: DraftOp): DraftState {
   }
 }
 
-export const KEY_KILL_LINE_START = "KillLineStart";
-export const KEY_KILL_LINE_END = "KillLineEnd";
-export const KEY_UNDO = "Undo";
-export const KEY_REDO = "Redo";
-export const KEY_SELECT_ALL = "SelectAll";
-export const KEY_PASTE_PREFIX = "Paste:";
-export const KEY_COMPOSER_CARET = "ComposerCaret";
+const KEY_KILL_LINE_START = "KillLineStart";
+const KEY_KILL_LINE_END = "KillLineEnd";
+const KEY_UNDO = "Undo";
+const KEY_REDO = "Redo";
+const KEY_SELECT_ALL = "SelectAll";
+const KEY_PASTE_PREFIX = "Paste:";
+const KEY_COMPOSER_CARET = "ComposerCaret";
 
-export type DraftKeyMapResult = DraftOp | "clear" | null;
+type DraftKeyMapResult = DraftOp | "clear" | null;
 
-export function parsePasteKeyEvent(event: { readonly key: string }): string | null {
+function parsePasteKeyEvent(event: { readonly key: string }): string | null {
   if (!event.key.startsWith(KEY_PASTE_PREFIX)) return null;
   try {
     const text: unknown = JSON.parse(event.key.slice(KEY_PASTE_PREFIX.length));
@@ -521,7 +521,7 @@ export function parsePasteKeyEvent(event: { readonly key: string }): string | nu
   }
 }
 
-export function parseComposerCaretEvent(event: {
+function parseComposerCaretEvent(event: {
   readonly key: string;
 }): { cursor: number; mark: number | null } | null {
   if (!event.key.startsWith(`${KEY_COMPOSER_CARET}:`)) return null;
@@ -888,7 +888,7 @@ export type ComposerErrorAnnotation = {
   readonly message: string;
 };
 
-export type ComposerCommandMatch = {
+type ComposerCommandMatch = {
   readonly matches: readonly ComposerCommand[];
   readonly selected: ComposerCommand | null;
   readonly selectedIndex: number;

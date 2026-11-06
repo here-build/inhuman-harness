@@ -11,13 +11,13 @@ use ratatui::widgets::{StatefulWidget, Widget};
 
 use crate::bridge::{qd_to_ratatui_buffer, ratatui_to_qd_buffer};
 use crate::composer_command::{match_composer_command, ComposerCommand};
-use crate::state::session::SessionDocumentState;
+use crate::state::session::{EntityNode, ModelPatchOp, SessionDocumentState};
 use crate::state::shapes::{KernelRow, LiveShape, PendingAskRow, SessionSummaryRow};
 use crate::state::sync::{RpcRequest, RpcResponse};
 use crate::state::ui::{
-    eval_ui_surface, fill_params, has_input_hole, parse_ui_form, ui_choice, ui_notice, url_from,
-    CommandUiSpec, KernelUiSnapshot, SessionUiSnapshot, UiChoiceInput, UiEvalConfig, UiForm,
-    UiHealth, UiNode,
+    encode_ui_definition, eval_ui_def, eval_ui_surface, fill_params, has_input_hole,
+    parse_ui_form, ui_choice, ui_notice, url_from, CommandUiSpec, KernelUiSnapshot,
+    SessionUiSnapshot, UiChoiceInput, UiDefinition, UiEvalConfig, UiForm, UiHealth, UiNode,
 };
 use crate::widgets::agents_meter::AgentsMeterWidget;
 use crate::widgets::composer::{
@@ -66,6 +66,8 @@ pub struct RatatuiApp {
     pub callback: Option<ParkedCallback>,
     pub outbound_rpc: Vec<RpcRequest>,
     pub opened_urls: Vec<String>,
+    pub prev_buffer: Option<Buffer>,
+    pub dirty: bool,
     next_rpc_id: u64,
 }
 
@@ -99,8 +101,14 @@ impl RatatuiApp {
             callback: None,
             outbound_rpc: Vec::new(),
             opened_urls: Vec::new(),
+            prev_buffer: None,
+            dirty: true,
             next_rpc_id: 1,
         }
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
     }
 
     pub fn default_commands() -> Vec<CommandUiSpec> {
@@ -331,6 +339,32 @@ impl RatatuiApp {
             self.composer_state.selected_command_index = 0;
         }
         self.sync_composer_ui();
+        self.dirty = true;
+    }
+
+    pub fn open_ui_definition(&mut self, def: &UiDefinition) -> UiNode {
+        let config = UiEvalConfig {
+            kernel: Some(&self.kernel_ui),
+            session: Some(&self.session_ui),
+            pending: None,
+            plugin_replies: Some(&self.plugin_replies),
+        };
+        let surface = eval_ui_def(def, &config);
+        match def {
+            UiDefinition::Confirm { .. }
+            | UiDefinition::Input { .. }
+            | UiDefinition::OpenUrl { .. }
+            | UiDefinition::Notice { .. } => {
+                self.park_surface("", surface.clone());
+            }
+            _ => {
+                self.focus_node = Some(surface.clone());
+                self.composer_state.selected_command_index = 0;
+                self.sync_composer_ui();
+            }
+        }
+        self.dirty = true;
+        surface
     }
 
     pub fn park_ui_form(&mut self, form: UiForm) -> bool {
@@ -378,6 +412,7 @@ impl RatatuiApp {
             saved_cursor,
         });
         self.sync_composer_ui();
+        self.dirty = true;
     }
 
     pub fn show_notice(&mut self, message: impl Into<String>) {
@@ -387,6 +422,7 @@ impl RatatuiApp {
     }
 
     pub fn handle_rpc_response(&mut self, response: &RpcResponse) {
+        self.dirty = true;
         if let Some(result) = &response.result {
             if let Some(form) = parse_ui_form(result) {
                 self.park_ui_form(form);
@@ -434,6 +470,7 @@ impl RatatuiApp {
             self.composer_state.cursor = cb.saved_cursor;
         }
         self.sync_composer_ui();
+        self.dirty = true;
     }
 
     fn fire_leaves(&mut self, leaves: &[UiNode], dismiss: bool) {
@@ -558,6 +595,7 @@ impl RatatuiApp {
     }
 
     pub fn handle_key(&mut self, key: &str, ctrl: bool, alt: bool, shift: bool) {
+        self.dirty = true;
         self.sync_composer_ui();
         let chord = ctrl || alt;
 
@@ -788,6 +826,260 @@ impl RatatuiApp {
             let s = ch.encode_utf8(&mut buf);
             self.handle_key(s, false, false, false);
         }
+    }
+
+    fn insert_entities_from_value(
+        doc: &mut SessionDocumentState,
+        entities_val: &Value,
+    ) -> Result<(), String> {
+        if let Some(map) = entities_val.as_object() {
+            for (key, val) in map {
+                let mut node: EntityNode =
+                    serde_json::from_value(val.clone()).map_err(|e| e.to_string())?;
+                if node.uuid.is_empty() {
+                    node.uuid = key.clone();
+                }
+                doc.insert_entity(node);
+            }
+            Ok(())
+        } else if let Some(arr) = entities_val.as_array() {
+            for val in arr {
+                let node: EntityNode =
+                    serde_json::from_value(val.clone()).map_err(|e| e.to_string())?;
+                doc.insert_entity(node);
+            }
+            Ok(())
+        } else {
+            Err("entities must be a JSON object or array".to_string())
+        }
+    }
+
+    fn parse_session_snapshot(
+        snap_val: &Value,
+        default_session_id: &str,
+    ) -> Result<SessionDocumentState, String> {
+        if let Ok(mut doc) = serde_json::from_value::<SessionDocumentState>(snap_val.clone()) {
+            if doc.root_id.is_none() {
+                if let Some(root) = doc
+                    .entities
+                    .values()
+                    .find(|e| e.tag == "SessionRoot" || e.tag == "root")
+                {
+                    doc.root_id = Some(root.uuid.clone());
+                }
+            }
+            return Ok(doc);
+        }
+
+        let obj = snap_val
+            .as_object()
+            .ok_or_else(|| "snapshot must be a JSON object".to_string())?;
+        let session_id = obj
+            .get("session_id")
+            .or_else(|| obj.get("sessionId"))
+            .and_then(Value::as_str)
+            .unwrap_or(default_session_id)
+            .to_string();
+        let revision = obj.get("revision").and_then(Value::as_u64).unwrap_or(0);
+        let root_id = obj
+            .get("root_id")
+            .or_else(|| obj.get("rootId"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+
+        let mut doc = SessionDocumentState {
+            session_id,
+            revision,
+            root_id,
+            entities: Default::default(),
+        };
+
+        if let Some(entities_val) = obj.get("entities") {
+            Self::insert_entities_from_value(&mut doc, entities_val)?;
+        }
+
+        if doc.root_id.is_none() {
+            if let Some(root) = doc
+                .entities
+                .values()
+                .find(|e| e.tag == "SessionRoot" || e.tag == "root")
+            {
+                doc.root_id = Some(root.uuid.clone());
+            }
+        }
+
+        Ok(doc)
+    }
+
+    /// Apply a JSON down-frame (`state_init`, `state_patch`, or `ui_eval`) to the app state.
+    pub fn apply_down_frame(&mut self, frame: &[u8]) -> Result<bool, String> {
+        let val: Value = serde_json::from_slice(frame).map_err(|e| e.to_string())?;
+        let Some(kind) = val.get("kind").and_then(Value::as_str) else {
+            return Ok(false);
+        };
+        match kind {
+            "state_init" => {
+                if let Some(cwd) = val.get("cwd").and_then(Value::as_str) {
+                    self.cwd = cwd.to_string();
+                }
+                if let Some(model) = val.get("model").and_then(Value::as_str) {
+                    self.session_ui
+                        .kvs
+                        .insert("model".to_string(), model.to_string());
+                }
+                if let Some(k) = val.get("kernel").or_else(|| val.get("kernel_ui")) {
+                    let kui: KernelUiSnapshot =
+                        serde_json::from_value(k.clone()).map_err(|e| e.to_string())?;
+                    self.kernel_ui = kui;
+                }
+                if let Some(sui) = val.get("session_ui").or_else(|| val.get("sessionUi")) {
+                    let s: SessionUiSnapshot =
+                        serde_json::from_value(sui.clone()).map_err(|e| e.to_string())?;
+                    self.session_ui = s;
+                }
+                let snap_val = val.get("snapshot").unwrap_or(&val);
+                let doc = Self::parse_session_snapshot(snap_val, &self.session_doc.session_id)?;
+                self.session_doc = doc;
+                self.sync_composer_ui();
+                self.dirty = true;
+                Ok(true)
+            }
+            "state_patch" => {
+                if let Some(entities_val) = val.get("entities") {
+                    Self::insert_entities_from_value(&mut self.session_doc, entities_val)?;
+                }
+                let patches_val = val
+                    .get("patches")
+                    .or_else(|| val.get("ops"))
+                    .or_else(|| val.get("patch"))
+                    .ok_or_else(|| "missing patches in state_patch".to_string())?;
+                let patches: Vec<ModelPatchOp> = if patches_val.is_array() {
+                    serde_json::from_value(patches_val.clone()).map_err(|e| e.to_string())?
+                } else {
+                    let single: ModelPatchOp =
+                        serde_json::from_value(patches_val.clone()).map_err(|e| e.to_string())?;
+                    vec![single]
+                };
+                for patch in &patches {
+                    if let ModelPatchOp::Splice { field, items, .. } = patch {
+                        if field == "children" {
+                            for item in items {
+                                if item.is_object() {
+                                    if let Ok(node) =
+                                        serde_json::from_value::<EntityNode>(item.clone())
+                                    {
+                                        if !node.uuid.is_empty() && !node.tag.is_empty() {
+                                            self.session_doc
+                                                .entities
+                                                .entry(node.uuid.clone())
+                                                .or_insert(node);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                let rev = val
+                    .get("revision")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(self.session_doc.revision + 1);
+                self.session_doc.apply_batch(rev, &patches);
+                self.sync_composer_ui();
+                self.dirty = true;
+                Ok(true)
+            }
+            "ui_eval" => {
+                let def_val = val
+                    .get("definition")
+                    .or_else(|| val.get("body"))
+                    .ok_or_else(|| "missing definition in ui_eval".to_string())?;
+                let def: UiDefinition = if let Some(s) = def_val.as_str() {
+                    serde_json::from_str(s).map_err(|e| e.to_string())?
+                } else {
+                    serde_json::from_value(def_val.clone()).map_err(|e| e.to_string())?
+                };
+                let command = val
+                    .get("command")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string);
+                let pending = val
+                    .get("pending")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string);
+
+                if let Some(cmd) = &command {
+                    let verb = cmd.trim_start_matches('/').to_string();
+                    if !verb.is_empty() {
+                        let body = encode_ui_definition(&def);
+                        self.kernel_ui
+                            .commands
+                            .entry(verb.clone())
+                            .and_modify(|spec| spec.body = body.clone())
+                            .or_insert_with(|| CommandUiSpec {
+                                verb: verb.clone(),
+                                description: String::new(),
+                                aliases: Vec::new(),
+                                body,
+                            });
+                        self.composer_state.set_text(format!("/{verb} "));
+                    }
+                }
+
+                if let Some(pending_id) = pending {
+                    let config = UiEvalConfig {
+                        kernel: Some(&self.kernel_ui),
+                        session: Some(&self.session_ui),
+                        pending: Some(&pending_id),
+                        plugin_replies: Some(&self.plugin_replies),
+                    };
+                    let surface = eval_ui_def(&def, &config);
+                    self.park_surface(pending_id, surface);
+                } else {
+                    self.open_ui_definition(&def);
+                }
+                self.dirty = true;
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+
+    /// Render the complete application layout into a new Ratatui `Buffer`.
+    pub fn render_frame(&mut self, area: Rect) -> Buffer {
+        let mut buf = Buffer::empty(area);
+        self.render(area, &mut buf);
+        buf
+    }
+
+    /// Render the current frame and emit diffed ANSI sequences against `prev_buffer`.
+    pub fn paint_ansi(
+        &mut self,
+        cols: u16,
+        rows: u16,
+        sync2026: bool,
+        force_full: bool,
+    ) -> crate::EmitAnsiStats {
+        let next_buf = self.render_frame(Rect::new(0, 0, cols, rows));
+        let stats = crate::bridge::emit_ratatui_ansi(
+            &next_buf,
+            if force_full {
+                None
+            } else {
+                self.prev_buffer.as_ref()
+            },
+            &crate::EmitAnsiOpts {
+                sync2026,
+                force_full,
+            },
+        );
+        self.prev_buffer = Some(next_buf);
+        self.dirty = false;
+        stats
     }
 
     /// Render the complete application layout into a Ratatui `Buffer`.

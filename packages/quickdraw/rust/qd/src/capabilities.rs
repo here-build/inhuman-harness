@@ -27,6 +27,12 @@ pub const THEME_REPORT_ENABLE: &str = "\u{001B}[?2031h";
 /// Mode 2031 off.
 pub const THEME_REPORT_DISABLE: &str = "\u{001B}[?2031l";
 
+/// Ordered alt-screen enter and mode setup.
+pub const ENTER_BYTES: &str = "\u{1b}[?1049h\u{1b}[2J\u{1b}[H\u{1b}[?25l\u{1b}[?7l\u{1b}[?2026h\u{1b}[>4;2m\u{1b}[>31u\u{1b}[=31;1u\u{1b}[?2004h\u{1b}[?1004h\u{1b}[?1000h\u{1b}[?1002h\u{1b}[?1006h\u{1b}[?1007h\u{1b}[?2031h";
+
+/// Ordered teardown (`?2026l` always present, leave-alt last).
+pub const EXIT_BYTES: &str = "\u{1b}[?1006l\u{1b}[?1002l\u{1b}[?1000l\u{1b}[?1003l\u{1b}[?1007l\u{1b}[?1004l\u{1b}[?2004l\u{1b}[<u\u{1b}[>4;0m\u{1b}]22;default\u{0007}\u{1b}[?2026l\u{1b}[r\u{1b}[?7h\u{1b}[?25h\u{1b}[999;1H\r\n\u{1b}[?1049l";
+
 /// OSC 10 foreground-color query, BEL-terminated.
 pub const OSC10_QUERY: &str = "\u{001B}]10;?\u{0007}";
 

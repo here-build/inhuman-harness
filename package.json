@@ -2,7 +2,7 @@
   "name": "@inhuman.tools/harness-workspace",
   "version": "0.0.0",
   "private": true,
-  "description": "Agent harness product — process entities + quickdraw paint substrate. Dual-mode: standalone or fused into here.build monorepo.",
+  "description": "Agent harness product — process entities + Ratatui terminal/web surfaces.",
   "scripts": {
     "build": "turbo build",
     "test": "turbo test --continue",
@@ -15,12 +15,9 @@
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
-    "test:umbrella": "pnpm --filter @inhuman.tools/quickdraw test",
     "pretty-mcp:retrieve": "pnpm --filter @inhuman.tools/pretty-mcp retrieve",
     "pretty-mcp:generate": "pnpm --filter @inhuman.tools/pretty-mcp generate",
     "pretty-mcp:uncovered": "pnpm --filter @inhuman.tools/pretty-mcp uncovered",
-    "check:color-parity": "node packages/quickdraw/scripts/check-color-parity.mjs",
-    "check:color-parity:update": "node packages/quickdraw/scripts/check-color-parity.mjs --update",
     "qd:prebuild": "node scripts/qd-prebuild.mjs",
     "verify:logic": "pnpm test:boundaries && pnpm build && pnpm typecheck && pnpm lint && pnpm test"
   },

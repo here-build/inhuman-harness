@@ -102,7 +102,7 @@ fn clamp_i64(draft: &str, cursor: i64) -> usize {
 }
 
 /// UTF-16 length of `text` up to a byte caret. The host caret is this unit.
-pub(crate) fn utf16_index(text: &str, byte: usize) -> usize {
+pub fn utf16_index(text: &str, byte: usize) -> usize {
     let byte = text.floor_char_boundary(byte.min(text.len()));
     text[..byte].chars().map(char::len_utf16).sum()
 }

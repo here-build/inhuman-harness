@@ -438,3 +438,130 @@ fn test_ratatui_app_command_picker_parked_callbacks_and_full_render() {
     assert_eq!(ask_rpcs[0].params["jobId"], "job-77");
     assert_eq!(ask_rpcs[0].params["allow"], true);
 }
+
+#[test]
+fn test_ratatui_app_apply_down_frame_and_paint_ansi_diffing() {
+    let mut app = RatatuiApp::new("sess-down-1", "~/projects/quickdraw");
+    assert!(app.dirty);
+
+    // 1. Apply `state_init` frame
+    let init_frame = serde_json::to_vec(&json!({
+        "kind": "state_init",
+        "snapshot": {
+            "session_id": "sess-down-1",
+            "revision": 1,
+            "root_id": "root-1",
+            "entities": {
+                "root-1": {
+                    "uuid": "root-1",
+                    "tag": "SessionRoot",
+                    "properties": { "permissionMode": "auto" },
+                    "children": ["turn-1", "turn-2"]
+                },
+                "turn-1": {
+                    "uuid": "turn-1",
+                    "tag": "UserTurn",
+                    "properties": { "prompt": "Initial user prompt" }
+                },
+                "turn-2": {
+                    "uuid": "turn-2",
+                    "tag": "AssistantTurn",
+                    "properties": { "text": "Initial assistant response" }
+                }
+            }
+        }
+    }))
+    .unwrap();
+
+    assert_eq!(app.apply_down_frame(&init_frame), Ok(true));
+    assert!(app.dirty);
+    assert_eq!(app.session_doc.revision, 1);
+
+    // First paint_ansi emits full ANSI for all 16 rows
+    let first_stats = app.paint_ansi(80, 16, true, false);
+    assert!(!app.dirty);
+    assert_eq!(first_stats.dirty_rows, 16);
+    assert!(first_stats.bytes > 0);
+    assert!(first_stats.ansi.starts_with("\u{001B}[?2026h\u{001B}[2J"));
+    assert!(first_stats.ansi.ends_with("\u{001B}[?2026l"));
+    assert!(first_stats.ansi.contains("Initial user prompt"));
+    assert!(first_stats.ansi.contains("Initial assistant response"));
+
+    // Second paint_ansi on unchanged state emits 0 dirty rows and 0 bytes
+    let second_stats = app.paint_ansi(80, 16, true, false);
+    assert_eq!(second_stats.dirty_rows, 0);
+    assert_eq!(second_stats.bytes, 0);
+    assert!(second_stats.ansi.is_empty());
+
+    // 2. Keystroke marks app dirty and paint_ansi only emits the changed composer row
+    app.type_text("hello");
+    assert!(app.dirty);
+    let key_stats = app.paint_ansi(80, 16, true, false);
+    assert!(!app.dirty);
+    assert!(key_stats.dirty_rows > 0 && key_stats.dirty_rows < 16);
+    assert_eq!(key_stats.dirty_rows, 1);
+    assert!(key_stats.ansi.contains("hello"));
+
+    // 3. Apply `state_patch` frame updating assistant turn text
+    let patch_frame = serde_json::to_vec(&json!({
+        "kind": "state_patch",
+        "revision": 2,
+        "patches": [
+            {
+                "op": "set",
+                "nodeId": "turn-2",
+                "field": "text",
+                "value": "Patched assistant response!"
+            }
+        ]
+    }))
+    .unwrap();
+
+    assert_eq!(app.apply_down_frame(&patch_frame), Ok(true));
+    assert!(app.dirty);
+    assert_eq!(app.session_doc.revision, 2);
+
+    let patch_stats = app.paint_ansi(80, 16, true, false);
+    assert!(!app.dirty);
+    assert!(patch_stats.dirty_rows > 0 && patch_stats.dirty_rows < 16);
+    assert!(patch_stats.ansi.contains("Patched assistant response!"));
+
+    // 4. Apply `ui_eval` frame with command and choice definition
+    let ui_eval_frame = serde_json::to_vec(&json!({
+        "kind": "ui_eval",
+        "command": "custom",
+        "definition": {
+            "kind": "choice",
+            "choices": [
+                {
+                    "kind": "choice",
+                    "name": "FastMode",
+                    "description": "Enable low-latency mode"
+                },
+                {
+                    "kind": "choice",
+                    "name": "DeepMode",
+                    "description": "Enable deep verification"
+                }
+            ]
+        }
+    }))
+    .unwrap();
+
+    assert_eq!(app.apply_down_frame(&ui_eval_frame), Ok(true));
+    assert!(app.dirty);
+    assert_eq!(app.composer_state.text, "/custom ");
+    assert_eq!(app.composer_state.ui_choices.len(), 2);
+    assert_eq!(app.composer_state.ui_choices[0].name, "FastMode");
+
+    let ui_stats = app.paint_ansi(80, 16, true, false);
+    assert!(!app.dirty);
+    assert!(ui_stats.dirty_rows > 0 && ui_stats.dirty_rows < 16);
+    assert!(ui_stats.ansi.contains("FastMode"));
+    assert!(ui_stats.ansi.contains("DeepMode"));
+
+    // Unknown frame kind returns Ok(false) without marking dirty
+    let unknown_frame = br#"{"kind":"paint_init"}"#;
+    assert_eq!(app.apply_down_frame(unknown_frame), Ok(false));
+    assert!(!app.dirty);
+}

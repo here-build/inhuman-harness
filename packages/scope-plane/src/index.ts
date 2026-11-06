@@ -27,18 +27,16 @@ export {
   type TableName,
 } from "./schema.js";
 
-export {
-  HARNESS_TABLE_NAMES,
+export type {
+  DatabaseCommitEvent,
+  DatabaseCommitListener,
   HarnessDatabase,
-  harnessSchema,
-  type DatabaseCommitEvent,
-  type DatabaseCommitListener,
-  type HarnessDatabaseOptions,
-  type HarnessDrizzleTx,
-  type HarnessSchema,
-  type HarnessTableName,
+  HarnessDatabaseOptions,
+  HarnessDrizzleTx,
+  HarnessSchema,
+  HarnessTableName,
 } from "./sqlite-database.js";
 
-export { LANE_PRIMARY_KEYS, LANE_SOURCE_TABLES, UpdateLaneHub } from "./lane-server.js";
+export type { UpdateLaneHub } from "./lane-server.js";
 
 export { LiveShape, createLocalShapeTransport, type LiveShapeOptions, type ShapeTransport } from "./live-shape.js";

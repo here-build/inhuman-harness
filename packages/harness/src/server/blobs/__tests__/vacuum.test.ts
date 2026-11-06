@@ -27,7 +27,7 @@ import {
   storedBlobJson,
 } from "@inhuman.tools/harness-model";
 import { encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
-import { HarnessDatabase } from "@inhuman.tools/scope-plane";
+import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
 import { describe, expect, it } from "vitest";
 
 import { projectHistory } from "@/context";

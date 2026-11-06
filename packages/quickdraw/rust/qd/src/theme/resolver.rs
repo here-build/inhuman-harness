@@ -283,6 +283,41 @@ pub fn resolve_style(style: &StyleIntent, ctx: &ResolveCtx<'_>) -> StyleIntent {
     out
 }
 
+/// Resolve a perceptual [`StyleIntent`] against `theme` and `ctx` directly into a `ratatui::style::Style`.
+pub fn resolve_ratatui_style(
+    theme: &Theme,
+    intent: &StyleIntent,
+    ctx: &ResolveCtx<'_>,
+) -> ratatui::style::Style {
+    let resolve_ctx = ResolveCtx {
+        theme,
+        depth: ctx.depth,
+        region_prominence: ctx.region_prominence,
+    };
+    let resolved = resolve_style(intent, &resolve_ctx);
+    let qd_style = crate::buffer::Style {
+        bold: resolved.bold,
+        dim: resolved.dim.unwrap_or(false),
+        strike: resolved.strike,
+        italic: resolved.italic,
+        underline: resolved.underline,
+        fg: resolved.fg.map(f64::from),
+        fg_rgb: resolved.fg_rgb.map(|rgb| crate::buffer::Rgb {
+            r: f64::from(rgb.r),
+            g: f64::from(rgb.g),
+            b: f64::from(rgb.b),
+        }),
+        bg: resolved.bg.map(f64::from),
+        bg_rgb: resolved.bg_rgb.map(|rgb| crate::buffer::Rgb {
+            r: f64::from(rgb.r),
+            g: f64::from(rgb.g),
+            b: f64::from(rgb.b),
+        }),
+        ..crate::buffer::Style::default()
+    };
+    crate::bridge::qd_style_to_ratatui(&qd_style)
+}
+
 fn indexed_rgb(index: u16) -> Rgb {
     if index <= 15 {
         ansi16_to_rgb(u8::try_from(index).expect("ansi index <= 15 fits u8"))

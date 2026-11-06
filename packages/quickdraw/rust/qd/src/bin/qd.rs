@@ -14,19 +14,27 @@
 //! static bytes from a published fd and `_exit`s.
 
 use std::cell::UnsafeCell;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::mem::MaybeUninit;
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use qd::capabilities::THEME_REPORT_DISABLE;
+use ratatui::buffer::Buffer as RatatuiBuffer;
+use ratatui::layout::Rect;
+use serde::Serialize;
+
+use qd::capabilities::{ENTER_BYTES, EXIT_BYTES, THEME_REPORT_DISABLE};
+use qd::decode::{consume_keys, flush_pending_esc, layout_table, normalize_paste, InputEvent};
 use qd::paint_replica::{PaintReplica, ReplicaNote};
-use qd::present::{exit_bytes, present_env_from, Down, Present, PresentOpts, Up};
 use qd::stderr_hold::StderrHold;
 use qd::syntax;
+use qd::widgets::app::RatatuiApp;
+use qd::EmitAnsiOpts;
 
 const FRAME_CAP: u32 = 32 * 1024 * 1024;
+const ESC_QUIET_MS: u64 = 30;
 
 /// Published for the handler. The bytes it writes are [`exit_bytes`] and
 /// [`THEME_REPORT_DISABLE`], which are static. Only the fd and the cooked
@@ -93,7 +101,7 @@ fn claim_published() -> Claim {
 fn apply_reset(fd: i32, original: &libc::termios) {
     clear_nonblock(fd);
     write_all_raw(fd, THEME_REPORT_DISABLE.as_bytes());
-    write_all_raw(fd, exit_bytes().as_bytes());
+    write_all_raw(fd, EXIT_BYTES.as_bytes());
     tcsetattr_retry(fd, original);
 }
 
@@ -218,8 +226,7 @@ fn main() -> ExitCode {
     }
 }
 
-/// Ctrl+V. Bracketed paste does not need this. An empty read falls through
-/// to the last selection inside present.
+/// Ctrl+V. Bracketed paste does not need this.
 fn read_system_clipboard() -> Option<String> {
     if !cfg!(target_os = "macos") {
         return None;
@@ -231,47 +238,165 @@ fn read_system_clipboard() -> Option<String> {
     String::from_utf8(out.stdout).ok()
 }
 
-fn dump_stdio() -> io::Result<ExitCode> {
-    let mut raw = String::new();
-    io::stdin().read_to_string(&mut raw)?;
-    match qd::dump(&raw) {
-        Ok(dump) => {
-            let mut out = io::stdout();
-            out.write_all(dump.json().as_bytes())?;
-            out.write_all(b"\n")?;
-            Ok(ExitCode::SUCCESS)
+fn unix_now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+        .unwrap_or(0)
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct WireKeyEvent {
+    key: String,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    ctrl: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    alt: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    shift: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    meta: bool,
+}
+
+impl WireKeyEvent {
+    fn bare(key: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            ctrl: false,
+            alt: false,
+            shift: false,
+            meta: false,
         }
-        Err(error) => {
-            writeln!(io::stderr(), "{error}")?;
-            Ok(ExitCode::from(1))
+    }
+
+    fn mods(key: impl Into<String>, shift: bool, alt: bool, ctrl: bool, meta: bool) -> Self {
+        Self {
+            key: key.into(),
+            ctrl,
+            alt,
+            shift,
+            meta,
         }
     }
 }
 
-fn run() -> io::Result<ExitCode> {
-    if std::env::args().nth(1).as_deref() == Some("dump") {
-        return dump_stdio();
+#[derive(Serialize)]
+struct InputEventsFrame<'a> {
+    kind: &'static str,
+    events: &'a [WireKeyEvent],
+}
+
+fn to_wire_key_event(event: &InputEvent) -> Option<WireKeyEvent> {
+    match event {
+        InputEvent::Char { ch } => Some(WireKeyEvent::bare(ch.clone())),
+        InputEvent::Enter {
+            shift,
+            alt,
+            ctrl,
+            meta,
+        } => Some(WireKeyEvent::mods("Enter", *shift, *alt, *ctrl, *meta)),
+        InputEvent::ShiftEnter => Some(WireKeyEvent::mods("Enter", true, false, false, false)),
+        InputEvent::Tab => Some(WireKeyEvent::bare("Tab")),
+        InputEvent::ShiftTab => Some(WireKeyEvent::mods("Tab", true, false, false, false)),
+        InputEvent::Esc {
+            shift,
+            alt,
+            ctrl,
+            meta,
+        } => Some(WireKeyEvent::mods("Escape", *shift, *alt, *ctrl, *meta)),
+        InputEvent::Backspace => Some(WireKeyEvent::bare("Backspace")),
+        InputEvent::Delete => Some(WireKeyEvent::bare("Delete")),
+        InputEvent::Up { select } => {
+            Some(WireKeyEvent::mods("ArrowUp", *select, false, false, false))
+        }
+        InputEvent::Down { select } => Some(WireKeyEvent::mods(
+            "ArrowDown",
+            *select,
+            false,
+            false,
+            false,
+        )),
+        InputEvent::Left { select } => Some(WireKeyEvent::mods(
+            "ArrowLeft",
+            *select,
+            false,
+            false,
+            false,
+        )),
+        InputEvent::Right { select } => Some(WireKeyEvent::mods(
+            "ArrowRight",
+            *select,
+            false,
+            false,
+            false,
+        )),
+        InputEvent::Home { select } => {
+            Some(WireKeyEvent::mods("Home", *select, false, false, false))
+        }
+        InputEvent::End { select } => Some(WireKeyEvent::mods("End", *select, false, false, false)),
+        InputEvent::WordLeft { select } => {
+            Some(WireKeyEvent::mods("ArrowLeft", *select, true, false, false))
+        }
+        InputEvent::WordRight { select } => Some(WireKeyEvent::mods(
+            "ArrowRight",
+            *select,
+            true,
+            false,
+            false,
+        )),
+        InputEvent::WordBackspace => {
+            Some(WireKeyEvent::mods("Backspace", false, true, false, false))
+        }
+        InputEvent::KillToStart => Some(WireKeyEvent::bare("KillLineStart")),
+        InputEvent::KillToEnd => Some(WireKeyEvent::bare("KillLineEnd")),
+        InputEvent::PageUp => Some(WireKeyEvent::bare("PageUp")),
+        InputEvent::PageDown => Some(WireKeyEvent::bare("PageDown")),
+        InputEvent::CtrlC => Some(WireKeyEvent::mods("c", false, false, true, false)),
+        InputEvent::CtrlX => Some(WireKeyEvent::mods("x", false, false, true, false)),
+        InputEvent::CtrlO => Some(WireKeyEvent::mods("o", false, false, true, false)),
+        InputEvent::CtrlV => {
+            let raw = read_system_clipboard()?;
+            let text = normalize_paste(&raw);
+            if text.is_empty() {
+                None
+            } else {
+                let encoded = serde_json::to_string(&text).ok()?;
+                Some(WireKeyEvent::bare(format!("Paste:{encoded}")))
+            }
+        }
+        InputEvent::Undo => Some(WireKeyEvent::bare("Undo")),
+        InputEvent::Redo => Some(WireKeyEvent::bare("Redo")),
+        InputEvent::SelectAll => Some(WireKeyEvent::bare("SelectAll")),
+        InputEvent::Paste { text } => {
+            let encoded = serde_json::to_string(text).ok()?;
+            Some(WireKeyEvent::bare(format!("Paste:{encoded}")))
+        }
+        InputEvent::FocusIn
+        | InputEvent::FocusOut
+        | InputEvent::Mouse { .. }
+        | InputEvent::Mod { .. }
+        | InputEvent::OscGround { .. }
+        | InputEvent::ThemeChanged => None,
     }
+}
+
+fn run() -> io::Result<ExitCode> {
     let mut terminal = Terminal::open()?;
-    let (cols, rows) = winsize(terminal.tty.as_fd()).unwrap_or((80, 24));
+    let (mut cols, mut rows) = winsize(terminal.tty.as_fd()).unwrap_or((80, 24));
+    cols = cols.max(1);
+    rows = rows.max(1);
     let mut tty_tail = Utf8Tail::default();
-    let mut present = Present::boot(PresentOpts {
-        cols,
-        rows,
-        tty: true,
-        env: present_env_from(|key| std::env::var(key).ok()),
-        layout_table: qd::decode::layout_table(std::env::var("QD_NO_LAYOUT_TABLE").ok().as_deref()),
-        ..PresentOpts::default()
-    });
-    present.set_clipboard_read(read_system_clipboard);
+    let mut decode_tail = String::new();
+    let mut last_byte_at = 0u64;
+    let table = layout_table(std::env::var("QD_NO_LAYOUT_TABLE").ok().as_deref());
     let mut replica = PaintReplica::new();
-    // resetAt is unix seconds. A clock from process start paints it as days since 1970.
-    write_tty(
-        terminal.tty.as_fd(),
-        &present
-            .paint_if_needed(qd::layout_chrome::unix_now_ms())
-            .bytes,
-    )?;
+    let cwd = std::env::current_dir()
+        .ok()
+        .and_then(|p| p.to_str().map(str::to_string))
+        .unwrap_or_default();
+    let mut ratatui_app = RatatuiApp::new("default", cwd);
+
+    write_tty(terminal.tty.as_fd(), ENTER_BYTES)?;
 
     let down = io::stdin();
     let mut up = io::stdout();
@@ -280,32 +405,71 @@ fn run() -> io::Result<ExitCode> {
     let mut pending = Vec::new();
     let mut scratch = [0u8; 8192];
     let mut saw_paint = false;
+    let mut ratatui_mode = false;
     let mut grammars = false;
-    let mut framed_cols = present.cols();
+    let mut paint_dirty = false;
+    let mut prev_buf: Option<RatatuiBuffer> = None;
+    let mut queued_events: Vec<WireKeyEvent> = Vec::new();
+    let mut quit_armed = false;
+
     loop {
-        let now = qd::layout_chrome::unix_now_ms();
-        if let Some((cols, rows)) = winsize(terminal.tty.as_fd()) {
-            present.push_resize(cols, rows);
+        let now = unix_now_ms();
+        if let Some((next_cols, next_rows)) = winsize(terminal.tty.as_fd()) {
+            let next_cols = next_cols.max(1);
+            let next_rows = next_rows.max(1);
+            if next_cols != cols || next_rows != rows {
+                cols = next_cols;
+                rows = next_rows;
+                prev_buf = None;
+                paint_dirty = true;
+                ratatui_app.mark_dirty();
+                if saw_paint || ratatui_mode {
+                    let msg = format!(r#"{{"kind":"resize","cols":{cols},"rows":{rows}}}"#);
+                    write_frame(&mut up, msg.as_bytes())?;
+                }
+            }
         }
-        let wait = live_wait(present.live_hz());
         poll_set(
             terminal.tty.as_fd(),
             down.as_fd(),
             terminal.stderr_hold.read_fd(),
-            wait,
+            50,
         )?;
         terminal.stderr_hold.drain()?;
         let n = read_fd(terminal.tty.as_fd(), &mut scratch)?;
+        let mut quit_now = false;
         if n > 0 {
             let text = tty_tail.take_valid(&scratch[..n]);
             if !text.is_empty() {
-                let pushed = present.push_input(&text, now);
-                if !pushed.immediate.is_empty() {
-                    write_tty(terminal.tty.as_fd(), &pushed.immediate)?;
+                let decoded = consume_keys(&text, &decode_tail, table);
+                decode_tail = decoded.pending;
+                last_byte_at = now;
+                for event in &decoded.events {
+                    if matches!(event, InputEvent::CtrlC) {
+                        if quit_armed {
+                            quit_now = true;
+                        } else {
+                            quit_armed = true;
+                        }
+                        continue;
+                    }
+                    quit_armed = false;
+                    if let Some(wire) = to_wire_key_event(event) {
+                        queued_events.push(wire);
+                    }
                 }
-                present.feed_probe(&text, now);
+            }
+        } else if decode_tail == "\u{1b}" && now.saturating_sub(last_byte_at) >= ESC_QUIET_MS {
+            let flushed = flush_pending_esc(&decode_tail);
+            decode_tail = flushed.pending;
+            for event in &flushed.events {
+                quit_armed = false;
+                if let Some(wire) = to_wire_key_event(event) {
+                    queued_events.push(wire);
+                }
             }
         }
+
         loop {
             let n = read_fd(down.as_fd(), &mut scratch)?;
             if n == 0 {
@@ -313,47 +477,77 @@ fn run() -> io::Result<ExitCode> {
             }
             pending.extend_from_slice(&scratch[..n]);
         }
-        let mut need_publish = false;
         while let Some(frame) = pop_frame(&mut pending)? {
-            let result = handle_down(&frame, &mut present, &mut replica, &terminal)?;
+            let result = handle_down(&frame, &mut replica, &mut ratatui_app, &terminal)?;
             match result {
                 DownResult::Shutdown => {
-                    restore(&mut terminal, &mut present)?;
+                    restore(&mut terminal)?;
                     return Ok(ExitCode::SUCCESS);
                 }
                 DownResult::Paint => {
                     saw_paint = true;
-                    need_publish = true;
+                    paint_dirty = true;
                 }
-                DownResult::Phase => need_publish = true,
+                DownResult::RatatuiPaint => {
+                    ratatui_mode = true;
+                }
+                DownResult::Phase => {
+                    paint_dirty = true;
+                }
                 DownResult::Ignore => {}
             }
         }
-        if need_publish {
-            publish(&mut present, &mut replica);
+
+        if (saw_paint || ratatui_mode) && !queued_events.is_empty() {
+            let batch = std::mem::take(&mut queued_events);
+            let payload = serde_json::to_string(&InputEventsFrame {
+                kind: "input_events",
+                events: &batch,
+            })
+            .expect("InputEventsFrame serializes");
+            write_frame(&mut up, payload.as_bytes())?;
         }
-        for message in present.take_posted() {
-            write_frame(&mut up, message_json(&message).as_bytes())?;
-        }
-        if present.quit_count() > 0 {
+
+        if quit_now {
             write_frame(&mut up, br#"{"kind":"quit"}"#)?;
-            restore(&mut terminal, &mut present)?;
+            restore(&mut terminal)?;
             return Ok(ExitCode::SUCCESS);
         }
-        // Place stretches the column. A speech rail keeps the cell width from the last frame, so the clock stays on the old edge until the tape is framed at the new cols.
-        if saw_paint && present.cols() != framed_cols {
-            publish(&mut present, &mut replica);
-            framed_cols = present.cols();
+
+        if ratatui_mode {
+            if ratatui_app.dirty {
+                let stats = ratatui_app.paint_ansi(cols, rows, true, false);
+                if !stats.ansi.is_empty() {
+                    write_tty(terminal.tty.as_fd(), &stats.ansi)?;
+                }
+            }
+            continue;
         }
-        let paint = present.paint_if_needed(now);
-        if !paint.bytes.is_empty() {
-            write_tty(terminal.tty.as_fd(), &paint.bytes)?;
+
+        if saw_paint && paint_dirty {
+            let area = Rect::new(0, 0, cols, rows);
+            let mut next_buf = RatatuiBuffer::empty(area);
+            replica.render_ratatui(area, &mut next_buf, now as f64);
+            let stats = qd::bridge::emit_ratatui_ansi(
+                &next_buf,
+                prev_buf.as_ref(),
+                &EmitAnsiOpts {
+                    sync2026: true,
+                    force_full: false,
+                },
+            );
+            prev_buf = Some(next_buf);
+            paint_dirty = false;
+            if !stats.ansi.is_empty() {
+                write_tty(terminal.tty.as_fd(), &stats.ansi)?;
+            }
         }
+
         if saw_paint && !grammars {
             grammars = true;
             if syntax::warm() {
                 replica.note_syntax_warm();
-                publish(&mut present, &mut replica);
+                paint_dirty = true;
             }
         }
     }
@@ -362,42 +556,63 @@ fn run() -> io::Result<ExitCode> {
 enum DownResult {
     Shutdown,
     Paint,
+    RatatuiPaint,
     Phase,
     Ignore,
 }
 
 fn handle_down(
     frame: &[u8],
-    present: &mut Present,
     replica: &mut PaintReplica,
+    ratatui_app: &mut RatatuiApp,
     terminal: &Terminal,
 ) -> io::Result<DownResult> {
     let text = std::str::from_utf8(frame)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    match top_kind(text) {
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Ok(DownResult::Ignore);
+    };
+    let kind = val.get("kind").and_then(|v| v.as_str());
+    match kind {
         Some("shutdown") => return Ok(DownResult::Shutdown),
         Some("title") => {
-            if let Some(title) = json_string_field(text, "text") {
-                terminal.set_title(&title)?;
+            if let Some(title) = val.get("text").and_then(|v| v.as_str()) {
+                terminal.set_title(title)?;
             }
             return Ok(DownResult::Ignore);
         }
         Some("phase") => {
             // Not a snapshot. Ignore keeps grammar load behind the first paint.
-            if let Some(phase) = json_string_field(text, "text") {
-                replica.set_phase(&phase);
+            if let Some(phase) = val.get("text").and_then(|v| v.as_str()) {
+                replica.set_phase(phase);
                 return Ok(DownResult::Phase);
             }
             return Ok(DownResult::Ignore);
+        }
+        Some("state_init") | Some("state_patch") | Some("ui_eval") => {
+            match ratatui_app.apply_down_frame(frame) {
+                Ok(true) => return Ok(DownResult::RatatuiPaint),
+                Ok(false) => return Ok(DownResult::Ignore),
+                Err(err) => {
+                    let reason = serde_json::to_string(&err)
+                        .unwrap_or_else(|_| "\"ratatui apply failed\"".to_string());
+                    write_frame(
+                        &mut io::stdout(),
+                        format!(r#"{{"kind":"failed","reason":{reason}}}"#).as_bytes(),
+                    )?;
+                    return Ok(DownResult::Shutdown);
+                }
+            }
         }
         Some("paint_init") | Some("paint_patch") => {
             replica.set_phase("");
         }
         _ => return Ok(DownResult::Ignore),
     }
-    let init = top_kind(text) == Some("paint_init");
+    let init = kind == Some("paint_init");
     if replica.apply(frame).is_err() {
-        let reason = json_string("paint apply failed");
+        let reason = serde_json::to_string("paint apply failed")
+            .unwrap_or_else(|_| "\"paint apply failed\"".to_string());
         write_frame(
             &mut io::stdout(),
             format!(r#"{{"kind":"failed","reason":{reason}}}"#).as_bytes(),
@@ -409,97 +624,12 @@ fn handle_down(
     } else {
         ReplicaNote::Patch
     });
-    if init {
-        present.push_down(vec![Down::PaintInit]);
-    }
     Ok(DownResult::Paint)
 }
 
-fn publish(present: &mut Present, replica: &mut PaintReplica) {
-    let width = i64::from(present.cols());
-    let rows = i64::from(present.rows());
-    if let Ok(node) = replica.frame(width) {
-        if let Some(face) = replica.composer_face() {
-            present.set_composer(face);
-        }
-        present.set_retained_scene(node);
-        present.set_seat_rim(replica.seat_rim());
-        present.set_agents_plaque(replica.agents_plaque());
-        present.set_agents_preview(replica.agents_preview_open());
-        present.set_preview_overlay(replica.preview_overlay(width, rows));
-    }
-}
-
-fn restore(terminal: &mut Terminal, present: &mut Present) -> io::Result<()> {
-    let _ = present.stop();
+fn restore(terminal: &mut Terminal) -> io::Result<()> {
     terminal.finish();
     terminal.stderr_hold.release()
-}
-
-fn live_wait(hz: u32) -> i32 {
-    if hz == 0 {
-        return 50;
-    }
-    let ms = 1000 / u64::from(hz.max(1));
-    i32::try_from(ms).unwrap_or(50).clamp(8, 250)
-}
-
-fn message_json(message: &Up) -> String {
-    qd::up_json(message)
-}
-
-fn json_string(text: &str) -> String {
-    let mut out = String::from("\"");
-    for ch in text.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            other if other.is_control() => out.push_str(&format!("\\u{:04x}", u32::from(other))),
-            other => out.push(other),
-        }
-    }
-    out.push('"');
-    out
-}
-
-fn top_kind(text: &str) -> Option<&str> {
-    let idx = text.find("\"kind\"")?;
-    let rest = text[idx + 6..].trim_start().strip_prefix(':')?.trim_start();
-    let rest = rest.strip_prefix('"')?;
-    let end = rest.find('"')?;
-    Some(&rest[..end])
-}
-
-fn json_string_field(text: &str, field: &str) -> Option<String> {
-    let needle = format!("\"{field}\"");
-    let idx = text.find(&needle)?;
-    let rest = text[idx + needle.len()..]
-        .trim_start()
-        .strip_prefix(':')?
-        .trim_start();
-    let rest = rest.strip_prefix('"')?;
-    let mut out = String::new();
-    let mut chars = rest.chars();
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            match chars.next() {
-                Some('n') => out.push('\n'),
-                Some('r') => out.push('\r'),
-                Some('t') => out.push('\t'),
-                Some(other) => out.push(other),
-                None => break,
-            }
-            continue;
-        }
-        if ch == '"' {
-            break;
-        }
-        out.push(ch);
-    }
-    Some(out)
 }
 
 fn pop_frame(pending: &mut Vec<u8>) -> io::Result<Option<Vec<u8>>> {

@@ -51,7 +51,7 @@ import {
   sessionUpdatesTable,
 } from "@inhuman.tools/harness-contract";
 import { DocumentContainer, encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
-import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane";
+import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane/sqlite";
 import type { SessionCheckpoint, SessionReceipt } from "@inhuman.tools/turn/session-runtime";
 import { eq } from "drizzle-orm";
 import fs from "fs-extra";

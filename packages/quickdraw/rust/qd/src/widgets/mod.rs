@@ -16,7 +16,8 @@ pub use composer::{
     ComposerReplicaWidget, ComposerState, ComposerWidget,
 };
 pub use drawer::{
-    AgentsPeekWidget, AgentsReplicaDrawerWidget, DrawerItem, DrawerKind, DrawerState, DrawerWidget,
+    AgentRow, AgentsPeekWidget, AgentsReplicaDrawerWidget, DrawerItem, DrawerKind, DrawerState,
+    DrawerWidget,
 };
 pub use pierre_diff::PierreDiffWidget;
 pub use speech::{
@@ -25,7 +26,10 @@ pub use speech::{
     ReplicaThinkingWidget, SpeechRole, SpeechWidget, ThinkingBlock,
 };
 pub use statusline::{StatuslineReplicaWidget, StatuslineWidget};
-pub use tape::{RewindPinsWidget, TapeRole, TapeState, TapeTurnItem, TapeWidget, WaitPinWidget};
+pub use tape::{
+    compact_pin_draft, RewindPin, RewindPinsWidget, TapeRole, TapeState, TapeTurnItem, TapeWidget,
+    WaitPinWidget,
+};
 pub use toast::{ToastKind, ToastPlacement, ToastWidget};
 pub use work_cell::{
     ReplicaWorkCellItem, ReplicaWorkCellWidget, WorkCellKind, WorkCellState, WorkCellStatus,

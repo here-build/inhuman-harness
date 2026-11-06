@@ -3,7 +3,7 @@
 //! Commit writes through [`crate::draft::apply_draft_op`]. The result is a
 //! [`crate::draft::DraftState`], the same caret the echo already paints.
 
-pub use crate::draft::{apply_draft_op, DraftOp, DraftState};
+pub use crate::draft::{apply_draft_op, utf16_index, DraftOp, DraftState};
 
 /// One catalog row. `name` is the verb without a required leading slash.
 #[derive(Clone, Debug, PartialEq, Eq)]

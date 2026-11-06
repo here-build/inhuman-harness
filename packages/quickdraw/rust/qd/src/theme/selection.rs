@@ -40,13 +40,13 @@ pub fn selection_recolor_rgb(rgb: Rgb, ground: f64, shift: Option<f64>) -> Rgb {
     hex_to_rgb(&oklch_to_hex(new_l, o.c, o.h))
 }
 
-pub(crate) fn selection_fill_rgb(ground: f64) -> Rgb {
+pub fn selection_fill_rgb(ground: f64) -> Rgb {
     let al = selection_fill_target_al(ground);
     let l = solve_lightness(al, SELECTION_FILL_CHROMA, SELECTION_FILL_HUE);
     hex_to_rgb(&oklch_to_hex(l, SELECTION_FILL_CHROMA, SELECTION_FILL_HUE))
 }
 
-pub(crate) fn selection_recolor_bg_rgb(rgb: Rgb, ground: f64) -> Rgb {
+pub fn selection_recolor_bg_rgb(rgb: Rgb, ground: f64) -> Rgb {
     let shift = SELECTION_BG_SHIFT;
     let t = shift.min(1.0);
     let o = rgb_to_oklch(f64::from(rgb.r), f64::from(rgb.g), f64::from(rgb.b));

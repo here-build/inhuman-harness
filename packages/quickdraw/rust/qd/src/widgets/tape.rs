@@ -6,8 +6,36 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget};
 
-use crate::drawers::{compact_pin_draft, RewindPin};
 use crate::widgets::speech::format_duration_compact;
+
+/// One rewind neighbor the host already chose.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RewindPin {
+    pub key: String,
+    pub text: String,
+}
+
+/// First line, collapsed spaces. A multiline prompt keeps an ellipsis.
+pub fn compact_pin_draft(prompt: &str) -> String {
+    let first = prompt.split('\n').next().unwrap_or("");
+    let mut collapsed = String::new();
+    let mut gap = false;
+    for ch in first.chars() {
+        if ch.is_whitespace() {
+            gap = !collapsed.is_empty();
+            continue;
+        }
+        if gap {
+            collapsed.push(' ');
+            gap = false;
+        }
+        collapsed.push(ch);
+    }
+    if prompt.contains('\n') {
+        collapsed.push('…');
+    }
+    collapsed
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TapeRole {

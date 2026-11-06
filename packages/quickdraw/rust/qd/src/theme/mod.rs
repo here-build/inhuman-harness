@@ -38,8 +38,8 @@ pub use ansi256::{ansi256_to_rgb, nearest_ansi256, nearest_ansi256_from_rgb};
 pub use ground::ground_from_rgb;
 pub use lexicon::{BgP, FgP, Oklch, Polarity, Rgb, Role, Tier};
 pub use resolver::{
-    make_style_resolver, resolve_style, ResolveCtx, StyleIntent, StyleResolver,
-    BOLD_AL_COMPENSATION,
+    make_style_resolver, resolve_ratatui_style, resolve_style, ResolveCtx, StyleIntent,
+    StyleResolver, BOLD_AL_COMPENSATION,
 };
 pub use salience::{
     apparent_lightness, fit_oklch_to_srgb, hex_to_oklch, hex_to_rgb, hk_compensation, hue_factor,
@@ -47,9 +47,9 @@ pub use salience::{
     tier_target, Seed, SolveOpts, HK_K, REFERENCE_GROUND,
 };
 pub use seeds::{seed_hue_rgb, DEFAULT_SEEDS};
-pub(crate) use selection::{selection_fill_rgb, selection_recolor_bg_rgb};
 pub use selection::{
-    selection_fill_target_al, selection_recolor_rgb, selection_target_al, SELECTION_FILL_AL_DELTA,
-    SELECTION_FILL_CHROMA, SELECTION_FILL_HUE, SELECTION_SHIFT,
+    selection_fill_rgb, selection_fill_target_al, selection_recolor_bg_rgb, selection_recolor_rgb,
+    selection_target_al, SELECTION_FILL_AL_DELTA, SELECTION_FILL_CHROMA, SELECTION_FILL_HUE,
+    SELECTION_SHIFT,
 };
 pub use theme::{build_theme, default_theme, BuildThemeOpts, Theme};

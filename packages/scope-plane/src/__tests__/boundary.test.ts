@@ -165,6 +165,11 @@ describe("scope tree boundary", () => {
       if (banned != null) violations.push(`${hit.file} imports ${hit.specifier}`);
     }
 
+    const rootIndex = await readFile(join(repo, "packages/scope-plane/src/index.ts"), "utf8");
+    if (/export\s+(?!type\b)[^;]*from\s+["']\.\/(sqlite-database|lane-server)\.js["']/.test(rootIndex)) {
+      violations.push("packages/scope-plane/src/index.ts re-exports runtime SQLite modules into browser entry point");
+    }
+
     expect(violations).toEqual([]);
   });
 });
