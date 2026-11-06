@@ -123,7 +123,6 @@ impl Widget for SpeechWidget {
 
         let mut y = area.top();
 
-        // 1. Thinking block
         if let Some(thinking) = &self.thinking {
             if y < area.bottom() {
                 let arrow = if thinking.collapsed { "▶" } else { "▼" };
@@ -157,7 +156,6 @@ impl Widget for SpeechWidget {
             }
         }
 
-        // 2. Recall block
         if let Some(recall) = &self.recall {
             if y < area.bottom() {
                 let text = format!("  [Recall: {} (keys: {})]", recall.summary, recall.keys.join(", "));
@@ -172,7 +170,6 @@ impl Widget for SpeechWidget {
             }
         }
 
-        // 3. Speech content lines with left rail
         let content_width = area.width.saturating_sub(self.rail_width) as usize;
         let mut first = true;
         for raw_line in self.content.lines() {
@@ -197,7 +194,6 @@ impl Widget for SpeechWidget {
             y += 1;
         }
 
-        // 4. Hotkeys bar at bottom
         if !self.hotkeys.is_empty() && y < area.bottom() {
             let mut hotkey_spans = Vec::new();
             hotkey_spans.push(Span::raw("  "));
@@ -211,7 +207,7 @@ impl Widget for SpeechWidget {
                 ));
                 hotkey_spans.push(Span::raw(" "));
                 hotkey_spans.push(Span::styled(
-                    label.clone(),
+                    label.as_str(),
                     Style::default().fg(Color::DarkGray),
                 ));
             }

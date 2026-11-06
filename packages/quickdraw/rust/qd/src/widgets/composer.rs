@@ -136,7 +136,6 @@ impl StatefulWidget for ComposerWidget {
             return;
         }
 
-        // 1. If Ask Approval Cover is active, render modal prompt over composer
         if let Some(ask) = &state.ask_approval_cover {
             Clear.render(area, buf);
             let block = Block::default()
@@ -176,7 +175,6 @@ impl StatefulWidget for ComposerWidget {
             return;
         }
 
-        // 2. Normal Composer box
         let block = Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
@@ -227,13 +225,11 @@ impl StatefulWidget for ComposerWidget {
                 cur_x += w;
             }
 
-            // Draw cursor at end of text if active
             if state.cursor >= graphemes.len() && state.selection_anchor.is_none() && cur_x < inner.right() {
                 buf.get_mut(cur_x, inner.top()).set_symbol(" ").set_style(Style::default().add_modifier(Modifier::REVERSED));
             }
         }
 
-        // 3. /command completion popup overlay
         if state.command_picker_open && !self.commands.is_empty() {
             let filter = state.text.trim_start_matches('/');
             let matching: Vec<&ComposerCommand> = self

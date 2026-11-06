@@ -37,6 +37,14 @@ pub struct SessionSummaryRow {
     pub archived_at_ms: Option<i64>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum PendingAskKind {
+    #[default]
+    Ask,
+    Ack,
+}
+
 /// Pending ask row matching `pending_asks` lane and table.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -47,7 +55,7 @@ pub struct PendingAskRow {
     pub session_id: String,
     #[serde(alias = "turn_id")]
     pub turn_id: String,
-    pub kind: String, // "ask" | "ack"
+    pub kind: PendingAskKind,
     pub object: String,
     pub summary: String,
     #[serde(default, alias = "created_at_ms")]

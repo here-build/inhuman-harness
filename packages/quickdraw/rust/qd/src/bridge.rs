@@ -110,9 +110,7 @@ pub fn qd_style_to_ratatui(style: &QdStyle) -> ratatui::style::Style {
     r_style
 }
 
-/// Convert a `ratatui::buffer::Buffer` to `qd::buffer::Buffer`.
-pub fn ratatui_to_qd_buffer(src: &ratatui::buffer::Buffer) -> QdBuffer {
-    let mut dst = create_buffer(src.area.width as usize, src.area.height as usize);
+fn copy_ratatui_to_qd(src: &ratatui::buffer::Buffer, dst: &mut QdBuffer) {
     for y in 0..src.area.height {
         for x in 0..src.area.width {
             let cell = src.get(src.area.x + x, src.area.y + y);
@@ -123,7 +121,7 @@ pub fn ratatui_to_qd_buffer(src: &ratatui::buffer::Buffer) -> QdBuffer {
                 sub_modifier: Modifier::empty(),
             });
             put(
-                &mut dst,
+                dst,
                 x as isize,
                 y as isize,
                 &cell.symbol,
@@ -131,6 +129,12 @@ pub fn ratatui_to_qd_buffer(src: &ratatui::buffer::Buffer) -> QdBuffer {
             );
         }
     }
+}
+
+/// Convert a `ratatui::buffer::Buffer` to `qd::buffer::Buffer`.
+pub fn ratatui_to_qd_buffer(src: &ratatui::buffer::Buffer) -> QdBuffer {
+    let mut dst = create_buffer(src.area.width as usize, src.area.height as usize);
+    copy_ratatui_to_qd(src, &mut dst);
     dst
 }
 
@@ -160,25 +164,7 @@ pub fn render_widget_to_qd<W: Widget>(widget: W, qd_buf: &mut QdBuffer) {
     let area = Rect::new(0, 0, qd_buf.width() as u16, qd_buf.height() as u16);
     let mut r_buf = ratatui::buffer::Buffer::empty(area);
     widget.render(area, &mut r_buf);
-
-    for y in 0..area.height {
-        for x in 0..area.width {
-            let cell = r_buf.get(x, y);
-            let style = ratatui_style_to_qd(ratatui::style::Style {
-                fg: Some(cell.fg),
-                bg: Some(cell.bg),
-                add_modifier: cell.modifier,
-                sub_modifier: Modifier::empty(),
-            });
-            put(
-                qd_buf,
-                x as isize,
-                y as isize,
-                &cell.symbol,
-                &style,
-            );
-        }
-    }
+    copy_ratatui_to_qd(&r_buf, qd_buf);
 }
 
 /// Render any `ratatui` stateful widget directly into a `qd::buffer::Buffer`.
@@ -190,25 +176,7 @@ pub fn render_stateful_widget_to_qd<W: StatefulWidget>(
     let area = Rect::new(0, 0, qd_buf.width() as u16, qd_buf.height() as u16);
     let mut r_buf = ratatui::buffer::Buffer::empty(area);
     widget.render(area, &mut r_buf, state);
-
-    for y in 0..area.height {
-        for x in 0..area.width {
-            let cell = r_buf.get(x, y);
-            let style = ratatui_style_to_qd(ratatui::style::Style {
-                fg: Some(cell.fg),
-                bg: Some(cell.bg),
-                add_modifier: cell.modifier,
-                sub_modifier: Modifier::empty(),
-            });
-            put(
-                qd_buf,
-                x as isize,
-                y as isize,
-                &cell.symbol,
-                &style,
-            );
-        }
-    }
+    copy_ratatui_to_qd(&r_buf, qd_buf);
 }
 
 /// Emit ANSI sequence directly from a `ratatui::buffer::Buffer` using `qd::emit_ansi_detailed`.

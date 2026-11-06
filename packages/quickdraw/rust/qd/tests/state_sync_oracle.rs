@@ -1,7 +1,9 @@
 //! Oracle tests for LiveShape lanes, session document patch replica, and wire codecs.
 
 use qd::state::session::{EntityNode, ModelPatchOp, SessionDocumentState};
-use qd::state::shapes::{KernelRow, LiveShape, PendingAskRow, SessionSummaryRow, ShapeFrame};
+use qd::state::shapes::{
+    KernelRow, LiveShape, PendingAskKind, PendingAskRow, SessionSummaryRow, ShapeFrame,
+};
 use qd::state::sync::{
     decode_wire_frame, encode_wire_frame, RpcNotification, RpcRequest, RpcResponse, WireFrame,
     MESSAGE_AWARENESS, MESSAGE_QUERY_AWARENESS, MESSAGE_SHAPE, MESSAGE_SYNC,
@@ -111,6 +113,7 @@ fn test_contract_rows_json_deserialization() {
     let ask: PendingAskRow = serde_json::from_str(json_ask).expect("deserializes PendingAskRow");
     assert_eq!(ask.job_id, "job-101");
     assert_eq!(ask.session_id, "s-42");
+    assert_eq!(ask.kind, PendingAskKind::Ask);
     assert_eq!(ask.summary, "Write src/app.ts");
 
     let json_kernel = r#"{

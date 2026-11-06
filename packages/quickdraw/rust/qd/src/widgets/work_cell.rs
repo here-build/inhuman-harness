@@ -147,12 +147,11 @@ impl StatefulWidget for WorkCellWidget {
 
         let mut y = area.top();
 
-        // 1. Header line with quarter block rule ▌
         let mut header_spans = vec![
             Span::styled("▌ ", rule_style),
             Span::styled(format!("{arrow} {} ", self.kind.sigil()), Style::default().add_modifier(Modifier::BOLD)),
             Span::styled(format!("{}: ", self.kind.label()), Style::default().fg(Color::DarkGray)),
-            Span::styled(self.name.clone(), Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(self.name.as_str(), Style::default().add_modifier(Modifier::BOLD)),
             Span::raw("  "),
             self.status.badge(),
         ];
@@ -171,18 +170,16 @@ impl StatefulWidget for WorkCellWidget {
             return;
         }
 
-        // 2. Input summary row (if expanded)
         if !self.input_summary.is_empty() {
             let input_line = Line::from(vec![
                 Span::styled("▌ ", rule_style),
                 Span::styled("  arg: ", Style::default().fg(Color::DarkGray)),
-                Span::styled(self.input_summary.clone(), Style::default().fg(Color::Cyan)),
+                Span::styled(self.input_summary.as_str(), Style::default().fg(Color::Cyan)),
             ]);
             buf.set_line(area.left(), y, &input_line, area.width);
             y += 1;
         }
 
-        // 3. Output lines
         for out in &self.output_lines {
             if y >= area.bottom() {
                 break;
@@ -190,13 +187,12 @@ impl StatefulWidget for WorkCellWidget {
             let out_line = Line::from(vec![
                 Span::styled("▌ ", rule_style),
                 Span::styled("  ", Style::default()),
-                Span::styled(out.clone(), Style::default().fg(Color::Gray)),
+                Span::styled(out.as_str(), Style::default().fg(Color::Gray)),
             ]);
             buf.set_line(area.left(), y, &out_line, area.width);
             y += 1;
         }
 
-        // 4. Streaming spinner indicator if still running
         if self.streaming && y < area.bottom() {
             let stream_line = Line::from(vec![
                 Span::styled("▌ ", rule_style),

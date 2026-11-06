@@ -45,7 +45,6 @@ impl Widget for PierreDiffWidget {
                 break;
             }
 
-            // File header
             let header = format!("diff: {}", file.name);
             buf.set_stringn(
                 area.left(),
@@ -61,7 +60,6 @@ impl Widget for PierreDiffWidget {
                     break;
                 }
 
-                // Hunk header
                 let hunk_hdr = format!(
                     "@@ -{},{} +{},{} @@",
                     hunk.deletion_start, hunk.deletion_count, hunk.addition_start, hunk.addition_count
@@ -95,7 +93,7 @@ impl Widget for PierreDiffWidget {
                                 };
                                 let spans = vec![
                                     Span::styled(gutter, Style::default().fg(Color::DarkGray)),
-                                    Span::styled(line.clone(), Style::default().fg(Color::Gray)),
+                                    Span::styled(line.as_str(), Style::default().fg(Color::Gray)),
                                 ];
                                 buf.set_line(area.left(), y, &Line::from(spans), area.width);
                                 old_num += 1;
@@ -119,7 +117,7 @@ impl Widget for PierreDiffWidget {
                                 let spans = vec![
                                     Span::styled(gutter, Style::default().fg(Color::Red)),
                                     Span::styled(
-                                        del.clone(),
+                                        del.as_str(),
                                         Style::default().fg(Color::LightRed),
                                     ),
                                 ];
@@ -139,7 +137,7 @@ impl Widget for PierreDiffWidget {
                                 let spans = vec![
                                     Span::styled(gutter, Style::default().fg(Color::Green)),
                                     Span::styled(
-                                        add.clone(),
+                                        add.as_str(),
                                         Style::default().fg(Color::LightGreen),
                                     ),
                                 ];

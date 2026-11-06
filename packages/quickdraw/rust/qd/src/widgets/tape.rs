@@ -130,7 +130,6 @@ impl StatefulWidget for TapeWidget {
             return;
         }
 
-        // Flatten all turns with role headers / dividers into display lines
         struct DisplayRow {
             line: Line<'static>,
             is_selected: bool,
@@ -143,7 +142,6 @@ impl StatefulWidget for TapeWidget {
                     .selected_range
                     .map_or(false, |(start, end)| idx >= start && idx <= end);
 
-            // Role header line
             let role_badge = match turn.role {
                 TapeRole::User => Span::styled("❯ User", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
                 TapeRole::Assistant => Span::styled("● Assistant", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
@@ -159,7 +157,6 @@ impl StatefulWidget for TapeWidget {
                 is_selected,
             });
 
-            // Turn content lines
             for l in &turn.lines {
                 display_rows.push(DisplayRow {
                     line: l.clone(),
@@ -167,7 +164,6 @@ impl StatefulWidget for TapeWidget {
                 });
             }
 
-            // Divider between turns
             if idx + 1 < self.turns.len() {
                 let div_str = "─".repeat(area.width as usize);
                 display_rows.push(DisplayRow {
@@ -193,7 +189,6 @@ impl StatefulWidget for TapeWidget {
             area.width
         };
 
-        // Render viewport slice
         for (i, row) in display_rows
             .into_iter()
             .skip(state.scroll_offset)
@@ -209,7 +204,6 @@ impl StatefulWidget for TapeWidget {
             buf.set_line(area.left(), y, &row.line, content_width);
         }
 
-        // Render scrollbar
         if self.show_scrollbar && total_lines > viewport_height {
             let mut sb_state = ScrollbarState::new(total_lines)
                 .position(state.scroll_offset)

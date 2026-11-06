@@ -150,7 +150,6 @@ impl StatefulWidget for DrawerWidget {
 
         let mut row_y = inner.top();
 
-        // Filter line if any query
         if !state.filter_query.is_empty() {
             let filter_line = Line::from(vec![
                 Span::styled("filter: ", Style::default().fg(Color::DarkGray)),
@@ -160,7 +159,6 @@ impl StatefulWidget for DrawerWidget {
             row_y += 1;
         }
 
-        // Filter items
         let filtered: Vec<&DrawerItem> = self
             .items
             .iter()
