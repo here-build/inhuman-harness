@@ -1,5 +1,4 @@
 import { exec } from "@here.build/arrival";
-import { PlexusAwareness } from "@here.build/plexus";
 import { defaultCommands } from "@inhuman.tools/harness/testkit";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
@@ -20,11 +19,10 @@ import {
   SessionPlexus,
   steerFirstQueued,
 } from "@inhuman.tools/harness-model";
-import { forwardPlexusAwareness, ingestPlexusAwareness } from "@inhuman.tools/harness-peer/awareness";
+import { forwardPlexusAwareness, ingestPlexusAwareness, PlexusAwareness } from "@inhuman.tools/harness-peer/awareness";
 import { Client, ProjectPlexus } from "@inhuman.tools/harness-sdk";
 import { ConnectionSpec, DriverSpec, reportRole, revalidationDemandOf } from "@inhuman.tools/plexus-expectations";
 import { expect, test, vi } from "vitest";
-import * as Y from "yjs";
 
 import { imageCapability } from "../../interpreter/imageCapability.js";
 import { uiCapability, UiNode } from "../../interpreter/uiCapability.js";
@@ -860,7 +858,7 @@ test("Tea /new with another window on the session does not cancel the shared tur
     prompt: prompt.user`hi`,
   });
   publishKernelSeat(shared.kernelPlexus.awareness, shared.sessionId);
-  const peer = new PlexusAwareness(new Y.Doc());
+  const peer = new PlexusAwareness();
   const stop = forwardPlexusAwareness(peer, (frame) => ingestPlexusAwareness(shared.kernelPlexus.awareness, frame));
   publishKernelSeat(peer, shared.sessionId);
   using tea = new Tea(shared, () => undefined, {

@@ -474,6 +474,7 @@ enum Token {
     HardBreak,
     Paragraph(Vec<Token>),
     Heading {
+        #[allow(dead_code)]
         level: u8,
         inline: Vec<Token>,
     },

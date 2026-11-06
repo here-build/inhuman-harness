@@ -11,6 +11,7 @@
 //! command after the bash tokens exist.
 
 pub mod birth;
+pub mod bridge;
 mod buffer;
 pub mod capabilities;
 pub mod composer_command;
@@ -35,10 +36,12 @@ mod pierre;
 pub mod present;
 mod present_dump;
 mod selection_host;
+pub mod state;
 pub mod stderr_hold;
 pub mod syntax;
 mod syntax_diff;
 pub mod theme;
+pub mod widgets;
 
 pub use buffer::{
     clone_buffer, create_buffer, dirty_rows, emit_ansi, emit_ansi_detailed, guard_content, put,

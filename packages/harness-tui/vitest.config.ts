@@ -4,11 +4,10 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dedupe = ["yjs", "@here.build/plexus", "@here.build/arrival"];
+const dedupe = ["@inhuman.tools/model", "@here.build/arrival"];
 
 function packageResolve() {
   return {
-    // SessionTurn extends Job (jobs dist → plexus). One Y.Doc constructor.
     dedupe,
   };
 }

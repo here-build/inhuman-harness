@@ -38,6 +38,7 @@
     "@inhuman.tools/harness-peer": "workspace:^",
     "@inhuman.tools/harness-scheme": "workspace:^",
     "@inhuman.tools/harness-sdk": "workspace:^",
+    "@inhuman.tools/model": "workspace:^",
     "@inhuman.tools/plexus-expectations": "workspace:^",
     "@inhuman.tools/policy": "workspace:^",
     "@inhuman.tools/quickdraw": "workspace:*",
@@ -55,7 +56,6 @@
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
-    "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/harness": "workspace:^",
     "@inhuman.tools/harness-commons": "workspace:^",
     "@types/node": "^24.19.2",
@@ -66,8 +66,7 @@
     "pngjs": "7.0.0",
     "tsx": "^4.23.15",
     "typescript": "6.0.3",
-    "vitest": "5.0.5",
-    "yjs": "13.6.33"
+    "vitest": "5.0.5"
   },
   "license": "MIT",
   "repository": {

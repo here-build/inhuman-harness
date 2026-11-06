@@ -889,8 +889,8 @@ describe("work cells", () => {
 
   it("shell cwd is the line after the call, not a right column", () => {
     const command = "node --input-type=module -e '\nimport { readFileSync } from \"node:fs\";'";
-    const cwd = "packages/harness-yjs-server";
-    const token = "./packages/harness-yjs-server";
+    const cwd = "packages/harness-daemon";
+    const token = "./packages/harness-daemon";
     const shell = (description?: string, collapsed = false) =>
       workDisclosure(
         workCellFace(
