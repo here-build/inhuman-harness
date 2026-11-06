@@ -12,7 +12,7 @@ export type DocumentCheckpoint = {
   readonly key: DocumentKey;
   readonly serverEpoch: number;
   readonly revision: number;
-  /** Yjs state vector of the covered prefix — not a durability receipt. */
+  /** State vector of the covered prefix — not a durability receipt. */
   readonly stateVector: Uint8Array;
 };
 
