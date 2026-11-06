@@ -102,7 +102,7 @@ export interface SerializedDocumentNode {
 export interface SerializedDocument {
   readonly revision: number;
   readonly root: SerializedDocumentNode;
-  readonly meta?: Record<string, Record<string, string>>;
+  readonly meta?: Record<string, Record<string, unknown>>;
 }
 
 export interface ModelOptions<TIgnored extends readonly string[] = readonly string[]> {

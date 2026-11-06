@@ -5,9 +5,12 @@
  * and the compaction transcript read by value. Each entity is one update, and a second run finds nothing.
  */
 import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
+import { sessionBlobsTable, sessionsTable } from "@inhuman.tools/harness-contract";
 import {
   AgentCallJob,
   BLOB_HEAD_CHARS,
@@ -23,12 +26,13 @@ import {
   SessionTurn,
   storedBlobJson,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
+import { encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
+import { HarnessDatabase } from "@inhuman.tools/scope-plane";
+import { describe, expect, it } from "vitest";
 
 import { projectHistory } from "@/context";
 
-import { vacuumSession, type BlobPut } from "../vacuum.js";
+import { vacuumDatabaseBlobs, vacuumSession, type BlobPut } from "../vacuum.js";
 
 const sha256Of = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
@@ -156,8 +160,6 @@ function stored() {
   };
 }
 
-beforeEach(() => resetLocalIDs());
-
 describe("vacuumSession", () => {
   it("counts what would move on a dry run and changes nothing", () => {
     const { plexus, bigPrior, summarizer, pasted, orphanBefore } = stored();
@@ -165,13 +167,13 @@ describe("vacuumSession", () => {
       const bucket = memoryBucket();
       const updates: number[] = [];
       plexus.doc.on("update", (update: Uint8Array) => updates.push(update.byteLength));
-      const before = Y.encodeStateAsUpdate(plexus.doc).byteLength;
+      const before = encodeDocumentStateAsUpdate(plexus.doc).byteLength;
       const counts = vacuumSession(plexus.root, bucket.put, { dryRun: true, read: bucket.read });
       expect({
         counts,
         puts: bucket.puts.length,
         updates: updates.length,
-        grew: Y.encodeStateAsUpdate(plexus.doc).byteLength - before,
+        grew: encodeDocumentStateAsUpdate(plexus.doc).byteLength - before,
         prior: bigPrior.priorContent === PRIOR,
         promptText: summarizer.promptText === TRANSCRIPT,
         message: summarizer.promptMessages[1]?.content === TRANSCRIPT,
@@ -286,19 +288,23 @@ describe("vacuumSession", () => {
     const { plexus } = stored();
     try {
       const bucket = memoryBucket();
-      const before = Y.encodeStateAsUpdate(plexus.doc).byteLength;
+      const before = encodeDocumentStateAsUpdate(plexus.doc).byteLength;
       const first = vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
-      const after = Y.encodeStateAsUpdate(plexus.doc).byteLength;
+      const after = encodeDocumentStateAsUpdate(plexus.doc).byteLength;
       const second = vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
-      // The running round, the agent call and the pasted line keep 300 000 characters; the other 279 000 are gone.
+      // The running round, the agent call and the pasted line keep 300 000 characters.
+      // The tree from root shrinks by priorContent (9 000) and 2x TRANSCRIPT (240 000).
+      const reachableMoved = Buffer.byteLength(PRIOR) + 2 * Buffer.byteLength(TRANSCRIPT);
       expect({
-        shrank: before - after > first.bytesMoved * 0.95,
-        left: after < before - first.bytesMoved + 12_000,
+        shrank: before - after > reachableMoved * 0.95,
+        left: after < before - reachableMoved + 12_000,
+        firstMoved: first.bytesMoved > 0,
         second,
         puts: bucket.puts.length,
       }).toEqual({
         shrank: true,
         left: true,
+        firstMoved: true,
         second: { fileMutates: 0, promptMessages: 0, promptTexts: 0, bytesMoved: 0 },
         puts: 4,
       });
@@ -427,5 +433,49 @@ describe("vacuumSession", () => {
     } finally {
       plexus.destroy();
     }
+  });
+
+  describe("vacuumDatabaseBlobs", () => {
+    it("deletes unreferenced blob IDs from bucket without hydrating sessions", () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), "harness-vacuum-db-"));
+      try {
+        const db = new HarnessDatabase(join(tmpDir, "harness.db"));
+        db.writeTransaction(["sessions", "session_blobs"], (tx) => {
+          tx.insert(sessionsTable).values({
+            sessionId: "s1",
+            createdAtMs: Date.now(),
+            lastActiveAtMs: Date.now(),
+            workspacePath: "/tmp",
+          }).run();
+          tx.insert(sessionBlobsTable).values([
+            {
+              sessionId: "s1",
+              blobId: "referenced-hash-1",
+              createdAtMs: Date.now(),
+            },
+            {
+              sessionId: "s1",
+              blobId: "referenced-hash-2",
+              createdAtMs: Date.now(),
+            },
+          ]).run();
+        });
+
+        const deleted: string[] = [];
+        const bucket = {
+          list: () => ["referenced-hash-1", "orphan-hash-1", "referenced-hash-2", "orphan-hash-2"],
+          delete: (sha256: string) => {
+            deleted.push(sha256);
+          },
+        };
+
+        const count = vacuumDatabaseBlobs(db, bucket);
+        expect(count).toBe(2);
+        expect(deleted).toEqual(["orphan-hash-1", "orphan-hash-2"]);
+        db.close();
+      } finally {
+        rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
   });
 });

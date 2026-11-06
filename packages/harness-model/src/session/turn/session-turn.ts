@@ -653,8 +653,29 @@ export class SessionTurn extends SequenceJob {
   ) {
     super(props);
     if (typeof props === "symbol") return;
-    for (const chunk of this.doneWork) this.pushChild(chunk);
-    for (const chunk of this.queue) this.pushChild(chunk);
+    const alignWithChildren = (chunk: TurnChunk): TurnChunk => {
+      const chunkUuid =
+        chunk instanceof Job
+          ? chunk.uuid
+          : typeof (chunk as { uuid?: unknown })?.uuid === "string"
+            ? (chunk as { uuid: string }).uuid
+            : null;
+      if (chunkUuid) {
+        const match = this.children.find((c) => c.uuid === chunkUuid);
+        if (match) return match as TurnChunk;
+      }
+      return chunk;
+    };
+    for (let i = 0; i < this.doneWork.length; i++) {
+      const chunk = alignWithChildren(this.doneWork[i]!);
+      this.doneWork[i] = chunk;
+      this.pushChild(chunk);
+    }
+    for (let i = 0; i < this.queue.length; i++) {
+      const chunk = alignWithChildren(this.queue[i]!);
+      this.queue[i] = chunk;
+      this.pushChild(chunk);
+    }
     // eslint-disable-next-line unicorn/no-this-assignment,@typescript-eslint/no-this-alias
     let prev: TapeContinuation = this;
     for (const chunk of reactChunks(this)) prev = bindContinuation(chunk, prev);

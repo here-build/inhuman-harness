@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   BotCallJob,
   AgentCallbackJob,
@@ -16,7 +15,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { applyPackPlugins } from "../../../toolkit/actor.js";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
@@ -48,8 +47,7 @@ async function openHarness() {
 }
 
 describe("memory lifetime step 3", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("call_and_turn_lifetime_transition_matrix", async () => {
     const { kernel, project, session } = await openHarness();
 

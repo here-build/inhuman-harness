@@ -1,4 +1,3 @@
-import { PlexusAwareness } from "@here.build/plexus";
 import {
   occupiedSessionIds,
   unseatedConversationIds,
@@ -7,13 +6,13 @@ import {
   sessionIsOccupied,
 } from "@inhuman.tools/harness-model/kernel";
 import { forwardPlexusAwareness, ingestPlexusAwareness } from "@inhuman.tools/harness-peer/awareness";
+import { PlexusAwareness } from "@inhuman.tools/model";
 import { describe, expect, it } from "vitest";
-import * as Y from "yjs";
 
 describe("kernel seat", () => {
   it("replica sees a published seat; clear frees it", () => {
-    const author = new PlexusAwareness(new Y.Doc());
-    const replica = new PlexusAwareness(new Y.Doc());
+    const author = new PlexusAwareness();
+    const replica = new PlexusAwareness();
     const stop = forwardPlexusAwareness(author, (frame) => ingestPlexusAwareness(replica, frame));
 
     publishKernelSeat(author, "s1");
@@ -32,9 +31,9 @@ describe("kernel seat", () => {
   });
 
   it("other seats exclude the local window", () => {
-    const local = new PlexusAwareness(new Y.Doc());
-    const peer = new PlexusAwareness(new Y.Doc());
-    const elsewhere = new PlexusAwareness(new Y.Doc());
+    const local = new PlexusAwareness();
+    const peer = new PlexusAwareness();
+    const elsewhere = new PlexusAwareness();
     const stopPeer = forwardPlexusAwareness(peer, (frame) => ingestPlexusAwareness(local, frame));
     const stopElsewhere = forwardPlexusAwareness(elsewhere, (frame) => ingestPlexusAwareness(local, frame));
 

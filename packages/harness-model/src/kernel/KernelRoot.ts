@@ -8,6 +8,7 @@
 import { Model, model as modelDecorator, state } from "@inhuman.tools/model";
 import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { DEFAULT_STATUSLINE } from "@inhuman.tools/statusline/constants";
+import { runInAction } from "mobx";
 
 import { writeAgentRelations, type AgentRelationSnap } from "./agent-relations.js";
 import { BotSpec, writeAuthoredBots } from "./BotSpec.js";
@@ -370,8 +371,10 @@ export class KernelRoot extends Model<any, null> {
 
 /** Leftover kernel images omit later `@syncing.child` fields. Constructor hydrate does not survive `connect` bind. */
 export function hydrateKernelRoot(root: KernelRoot): void {
-  if (root.reActLoopIntentDetectedTrigger == null)
-    root.reActLoopIntentDetectedTrigger = new ReActLoopIntentDetectedTrigger();
-  if (root.compactTriggers == null) root.compactTriggers = new CompactTriggers();
-  for (const row of Object.values(root.sessions)) hydrateSessionOverview(row);
+  runInAction(() => {
+    if (root.reActLoopIntentDetectedTrigger == null)
+      root.reActLoopIntentDetectedTrigger = new ReActLoopIntentDetectedTrigger();
+    if (root.compactTriggers == null) root.compactTriggers = new CompactTriggers();
+    for (const row of Object.values(root.sessions)) hydrateSessionOverview(row);
+  });
 }

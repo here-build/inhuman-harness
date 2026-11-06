@@ -6,7 +6,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { asUserPrompt } from "@inhuman.tools/harness-commons";
 import {
   AGENT_ASK,
@@ -22,8 +21,7 @@ import { joinReleased } from "@inhuman.tools/turn/agent-calls";
 import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { mkdtemp, realpath } from "fs-extra";
 import { runInAction, when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
-import * as Y from "yjs";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { catalogRecipe } from "@/tool-catalog";
 
@@ -79,8 +77,7 @@ function closedTurn(child: ToolCallJob) {
 }
 
 describe("agent acceptance step 3", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("replacement while a child session attaches drops the old caller's late delivery", async () => {
     const { project, session } = await openPluginHarness();
     const entered = Promise.withResolvers<void>();
@@ -106,14 +103,14 @@ describe("agent acceptance step 3", () => {
     await entered.promise;
     const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
-    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64");
+    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
     release.resolve();
     await returned.promise;
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect({
       worker: call.workerSessionId,
       completed: call.completed,
-      state: Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64"),
+      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
     }).toEqual({ worker: "", completed: false, state: before });
   });
 

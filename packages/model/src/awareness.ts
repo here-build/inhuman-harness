@@ -44,12 +44,17 @@ function resolveClientId(input?: number | { readonly clientId?: number; readonly
 }
 
 export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
+  doc?: unknown;
   readonly clientId: number;
   readonly meta = new Map<number, { clock: number; lastUpdated: number }>();
   readonly #clients = observable.map<number, ObservableLaneBag>([], { deep: false });
   readonly #listeners = new Set<AwarenessUpdateListener>();
+  readonly #destroyListeners = new Set<() => void>();
 
   constructor(clientIdOrDoc?: number | unknown) {
+    if (clientIdOrDoc != null && typeof clientIdOrDoc === "object") {
+      this.doc = clientIdOrDoc;
+    }
     this.clientId = resolveClientId(clientIdOrDoc);
     this.#clients.set(this.clientId, observable.map<string, unknown>([], { deep: false }));
   }
@@ -80,12 +85,30 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
     return out;
   }
 
-  on(_event: "update" | "change", listener: AwarenessUpdateListener): void {
-    this.#listeners.add(listener);
+  getLocalState(): Record<string, unknown> | null {
+    const bag = this.#clients.get(this.clientId);
+    if (bag === undefined || (bag.size === 0 && !this.meta.has(this.clientId))) return null;
+    const obj: Record<string, unknown> = {};
+    for (const [k, v] of bag.entries()) {
+      obj[k] = v;
+    }
+    return obj;
   }
 
-  off(_event: "update" | "change", listener: AwarenessUpdateListener): void {
-    this.#listeners.delete(listener);
+  on(event: "update" | "change" | "destroy", listener: AwarenessUpdateListener | (() => void)): void {
+    if (event === "destroy") {
+      this.#destroyListeners.add(listener as () => void);
+    } else {
+      this.#listeners.add(listener as AwarenessUpdateListener);
+    }
+  }
+
+  off(event: "update" | "change" | "destroy", listener: AwarenessUpdateListener | (() => void)): void {
+    if (event === "destroy") {
+      this.#destroyListeners.delete(listener as () => void);
+    } else {
+      this.#listeners.delete(listener as AwarenessUpdateListener);
+    }
   }
 
   #emitUpdate(changed: AwarenessUpdateChange, origin?: unknown): void {
@@ -216,9 +239,13 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
         bag = observable.map<string, unknown>([], { deep: false });
         this.#clients.set(clientId, bag);
       }
+      for (const key of [...bag.keys()]) {
+        if (!(key in state) || state[key] === undefined) {
+          bag.delete(key);
+        }
+      }
       for (const [k, v] of Object.entries(state)) {
-        if (v === undefined) bag.delete(k);
-        else bag.set(k, v);
+        if (v !== undefined) bag.set(k, v);
       }
       this.#bumpMeta(clientId, clock);
       if (hadMeta) updated.push(clientId);
@@ -235,6 +262,14 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
 
   destroy(): void {
     this.clearAll();
+    for (const listener of this.#destroyListeners) {
+      try {
+        listener();
+      } catch {
+        // preserve destroy semantics
+      }
+    }
+    this.#destroyListeners.clear();
     this.#listeners.clear();
   }
 
@@ -323,4 +358,5 @@ export class FieldAwareness<
   }
 }
 
-export type { ReactiveAwareness as PlexusAwareness };
+export const PlexusAwareness = ReactiveAwareness;
+export type PlexusAwareness<S extends AwarenessShape = AwarenessShape> = ReactiveAwareness<S>;

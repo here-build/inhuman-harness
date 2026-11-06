@@ -5,7 +5,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   AgentCallJob,
   AgentCallbackJob,
@@ -20,7 +19,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { catalogRecipe } from "@/tool-catalog";
 
@@ -126,8 +125,7 @@ function respondJson(root: { head: SessionTurn | null }, requestId: string, resp
 }
 
 describe("scheme_repl agent mixer", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("bot/send waits for Scheme respond; bot/ask omitted-spec mints a worker; :readonly stamps worker desk", async () => {
     const { project, session } = await openHarness();
 

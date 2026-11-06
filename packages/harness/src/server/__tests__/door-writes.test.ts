@@ -6,11 +6,10 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { publishKernelSeat, responseCall, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../daemon/project/ProjectDaemon.js";
@@ -32,8 +31,7 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("client writes through the session door", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("resident/set flips the resident bit", async () => {
     const session = await openSession();
     const on = await session.handleRequest("resident/set", { resident: true });

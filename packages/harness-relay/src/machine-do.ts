@@ -1,13 +1,14 @@
 import { ChunkedDOTransport } from "@inhuman.tools/chunked-websocket/server";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { DurableObject } from "cloudflare:workers";
-import * as Y from "yjs";
 
 import { CLOSE_BAD_ROOM, CLOSE_OFFLINE, CLOSE_REPLACED, CLOSE_ROOM_CLOSED, isConnectorCode } from "./close-codes.js";
+import { RelayRoomRoot } from "./room-model.js";
 import { newClientTag, parseRoom, roomKey, tagKey } from "./room.js";
 import { noDaemonReply, restoreResponse, rewriteRequest } from "./rpc.js";
 import { userStub } from "./stubs.js";
 import { encodeAwarenessRemoval, readAwarenessFrame, type AwarenessClient } from "./sync/awareness.js";
-import { MESSAGE_AWARENESS, MESSAGE_QUERY_AWARENESS, MESSAGE_SYNC } from "./sync/constants.js";
+import { MESSAGE_AWARENESS, MESSAGE_QUERY_AWARENESS, MESSAGE_SHAPE, MESSAGE_SYNC } from "./sync/constants.js";
 import {
   encodeDocUpdate,
   encodeSyncStep1,
@@ -55,7 +56,7 @@ type Attachment = ControlAttachment | DaemonAttachment | BrowserAttachment;
 
 /** One room: memory only, rebuilt after hibernation. */
 interface Room {
-  doc: Y.Doc;
+  doc: DocumentContainer<RelayRoomRoot>;
   /** The daemon answered our sync step 1 in this lifetime, so the doc holds its state. Browsers wait for it. */
   ready: boolean;
   /** Browser step 1 frames held until `ready`. */
@@ -246,7 +247,7 @@ export class MachineDO extends DurableObject<Env> {
   private room(key: string): Room {
     let room = this.rooms.get(key);
     if (room === undefined) {
-      const created: Room = { doc: new Y.Doc(), ready: false, parked: new Map() };
+      const created: Room = { doc: new DocumentContainer(new RelayRoomRoot()), ready: false, parked: new Map() };
       room = created;
       this.rooms.set(key, created);
       created.doc.on("update", (update: Uint8Array, origin: unknown) => {
@@ -378,6 +379,15 @@ export class MachineDO extends DurableObject<Env> {
       }
       case MESSAGE_QUERY_AWARENESS: {
         // Browser: ask the daemon for its snapshot. Daemon: its 10 s keepalive, which keeps browser watchdogs quiet.
+        if (fromBrowser) {
+          const daemon = this.daemonSocket(key);
+          if (daemon !== undefined) this.send(daemon, frame);
+        } else {
+          for (const b of this.browserSockets(key)) this.send(b, frame);
+        }
+        return;
+      }
+      case MESSAGE_SHAPE: {
         if (fromBrowser) {
           const daemon = this.daemonSocket(key);
           if (daemon !== undefined) this.send(daemon, frame);

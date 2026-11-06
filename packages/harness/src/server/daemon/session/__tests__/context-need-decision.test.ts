@@ -1,7 +1,6 @@
 /**
  * compactDecision on constructed Plexus turns — one occupancy table.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CONTEXT_NEED_TOOL_NAME,
@@ -14,7 +13,7 @@ import {
   CompactJob,
   parseCompactTrigger,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 
 import {
   compactDecision,
@@ -29,7 +28,6 @@ import {
 
 const HARD = parseCompactTrigger("90%");
 
-beforeEach(() => resetLocalIDs());
 
 function gauge(used: number, limit: number, promptText = "round"): CompletionExpectation {
   const node = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`${promptText}` });

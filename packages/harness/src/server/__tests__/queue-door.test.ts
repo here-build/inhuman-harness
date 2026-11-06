@@ -7,10 +7,9 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { admitQueue, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../daemon/project/ProjectDaemon.js";
@@ -51,8 +50,7 @@ function fate(session: SessionDaemon, text: string) {
 }
 
 describe("session inbox door", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("concurrent drain and steer-first leave a queued row as exactly one of turn or steer", async () => {
     const drainFirst = await idleSessionWithQueue("later");
     const id = drainFirst.root.promptQueue[0]!.uuid;

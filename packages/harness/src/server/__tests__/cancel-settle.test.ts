@@ -9,7 +9,6 @@
  * `cancelRequested`, a steer marooned in `steerQueue`, and a round that never
  * settled.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   admitSteer,
@@ -20,13 +19,12 @@ import {
   SessionTurn,
 } from "@inhuman.tools/harness-model";
 import { settleCancelledTurn } from "@inhuman.tools/turn/agent-calls";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { recoverSessionJobs } from "@/runtime";
 
 describe("cancel settlement", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   /** Head closed with the cancel requested and a round that never landed. */
   function wedged(): {
     readonly root: SessionRoot;

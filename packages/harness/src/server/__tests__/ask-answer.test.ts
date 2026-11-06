@@ -2,7 +2,7 @@
  * A human answer, applied: a block is never lifted, a soft-deny is never stored, an ask is stored only
  * as an offered family, a comment stores nothing, a folder is a session read root.
  */
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   type GrantRow,
@@ -21,7 +21,7 @@ const votes = (tier: "ask" | "deny", path = "src/a.ts") =>
 
 function home(tier: "ask" | "deny" | "block", name = "write_file", args: object = { path: "src/a.ts", content: "x" }) {
   const root = new SessionRoot({ sessionId: "s", path: "/w/proj" });
-  const plexus = Plexus.bootstrap(root);
+  const plexus = new DocumentContainer(root);
   const leaf = new SystemToolJob({ toolCallId: "c", name, argsJson: JSON.stringify(args) });
   root.head = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`go`, queue: [leaf] });
   leaf.stampPolicy(tier, null, null, {
@@ -42,7 +42,6 @@ const subject = { kind: "path", cluster: "write", path: "src/a.ts", depth: "exac
 
 describe("applyAskAnswer", () => {
   beforeEach(() => {
-    resetLocalIDs();
     persisted.length = 0;
   });
 

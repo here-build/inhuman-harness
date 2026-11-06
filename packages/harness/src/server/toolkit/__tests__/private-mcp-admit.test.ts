@@ -4,11 +4,11 @@
  */
 import { fileURLToPath } from "node:url";
 
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { BotCallJob, AgentNotifyJob, SessionRoot } from "@inhuman.tools/harness-model";
 import { normalizeDefinitions, resolveReferences } from "@inhuman.tools/plugin-sdk";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { admitPrivateMcpTool } from "@/extensions";
 import { agentCallSupportsNotify } from "@/tool-catalog";
@@ -22,8 +22,6 @@ const FIXTURE_PLUGIN = fileURLToPath(new URL("fixtures/plugin-abi-fixture/plugin
 const PRIVATE_SERVER = "memory";
 
 describe("private MCP admit", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("foreground_denied_bindings_narrow_tools_notify_needs_support", async () => {
     const definition = resolveReferences(
       normalizeDefinitions((await import(FIXTURE_PLUGIN)).default, "abi-fixture"),
@@ -55,7 +53,7 @@ describe("private MCP admit", () => {
       name: "fixture_bot_call",
       argsJson: JSON.stringify({ prompt: "x" }),
     });
-    const callDoc = Plexus.bootstrap(call);
+    const callDoc = new DocumentContainer(call);
     onTestFinished(() => callDoc.destroy());
     const session = new SessionRoot({ sessionId: "caller", path: "/tmp" });
     session.agentCallbacks[call.uuid] = session.sessionId;

@@ -1,7 +1,7 @@
 /**
  * Path is the project identity.
  */
-import { DocumentContainer, type AwarenessShape, type SerializedDocument } from "@inhuman.tools/model";
+import { DocumentContainer, serializeDocument, type AwarenessShape, type SerializedDocument } from "@inhuman.tools/model";
 import { nanoid } from "nanoid";
 
 import { ProjectRoot } from "./ProjectRoot.js";
@@ -48,55 +48,16 @@ export class ProjectDocument extends DocumentContainer<ProjectRoot, AwarenessSha
 
   static connect(
     source: ProjectDocument | DocumentContainer<any, any> | SerializedDocument | unknown,
-    options?: { readOnly?: boolean; clientId?: number },
+    options?: { readonly readOnly?: boolean; readonly clientId?: number; readonly undo?: string },
   ): ProjectDocument {
+    if (source instanceof ProjectDocument) return source;
     if (source instanceof DocumentContainer) {
-      let replica: ProjectDocument;
-      if (source.root instanceof ProjectRoot) {
-        replica = ProjectDocument.fromSnapshot(source.toSnapshot());
-      } else {
-        replica = new ProjectDocument(new ProjectRoot(), options);
-        source.hydrateFromSnapshot(replica.toSnapshot());
+      if (!(source.root instanceof ProjectRoot)) {
+        const root = new ProjectRoot();
+        source.hydrateFromSnapshot(serializeDocument(root));
       }
-      let syncing = false;
-      source.onPatch((batch) => {
-        if (syncing) return;
-        syncing = true;
-        try {
-          try {
-            replica.applyPatchBatch(batch);
-          } catch {
-            replica.hydrateFromSnapshot(source.toSnapshot());
-          }
-        } finally {
-          syncing = false;
-        }
-      });
-      source.on("update", (update, origin) => {
-        if (syncing || origin === replica) return;
-        syncing = true;
-        try {
-          replica.applyUpdate(update, origin);
-        } finally {
-          syncing = false;
-        }
-      });
-      if (!options?.readOnly) {
-        replica.onPatch((batch) => {
-          if (syncing) return;
-          syncing = true;
-          try {
-            try {
-              source.applyPatchBatch(batch);
-            } catch {
-              source.hydrateFromSnapshot(replica.toSnapshot(), replica);
-            }
-          } finally {
-            syncing = false;
-          }
-        });
-      }
-      return replica;
+      Object.setPrototypeOf(source, ProjectDocument.prototype);
+      return source as ProjectDocument;
     }
     if (source && typeof source === "object" && "root" in source && "revision" in source) {
       return ProjectDocument.fromSnapshot(source as SerializedDocument);

@@ -7,7 +7,6 @@ import { chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   SessionSystemPrompt,
@@ -20,7 +19,7 @@ import {
 import { walkWork } from "@inhuman.tools/plexus-expectations";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { documentKey } from "@/protocol/document";
 import { documentImagePath } from "@/yjs/storage";
@@ -50,8 +49,7 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("eval admission", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("admit machine: pure Scheme no wire; duplicate reuses; manual refused; busy refused; policy_denied vs residual ask; result/cancel follow admitted turn after head moves; failed persist creates no turn", async () => {
     const session = await openSession();
     const first = (await session.handleRequest("eval", {

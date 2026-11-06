@@ -7,7 +7,6 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   BotCallJob,
   CompletionExpectation,
@@ -24,7 +23,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { joinReleased } from "@inhuman.tools/turn/agent-calls";
 import { observable, runInAction, when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { documentKey } from "@/protocol/document";
 import { persistJobIntent } from "@/runtime";
@@ -97,8 +96,7 @@ function lockSessionImages(system: string, sessionId: string): void {
 }
 
 describe("live intent receipts and recovery gate", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("intentRequired file-mutate does not run BODY when flush fails, and settles as a failure", async () => {
     const { system, workspace, kernel, project } = await openLive("chmod");
     const session = await project.session("write");

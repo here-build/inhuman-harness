@@ -7,11 +7,10 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, expect, it, onTestFinished } from "vitest";
+import { expect, it, onTestFinished } from "vitest";
 
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
@@ -19,7 +18,6 @@ import type { SessionDaemon } from "../SessionDaemon.js";
 
 const TIMEOUT = 8_000;
 
-beforeEach(() => resetLocalIDs());
 
 /** Wrapped: a Job is thenable, so an async function would resolve it instead of returning it. */
 async function run(session: SessionDaemon, name: string, args: object): Promise<{ readonly job: SystemToolJob }> {

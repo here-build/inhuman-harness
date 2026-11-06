@@ -5,13 +5,13 @@ import { join } from "node:path";
 import { chdir } from "node:process";
 
 import { KERNEL_DOC_GUID, SessionPlexus } from "@inhuman.tools/harness-model";
-import { Client, RestoreNotFound, openUnixRoom } from "@inhuman.tools/harness-sdk";
+import { destroyProvider, waitForSync, WebsocketProvider } from "@inhuman.tools/harness-peer";
+import { Client, RestoreNotFound } from "@inhuman.tools/harness-sdk";
 import { daemonSocketPath, projectSessionsDir } from "@inhuman.tools/harness-sdk/paths";
 import { pathExists, readJson } from "fs-extra";
 import { when } from "mobx";
 import { describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import * as Y from "yjs";
 
 import { HarnessDaemon } from "../daemon/server/HarnessDaemon.js";
 import { listenCompat } from "../testkit/compat-server.js";
@@ -143,10 +143,12 @@ describe("Client", () => {
         const socketPath = daemonSocketPath(kernel);
         const sessionId = started.sessionId;
         const unknownId = randomUUID();
-        const attachedDoc = new Y.Doc({ guid: `harness:session:${sessionId}` });
-        const attachedProvider = await openUnixRoom(socketPath, "session", { sessionId }, attachedDoc, {
-          reconnect: false,
+        const attachedDoc = SessionPlexus.create(`harness:session:${sessionId}`);
+        const attachedProvider = new WebsocketProvider(`ws+unix://${socketPath}:`, "session", attachedDoc, {
+          WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
+          params: { sessionId },
         });
+        await waitForSync(attachedProvider, "session", 8000);
         try {
           const ghost = new WebSocket(`ws+unix://${socketPath}:/session?sessionId=${unknownId}`);
           await expect(
@@ -156,7 +158,7 @@ describe("Client", () => {
             }),
           ).rejects.toThrow();
           ghost.close();
-          const replica = SessionPlexus.connect(attachedDoc);
+          const replica = attachedDoc;
           const host = await daemon.kernel();
           expect({
             path: replica.root.path,
@@ -176,7 +178,7 @@ describe("Client", () => {
             membership: false,
           });
         } finally {
-          attachedProvider.destroy();
+          destroyProvider(attachedProvider);
           attachedDoc.destroy();
         }
 

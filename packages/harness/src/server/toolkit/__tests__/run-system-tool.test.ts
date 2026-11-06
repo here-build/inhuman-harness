@@ -1,4 +1,3 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompactJob,
@@ -8,7 +7,7 @@ import {
   SessionTurn,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, expect, it, onTestFinished } from "vitest";
+import { expect, it, onTestFinished } from "vitest";
 
 import { asToolResult, contextRecallTool } from "@/builtin-tools";
 import { bindSessionCatalog } from "@/tool-catalog";
@@ -16,7 +15,6 @@ import { executeSystemTool } from "@/tool-runtime";
 
 import { KernelToolCatalog } from "../tool-table.js";
 
-beforeEach(() => resetLocalIDs());
 
 function fixture() {
   const plexus = SessionPlexus.create("exec-meta", "/tmp/exec-meta");

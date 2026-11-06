@@ -6,9 +6,8 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { mkdtemp, writeFile } from "fs-extra";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { listenCompat } from "../../testkit/compat-server.js";
 import { sequenceReply } from "../../testkit/sequence-provider.js";
@@ -36,8 +35,7 @@ function filesystemServerEntry(): string {
 }
 
 describe("local production runtime composition", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("generic completion and MCP intern without HTTPServer", async () => {
     const system = await mkdtemp(join(tmpdir(), "harness-r0-k-"));
     const workspace = await mkdtemp(join(tmpdir(), "harness-r0-p-"));

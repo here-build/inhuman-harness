@@ -4,7 +4,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   BotCallJob,
@@ -19,7 +19,7 @@ import {
 import { InhumanPlugin, InhumanTool } from "@inhuman.tools/plugin-sdk";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { agentCallSupportsNotify } from "@/tool-catalog";
@@ -65,8 +65,6 @@ const cutFixture = new InhumanPlugin({
 });
 
 describe("plugin graph context", () => {
-  beforeEach(() => resetLocalIDs());
-
   it(
     "origin_is_exact_and_source_digest_survives_later_results",
     async () => {
@@ -98,7 +96,7 @@ describe("plugin graph context", () => {
       const notifyCall = new BotCallJob({
         name: "fixture_bot_call",
       });
-      const notifyDoc = Plexus.bootstrap(notifyCall);
+      const notifyDoc = new DocumentContainer(notifyCall);
       onTestFinished(() => notifyDoc.destroy());
       const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], reducerExited: true });
       turn.enqueue(new CompletionJob({ expectation: completion }));

@@ -9,7 +9,6 @@
  *   T2  R1 web_search + MCP. R2 write_file (+ system note). R3 scheme_repl (+ system note).
  *   T3  1 picture. R1 read_file, then an approval note. R2 agent__ask. R3 text.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -33,8 +32,7 @@ import {
   type UserVisualIdentity,
 } from "@inhuman.tools/harness-model";
 import { recallContext } from "@inhuman.tools/turn/tool-runtime";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
-import * as Y from "yjs";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import {
   historyBehind,
@@ -48,7 +46,6 @@ import {
   type HistoryUserPart,
 } from "@/context";
 
-beforeEach(() => resetLocalIDs());
 
 const PIC = (id: string): UserVisualIdentity => ({
   id,
@@ -436,9 +433,8 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     expect(JSON.stringify([...projectHistory(tip, { readVisual })])).toBe(before);
 
     // Rehydrate the document into a fresh plexus.
-    const doc = new Y.Doc();
-    Y.applyUpdate(doc, Y.encodeStateAsUpdate(f.plexus.doc));
-    const reborn = SessionPlexus.connect(doc, { undo: "stub" });
+    const reborn = SessionPlexus.create(f.plexus.doc.guid);
+    reborn.applyUpdate(f.plexus.doc.encodeStateAsUpdate());
     onTestFinished(() => reborn.destroy());
     const rebornTip = reborn.loadEntity(tip.uuid);
     expect(rebornTip).toBeInstanceOf(CompletionExpectation);

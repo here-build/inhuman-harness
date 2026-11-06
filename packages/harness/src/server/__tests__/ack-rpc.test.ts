@@ -6,11 +6,10 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../daemon/project/ProjectDaemon.js";
@@ -56,8 +55,7 @@ const answer = (session: SessionDaemon, job: SystemToolJob, extra: Record<string
   });
 
 describe("ack over RPC", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("an allowed call waits; ack/pending describes it; ack/answer lets it run", async () => {
     const { session } = await open([STATUS]);
     const job = call(session, "git status");

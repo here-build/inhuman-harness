@@ -1,37 +1,38 @@
-import * as encoding from "lib0/encoding";
+import { DocumentContainer, model, Model, state } from "@inhuman.tools/model";
 import { describe, expect, it } from "vitest";
-import * as syncProtocol from "y-protocols/sync";
-import * as Y from "yjs";
 
 import {
   applyPeerSyncFrame,
   decodeAwarenessPayload,
+  decodeShapeFrame,
   encodeAwarenessFrame,
   encodeDocUpdate,
   encodeQueryAwareness,
+  encodeShapeFrame,
+  encodeSyncStep1,
   MESSAGE_AWARENESS,
   MESSAGE_QUERY_AWARENESS,
+  MESSAGE_SHAPE,
   MESSAGE_SYNC,
   peekMessageType,
   replyLensSyncFrame,
 } from "../frames.js";
 
-function encodeSyncStep1(doc: Y.Doc): Uint8Array {
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_SYNC);
-  syncProtocol.writeSyncStep1(encoder, doc);
-  return encoding.toUint8Array(encoder);
+@model("test:frames:root")
+class FrameRoot extends Model {
+  @state accessor k = "";
 }
 
-describe("yjs frame roundtrip", () => {
+describe("peer frames roundtrip", () => {
   it("converges separate replicas through an update frame", () => {
-    const author = new Y.Doc();
-    const replica = new Y.Doc();
-    author.getMap("root").set("k", "v");
-    const frame = encodeDocUpdate(Y.encodeStateAsUpdate(author, Y.encodeStateVector(replica)));
+    const author = new DocumentContainer(new FrameRoot());
+    const replica = new DocumentContainer(new FrameRoot());
+    author.root.k = "v";
+    const update = author.encodeStateAsUpdate();
+    const frame = encodeDocUpdate(update);
     expect(peekMessageType(frame)).toBe(MESSAGE_SYNC);
     const reply = applyPeerSyncFrame(frame, replica, "test");
-    expect({ value: replica.getMap("root").get("k"), reply }).toEqual({
+    expect({ value: replica.root.k, reply }).toEqual({
       value: "v",
       reply: null,
     });
@@ -40,14 +41,14 @@ describe("yjs frame roundtrip", () => {
   });
 
   it("step1/step2 handshake hydrates a cold replica", () => {
-    const live = new Y.Doc();
-    live.getMap("root").set("k", "v");
-    const peer = new Y.Doc();
+    const live = new DocumentContainer(new FrameRoot());
+    live.root.k = "v";
+    const peer = new DocumentContainer(new FrameRoot());
     const step1 = encodeSyncStep1(peer);
     const step2 = replyLensSyncFrame(step1, live);
     expect(step2).not.toBeNull();
     const leftover = applyPeerSyncFrame(step2!, peer, "live");
-    expect({ value: peer.getMap("root").get("k"), leftover }).toEqual({
+    expect({ value: peer.root.k, leftover }).toEqual({
       value: "v",
       leftover: null,
     });
@@ -69,5 +70,13 @@ describe("yjs frame roundtrip", () => {
       missing: null,
       query: MESSAGE_QUERY_AWARENESS,
     });
+  });
+
+  it("shape frames roundtrip arbitrary JSON payloads", () => {
+    const payload = { kind: "shape/subscribe", lane: "kernel_meta", id: "sub-1" };
+    const frame = encodeShapeFrame(payload);
+    expect(peekMessageType(frame)).toBe(MESSAGE_SHAPE);
+    expect(decodeShapeFrame(frame)).toEqual(payload);
+    expect(decodeShapeFrame(new Uint8Array([0, 1, 2]))).toBeNull();
   });
 });

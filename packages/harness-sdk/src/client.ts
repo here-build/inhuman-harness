@@ -2,15 +2,15 @@ import { randomUUID } from "node:crypto";
 import { realpath } from "node:fs/promises";
 
 import { DefaultedMap } from "@here.build/collections";
-import { PlexusAwareness } from "@here.build/plexus";
 import { trace } from "@inhuman.tools/harness-diagnostics";
 import {
-  KERNEL_DOC_GUID,
+  KernelDocument,
   KernelPlexus,
+  ProjectDocument,
   ProjectPlexus,
+  ProjectRoot,
   publishKernelSeat,
   type KernelRoot,
-  type ProjectRoot,
 } from "@inhuman.tools/harness-model/kernel";
 import {
   CallJob,
@@ -19,8 +19,9 @@ import {
   permissionDeskSessionId,
   ProgrammaticJob,
   projectWorkerPermissions,
+  SessionDocument,
   SessionPlexus,
-  type SessionRoot,
+  SessionRoot,
   type SessionTurn,
 } from "@inhuman.tools/harness-model/session";
 import {
@@ -32,8 +33,10 @@ import {
   MESSAGE_AWARENESS,
   MESSAGE_QUERY_AWARENESS,
   peekMessageType,
+  WebsocketProvider,
   type JsonRpcPort,
 } from "@inhuman.tools/harness-peer";
+import type { DocumentContainer, PlexusAwareness } from "@inhuman.tools/model";
 import {
   revalidationDemandRefFromSpec,
   type RevalidationDemandSource,
@@ -43,8 +46,6 @@ import {
   publishRevalidationDemandFocus,
 } from "@inhuman.tools/plexus-expectations";
 import { comparer, computed, type IComputedValue, type IReactionDisposer, reaction } from "mobx";
-import { WebsocketProvider } from "y-websocket";
-import * as Y from "yjs";
 
 import { ClientAgent, type AgentRosterRow, type AgentRosterScope } from "./client-agents.js";
 import { daemonSocketPath } from "./paths.js";
@@ -118,7 +119,7 @@ export class Client implements AsyncDisposable {
         socketPath,
         "kernel",
         {},
-        new Y.Doc({ guid: KERNEL_DOC_GUID }),
+        KernelDocument.create(),
         (doc) => KernelPlexus.connect(doc),
         providers,
         awarenessStops,
@@ -154,7 +155,7 @@ export class Client implements AsyncDisposable {
   static async sessionExists(kernelPath: string, sessionId: string): Promise<boolean> {
     const kernel = await realpath(kernelPath);
     const socketPath = daemonSocketPath(kernel);
-    const doc = new Y.Doc({ guid: `harness:session:${sessionId}` });
+    const doc = SessionDocument.create(new SessionRoot({ sessionId }));
     try {
       const provider = await openUnixRoom(socketPath, "session", { sessionId }, doc, {
         reconnect: false,
@@ -206,7 +207,7 @@ export class Client implements AsyncDisposable {
         socketPath,
         "session",
         sessionParams,
-        new Y.Doc({ guid: `harness:session:${session}` }),
+        SessionDocument.create(new SessionRoot({ sessionId: session, path: project })),
         (doc) => SessionPlexus.connect(doc),
         providers,
         awarenessStops,
@@ -223,7 +224,7 @@ export class Client implements AsyncDisposable {
         socketPath,
         "kernel",
         {},
-        new Y.Doc({ guid: KERNEL_DOC_GUID }),
+        KernelDocument.create(),
         (doc) => KernelPlexus.connect(doc),
         providers,
         awarenessStops,
@@ -237,7 +238,7 @@ export class Client implements AsyncDisposable {
         socketPath,
         "project",
         { path: project },
-        new Y.Doc(),
+        ProjectDocument.create(project),
         (doc) => ProjectPlexus.connect(doc),
         providers,
         awarenessStops,
@@ -265,13 +266,13 @@ export class Client implements AsyncDisposable {
     }
   }
 
-  // HTTPServer upgrades only after the host is ready. y-websocket starts the handshake.
-  static async #open<T>(
+  // HTTPServer upgrades only after the host is ready. WebsocketProvider starts the handshake.
+  static async #open<T, D extends DocumentContainer<any, any>>(
     socketPath: string,
     room: string,
     params: Record<string, string>,
-    doc: Y.Doc,
-    attach: (doc: Y.Doc) => T,
+    doc: D,
+    attach: (doc: D) => T,
     providers: WebsocketProvider[],
     awarenessStops: Array<() => void>,
     unixOptions?: OpenUnixRoomOptions,
@@ -439,7 +440,7 @@ export class Client implements AsyncDisposable {
         daemonSocketPath(kernel),
         "session",
         { sessionId: id },
-        new Y.Doc({ guid: `harness:session:${id}` }),
+        SessionDocument.create(new SessionRoot({ sessionId: id })),
         (doc) => SessionPlexus.connect(doc),
         providers,
         awarenessStops,

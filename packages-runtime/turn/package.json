@@ -34,6 +34,11 @@
       "import": "./dist/session/index.js",
       "default": "./dist/session/index.js"
     },
+    "./session-runtime": {
+      "types": "./dist/session-runtime/index.d.ts",
+      "import": "./dist/session-runtime/index.js",
+      "default": "./dist/session-runtime/index.js"
+    },
     "./policy": {
       "types": "./dist/policy-processor/index.d.ts",
       "import": "./dist/policy-processor/index.js",

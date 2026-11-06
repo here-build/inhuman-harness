@@ -2,7 +2,6 @@ import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -31,7 +30,6 @@ const KEEP_FIRST = `
 `;
 
 test("compact refuse + RPC door; loadCompactProgram reads KernelRoot.compactStrategy", async () => {
-  resetLocalIDs();
 
   const parsed = [
     ["90%", 0.9],

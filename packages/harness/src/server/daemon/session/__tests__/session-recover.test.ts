@@ -5,15 +5,13 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { mkdtemp } from "fs-extra";
 import { runInAction } from "mobx";
-import { beforeEach, expect, it, onTestFinished, vi } from "vitest";
+import { expect, it, onTestFinished, vi } from "vitest";
 
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
 
-beforeEach(() => resetLocalIDs());
 
 it("a corrupt peer is skipped and the session still attaches", async () => {
   const system = await mkdtemp(join(tmpdir(), "harness-recover-k-"));

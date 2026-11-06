@@ -4,7 +4,7 @@
  * events instead. getLoaded never touches disk.
  */
 import { trace } from "@inhuman.tools/harness-diagnostics";
-import type * as Y from "yjs";
+import type { DocumentContainer } from "@inhuman.tools/model";
 
 import {
   documentKeysEqual,
@@ -23,7 +23,7 @@ import { createFsImageSource, type ImageSource } from "./images.js";
 
 export type DocumentRef = {
   readonly key: DocumentKey;
-  readonly doc: Y.Doc;
+  readonly doc: DocumentContainer<any, any>;
   readonly revision: number;
 };
 
@@ -36,7 +36,7 @@ export type DocumentRegistryOptions = {
 
 type LoadedDoc = {
   readonly key: DocumentKey;
-  readonly doc: Y.Doc;
+  readonly doc: DocumentContainer<any, any>;
   revision: number;
   pins: number;
 };
@@ -93,7 +93,7 @@ export class DocumentRegistry {
     return loaded == null ? undefined : toRef(loaded);
   }
 
-  intern(key: DocumentKey, doc: Y.Doc): DocumentRef {
+  intern(key: DocumentKey, doc: DocumentContainer<any, any>): DocumentRef {
     const id = keyId(key);
     const existing = this.#loaded.get(id);
     if (existing != null) {

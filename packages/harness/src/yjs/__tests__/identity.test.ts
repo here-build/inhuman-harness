@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
 
 import { documentImageFileName, documentKey, KERNEL_DOCUMENT_KEY, sha256Hex } from "@/protocol/document";
 
@@ -30,17 +29,15 @@ function tempRoot(): string {
 }
 
 function encodeRoot(typeName: string, field: string, id: string): Uint8Array {
-  const doc = new Y.Doc();
-  const typeMap = new Y.Map();
-  doc.getMap("types").set(typeName, typeMap);
-  const node = new Y.XmlElement(typeName);
-  typeMap.set("extract-root", node);
-  node.setAttribute(field, id);
-  node.setAttribute("noise", "ignored");
-  doc.getMap("meta").set("root", "extract-root");
-  const bytes = Y.encodeStateAsUpdate(doc);
-  doc.destroy();
-  return bytes;
+  return new TextEncoder().encode(
+    JSON.stringify({
+      revision: 0,
+      root: {
+        type: typeName,
+        state: { [field]: id, noise: "ignored" },
+      },
+    }),
+  );
 }
 
 function writeImage(path: string, bytes: Uint8Array): void {
@@ -71,10 +68,7 @@ describe("stored image identity", () => {
 
   it("treats kernel as a fixed identity at sha256(kernel).yjs", () => {
     const root = tempRoot();
-    const doc = new Y.Doc();
-    doc.getMap("root").set("k", "v");
-    const bytes = Y.encodeStateAsUpdate(doc);
-    doc.destroy();
+    const bytes = new TextEncoder().encode(JSON.stringify({ revision: 0, root: { state: { k: "v" } } }));
     const path = documentImagePath(root, "kernel", KERNEL_DOCUMENT_KEY.id);
     expect(path.endsWith(join("documents", "kernel", `${sha256Hex("kernel")}.yjs`))).toBe(true);
     expect(identifyStoredImage(root, "kernel", path, encodeLogEntry(bytes))).toEqual({
@@ -99,9 +93,7 @@ describe("stored image identity", () => {
       ok: false,
       reason: "corrupt",
     });
-    const emptyDoc = new Y.Doc();
-    const hollow = Y.encodeStateAsUpdate(emptyDoc);
-    emptyDoc.destroy();
+    const hollow = new TextEncoder().encode(JSON.stringify({ revision: 0 }));
     expect(decodeImageIdentity("sessions", encodeLogEntry(hollow))).toEqual({
       ok: false,
       reason: "decode-failure",

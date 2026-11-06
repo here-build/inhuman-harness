@@ -1,7 +1,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -20,7 +19,7 @@ import {
 import { walkWork } from "@inhuman.tools/plexus-expectations";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { attachScriptedModel, modelOf, scriptedConnectionId } from "../../../testkit/scripted-model.js";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
@@ -89,8 +88,7 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("Turn interpret", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("licensed MCP with a missing or empty connection fails closed", async () => {
     const session = await openSession();
     const root = session.root;

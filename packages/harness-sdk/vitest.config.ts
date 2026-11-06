@@ -1,7 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-// One Y.Doc and one Plexus constructor across the workspace symlinks.
-const dedupe = ["yjs", "@here.build/plexus"];
+const dedupe = ["@inhuman.tools/model", "mobx"];
 
 export default defineConfig({
   resolve: { dedupe },

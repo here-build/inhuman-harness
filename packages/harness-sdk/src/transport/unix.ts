@@ -1,9 +1,8 @@
 import { IncomingMessage } from "node:http";
 
-import { detachProtocolAwareness, destroyProvider, waitForSync } from "@inhuman.tools/harness-peer";
+import { detachProtocolAwareness, destroyProvider, waitForSync, WebsocketProvider } from "@inhuman.tools/harness-peer";
+import type { DocumentContainer } from "@inhuman.tools/model";
 import { WebSocket } from "ws";
-import { WebsocketProvider } from "y-websocket";
-import type * as Y from "yjs";
 
 /** HTTP upgrade refused this room (sessionId-only unknown is 404). */
 export class RoomNotFound extends Error {
@@ -41,7 +40,7 @@ export async function openUnixRoom(
   socketPath: string,
   room: string,
   params: Record<string, string>,
-  doc: Y.Doc,
+  doc: DocumentContainer<any, any>,
   options?: OpenUnixRoomOptions,
 ): Promise<WebsocketProvider> {
   let httpStatus = 0;

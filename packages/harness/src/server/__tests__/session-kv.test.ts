@@ -1,12 +1,11 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { KERNEL_DOC_GUID, KernelPlexus, SessionPlexus } from "@inhuman.tools/harness-model";
+import { KernelPlexus, KernelRoot, SessionPlexus, SessionRoot } from "@inhuman.tools/harness-model";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { mkdtemp, readJson } from "fs-extra";
 import { autorun } from "mobx";
 import { describe, expect, it } from "vitest";
-import * as Y from "yjs";
-
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../daemon/project/ProjectDaemon.js";
 
@@ -290,37 +289,41 @@ async function configPolicy(root: string): Promise<unknown> {
 }
 
 function liveSessionReplica(owner: SessionPlexus): { root: SessionPlexus["root"]; [Symbol.dispose](): void } {
-  const doc = new Y.Doc({ guid: owner.doc.guid });
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(owner.doc));
-  const plexus = SessionPlexus.connect(doc);
-  owner.doc.on("update", (update: Uint8Array, origin: unknown) => {
-    if (origin === doc) return;
-    Y.applyUpdate(doc, update, owner.doc);
-  });
+  const root = new SessionRoot({ sessionId: owner.root.sessionId, path: owner.root.path });
+  const replica = new DocumentContainer(root);
+  replica.applyUpdate(owner.doc.encodeStateAsUpdate());
+  const listener = (update: Uint8Array, origin: unknown) => {
+    if (origin === replica) return;
+    replica.applyUpdate(update, owner.doc);
+  };
+  owner.doc.on("update", listener);
   return {
     get root() {
-      return plexus.root;
+      return replica.root;
     },
     [Symbol.dispose](): void {
-      doc.destroy();
+      owner.doc.off("update", listener);
+      replica.destroy();
     },
   };
 }
 
 function liveKernelReplica(owner: KernelPlexus): { root: KernelPlexus["root"]; [Symbol.dispose](): void } {
-  const doc = new Y.Doc({ guid: KERNEL_DOC_GUID });
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(owner.doc));
-  const plexus = KernelPlexus.connect(doc);
-  owner.doc.on("update", (update: Uint8Array, origin: unknown) => {
-    if (origin === doc) return;
-    Y.applyUpdate(doc, update, owner.doc);
-  });
+  const root = new KernelRoot();
+  const replica = new DocumentContainer(root);
+  replica.applyUpdate(owner.doc.encodeStateAsUpdate());
+  const listener = (update: Uint8Array, origin: unknown) => {
+    if (origin === replica) return;
+    replica.applyUpdate(update, owner.doc);
+  };
+  owner.doc.on("update", listener);
   return {
     get root() {
-      return plexus.root;
+      return replica.root;
     },
     [Symbol.dispose](): void {
-      doc.destroy();
+      owner.doc.off("update", listener);
+      replica.destroy();
     },
   };
 }

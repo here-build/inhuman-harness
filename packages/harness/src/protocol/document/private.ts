@@ -2,8 +2,8 @@
  * Authenticated private-peer payloads. Envelopes live in ordering.ts;
  * this module is hello/control/barrier bodies, not public Yjs frames.
  */
-import * as decoding from "lib0/decoding";
-import * as encoding from "lib0/encoding";
+import * as decoding from "./codec.js";
+import * as encoding from "./codec.js";
 
 import {
   decodeDocumentCheckpoint,

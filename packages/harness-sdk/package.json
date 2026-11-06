@@ -47,7 +47,6 @@
     "@here.build/arrival-serializer": "^0.10.2",
     "@here.build/arrival-sugarcoat": "^0.10.0",
     "@here.build/collections": "^0.10.0",
-    "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/harness-diagnostics": "workspace:^",
     "@inhuman.tools/harness-model": "workspace:^",
     "@inhuman.tools/harness-peer": "workspace:^",
@@ -57,9 +56,7 @@
     "@inhuman.tools/scope-plane": "workspace:^",
     "mobx": "6.16.1",
     "sh-syntax": "^0.7.0",
-    "ws": "8.22.0",
-    "y-websocket": "3.1.0",
-    "yjs": "13.6.33"
+    "ws": "8.22.0"
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
@@ -67,7 +64,6 @@
     "@types/node": "^24.19.2",
     "@types/ws": "8.18.2",
     "eslint": "10.13.0",
-    "lib0": "0.2.119",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
   },

@@ -3,19 +3,26 @@
  * change state through RPC. Room lifetime is independent of execution:
  * park() must not close a room another consumer still holds.
  */
-import { encodeAwarenessUpdate, PlexusAwareness } from "@here.build/plexus";
-import * as Y from "yjs";
+import {
+  DocumentContainer,
+  encodeAwarenessUpdate,
+  ReactiveAwareness as PlexusAwareness,
+} from "@inhuman.tools/model";
+import type { UpdateLaneHub } from "@inhuman.tools/scope-plane";
 
 import {
-  MESSAGE_AWARENESS,
-  MESSAGE_QUERY_AWARENESS,
-  MESSAGE_SYNC,
+  decodeShapeFrame,
   encodeAwarenessFrame,
   encodeDocUpdate,
   encodeQueryAwareness,
+  encodeShapeFrame,
   encodeSyncStep1,
   forwardPlexusAwareness,
   ingestPlexusAwareness,
+  MESSAGE_AWARENESS,
+  MESSAGE_QUERY_AWARENESS,
+  MESSAGE_SHAPE,
+  MESSAGE_SYNC,
   peekMessageType,
   replyLensSyncFrame,
 } from "@/protocol/document";
@@ -30,8 +37,7 @@ export interface PlaneSocket {
 }
 
 export class AwarenessReplay {
-  readonly #doc = new Y.Doc();
-  readonly #hub = new PlexusAwareness(this.#doc);
+  readonly #hub = new PlexusAwareness();
 
   apply(frame: Uint8Array): void {
     ingestPlexusAwareness(this.#hub, frame);
@@ -45,7 +51,6 @@ export class AwarenessReplay {
 
   destroy(): void {
     this.#hub.destroy();
-    this.#doc.destroy();
   }
 }
 
@@ -104,21 +109,30 @@ export class AwarenessRoom {
 }
 
 /** Server-authoritative plane: reply STEP1 with our STEP2; drop inbound STEP2/UPDATE. */
-export function attachLens(doc: Y.Doc, socket: PlaneSocket, room?: AwarenessRoom, hub?: PlexusAwareness): void {
-  attachSync(doc, socket, room, hub, (frame, live) => replyLensSyncFrame(frame, live));
+export function attachLens(
+  doc: DocumentContainer<any, any>,
+  socket: PlaneSocket,
+  room?: AwarenessRoom,
+  hub?: PlexusAwareness,
+  laneHub?: UpdateLaneHub,
+): void {
+  attachSync(doc, socket, room, hub, laneHub, (frame, live) => replyLensSyncFrame(frame, live));
 }
 
 function attachSync(
-  doc: Y.Doc,
+  doc: DocumentContainer<any, any>,
   socket: PlaneSocket,
   room: AwarenessRoom | undefined,
   hub: PlexusAwareness | undefined,
-  inbound: (frame: Uint8Array, live: Y.Doc, origin: unknown) => Uint8Array | null,
+  laneHub: UpdateLaneHub | undefined,
+  inbound: (frame: Uint8Array, live: DocumentContainer<any, any>, origin: unknown) => Uint8Array | null,
 ): void {
   const onDocUpdate = (update: Uint8Array, origin: unknown): void => {
     if (origin === socket) return;
     socket.send(encodeDocUpdate(update));
   };
+  const socketUnsubs = new Map<string, () => void>();
+
   socket.onBinary((frame) => {
     try {
       const messageType = peekMessageType(frame);
@@ -131,6 +145,26 @@ function attachSync(
         room?.receive(socket, frame);
         return;
       }
+      if (messageType === MESSAGE_SHAPE) {
+        if (laneHub !== undefined) {
+          const payload = decodeShapeFrame(frame);
+          if (payload && typeof payload === "object") {
+            const shapeObj = payload as { kind?: string; subscriptionId?: string };
+            if (shapeObj.kind === "shape/subscribe" && typeof shapeObj.subscriptionId === "string") {
+              socketUnsubs.get(shapeObj.subscriptionId)?.();
+              const unsub = laneHub.subscribe(payload, (delta) => {
+                socket.send(encodeShapeFrame(delta));
+              });
+              socketUnsubs.set(shapeObj.subscriptionId, unsub);
+            } else if (shapeObj.kind === "shape/unsubscribe" && typeof shapeObj.subscriptionId === "string") {
+              socketUnsubs.get(shapeObj.subscriptionId)?.();
+              socketUnsubs.delete(shapeObj.subscriptionId);
+              laneHub.unsubscribe(shapeObj.subscriptionId);
+            }
+          }
+        }
+        return;
+      }
       if (messageType !== MESSAGE_SYNC) return;
       const reply = inbound(frame, doc, socket);
       if (reply !== null) socket.send(reply);
@@ -138,13 +172,15 @@ function attachSync(
       /* malformed peer frame */
     }
   });
+
   socket.onClose(() => {
     doc.off("update", onDocUpdate);
+    for (const unsub of socketUnsubs.values()) {
+      unsub();
+    }
+    socketUnsubs.clear();
   });
   doc.on("update", onDocUpdate);
-  // Say what this replica holds, as y-websocket's own server does. A client that kept
-  // a cache compares it to this vector and drops what the replica no longer has.
-  // Its STEP2 answer is dropped like any inbound document write.
   socket.send(encodeSyncStep1(doc));
   room?.join(socket);
 }

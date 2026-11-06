@@ -3,17 +3,24 @@
  * the async write; success is the receipt, not a local mutation. Dirty
  * replicas stay pinned inside the memory budgets.
  */
-import * as Y from "yjs";
+import {
+  applyDocumentUpdate,
+  DocumentContainer,
+  encodeDocumentStateAsUpdate,
+  mergeDocumentUpdates,
+} from "@inhuman.tools/model";
 
 import {
   checkpointOf,
   type DocumentCheckpoint,
   type DocumentKey,
   type FlushResult,
+  type InventoryError,
   type InventoryListQuery,
   type InventoryPage,
 } from "@/protocol/document";
 
+import { GenericRoot } from "./generic-root.js";
 import { DocumentRegistry, documentGuid, type DocumentRef } from "./registry/index.js";
 import { DocumentImageStore } from "./storage.js";
 
@@ -60,7 +67,7 @@ const EMPTY_UPDATE = new Uint8Array([0, 0]);
 
 type Replica = {
   readonly key: DocumentKey;
-  readonly doc: Y.Doc;
+  readonly doc: DocumentContainer<any, any>;
   readonly onUpdate: (update: Uint8Array) => void;
   consumerPins: number;
   revision: number;
@@ -151,6 +158,10 @@ export class DocumentService {
     return this.#registry.list(query);
   }
 
+  inventoryErrors(): readonly InventoryError[] {
+    return this.#registry.inventoryErrors();
+  }
+
   checkpoint(key: DocumentKey): DocumentCheckpoint | undefined {
     const replica = this.#replicas.get(keyId(key));
     if (replica == null) return undefined;
@@ -197,7 +208,7 @@ export class DocumentService {
     if (this.#dirtyTotal + incoming > this.#budgets.aggregateDirty) {
       return { ok: false, reason: "overload" };
     }
-    Y.applyUpdate(replica.doc, update, origin);
+    applyDocumentUpdate(replica.doc, update, origin);
     return { ok: true };
   }
 
@@ -254,10 +265,10 @@ export class DocumentService {
       }
       return { ok: false, reason: "storage-failed" };
     }
-    const doc = new Y.Doc({ guid: documentGuid(key) });
+    const doc = new DocumentContainer(new GenericRoot(), { guid: documentGuid(key) });
     if (initial != null && initial.byteLength > 0) {
       try {
-        Y.applyUpdate(doc, initial);
+        applyDocumentUpdate(doc, initial);
       } catch {
         doc.destroy();
         return { ok: false, reason: "storage-failed" };
@@ -268,7 +279,7 @@ export class DocumentService {
       return { ok: false, reason: "overload" };
     }
     const checkpoint = checkpointOf(doc, key, this.#registry.serverEpoch, 1);
-    const image = Y.encodeStateAsUpdate(doc);
+    const image = encodeDocumentStateAsUpdate(doc);
     const result = await this.#store.flush({
       checkpoint,
       image,
@@ -289,9 +300,9 @@ export class DocumentService {
 
   #loadImage(key: DocumentKey, image: Uint8Array): OpenResult {
     if (image.byteLength === 0) return { ok: false, reason: "corrupt" };
-    const doc = new Y.Doc({ guid: documentGuid(key) });
+    const doc = new DocumentContainer(new GenericRoot(), { guid: documentGuid(key) });
     try {
-      Y.applyUpdate(doc, image);
+      applyDocumentUpdate(doc, image);
     } catch {
       doc.destroy();
       return { ok: false, reason: "corrupt" };
@@ -334,12 +345,12 @@ export class DocumentService {
       };
     }
     const image =
-      inFlight.length === 0 ? EMPTY_UPDATE : inFlight.length === 1 ? inFlight[0]! : Y.mergeUpdates(inFlight);
+      inFlight.length === 0 ? EMPTY_UPDATE : inFlight.length === 1 ? inFlight[0]! : mergeDocumentUpdates(inFlight);
     replica.pending = [];
     const result = await this.#store.flush({
       checkpoint,
       image,
-      snapshot: () => Y.encodeStateAsUpdate(replica.doc),
+      snapshot: () => encodeDocumentStateAsUpdate(replica.doc),
       ...(force ? { force } : {}),
       runtimeGeneration: options?.runtimeGeneration ?? this.#runtimeGeneration,
       connectionEpoch: options?.connectionEpoch ?? this.#connectionEpoch,
@@ -357,14 +368,14 @@ export class DocumentService {
     return result;
   }
 
-  #admit(key: DocumentKey, doc: Y.Doc, revision: number): Replica | undefined {
+  #admit(key: DocumentKey, doc: DocumentContainer<any, any>, revision: number): Replica | undefined {
     // Recheck after the read/flush await; per-key locks do not serialize budgets.
     if (this.#replicas.size >= this.#budgets.pinCount) return undefined;
     if (!this.#fitsResident(doc)) return undefined;
     return this.#adopt(key, doc, revision);
   }
 
-  #adopt(key: DocumentKey, doc: Y.Doc, revision: number): Replica {
+  #adopt(key: DocumentKey, doc: DocumentContainer<any, any>, revision: number): Replica {
     this.#registry.intern(key, doc);
     const replica: Replica = {
       key,
@@ -380,14 +391,14 @@ export class DocumentService {
     };
     this.#replicas.set(keyId(key), replica);
     doc.on("update", replica.onUpdate);
-    replica.residentBytes = Y.encodeStateAsUpdate(doc).byteLength;
+    replica.residentBytes = encodeDocumentStateAsUpdate(doc).byteLength;
     this.#account(replica);
     if (revision > 0) this.#registry.upsertCatalog(key, revision);
     return replica;
   }
 
-  #fitsResident(doc: Y.Doc): boolean {
-    const resident = Y.encodeStateAsUpdate(doc).byteLength;
+  #fitsResident(doc: DocumentContainer<any, any>): boolean {
+    const resident = encodeDocumentStateAsUpdate(doc).byteLength;
     return this.#residentTotal + resident <= this.#budgets.aggregateResident;
   }
 

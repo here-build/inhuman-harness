@@ -10,7 +10,7 @@
  * do not — ingesting a replica frame and forwarding it loops the plane, and the
  * TUI never sees actor.report() (live speech stays empty until settle).
  */
-import { applyAwarenessUpdate, encodeAwarenessUpdate, type PlexusAwareness } from "@here.build/plexus";
+import { applyAwarenessUpdate, encodeAwarenessUpdate, type PlexusAwareness } from "@inhuman.tools/model";
 
 import { decodeAwarenessPayload, encodeAwarenessFrame } from "./frames.js";
 

@@ -8,8 +8,7 @@ import { mkdir, mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { HarnessDaemon } from "../../server/HarnessDaemon.js";
 import { KernelDaemon } from "../KernelDaemon.js";
@@ -21,8 +20,7 @@ async function scratch(label: string): Promise<string> {
 }
 
 describe("kernel lifetime", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("async dispose persists a write made just before it and releases every document", async () => {
     const system = await scratch("k");
     const workspace = await scratch("p");

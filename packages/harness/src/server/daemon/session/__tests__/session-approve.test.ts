@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   BotCallJob,
@@ -16,7 +16,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { mkdir, mkdtemp, readFile, remove, writeFile, writeJson } from "fs-extra";
 import { runInAction, when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { license } from "@/policy-processor/license";
 import { scopes } from "@/policy-processor/scope";
@@ -49,7 +49,7 @@ async function play(leaf: ToolCallJob, opts: { program?: string; workspace?: str
     path: workspace,
     policyProgram: opts.program ?? distPolicySource(),
   });
-  const plexus = Plexus.bootstrap(root);
+  const plexus = new DocumentContainer(root);
   const turn = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`play`,
@@ -114,8 +114,6 @@ async function parkTurn(session: SessionDaemon, turn: SessionTurn): Promise<void
 }
 
 describe("session approve", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("license residual", async () => {
     const distRows: { name: string; args: string; out: "policyApprove" | "deny" | "ask" | "block" }[] = [
       { name: "read_file", args: '{"path":"a.ts"}', out: "policyApprove" },

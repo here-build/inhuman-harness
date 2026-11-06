@@ -1,45 +1,42 @@
-/**
- * Awareness payload helpers. The DO never applies awareness; it only reads which
- * client ids a browser announced so it can tell the daemon when that browser is gone.
- *
- * Payload (y-protocols layout, same as the plexus hub's): varuint count, then per client
- * varuint id, varuint clock, varstring JSON state.
- */
-import * as decoding from "lib0/decoding";
-import * as encoding from "lib0/encoding";
-
 import { MESSAGE_AWARENESS } from "./constants.js";
 
 /** [clientId, clock] */
 export type AwarenessClient = readonly [number, number];
 
+const textDecoder = new TextDecoder();
+const textEncoder = new TextEncoder();
+
 /** Clients named by an awareness frame (type byte included) with the state they announced. */
 export function readAwarenessFrame(frame: Uint8Array): { id: number; clock: number; removed: boolean }[] {
-  const decoder = decoding.createDecoder(frame);
-  if (decoding.readVarUint(decoder) !== MESSAGE_AWARENESS) return [];
-  const payload = decoding.createDecoder(decoding.readVarUint8Array(decoder));
-  const count = decoding.readVarUint(payload);
-  const out: { id: number; clock: number; removed: boolean }[] = [];
-  for (let i = 0; i < count; i++) {
-    const id = decoding.readVarUint(payload);
-    const clock = decoding.readVarUint(payload);
-    const state = decoding.readVarString(payload);
-    out.push({ id, clock, removed: state === "null" });
+  if (frame.byteLength < 1 || frame[0] !== MESSAGE_AWARENESS) return [];
+  try {
+    const jsonStr = textDecoder.decode(frame.subarray(1));
+    const parsed = JSON.parse(jsonStr) as {
+      entries?: Array<[number, Record<string, unknown> | null, number?]>;
+    };
+    if (!Array.isArray(parsed.entries)) return [];
+    const out: { id: number; clock: number; removed: boolean }[] = [];
+    for (const entry of parsed.entries) {
+      const id = entry[0];
+      const state = entry[1];
+      const clock = entry[2] ?? 0;
+      out.push({ id, clock, removed: state === null });
+    }
+    return out;
+  } catch {
+    return [];
   }
-  return out;
 }
 
-/** A frame that removes `clients` (clock + 1, state null), as the y-websocket server sends on close. */
+/** A frame that removes `clients` (clock + 1, state null). */
 export function encodeAwarenessRemoval(clients: readonly AwarenessClient[]): Uint8Array {
-  const payload = encoding.createEncoder();
-  encoding.writeVarUint(payload, clients.length);
+  const entries: Array<[number, null, number]> = [];
   for (const [id, clock] of clients) {
-    encoding.writeVarUint(payload, id);
-    encoding.writeVarUint(payload, clock + 1);
-    encoding.writeVarString(payload, "null");
+    entries.push([id, null, clock + 1]);
   }
-  const frame = encoding.createEncoder();
-  encoding.writeVarUint(frame, MESSAGE_AWARENESS);
-  encoding.writeVarUint8Array(frame, encoding.toUint8Array(payload));
-  return encoding.toUint8Array(frame);
+  const payload = textEncoder.encode(JSON.stringify({ entries }));
+  const frame = new Uint8Array(1 + payload.byteLength);
+  frame[0] = MESSAGE_AWARENESS;
+  frame.set(payload, 1);
+  return frame;
 }

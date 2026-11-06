@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   BotCallJob,
@@ -20,7 +19,7 @@ import { InhumanPlugin, InhumanTool, normalizeDefinitions, resolveReferences } f
 import { isCallPaused } from "@inhuman.tools/turn/agent-calls";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
 import { usesGenericSilentProjection } from "@/context";
@@ -59,8 +58,7 @@ function toolShape(tool: { type?: string; name?: string; class?: string } | unde
 }
 
 describe("plugin ABI step 2", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("plain_ctor_old_sdk_match_and_exclusive_slot_conflict", async () => {
     const plain = normalizeDefinitions((await import(PLAIN)).default, "plain");
     const ctor = normalizeDefinitions(

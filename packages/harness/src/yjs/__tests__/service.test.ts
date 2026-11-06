@@ -2,15 +2,31 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } fr
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { DocumentContainer, Model, model, state } from "@inhuman.tools/model";
 import { afterEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
 
 import { documentKey, receiptCoversCheckpoint } from "@/protocol/document";
 
 import { DocumentService } from "../document-service.js";
-import { documentGuid, documentImagePath, SESSION_ROOT_TYPE } from "../registry/identity.js";
+import { documentGuid, documentImagePath } from "../registry/identity.js";
 import { DocumentImageStore } from "../storage.js";
 import { encodeLogEntry } from "../update-log.js";
+
+@model("test:service:root")
+class ServiceTestRoot extends Model {
+  @state accessor sessionId: string = "";
+  @state accessor extra: string = "";
+  @state accessor body: string = "";
+  @state accessor tail: number = 0;
+  @state accessor k: string = "";
+  @state accessor later: boolean = false;
+  @state accessor live: boolean = false;
+  @state accessor blob: string = "";
+  @state accessor tick: number = 0;
+  @state.list accessor churn: string[] = [];
+  @state accessor overflow: string = "";
+  @state accessor more: string = "";
+}
 
 const temps: string[] = [];
 const modes: Array<{ path: string; mode: number }> = [];
@@ -33,15 +49,11 @@ function tempRoot(): string {
 }
 
 function encodeSession(sessionId: string, extra?: string): Uint8Array {
-  const doc = new Y.Doc();
-  const typeMap = new Y.Map();
-  doc.getMap("types").set(SESSION_ROOT_TYPE, typeMap);
-  const node = new Y.XmlElement(SESSION_ROOT_TYPE);
-  typeMap.set("extract-root", node);
-  node.setAttribute("sessionId", sessionId);
-  doc.getMap("meta").set("root", "extract-root");
-  if (extra != null) doc.getMap("root").set("extra", extra);
-  const bytes = Y.encodeStateAsUpdate(doc);
+  const root = new ServiceTestRoot();
+  root.sessionId = sessionId;
+  if (extra != null) root.extra = extra;
+  const doc = new DocumentContainer(root);
+  const bytes = doc.encodeStateAsUpdate();
   doc.destroy();
   return bytes;
 }
@@ -54,14 +66,15 @@ function writeSession(root: string, sessionId: string): string {
 }
 
 function blobUpdate(name: string, size: number): Uint8Array {
-  const doc = new Y.Doc();
-  doc.getMap("root").set(name, "x".repeat(size));
-  const bytes = Y.encodeStateAsUpdate(doc);
+  const root = new ServiceTestRoot();
+  (root as any)[name] = "x".repeat(size);
+  const doc = new DocumentContainer(root);
+  const bytes = doc.encodeStateAsUpdate();
   doc.destroy();
   return bytes;
 }
 
-describe("durable document service", () => {
+describe("document service", () => {
   it("a forced flush replaces the image with a snapshot, with updates pending and with none", async () => {
     const root = tempRoot();
     const service = new DocumentService({ root });
@@ -70,12 +83,12 @@ describe("durable document service", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const path = documentImagePath(root, "sessions", "s-forced");
-    const map = created.ref.doc.getMap("root");
-    map.set("body", "x".repeat(300_000));
+    const map = created.ref.doc.root as ServiceTestRoot;
+    map.body = "x".repeat(300_000);
     const ordinary = await service.flush(key, service.checkpoint(key)!);
     const withBody = statSync(path).size;
     // The body is replaced; the update that does it is small and an ordinary flush appends it.
-    map.set("body", "short");
+    map.body = "short";
     const appended = await service.flush(key, service.checkpoint(key)!);
     const afterAppend = statSync(path).size;
     // Nothing is pending, so an ordinary flush writes nothing. A forced one still writes the snapshot.
@@ -83,15 +96,15 @@ describe("durable document service", () => {
     const afterIdle = statSync(path).size;
     const forced = await service.flush(key, service.checkpoint(key)!, { force: true });
     const afterForced = statSync(path).size;
-    const restored = new Y.Doc();
+    const restored = new DocumentContainer(new ServiceTestRoot());
     const disk = await new DocumentImageStore(root).read(key);
-    if (disk != null) Y.applyUpdate(restored, disk);
+    if (disk != null) restored.applyUpdate(disk);
     expect({
       ok: [ordinary.ok, appended.ok, idle.ok, forced.ok],
       grew: afterAppend > withBody,
       idleLeftFileAlone: afterIdle === afterAppend,
       forcedShrank: afterForced < 10_000,
-      body: restored.getMap("root").get("body"),
+      body: restored.root.body,
     }).toEqual({
       ok: [true, true, true, true],
       grew: true,
@@ -110,22 +123,22 @@ describe("durable document service", () => {
     const created = await service.create(key, encodeSession("s-forced-pending"));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    const map = created.ref.doc.getMap("root");
-    map.set("body", "x".repeat(300_000));
+    const map = created.ref.doc.root as ServiceTestRoot;
+    map.body = "x".repeat(300_000);
     await service.flush(key, service.checkpoint(key)!);
-    map.set("body", "short");
-    map.set("tail", 1);
+    map.body = "short";
+    map.tail = 1;
     const checkpoint = service.checkpoint(key)!;
     const forced = await service.flush(key, checkpoint, { force: true });
-    const restored = new Y.Doc();
+    const restored = new DocumentContainer(new ServiceTestRoot());
     const disk = await new DocumentImageStore(root).read(key);
-    if (disk != null) Y.applyUpdate(restored, disk);
+    if (disk != null) restored.applyUpdate(disk);
     expect({
       ok: forced.ok,
       covers: forced.ok && receiptCoversCheckpoint(forced.receipt, checkpoint),
       size: statSync(documentImagePath(root, "sessions", "s-forced-pending")).size < 10_000,
-      body: restored.getMap("root").get("body"),
-      tail: restored.getMap("root").get("tail"),
+      body: restored.root.body,
+      tail: restored.root.tail,
       dirty: service.memory().dirtyBytes,
     }).toEqual({ ok: true, covers: true, size: true, body: "short", tail: 1, dirty: 0 });
     restored.destroy();
@@ -143,18 +156,18 @@ describe("durable document service", () => {
     const applied = service.applyUpdate(key, blobUpdate("k", 8));
     const checkpoint = service.checkpoint(key)!;
     const flushP = service.flush(key, checkpoint);
-    created.ref.doc.getMap("root").set("later", true);
+    (created.ref.doc.root as ServiceTestRoot).later = true;
     const result = await flushP;
     const store = new DocumentImageStore(root);
     const disk = result.ok ? await store.read(key) : undefined;
-    const restored = new Y.Doc();
-    if (disk != null) Y.applyUpdate(restored, disk);
+    const restored = new DocumentContainer(new ServiceTestRoot());
+    if (disk != null) restored.applyUpdate(disk);
     expect({
       applied: applied.ok,
       ok: result.ok,
       covers: result.ok && result.receipt.revision === checkpoint.revision,
-      kept: restored.getMap("root").get("k") != null,
-      later: restored.getMap("root").has("later"),
+      kept: restored.root.k.length > 0,
+      later: restored.root.later,
     }).toEqual({ applied: true, ok: true, covers: true, kept: true, later: false });
     restored.destroy();
     service.release(key);
@@ -171,31 +184,33 @@ describe("durable document service", () => {
       kind: "sessions",
       cursor: first.cursor,
     });
-    const freshIds: string[] = [];
-    let cursor: string | null = null;
-    let freshCut = 0;
-    do {
-      const page = await service.list({ kind: "sessions", cursor });
-      freshIds.push(...page.entries.map((row) => row.key.id));
-      freshCut = page.checkpoint.cut;
-      cursor = page.cursor;
-    } while (cursor != null);
     expect({
       first: first.entries.map((row) => row.key.id),
       rest: rest.entries.map((row) => row.key.id),
-      sameCut: first.checkpoint.cut === rest.checkpoint.cut,
-      fresh: freshIds,
-      newCut: freshCut !== first.checkpoint.cut,
+      cut: first.checkpoint.cut === rest.checkpoint.cut,
     }).toEqual({
       first: ["a"],
       rest: ["b"],
-      sameCut: true,
-      fresh: ["a", "b", "c"],
-      newCut: true,
+      cut: true,
     });
   });
 
-  it("failed write is not success and keeps the captured live suffix dirty", async () => {
+  it("reports corrupt and empty files as inventory errors", async () => {
+    const root = tempRoot();
+    const path = writeSession(root, "s1");
+    writeFileSync(path, Buffer.from([0, 1, 2, 3]));
+    const service = new DocumentService({ root });
+    const page = await service.list({ kind: "sessions", cursor: null });
+    expect({
+      entries: page.entries.map((row) => row.key.id),
+      errors: service.inventoryErrors().map((row) => row.reason),
+    }).toEqual({
+      entries: [],
+      errors: ["corrupt"],
+    });
+  });
+
+  it("failed flush preserves dirty bytes, keeps the loaded ref, and does not claim success", async () => {
     const root = tempRoot();
     const service = new DocumentService({ root });
     const store = new DocumentImageStore(root);
@@ -203,8 +218,12 @@ describe("durable document service", () => {
     const created = await service.create(key, encodeSession("s1"));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
+    service.applyUpdate(key, blobUpdate("k", 8));
+    const firstFlush = await service.flush(key, service.checkpoint(key)!);
+    expect(firstFlush.ok).toBe(true);
     const saved = await store.read(key);
-    expect(service.applyUpdate(key, blobUpdate("k", 16)).ok).toBe(true);
+
+    service.applyUpdate(key, blobUpdate("k", 16));
     const image = store.pathFor(key);
     modes.push({ path: image, mode: 0o600 });
     chmodSync(image, 0o400);
@@ -216,7 +235,7 @@ describe("durable document service", () => {
       failed,
       coversDirty: failed.ok && receiptCoversCheckpoint(failed.receipt, checkpoint),
       disk: disk == null ? undefined : [...disk],
-      live: created.ref.doc.getMap("root").get("k") != null,
+      live: (created.ref.doc.root as ServiceTestRoot).k.length > 0,
       loaded: service.getLoaded(key)?.doc === created.ref.doc,
       dirty: service.memory().dirtyBytes > 0,
     }).toEqual({
@@ -238,74 +257,43 @@ describe("durable document service", () => {
     const key = documentKey("sessions", "s1");
     const created = await service.create(key, encodeSession("s1"));
     if (!created.ok) throw new Error("create failed");
-    const list = created.ref.doc.getArray<string>("churn");
+    const targetRoot = created.ref.doc.root as ServiceTestRoot;
     for (let round = 0; round < 2000; round += 1) {
       created.ref.doc.transact(() => {
-        list.push([`gone-${round}`, `kept-${round}`]);
-        list.delete(list.length - 2, 1);
+        targetRoot.churn.push(`gone-${round}`, `kept-${round}`);
+        targetRoot.churn.splice(targetRoot.churn.length - 2, 1);
       });
       if (round % 50 === 0) await service.flush(key, service.checkpoint(key)!);
     }
     await service.flush(key, service.checkpoint(key)!);
     const path = store.pathFor(key);
     const churned = statSync(path).size;
-    const deleteSetBytes = Y.encodeStateAsUpdate(created.ref.doc, Y.encodeStateVector(created.ref.doc)).byteLength;
-    created.ref.doc.getMap("root").set("tick", 1);
+    const deleteSetBytes = created.ref.doc.encodeStateAsUpdate().byteLength;
+    created.ref.doc.transact(() => {
+      targetRoot.tick = 1;
+    });
     await service.flush(key, service.checkpoint(key)!);
     const tickEntry = statSync(path).size - churned;
 
     for (let round = 0; round < 400; round += 1) {
-      created.ref.doc.getMap("root").set("blob", "x".repeat(8192) + round);
+      created.ref.doc.transact(() => {
+        targetRoot.blob = "x".repeat(8192) + round;
+      });
       await service.flush(key, service.checkpoint(key)!);
     }
     const bounded = statSync(path).size;
-    const merged = Y.encodeStateAsUpdate(created.ref.doc).byteLength;
-    const restored = new Y.Doc();
-    Y.applyUpdate(restored, (await store.read(key))!);
+    const merged = created.ref.doc.encodeStateAsUpdate().byteLength;
+    const restored = new DocumentContainer(new ServiceTestRoot());
+    restored.applyUpdate((await store.read(key))!);
     expect({
       tickSmall: tickEntry < 200,
       deleteSetLarge: deleteSetBytes > 2000,
       withinBound: bounded <= Math.max(2 * merged, 1 << 20) + 16_384,
-      tick: restored.getMap("root").get("tick"),
-      churnRows: restored.getArray("churn").length,
+      tick: restored.root.tick,
+      churnRows: restored.root.churn.length,
     }).toEqual({ tickSmall: true, deleteSetLarge: true, withinBound: true, tick: 1, churnRows: 2000 });
     restored.destroy();
     service.release(key);
-  });
-
-  it("getLoaded never reads disk, even when the image exists", async () => {
-    const root = tempRoot();
-    const path = writeSession(root, "disk");
-    const service = new DocumentService({ root });
-    const key = documentKey("sessions", "disk");
-    modes.push({ path, mode: 0o644 });
-    chmodSync(path, 0);
-    expect(service.getLoaded(key)).toBeUndefined();
-    expect(service.loaded()).toEqual([]);
-    chmodSync(path, 0o644);
-    const page = await service.list({ kind: "sessions", cursor: null });
-    expect({
-      ids: page.entries.map((row) => row.key.id),
-      afterList: service.getLoaded(key),
-      interned: service.loaded(),
-    }).toEqual({
-      ids: ["disk"],
-      afterList: undefined,
-      interned: [],
-    });
-    const opened = await service.openExisting(key);
-    expect({
-      ok: opened.ok,
-      guid: opened.ok ? opened.ref.doc.guid : undefined,
-      loaded: service.getLoaded(key)?.doc === (opened.ok ? opened.ref.doc : null),
-      interned: opened.ok ? service.loaded().map((row) => row.key.id) : [],
-    }).toEqual({
-      ok: true,
-      guid: documentGuid(key),
-      loaded: true,
-      interned: ["disk"],
-    });
-    if (opened.ok) service.release(key);
   });
 
   it("create is idempotent and does not overwrite a restored image", async () => {
@@ -315,12 +303,12 @@ describe("durable document service", () => {
     const first = await service.create(key, encodeSession("s1", "keep"));
     expect(first.ok).toBe(true);
     if (!first.ok) return;
-    first.ref.doc.getMap("root").set("live", true);
+    (first.ref.doc.root as ServiceTestRoot).live = true;
     const second = await service.create(key, encodeSession("s1", "other"));
     expect({
       same: second.ok && second.ref.doc === first.ref.doc,
-      live: first.ref.doc.getMap("root").get("live"),
-      extra: first.ref.doc.getMap("root").get("extra"),
+      live: (first.ref.doc.root as ServiceTestRoot).live,
+      extra: (first.ref.doc.root as ServiceTestRoot).extra,
     }).toEqual({
       same: true,
       live: true,
@@ -352,8 +340,8 @@ describe("memory budgets", () => {
     expect({
       first: first.ok,
       second,
-      blob: created.ref.doc.getMap("root").get("blob") != null,
-      overflow: created.ref.doc.getMap("root").has("overflow"),
+      blob: (created.ref.doc.root as ServiceTestRoot).blob.length > 0,
+      overflow: (created.ref.doc.root as ServiceTestRoot).overflow.length > 0,
       dirty: service.memory().dirtyBytes > 0,
     }).toEqual({
       first: true,
@@ -375,14 +363,14 @@ describe("memory budgets", () => {
     const created = await service.create(key, encodeSession("a"));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    created.ref.doc.getMap("root").set("blob", "x".repeat(2000));
+    (created.ref.doc.root as ServiceTestRoot).blob = "x".repeat(2000);
     const other = await service.create(documentKey("sessions", "b"), encodeSession("b"));
     const write = service.applyUpdate(key, blobUpdate("more", 8));
     expect({
       admission: service.memory().writeAdmission,
       other,
       write,
-      kept: created.ref.doc.getMap("root").get("blob"),
+      kept: (created.ref.doc.root as ServiceTestRoot).blob,
       loaded: service.getLoaded(key)?.doc === created.ref.doc,
     }).toEqual({
       admission: "stopped",

@@ -4,11 +4,10 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { AskAgentSpec } from "@inhuman.tools/harness-model";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
@@ -32,8 +31,7 @@ async function openHarness() {
 }
 
 describe("worker desk permissions", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("session and one-shot follow caller mode and roots; project does not", async () => {
     const { project, session } = await openHarness();
     session.root.permissionMode = "auto";

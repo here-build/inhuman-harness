@@ -9,7 +9,6 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -77,7 +76,6 @@ async function openSession() {
 
 describe("prompt prefix stability", () => {
   beforeEach(() => {
-    resetLocalIDs();
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-25T10:00:00Z"));
   });

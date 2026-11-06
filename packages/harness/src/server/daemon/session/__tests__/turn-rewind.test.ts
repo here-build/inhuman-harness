@@ -6,7 +6,6 @@ import { chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   admitQueue,
@@ -17,7 +16,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { documentKey } from "@/protocol/document";
 import { documentImagePath } from "@/yjs/storage";
@@ -60,8 +59,7 @@ async function refused(promise: Promise<unknown>): Promise<string> {
 }
 
 describe("turn/rewind", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("mint pairs tip; rewind/redo; refuse off-chain and continue; send ends the episode", async () => {
     const session = await openSession();
     const noHead = await refused(session.handleRequest("turn/rewind", { turnId: "missing" }));

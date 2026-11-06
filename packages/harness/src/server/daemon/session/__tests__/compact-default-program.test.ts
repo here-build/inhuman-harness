@@ -6,7 +6,6 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompactJob,
@@ -17,14 +16,13 @@ import {
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
 import { reaction } from "mobx";
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 
 import { MessageChunk, textOfCell, Transcript } from "@/context";
 import { applyCompact } from "@/session";
 
 import { loadCompactProgram } from "../compact.js";
 
-beforeEach(() => resetLocalIDs());
 
 const BIG_OUTPUT = `${"line of a long grep result\n".repeat(220)}END-OF-BIG-OUTPUT`;
 

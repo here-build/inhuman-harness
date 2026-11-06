@@ -1,7 +1,6 @@
 /**
  * MCP BODY is the connection actor. Stdio paints stderr; HTTP declines needs-auth.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   MCPToolJob,
@@ -13,7 +12,7 @@ import {
 import "@inhuman.tools/harness-model/register";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { McpStdioToolActor, McpToolActor } from "../actor.js";
 import { McpHttpDriverConnection } from "../http-driver.js";
@@ -88,8 +87,7 @@ function ready(connection: McpDriverConnection, client: Partial<Client>): void {
 }
 
 describe("MCP tool actor", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("exclude without tools/call; call seals receipt; stdio stderr / HTTP needs-auth", async () => {
     const excluded = homeCall({
       connectionKey: "mail",

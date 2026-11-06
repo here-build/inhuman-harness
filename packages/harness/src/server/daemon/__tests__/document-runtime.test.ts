@@ -7,8 +7,7 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { documentKey, receiptCoversCheckpoint } from "@/protocol/document";
 import { DocumentService } from "@/yjs";
@@ -22,8 +21,7 @@ async function openKernel(label: string): Promise<string> {
 }
 
 describe("local document/runtime integration", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("bind/activate still has no catalog observers until activate()", async () => {
     const kernel = new KernelDaemon(await openKernel("bind"));
     onTestFinished(() => kernel[Symbol.dispose]());

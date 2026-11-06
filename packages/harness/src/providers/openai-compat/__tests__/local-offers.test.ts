@@ -2,11 +2,10 @@
  * Local detection: the probe, the demand-gated interval, and the class wiring
  * (observer wakes it, kernel awareness gates the interval).
  */
-import { applyAwarenessUpdate, encodeAwarenessUpdate, PlexusAwareness } from "@here.build/plexus";
+import { applyAwarenessUpdate, encodeAwarenessUpdate, ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
 import { publishRevalidationDemand } from "@inhuman.tools/plexus-expectations";
 import { observable, reaction, runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as Y from "yjs";
 
 import { OpenAiCompatDriverConnection } from "../connection.js";
 import { detectedLocalOffers, LOCAL_PROBE_INTERVAL_MS } from "../local-offers.js";
@@ -145,7 +144,7 @@ describe("OpenAiCompatDriverConnection.offers", () => {
   afterEach(() => vi.useRealTimers());
 
   it("is detected, custom, then catalogs; the kernel awareness gates the interval", async () => {
-    const hub = new PlexusAwareness(new Y.Doc());
+    const hub = new PlexusAwareness();
     const lm = serving("1234/v1");
     class Probed extends OpenAiCompatDriverConnection {}
     Probed.probeFetch = lm.impl;
@@ -168,8 +167,7 @@ describe("OpenAiCompatDriverConnection.offers", () => {
     await vi.advanceTimersByTimeAsync(LOCAL_PROBE_INTERVAL_MS * 3);
     expect(lm.calls).toHaveLength(sweep);
 
-    const doc = new Y.Doc();
-    const author = new PlexusAwareness(doc);
+    const author = new PlexusAwareness();
     publishRevalidationDemand(author, [{ kind: "driver", name: "probed" }]);
     applyAwarenessUpdate(hub, encodeAwarenessUpdate(author, [...author.meta.keys()]), "remote");
     await vi.advanceTimersByTimeAsync(LOCAL_PROBE_INTERVAL_MS);
@@ -179,6 +177,5 @@ describe("OpenAiCompatDriverConnection.offers", () => {
     stop();
     expect(vi.getTimerCount()).toBe(withInterval - 1); // our interval, and only ours, is gone
     author.destroy();
-    doc.destroy();
   });
 });

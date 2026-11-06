@@ -5,7 +5,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   admitQueue,
@@ -21,7 +20,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { steerMessagesOf } from "@/providers/openai-compat";
 
@@ -65,8 +64,7 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("Steer / promptQueue", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("0-tool extends; compact bounce and cancel demote; promptQueue drain /compact is compact turn", async () => {
     const session = await openSession();
     const root = session.root;

@@ -4,7 +4,7 @@
 
 import invariant from "tiny-invariant";
 
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
@@ -28,7 +28,7 @@ import {
   WebSearchToolJob,
 } from "@inhuman.tools/harness-model";
 import type { ToolCall } from "@inhuman.tools/tool-call-normalize";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { SQUEEZE_COMPACT_CHARS, squeezeToolCall } from "@/context";
 import { catalogRecipe } from "@/tool-catalog";
@@ -66,7 +66,6 @@ function mcpHost(catalog: KernelToolCatalog): void {
   };
 }
 
-beforeEach(() => resetLocalIDs());
 
 describe("ToolCallHandler.admit", () => {
   it.each([
@@ -383,8 +382,8 @@ describe("ToolCallHandler.admit", () => {
     const handler = new ToolCallHandler({ catalog });
     const open = new BotCallJob({ name: "agent__send", argsJson: JSON.stringify({ spec: "echo", message: "hi" }) });
     const mute = new BotCallJob({ name: "not-a-send" });
-    const openDoc = Plexus.bootstrap(open);
-    const muteDoc = Plexus.bootstrap(mute);
+    const openDoc = new DocumentContainer(open);
+    const muteDoc = new DocumentContainer(mute);
     onTestFinished(() => {
       openDoc.destroy();
       muteDoc.destroy();

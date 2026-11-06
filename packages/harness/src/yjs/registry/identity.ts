@@ -5,8 +5,6 @@
  */
 import { join } from "node:path";
 
-import * as Y from "yjs";
-
 import {
   documentImageSegments,
   KERNEL_DOCUMENT_GUID,
@@ -25,7 +23,6 @@ export const SESSION_ROOT_TYPE = "harness:session:root";
 /** Matches ProjectRoot @syncing tag. */
 export const PROJECT_ROOT_TYPE = "harness:project:root";
 
-const EXTRACT_GUID = "inventory-extract";
 
 export type IdentityDecode =
   { readonly ok: true; readonly id: string } | { readonly ok: false; readonly reason: InventoryErrorReason };
@@ -51,23 +48,23 @@ export function decodeImageIdentity(kind: DocumentKind, bytes: Uint8Array): Iden
   const updates = readUpdateLog(bytes);
   const first = updates?.[0];
   if (first == null) return { ok: false, reason: "corrupt" };
-  const doc = new Y.Doc({ guid: EXTRACT_GUID });
+  if (kind === "kernel") return { ok: true, id: KERNEL_DOCUMENT_KEY.id };
+
+  let parsed: any;
   try {
-    Y.applyUpdate(doc, first);
+    const text = new TextDecoder().decode(first);
+    parsed = JSON.parse(text);
   } catch {
-    doc.destroy();
     return { ok: false, reason: "corrupt" };
   }
-  try {
-    if (kind === "kernel") return { ok: true, id: KERNEL_DOCUMENT_KEY.id };
-    const typeName = kind === "sessions" ? SESSION_ROOT_TYPE : PROJECT_ROOT_TYPE;
-    const field = kind === "sessions" ? "sessionId" : "path";
-    const id = readRootField(doc, typeName, field);
-    if (id == null) return { ok: false, reason: "decode-failure" };
-    return { ok: true, id };
-  } finally {
-    doc.destroy();
+
+  const field = kind === "sessions" ? "sessionId" : "path";
+  const root = parsed?.root;
+  const val = root?.columns?.[field] ?? root?.state?.[field] ?? parsed?.meta?.root?.[field];
+  if (typeof val === "string" && val.trim().length > 0) {
+    return { ok: true, id: val.trim() };
   }
+  return { ok: false, reason: "decode-failure" };
 }
 
 export function identifyStoredImage(
@@ -82,19 +79,4 @@ export function identifyStoredImage(
     return { ok: false, reason: "mismatch" };
   }
   return decoded;
-}
-
-function readRootField(doc: Y.Doc, typeName: string, field: string): string | null {
-  const meta = doc.getMap("meta");
-  const types = doc.getMap("types");
-  const rootUuid = meta.get("root");
-  if (typeof rootUuid !== "string" || rootUuid === "") return null;
-  const typeMap = types.get(typeName);
-  if (!(typeMap instanceof Y.Map)) return null;
-  const node = typeMap.get(rootUuid);
-  if (!(node instanceof Y.XmlElement)) return null;
-  const value = node.getAttribute(field);
-  if (typeof value !== "string") return null;
-  const id = value.trim();
-  return id === "" ? null : id;
 }

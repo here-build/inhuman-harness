@@ -7,7 +7,6 @@ import { CompletionExpectation, CompletionJob, SessionSystemPrompt, SessionTurn 
 import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { mkdtemp } from "fs-extra";
 import { expect, it, onTestFinished } from "vitest";
-import * as Y from "yjs";
 
 import { scopes } from "@/policy-processor/scope";
 import { OpenAiCompatChatActor, type RoundAnswer } from "@/providers/openai-compat/actor";
@@ -101,7 +100,7 @@ it.each([
     const { session, round, job, pending, answer, finished } = await pendingCompletion(
       caller === "scope" ? "scope" : undefined,
     );
-    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc));
+    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate());
     let replacement: SessionRuntime;
     if (loss === "replaced") replacement = new SessionRuntime(session.plexus, { kind: "memory" });
     else {
@@ -112,7 +111,7 @@ it.each([
     expect({
       done: round.isDone,
       outcome: round.outcome,
-      unchanged: before.equals(Y.encodeStateAsUpdate(session.plexus.doc)),
+      unchanged: before.equals(Buffer.from(session.plexus.doc.encodeStateAsUpdate())),
     }).toEqual({
       done: false,
       outcome: null,
@@ -124,7 +123,7 @@ it.each([
     expect({
       done: round.isDone,
       text: round.responseText,
-      unchanged: before.equals(Y.encodeStateAsUpdate(session.plexus.doc)),
+      unchanged: before.equals(Buffer.from(session.plexus.doc.encodeStateAsUpdate())),
     }).toEqual({
       done: false,
       text: "",

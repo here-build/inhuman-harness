@@ -3,8 +3,8 @@
  * ownership finish before activate.
  */
 import { KernelPlexus, SessionPlexus } from "@inhuman.tools/harness-model";
+import { encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
 import { type ConnectionSpec, type DriverSpec } from "@inhuman.tools/plexus-expectations";
-import * as Y from "yjs";
 
 import type { DriverRegistry } from "@/connections";
 import { documentKey, KERNEL_DOCUMENT_KEY } from "@/protocol/document";
@@ -165,7 +165,7 @@ export class RuntimeServer implements Disposable {
       return this.#kernel;
     }
     const boot = KernelPlexus.bootstrap();
-    const created = await documents.create(KERNEL_DOCUMENT_KEY, Y.encodeStateAsUpdate(boot.doc));
+    const created = await documents.create(KERNEL_DOCUMENT_KEY, encodeDocumentStateAsUpdate(boot.doc));
     boot.doc.destroy();
     if (this.#stale(documents)) return this.acquireKernel();
     if (!created.ok) {
@@ -189,7 +189,7 @@ export class RuntimeServer implements Disposable {
       return this.#runtime.intern(sessionId, restored);
     }
     const boot = SessionPlexus.create(sessionId, path);
-    const created = await documents.create(key, Y.encodeStateAsUpdate(boot.doc));
+    const created = await documents.create(key, encodeDocumentStateAsUpdate(boot.doc));
     boot.doc.destroy();
     if (this.#stale(documents)) return this.acquireSession(sessionId, path);
     if (!created.ok) {

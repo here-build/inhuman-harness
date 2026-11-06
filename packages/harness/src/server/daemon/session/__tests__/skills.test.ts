@@ -7,9 +7,8 @@ import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { mkdtemp, writeJson } from "fs-extra";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
@@ -29,8 +28,7 @@ function writeSkill(root: string, name: string, body = SKILL): void {
 }
 
 describe("project skills", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("session attach lists one-level skills, skips farm and nested, expands /name unless host-reserved", async () => {
     const system = await mkdtemp(join(tmpdir(), "harness-skills-k-"));
     const workspace = await mkdtemp(join(tmpdir(), "harness-skills-p-"));

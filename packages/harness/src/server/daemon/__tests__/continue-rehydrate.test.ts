@@ -8,23 +8,17 @@ import { mkdtempSync, realpathSync, rmSync, statSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { KERNEL_DOC_GUID, KernelPlexus, SessionPlexus } from "@inhuman.tools/harness-model";
+import { KernelDocument, SessionDocument, SessionRoot } from "@inhuman.tools/harness-model";
 import { Client } from "@inhuman.tools/harness-sdk";
+import type { DocumentContainer } from "@inhuman.tools/model";
 import { runInAction } from "mobx";
 import { describe, expect, it } from "vitest";
-import * as Y from "yjs";
 
 import { documentKey, type DocumentKey } from "@/protocol/document";
 import { DocumentImageStore, documentImagePath } from "@/yjs/storage";
+import { encodeLogEntry } from "@/yjs/update-log";
 
 import { HarnessDaemon } from "../server/HarnessDaemon.js";
-
-function logEntry(update: Uint8Array): Uint8Array {
-  const entry = new Uint8Array(4 + update.byteLength);
-  new DataView(entry.buffer).setUint32(0, update.byteLength, false);
-  entry.set(update, 4);
-  return entry;
-}
 
 function concatBytes(parts: readonly Uint8Array[]): Uint8Array {
   const out = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0));
@@ -37,23 +31,29 @@ function concatBytes(parts: readonly Uint8Array[]): Uint8Array {
 }
 
 /** Replace a flushed image with a snapshot entry followed by a delta entry. */
-async function rewriteSnapshotPlusTail(
+async function rewriteSnapshotPlusTail<T extends DocumentContainer<any>>(
   kernel: string,
   key: DocumentKey,
-  guid: string,
-  mutate: (doc: Y.Doc) => void,
+  createDoc: () => T,
+  mutate: (doc: T) => void,
 ): Promise<Uint8Array> {
   const merged = await new DocumentImageStore(kernel).read(key);
   if (merged == null) throw new Error(`missing ${key.kind} image`);
-  const doc = new Y.Doc({ guid });
-  Y.applyUpdate(doc, merged);
-  const bare = Y.encodeStateAsUpdate(doc);
-  const vector = Y.encodeStateVector(doc);
-  mutate(doc);
-  const delta = Y.encodeStateAsUpdate(doc, vector);
-  if (delta.byteLength <= 2) throw new Error(`empty tail for ${key.kind}`);
-  writeFileSync(documentImagePath(kernel, key), concatBytes([logEntry(bare), logEntry(delta)]));
-  doc.destroy();
+  const bareDoc = createDoc();
+  bareDoc.applyUpdate(merged);
+  const bare = bareDoc.encodeStateAsUpdate();
+
+  const deltaDoc = createDoc();
+  deltaDoc.applyUpdate(merged);
+  let delta: Uint8Array | null = null;
+  deltaDoc.on("update", (update) => {
+    delta = update;
+  });
+  mutate(deltaDoc);
+  if (delta == null || (delta as Uint8Array).byteLength === 0) throw new Error(`empty tail for ${key.kind}`);
+  writeFileSync(documentImagePath(kernel, key), concatBytes([encodeLogEntry(bare), encodeLogEntry(delta)]));
+  bareDoc.destroy();
+  deltaDoc.destroy();
   return bare;
 }
 
@@ -81,13 +81,12 @@ describe("continue rehydrate", () => {
       await daemon[Symbol.asyncDispose]();
     }
 
-    await rewriteSnapshotPlusTail(kernel, documentKey("sessions", sessionId), `harness:session:${sessionId}`, (doc) => {
-      SessionPlexus.connect(doc, { undo: "stub" }).root.applyKvs([{ form: "kv-set", key: "tail", value: "yes" }]);
+    await rewriteSnapshotPlusTail(kernel, documentKey("sessions", sessionId), () => SessionDocument.create(new SessionRoot({ sessionId, path: workspace })), (doc) => {
+      doc.root.applyKvs([{ form: "kv-set", key: "tail", value: "yes" }]);
     });
-    await rewriteSnapshotPlusTail(kernel, documentKey("kernel", "kernel"), KERNEL_DOC_GUID, (doc) => {
-      const root = KernelPlexus.connect(doc, { undo: "stub" }).root;
+    await rewriteSnapshotPlusTail(kernel, documentKey("kernel", "kernel"), () => KernelDocument.create(), (doc) => {
       runInAction(() => {
-        root.termContinue.desk = sessionId;
+        doc.root.termContinue.desk = sessionId;
       });
     });
 

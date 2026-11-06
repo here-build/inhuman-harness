@@ -20,7 +20,6 @@ import {
   SessionTurn,
 } from "@inhuman.tools/harness-model";
 import { describe, expect, it, onTestFinished } from "vitest";
-import * as Y from "yjs";
 
 import { documentImageSegments, documentKey } from "@/protocol/document";
 import { DocumentImageStore } from "@/yjs/storage";
@@ -155,9 +154,8 @@ describe("blob/vacuum", () => {
     // What is on disk is a single snapshot of the vacuumed document, and it opens as a session.
     const disk = await new DocumentImageStore(kernel.root).read(documentKey("sessions", "s-vacuum"));
     if (disk === undefined) throw new Error("the image did not read");
-    const doc = new Y.Doc({ guid: session.plexus.doc.guid });
-    Y.applyUpdate(doc, disk);
-    const restored = SessionPlexus.connect(doc);
+    const restored = SessionPlexus.create(session.plexus.doc.guid);
+    restored.applyUpdate(disk);
     try {
       const jobs = restored.getAllOfType(FileMutateToolJob);
       const rounds = restored.getAllOfType(CompletionExpectation);
@@ -174,7 +172,6 @@ describe("blob/vacuum", () => {
       });
     } finally {
       restored.destroy();
-      doc.destroy();
     }
   });
 

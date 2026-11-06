@@ -10,17 +10,17 @@ import {
   destroyProvider,
   detachProtocolAwareness,
   waitForSync,
+  WebsocketProvider,
   type JsonRpcPort,
 } from "@inhuman.tools/harness-peer";
-import { WebsocketProvider } from "y-websocket";
-import * as Y from "yjs";
+import { DocumentContainer, Model, model } from "@inhuman.tools/model";
 
 import { DEV_SECRET } from "./stack.js";
 
-export type Closed = { code: number; reason: string };
+@model("harness:relay:e2e-root")
+class E2eRoot extends Model {}
 
-/** Relay refusals end the redial, as in the app. */
-const isRefusal = (code: number): boolean => code === 4400 || code === 4404 || code === 4500;
+export type Closed = { code: number; reason: string };
 
 export class Room {
   readonly closes: Closed[] = [];
@@ -30,7 +30,7 @@ export class Room {
 
   constructor(
     readonly provider: WebsocketProvider,
-    readonly doc: Y.Doc,
+    readonly doc: DocumentContainer,
   ) {
     detachProtocolAwareness(provider);
     bindTextFrames(provider, () => undefined);
@@ -99,15 +99,11 @@ export class Browser {
         super(String(url), { headers: { Cookie: cookie, Origin: sameOrigin } });
       }
     }
-    const doc = new Y.Doc(guid === undefined ? {} : { guid });
+    const doc = new DocumentContainer(new E2eRoot(), guid === undefined ? {} : { guid });
     const provider = new WebsocketProvider(`${origin}/m/${machineId}/room`, name, doc, {
       params,
-      disableBc: true,
       WebSocketPolyfill: CookieSocket as unknown as typeof WebSocket,
-      shouldReconnect: (event: CloseEvent) => !isRefusal(event.code),
-      maxBackoffTime: 1_000,
-    } as ConstructorParameters<typeof WebsocketProvider>[3]);
-    provider.disconnectBc = () => undefined;
+    });
     const room = new Room(provider, doc);
     this.#rooms.add(room);
     return room;

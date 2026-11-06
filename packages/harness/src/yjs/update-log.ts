@@ -6,9 +6,6 @@
  */
 import { Buffer } from "node:buffer";
 
-import * as decoding from "lib0/decoding";
-import * as Y from "yjs";
-
 const LENGTH_BYTES = 4;
 
 /** Unchanged state encodes as `[0, 0]`, not a 0-length buffer. */
@@ -68,24 +65,16 @@ function readPrefixed(bytes: Uint8Array, start: number): Prefixed | null {
   return { updates, torn: false };
 }
 
-/** Bytes of the first Yjs message, or null when the buffer is not one. */
-function yjsUpdateEnd(bytes: Uint8Array): number | null {
-  const decoder = decoding.createDecoder(bytes);
-  const doc = new Y.Doc();
-  try {
-    Y.readUpdate(decoder, doc);
-  } catch {
-    return null;
-  } finally {
-    doc.destroy();
-  }
-  const end = decoder.pos;
-  return end > 0 && end <= bytes.byteLength ? end : null;
-}
-
 function isOneUpdate(update: Uint8Array | undefined): update is Uint8Array {
-  if (update == null) return false;
-  return yjsUpdateEnd(update) === update.byteLength;
+  if (update == null || update.byteLength === 0) return false;
+  if (update.byteLength === 2 && update[0] === 0 && update[1] === 0) return true;
+  try {
+    const text = new TextDecoder().decode(update);
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    return typeof parsed === "object" && parsed !== null && "revision" in parsed;
+  } catch {
+    return false;
+  }
 }
 
 function readLength(bytes: Uint8Array, offset: number): number {

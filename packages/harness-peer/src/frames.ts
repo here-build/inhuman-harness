@@ -1,69 +1,98 @@
-import * as decoding from "lib0/decoding";
-import * as encoding from "lib0/encoding";
-import * as syncProtocol from "y-protocols/sync";
-import * as Y from "yjs";
+import type { DocumentContainer } from "@inhuman.tools/model";
 
 export const MESSAGE_SYNC = 0;
 export const MESSAGE_AWARENESS = 1;
-/** y-websocket `messageQueryAwareness`. Inbound counts as traffic for its 30s watchdog. */
 export const MESSAGE_QUERY_AWARENESS = 3;
+export const MESSAGE_SHAPE = 4;
+
+export const SYNC_STEP1 = 0;
+export const SYNC_STEP2 = 1;
+export const SYNC_UPDATE = 2;
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 
 export function encodeDocUpdate(update: Uint8Array): Uint8Array {
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_SYNC);
-  syncProtocol.writeUpdate(encoder, update);
-  return encoding.toUint8Array(encoder);
+  const frame = new Uint8Array(2 + update.byteLength);
+  frame[0] = MESSAGE_SYNC;
+  frame[1] = SYNC_UPDATE;
+  frame.set(update, 2);
+  return frame;
 }
 
-export function encodeSyncStep1(doc: Y.Doc): Uint8Array {
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_SYNC);
-  syncProtocol.writeSyncStep1(encoder, doc);
-  return encoding.toUint8Array(encoder);
+export function encodeSyncStep1(doc: DocumentContainer<any, any>): Uint8Array {
+  const vector = doc.encodeStateVector();
+  const frame = new Uint8Array(2 + vector.byteLength);
+  frame[0] = MESSAGE_SYNC;
+  frame[1] = SYNC_STEP1;
+  frame.set(vector, 2);
+  return frame;
 }
 
-export function replyLensSyncFrame(frame: Uint8Array, live: Y.Doc): Uint8Array | null {
-  const decoder = decoding.createDecoder(frame);
-  if (decoding.readVarUint(decoder) !== MESSAGE_SYNC) return null;
-  if (decoding.readVarUint(decoder) !== syncProtocol.messageYjsSyncStep1) return null;
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_SYNC);
-  syncProtocol.readSyncStep1(decoder, encoder, live);
-  return encoding.length(encoder) > 1 ? encoding.toUint8Array(encoder) : null;
+export function replyLensSyncFrame(frame: Uint8Array, live: DocumentContainer<any, any>): Uint8Array | null {
+  if (frame.byteLength < 2 || frame[0] !== MESSAGE_SYNC || frame[1] !== SYNC_STEP1) return null;
+  const update = live.encodeStateAsUpdate();
+  const reply = new Uint8Array(2 + update.byteLength);
+  reply[0] = MESSAGE_SYNC;
+  reply[1] = SYNC_STEP2;
+  reply.set(update, 2);
+  return reply;
 }
 
-/** Document peer: STEP1 replies STEP2; STEP2/UPDATE apply onto `live` with `origin`. */
-export function applyPeerSyncFrame(frame: Uint8Array, live: Y.Doc, origin: unknown): Uint8Array | null {
-  const decoder = decoding.createDecoder(frame);
-  if (decoding.readVarUint(decoder) !== MESSAGE_SYNC) return null;
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_SYNC);
-  syncProtocol.readSyncMessage(decoder, encoder, live, origin);
-  return encoding.length(encoder) > 1 ? encoding.toUint8Array(encoder) : null;
+export function applyPeerSyncFrame(
+  frame: Uint8Array,
+  live: DocumentContainer<any, any>,
+  origin: unknown,
+): Uint8Array | null {
+  if (frame.byteLength < 2 || frame[0] !== MESSAGE_SYNC) return null;
+  const subType = frame[1];
+  if (subType === SYNC_STEP1) {
+    const update = live.encodeStateAsUpdate();
+    const reply = new Uint8Array(2 + update.byteLength);
+    reply[0] = MESSAGE_SYNC;
+    reply[1] = SYNC_STEP2;
+    reply.set(update, 2);
+    return reply;
+  }
+  if (subType === SYNC_STEP2 || subType === SYNC_UPDATE) {
+    live.applyUpdate(frame.subarray(2), origin);
+    return null;
+  }
+  return null;
 }
 
 export function peekMessageType(frame: Uint8Array): number {
-  return decoding.readVarUint(decoding.createDecoder(frame));
+  return frame[0] ?? -1;
 }
 
 export function encodeQueryAwareness(): Uint8Array {
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_QUERY_AWARENESS);
-  return encoding.toUint8Array(encoder);
+  return new Uint8Array([MESSAGE_QUERY_AWARENESS]);
 }
 
 export function encodeAwarenessFrame(payload: Uint8Array): Uint8Array {
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
-  encoding.writeVarUint8Array(encoder, payload);
-  return encoding.toUint8Array(encoder);
+  const frame = new Uint8Array(1 + payload.byteLength);
+  frame[0] = MESSAGE_AWARENESS;
+  frame.set(payload, 1);
+  return frame;
 }
 
 export function decodeAwarenessPayload(frame: Uint8Array): Uint8Array | null {
+  if (frame.byteLength < 1 || frame[0] !== MESSAGE_AWARENESS) return null;
+  return frame.subarray(1);
+}
+
+export function encodeShapeFrame(payload: unknown): Uint8Array {
+  const jsonBytes = textEncoder.encode(JSON.stringify(payload));
+  const frame = new Uint8Array(1 + jsonBytes.byteLength);
+  frame[0] = MESSAGE_SHAPE;
+  frame.set(jsonBytes, 1);
+  return frame;
+}
+
+export function decodeShapeFrame(frame: Uint8Array): unknown | null {
+  if (frame.byteLength < 1 || frame[0] !== MESSAGE_SHAPE) return null;
   try {
-    const decoder = decoding.createDecoder(frame);
-    if (decoding.readVarUint(decoder) !== MESSAGE_AWARENESS) return null;
-    return decoding.readVarUint8Array(decoder);
+    return JSON.parse(textDecoder.decode(frame.subarray(1)));
   } catch {
     return null;
   }

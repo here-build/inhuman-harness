@@ -3,10 +3,9 @@
  * is not a durability proof; the receipt covers server epoch, runtime
  * generation, connection epoch, and the update prefix.
  */
-import * as decoding from "lib0/decoding";
-import * as encoding from "lib0/encoding";
-import * as Y from "yjs";
+import type { DocumentContainer } from "@inhuman.tools/model";
 
+import { createDecoder, createEncoder } from "./codec.js";
 import { documentKeysEqual, readDocumentKey, writeDocumentKey, type DocumentKey } from "./keys.js";
 
 export type DocumentCheckpoint = {
@@ -34,12 +33,17 @@ export type FlushResult =
       readonly reason: "storage-failed" | "disconnected" | "overload";
     };
 
-export function checkpointOf(doc: Y.Doc, key: DocumentKey, serverEpoch: number, revision: number): DocumentCheckpoint {
+export function checkpointOf(
+  doc: DocumentContainer<any, any> | { encodeStateVector(): Uint8Array },
+  key: DocumentKey,
+  serverEpoch: number,
+  revision: number,
+): DocumentCheckpoint {
   return {
     key,
     serverEpoch,
     revision,
-    stateVector: Y.encodeStateVector(doc),
+    stateVector: doc.encodeStateVector(),
   };
 }
 
@@ -52,21 +56,21 @@ export function receiptCoversCheckpoint(receipt: DurableReceipt, checkpoint: Doc
 }
 
 export function encodeDocumentCheckpoint(checkpoint: DocumentCheckpoint): Uint8Array {
-  const encoder = encoding.createEncoder();
+  const encoder = createEncoder();
   writeDocumentKey(encoder, checkpoint.key);
-  encoding.writeVarUint(encoder, checkpoint.serverEpoch);
-  encoding.writeVarUint(encoder, checkpoint.revision);
-  encoding.writeVarUint8Array(encoder, checkpoint.stateVector);
-  return encoding.toUint8Array(encoder);
+  encoder.writeVarUint(checkpoint.serverEpoch);
+  encoder.writeVarUint(checkpoint.revision);
+  encoder.writeVarUint8Array(checkpoint.stateVector);
+  return encoder.toUint8Array();
 }
 
 export function decodeDocumentCheckpoint(bytes: Uint8Array): DocumentCheckpoint | null {
   try {
-    const decoder = decoding.createDecoder(bytes);
+    const decoder = createDecoder(bytes);
     const key = readDocumentKey(decoder);
-    const serverEpoch = decoding.readVarUint(decoder);
-    const revision = decoding.readVarUint(decoder);
-    const stateVector = decoding.readVarUint8Array(decoder);
+    const serverEpoch = decoder.readVarUint();
+    const revision = decoder.readVarUint();
+    const stateVector = decoder.readVarUint8Array();
     return { key, serverEpoch, revision, stateVector };
   } catch {
     return null;
@@ -74,25 +78,25 @@ export function decodeDocumentCheckpoint(bytes: Uint8Array): DocumentCheckpoint 
 }
 
 export function encodeDurableReceipt(receipt: DurableReceipt): Uint8Array {
-  const encoder = encoding.createEncoder();
+  const encoder = createEncoder();
   writeDocumentKey(encoder, receipt.key);
-  encoding.writeVarUint(encoder, receipt.serverEpoch);
-  encoding.writeVarUint(encoder, receipt.runtimeGeneration);
-  encoding.writeVarUint(encoder, receipt.connectionEpoch);
-  encoding.writeVarUint(encoder, receipt.revision);
-  encoding.writeVarUint8Array(encoder, receipt.prefix);
-  return encoding.toUint8Array(encoder);
+  encoder.writeVarUint(receipt.serverEpoch);
+  encoder.writeVarUint(receipt.runtimeGeneration);
+  encoder.writeVarUint(receipt.connectionEpoch);
+  encoder.writeVarUint(receipt.revision);
+  encoder.writeVarUint8Array(receipt.prefix);
+  return encoder.toUint8Array();
 }
 
 export function decodeDurableReceipt(bytes: Uint8Array): DurableReceipt | null {
   try {
-    const decoder = decoding.createDecoder(bytes);
+    const decoder = createDecoder(bytes);
     const key = readDocumentKey(decoder);
-    const serverEpoch = decoding.readVarUint(decoder);
-    const runtimeGeneration = decoding.readVarUint(decoder);
-    const connectionEpoch = decoding.readVarUint(decoder);
-    const revision = decoding.readVarUint(decoder);
-    const prefix = decoding.readVarUint8Array(decoder);
+    const serverEpoch = decoder.readVarUint();
+    const runtimeGeneration = decoder.readVarUint();
+    const connectionEpoch = decoder.readVarUint();
+    const revision = decoder.readVarUint();
+    const prefix = decoder.readVarUint8Array();
     return {
       key,
       serverEpoch,

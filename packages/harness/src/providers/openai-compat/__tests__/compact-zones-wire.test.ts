@@ -1,5 +1,4 @@
 /** viewWire squeezes the compact band and leaves keep and later cells full. */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompactJob,
@@ -41,7 +40,6 @@ function tool(
 
 describe("compact zones on the wire", () => {
   it("viewWire squeezes the band and leaves keep and later cells full", () => {
-    resetLocalIDs();
     const fold = completion("fold-user", "fold-asst");
     const foldTool = tool("fold_tool", "shell", { outcome: "FOLD_SECRET" });
     fold.setResponseCalls([responseCall("fold_tool", "shell")]);

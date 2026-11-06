@@ -4,9 +4,7 @@
  */
 import { timingSafeEqual } from "node:crypto";
 
-import * as decoding from "lib0/decoding";
-import * as syncProtocol from "y-protocols/sync";
-import * as Y from "yjs";
+import { encodeDocumentStateAsUpdate, type DocumentContainer } from "@inhuman.tools/model";
 
 import {
   admitPrivateEnvelope,
@@ -79,17 +77,10 @@ function authorizeHello(
 }
 
 function readPeerUpdate(frame: Uint8Array): Uint8Array | null {
-  try {
-    const decoder = decoding.createDecoder(frame);
-    if (decoding.readVarUint(decoder) !== MESSAGE_SYNC) return null;
-    const syncType = decoding.readVarUint(decoder);
-    if (syncType !== syncProtocol.messageYjsSyncStep2 && syncType !== syncProtocol.messageYjsUpdate) {
-      return null;
-    }
-    return decoding.readVarUint8Array(decoder);
-  } catch {
-    return null;
-  }
+  if (frame.byteLength < 2 || frame[0] !== MESSAGE_SYNC) return null;
+  const syncType = frame[1];
+  if (syncType !== 1 && syncType !== 2) return null;
+  return frame.subarray(2);
 }
 
 function sendHelloAck(socket: PlaneSocket, ack: PrivateHelloAck): void {
@@ -413,14 +404,14 @@ export class PrivatePeerHub {
         op,
         requestId,
         revision: ref.revision,
-        guid: ref.doc.guid,
-        image: Y.encodeStateAsUpdate(ref.doc),
+        guid: (ref.doc as any).guid ?? (ref.doc.root ? (ref.doc.root as any).uuid : "generic"),
+        image: encodeDocumentStateAsUpdate(ref.doc),
       }),
       ref.key,
     );
   }
 
-  #hold(key: DocumentKey, doc: Y.Doc, origin: PlaneSocket): boolean {
+  #hold(key: DocumentKey, doc: DocumentContainer<any, any>, origin: PlaneSocket): boolean {
     const id = keyId(key);
     if (this.#held.has(id)) return true;
     if (!this.#server.acquire(key)) return false;

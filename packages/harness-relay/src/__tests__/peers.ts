@@ -1,6 +1,7 @@
 import { handleChunked, sendChunked } from "@inhuman.tools/chunked-websocket";
-import * as encoding from "lib0/encoding";
-import * as Y from "yjs";
+import { DocumentContainer } from "@inhuman.tools/model";
+
+import { RelayRoomRoot } from "../room-model.js";
 
 import { MESSAGE_AWARENESS, MESSAGE_SYNC } from "../sync/constants.js";
 import {
@@ -11,6 +12,8 @@ import {
   SYNC_STEP1,
   SYNC_STEP2,
 } from "../sync/protocol.js";
+
+const textEncoder = new TextEncoder();
 
 export type Frame = string | Uint8Array;
 
@@ -64,7 +67,7 @@ export class Peer {
       if (v !== undefined && v !== false) return v;
       if (Date.now() > deadline) throw new Error(`timeout waiting for ${label}`);
       await new Promise<void>((resolve) => {
-        const done = () => {
+        const done = (): void => {
           this.waiters.delete(done);
           clearTimeout(t);
           resolve();
@@ -108,7 +111,12 @@ export class Peer {
 
 /** A y-websocket-style replica: says step 1 on open, answers the peer's, relays its own edits. */
 export class YPeer extends Peer {
-  readonly doc = new Y.Doc();
+  readonly doc: DocumentContainer<RelayRoomRoot> & {
+    getMap(name: string): {
+      get(key: string): unknown;
+      set(key: string, value: unknown): void;
+    };
+  };
   /** Sync step 2 arrived: the peer answered our step 1. */
   synced = false;
   awareness: Uint8Array[] = [];
@@ -118,6 +126,21 @@ export class YPeer extends Peer {
 
   constructor(ws: WebSocket) {
     super(ws);
+    const rawDoc = new DocumentContainer(new RelayRoomRoot());
+    this.doc = Object.assign(rawDoc, {
+      getMap: (_name: string) => ({
+        get: (key: string): unknown => (rawDoc.root as RelayRoomRoot).m[key],
+        set: (key: string, value: unknown): void => {
+          rawDoc.transact(() => {
+            (rawDoc.root as RelayRoomRoot).m = {
+              ...(rawDoc.root as RelayRoomRoot).m,
+              [key]: value,
+            };
+          });
+        },
+      }),
+    });
+
     this.handle((f) => {
       if (typeof f === "string") return false;
       const head = peekFrame(f);
@@ -145,15 +168,11 @@ export class YPeer extends Peer {
   }
 }
 
-/** y-protocols awareness frame (type byte included) for one client. */
-export function awarenessFrame(id: number, clock: number, state: unknown): Uint8Array {
-  const payload = encoding.createEncoder();
-  encoding.writeVarUint(payload, 1);
-  encoding.writeVarUint(payload, id);
-  encoding.writeVarUint(payload, clock);
-  encoding.writeVarString(payload, JSON.stringify(state));
-  const frame = encoding.createEncoder();
-  encoding.writeVarUint(frame, MESSAGE_AWARENESS);
-  encoding.writeVarUint8Array(frame, encoding.toUint8Array(payload));
-  return encoding.toUint8Array(frame);
+/** Awareness frame (type byte included) for one client. */
+export function awarenessFrame(id: number, clock: number, stateVal: unknown): Uint8Array {
+  const payload = textEncoder.encode(JSON.stringify({ entries: [[id, stateVal, clock]] }));
+  const frame = new Uint8Array(1 + payload.byteLength);
+  frame[0] = MESSAGE_AWARENESS;
+  frame.set(payload, 1);
+  return frame;
 }

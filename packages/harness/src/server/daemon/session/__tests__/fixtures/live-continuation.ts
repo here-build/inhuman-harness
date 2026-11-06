@@ -12,7 +12,6 @@ import {
 } from "@inhuman.tools/harness-model";
 import { when } from "mobx";
 import { onTestFinished } from "vitest";
-import * as Y from "yjs";
 
 import { documentKey } from "@/protocol/document";
 
@@ -76,9 +75,8 @@ export async function startTurn(live: Awaited<ReturnType<typeof liveSession>>, t
 }
 
 export function replicaOf(session: Awaited<ReturnType<typeof liveSession>>["session"]): SessionPlexus {
-  const doc = new Y.Doc();
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(session.root.__doc__!));
-  const replica = SessionPlexus.connect(doc, { undo: "stub" });
+  const replica = SessionPlexus.create(session.doc.guid);
+  replica.applyUpdate(session.doc.encodeStateAsUpdate());
   onTestFinished(() => replica.destroy());
   return replica;
 }

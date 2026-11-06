@@ -6,7 +6,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { asSystemPrompt, prompt } from "@inhuman.tools/harness-commons";
 import {
   CONTEXT_NEED_TOOL_NAME,
@@ -28,7 +27,7 @@ import {
   userVisualsJson,
 } from "@inhuman.tools/harness-model";
 import { PNG } from "pngjs";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { BACKGROUND_TOOL, IN_FLIGHT_TOOL, NO_TOOLS_SYSTEM } from "@/context";
 import { bindVisualStore, writeVisual } from "@/server/daemon/session/visual-store";
@@ -131,7 +130,6 @@ function wire(
   return { chat: [...viewWire(tip, { dialect: extra?.dialect })], turn, tip };
 }
 
-beforeEach(() => resetLocalIDs());
 
 describe("viewWire", () => {
   it.each([

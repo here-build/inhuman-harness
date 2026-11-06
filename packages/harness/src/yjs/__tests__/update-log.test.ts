@@ -1,21 +1,26 @@
+import { DocumentContainer, Model, model, state } from "@inhuman.tools/model";
 import { describe, expect, it } from "vitest";
-import * as Y from "yjs";
 
 import { encodeLogEntry, isEmptyUpdate, readUpdateLog } from "../update-log.js";
 
-function update(key: string): Uint8Array {
-  const doc = new Y.Doc();
-  doc.getMap("root").set(key, true);
-  const bytes = Y.encodeStateAsUpdate(doc);
-  doc.destroy();
-  return bytes;
+@model("test:update-log:root")
+class UpdateLogTestRoot extends Model {
+  @state accessor one: boolean = false;
+  @state accessor two: boolean = false;
+  @state accessor blob: boolean = false;
+  @state accessor big: string = "";
 }
 
 function keys(updates: Uint8Array[] | null): string[] {
   if (updates == null) return [];
-  const doc = new Y.Doc();
-  for (const entry of updates) Y.applyUpdate(doc, entry);
-  const found = [...doc.getMap("root").keys()].sort();
+  const root = new UpdateLogTestRoot();
+  const doc = new DocumentContainer(root);
+  for (const entry of updates) doc.applyUpdate(entry);
+  const found: string[] = [];
+  if (root.blob) found.push("blob");
+  if (root.one) found.push("one");
+  if (root.two) found.push("two");
+  found.sort();
   doc.destroy();
   return found;
 }
@@ -30,16 +35,22 @@ function concat(parts: readonly Uint8Array[]): Uint8Array {
   return out;
 }
 
-function delta(doc: Y.Doc, key: string): Uint8Array {
-  const vector = Y.encodeStateVector(doc);
-  doc.getMap("root").set(key, true);
-  return Y.encodeStateAsUpdate(doc, vector);
+function delta(doc: DocumentContainer<UpdateLogTestRoot>, key: "one" | "two" | "blob"): Uint8Array {
+  let patch: Uint8Array = new Uint8Array([0, 0]);
+  doc.on("update", (u) => {
+    patch = u;
+  });
+  doc.root[key] = true;
+  return patch;
 }
 
 describe("update log", () => {
   it("reads one update unchanged and merges several appended entries", () => {
-    const first = update("one");
-    const second = update("two");
+    const head = new DocumentContainer(new UpdateLogTestRoot());
+    head.root.one = true;
+    const first = head.encodeStateAsUpdate();
+    const second = delta(head, "two");
+    head.destroy();
     const log = concat([encodeLogEntry(first), encodeLogEntry(second)]);
     expect({
       unframed: keys(readUpdateLog(first)),
@@ -57,9 +68,10 @@ describe("update log", () => {
   });
 
   it("joins a snapshot with later appended entries, including one past 64KiB", () => {
-    const head = new Y.Doc();
-    head.getMap("root").set("blob", "x".repeat(80_000));
-    const bare = Y.encodeStateAsUpdate(head);
+    const head = new DocumentContainer(new UpdateLogTestRoot());
+    head.root.big = "x".repeat(80_000);
+    head.root.blob = true;
+    const bare = head.encodeStateAsUpdate();
     const first = delta(head, "one");
     const second = delta(head, "two");
     head.destroy();
@@ -77,8 +89,11 @@ describe("update log", () => {
   });
 
   it("drops a torn final log entry and keeps the durable prefix", () => {
-    const first = update("one");
-    const second = update("two");
+    const head = new DocumentContainer(new UpdateLogTestRoot());
+    head.root.one = true;
+    const first = head.encodeStateAsUpdate();
+    const second = delta(head, "two");
+    head.destroy();
     const torn = concat([encodeLogEntry(first), encodeLogEntry(second), new Uint8Array([0, 0, 9, 9, 1])]);
     expect(keys(readUpdateLog(torn))).toEqual(["one", "two"]);
   });

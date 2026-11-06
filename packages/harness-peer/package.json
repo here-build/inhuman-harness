@@ -43,15 +43,10 @@
     "test": "tsc -p tsconfig.json --noEmit && vitest run"
   },
   "dependencies": {
-    "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/harness-contract": "workspace:^",
     "@inhuman.tools/harness-model": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^",
-    "lib0": "0.2.119",
-    "y-protocols": "1.0.7",
-    "y-websocket": "3.1.0",
-    "yjs": "13.6.33"
+    "@inhuman.tools/plexus-expectations": "workspace:^"
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",

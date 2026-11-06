@@ -3,12 +3,12 @@ export {
   applyAwarenessUpdate,
   encodeAwarenessUpdate,
   FieldAwareness,
+  PlexusAwareness,
   ReactiveAwareness,
   type AwarenessSerializable,
   type AwarenessShape,
   type AwarenessUpdateChange,
   type AwarenessUpdateListener,
-  type PlexusAwareness,
   type ShapeOfAwareness,
 } from "./awareness.js";
 export { column } from "./column.js";

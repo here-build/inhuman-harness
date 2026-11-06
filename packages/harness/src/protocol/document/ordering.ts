@@ -3,9 +3,7 @@
  * sequence per connection epoch. Occupancy/control are a schedule-priority
  * class ahead of bulk sync; sequence is still the wire order.
  */
-import * as decoding from "lib0/decoding";
-import * as encoding from "lib0/encoding";
-
+import { createDecoder, createEncoder } from "./codec.js";
 import { readDocumentKey, writeDocumentKey, type DocumentKey } from "./keys.js";
 
 export const FRAME_CLASSES = ["occupancy", "control", "barrier", "rpc", "sync"] as const;
@@ -82,32 +80,32 @@ export function advanceSequenceState(state: SequenceState, envelope: PrivateEnve
 }
 
 export function encodePrivateEnvelope(envelope: PrivateEnvelope): Uint8Array {
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, envelope.connectionEpoch);
-  encoding.writeVarUint(encoder, envelope.sequence);
-  encoding.writeVarUint(encoder, FRAME_CLASS_PRIORITY[envelope.class]);
+  const encoder = createEncoder();
+  encoder.writeVarUint(envelope.connectionEpoch);
+  encoder.writeVarUint(envelope.sequence);
+  encoder.writeVarUint(FRAME_CLASS_PRIORITY[envelope.class]);
   if (envelope.document == null) {
-    encoding.writeVarUint(encoder, 0);
+    encoder.writeVarUint(0);
   } else {
-    encoding.writeVarUint(encoder, 1);
+    encoder.writeVarUint(1);
     writeDocumentKey(encoder, envelope.document);
   }
-  encoding.writeVarUint8Array(encoder, envelope.payload);
-  return encoding.toUint8Array(encoder);
+  encoder.writeVarUint8Array(envelope.payload);
+  return encoder.toUint8Array();
 }
 
 export function decodePrivateEnvelope(bytes: Uint8Array): PrivateEnvelope | null {
   try {
-    const decoder = decoding.createDecoder(bytes);
-    const connectionEpoch = decoding.readVarUint(decoder);
-    const sequence = decoding.readVarUint(decoder);
-    const classCode = decoding.readVarUint(decoder);
+    const decoder = createDecoder(bytes);
+    const connectionEpoch = decoder.readVarUint();
+    const sequence = decoder.readVarUint();
+    const classCode = decoder.readVarUint();
     const frameClass = FRAME_CLASSES.at(classCode);
     if (frameClass === undefined) return null;
-    const hasDocument = decoding.readVarUint(decoder);
+    const hasDocument = decoder.readVarUint();
     const document = hasDocument === 1 ? readDocumentKey(decoder) : undefined;
     if (hasDocument !== 0 && hasDocument !== 1) return null;
-    const payload = decoding.readVarUint8Array(decoder);
+    const payload = decoder.readVarUint8Array();
     return document == null
       ? { connectionEpoch, sequence, class: frameClass, payload }
       : { connectionEpoch, sequence, class: frameClass, document, payload };
@@ -118,10 +116,10 @@ export function decodePrivateEnvelope(bytes: Uint8Array): PrivateEnvelope | null
 
 export function peekEnvelopeClass(bytes: Uint8Array): FrameClass | null {
   try {
-    const decoder = decoding.createDecoder(bytes);
-    decoding.readVarUint(decoder);
-    decoding.readVarUint(decoder);
-    return FRAME_CLASSES.at(decoding.readVarUint(decoder)) ?? null;
+    const decoder = createDecoder(bytes);
+    decoder.readVarUint();
+    decoder.readVarUint();
+    return FRAME_CLASSES.at(decoder.readVarUint()) ?? null;
   } catch {
     return null;
   }

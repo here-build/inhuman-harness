@@ -12,7 +12,6 @@ import {
   SessionTurn,
 } from "@inhuman.tools/harness-model";
 import { expect, onTestFinished, test } from "vitest";
-import * as Y from "yjs";
 
 import { textOfCell, Transcript } from "@/context";
 import { applyCompact, runCompactJob } from "@/session";
@@ -100,7 +99,7 @@ test("local nested imports replay from the durable captured closure after the so
     model: "summarizer",
     program: loadCompactProgram("./compact.scm", root),
     async checkpoint() {
-      committed = Y.encodeStateAsUpdate(session.doc);
+      committed = session.doc.encodeStateAsUpdate();
     },
   });
   expect(job.standIn).toBe("local captured card");
@@ -108,9 +107,8 @@ test("local nested imports replay from the durable captured closure after the so
   expect(job.resourceSnapshotJson).toContain('"card.txt":');
   if (committed === undefined) throw new Error("missing resource checkpoint");
   await rm(root, { recursive: true, force: true });
-  const doc = new Y.Doc({ guid: session.doc.guid });
-  Y.applyUpdate(doc, committed);
-  const restored = SessionPlexus.connect(doc);
+  const restored = SessionPlexus.create(session.doc.guid);
+  restored.applyUpdate(committed);
   onTestFinished(() => restored.destroy());
   const restoredTurn = restored.root.head;
   if (!(restoredTurn instanceof SessionTurn)) throw new TypeError("missing restored turn");

@@ -5,7 +5,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   ProgrammaticJob,
@@ -18,7 +17,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { recoverSessionJobs } from "@/runtime";
 
@@ -47,8 +46,7 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("eval cancellation", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("cancel machine: outstanding request blocks delayed admission; admitted programmatic cancel survives reclaim; request-scoped cancel persists across reopen", async () => {
     const session = await openSession();
     await expect(session.handleRequest("turn/cancel", { requestId: "req-late" })).resolves.toEqual({

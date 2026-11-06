@@ -1,4 +1,4 @@
-import { DocumentContainer, type SerializedDocument } from "@inhuman.tools/model";
+import { DocumentContainer, serializeDocument, type SerializedDocument } from "@inhuman.tools/model";
 
 import { hydrateKernelRoot, KernelRoot } from "./KernelRoot.js";
 import type { KernelAwareness } from "./seat.js";
@@ -13,13 +13,13 @@ export type KernelPlexusCreateOptions = {
 export class KernelDocument extends DocumentContainer<KernelRoot, KernelAwareness> {
   static override fromSnapshot(snapshot: SerializedDocument): KernelDocument {
     const doc = DocumentContainer.fromSnapshot<KernelRoot>(snapshot);
-    const kernelDoc = new KernelDocument(doc.root, { revision: snapshot.revision });
+    const kernelDoc = new KernelDocument(doc.root, { guid: KERNEL_DOC_GUID, revision: snapshot.revision });
     hydrateKernelRoot(kernelDoc.root);
     return kernelDoc;
   }
 
   static create(root: KernelRoot = new KernelRoot(), options?: KernelPlexusCreateOptions): KernelDocument {
-    const doc = new KernelDocument(root, { revision: options?.revision, clientId: options?.clientId });
+    const doc = new KernelDocument(root, { guid: KERNEL_DOC_GUID, revision: options?.revision, clientId: options?.clientId });
     hydrateKernelRoot(doc.root);
     return doc;
   }
@@ -35,55 +35,19 @@ export class KernelDocument extends DocumentContainer<KernelRoot, KernelAwarenes
 
   static connect(
     source: KernelDocument | DocumentContainer<any, any> | SerializedDocument | unknown,
-    options?: { readOnly?: boolean; clientId?: number },
+    options?: { readonly readOnly?: boolean; readonly clientId?: number; readonly undo?: string },
   ): KernelDocument {
+    if (source instanceof KernelDocument) return source;
     if (source instanceof DocumentContainer) {
-      let replica: KernelDocument;
-      if (source.root instanceof KernelRoot) {
-        replica = KernelDocument.fromSnapshot(source.toSnapshot());
+      if (!(source.root instanceof KernelRoot)) {
+        const root = new KernelRoot();
+        hydrateKernelRoot(root);
+        source.hydrateFromSnapshot(serializeDocument(root));
       } else {
-        replica = KernelDocument.create(new KernelRoot(), options);
-        source.hydrateFromSnapshot(replica.toSnapshot());
+        hydrateKernelRoot(source.root as KernelRoot);
       }
-      let syncing = false;
-      source.onPatch((batch) => {
-        if (syncing) return;
-        syncing = true;
-        try {
-          try {
-            replica.applyPatchBatch(batch);
-          } catch {
-            replica.hydrateFromSnapshot(source.toSnapshot());
-          }
-        } finally {
-          syncing = false;
-        }
-      });
-      source.on("update", (update, origin) => {
-        if (syncing || origin === replica) return;
-        syncing = true;
-        try {
-          replica.applyUpdate(update, origin);
-        } finally {
-          syncing = false;
-        }
-      });
-      if (!options?.readOnly) {
-        replica.onPatch((batch) => {
-          if (syncing) return;
-          syncing = true;
-          try {
-            try {
-              source.applyPatchBatch(batch);
-            } catch {
-              source.hydrateFromSnapshot(replica.toSnapshot(), replica);
-            }
-          } finally {
-            syncing = false;
-          }
-        });
-      }
-      return replica;
+      Object.setPrototypeOf(source, KernelDocument.prototype);
+      return source as KernelDocument;
     }
     if (source && typeof source === "object" && "root" in source && "revision" in source) {
       return KernelDocument.fromSnapshot(source as SerializedDocument);

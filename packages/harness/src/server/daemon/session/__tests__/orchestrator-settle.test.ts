@@ -6,7 +6,6 @@ import { getEventListeners } from "node:events";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   AGENT_MESSAGE,
@@ -26,8 +25,7 @@ import {
 import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { mkdtemp } from "fs-extra";
 import { runInAction, when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
-import * as Y from "yjs";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { scopes } from "@/policy-processor/scope";
 import { behaviorEntriesOf, bindBehaviorEntries } from "@/tool-catalog";
@@ -66,8 +64,7 @@ function failIntentPersist(kernel: KernelDaemon): void {
 }
 
 describe("orchestrator settlement", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("a tool whose intent cannot be persisted completes with a failure", async () => {
     const { kernel, session } = await openSession();
     failIntentPersist(kernel);
@@ -141,12 +138,12 @@ describe("orchestrator settlement", () => {
       expectation: new CompletionExpectation({ connectionId: "missing", completionMode: "isolated" }),
     });
     turn.pushChild(completion);
-    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64");
+    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect({
       orchestrated: completion.orchestrated,
       done: completion.expectation.isDone,
-      state: Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64"),
+      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
     }).toEqual({ orchestrated: false, done: false, state: before });
   });
 
@@ -189,7 +186,7 @@ describe("orchestrator settlement", () => {
     onTestFinished(() => replacement[Symbol.asyncDispose]());
     const nextScope = scopes.get(session.root);
     onTestFinished(() => nextScope.close());
-    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64");
+    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
     pending.resolve({ action: "allow", findings: [] });
     await new Promise<void>((resolve) => setImmediate(resolve));
     session.orchestrator[Symbol.dispose]();
@@ -199,7 +196,7 @@ describe("orchestrator settlement", () => {
       policy: job.policyResult,
       currentScope: scopes.get(session.root) === nextScope,
       nextClosed: nextScope.closed,
-      state: Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64"),
+      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
     }).toEqual({ closed: true, aborted: true, policy: null, currentScope: true, nextClosed: false, state: before });
   });
 

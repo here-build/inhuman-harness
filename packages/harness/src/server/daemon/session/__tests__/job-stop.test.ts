@@ -5,7 +5,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   ProgrammaticJob,
   SessionSystemPrompt,
@@ -15,7 +14,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
@@ -47,8 +46,7 @@ async function openSession(): Promise<{ root: SessionRoot }> {
 }
 
 describe("job_stop", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("lists live work, cancels a sitting shell, and leaves a foreground call alone", async () => {
     const { root } = await openSession();
     const shell = new SystemToolJob({

@@ -5,16 +5,14 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { AGENT_MESSAGE, AgentMessageJob, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, expect, it, onTestFinished, vi } from "vitest";
+import { expect, it, onTestFinished, vi } from "vitest";
 
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
 
-beforeEach(() => resetLocalIDs());
 
 it("a message lands as one inbound turn on the target, with no callback, and the target is flushed", async () => {
   const system = await mkdtemp(join(tmpdir(), "harness-message-k-"));

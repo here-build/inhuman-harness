@@ -5,7 +5,6 @@
  */
 import { createHash } from "node:crypto";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   BLOB_HEAD_CHARS,
@@ -19,8 +18,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { bindBlobReader, type CompleteRequest, type CompleteResult } from "@inhuman.tools/harness-provider-sdk";
 import { bindBlobWriter } from "@inhuman.tools/turn/tool-runtime";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { historyBehind, keepFloors, projectHistory, sliceCompactEat, Transcript } from "@/context";
 
@@ -42,7 +40,6 @@ function seatMemoryBucket(): Map<string, { readonly bytes: Uint8Array; readonly 
   return objects;
 }
 
-beforeEach(() => resetLocalIDs());
 afterEach(() => {
   bindBlobWriter(null);
   bindBlobReader(null);
@@ -129,7 +126,7 @@ describe("the summarizer's prefix", () => {
     const objects = seatMemoryBucket();
     const { plexus, turn, cutoff, sliced } = homedRounds();
     try {
-      const before = Y.encodeStateAsUpdate(plexus.doc).byteLength;
+      const before = plexus.doc.encodeStateAsUpdate().byteLength;
       const storedText = (): string => {
         const first = [...objects.values()].at(0);
         return Buffer.from(first?.bytes ?? []).toString("utf8");
@@ -148,7 +145,7 @@ describe("the summarizer's prefix", () => {
           const user = req.round.promptMessages[1]!;
           const wire = [...projectHistory(req.round, { readBlob: (sha256) => objects.get(sha256)?.bytes ?? null })];
           live.push({
-            grew: Y.encodeStateAsUpdate(plexus.doc).byteLength - before,
+            grew: plexus.doc.encodeStateAsUpdate().byteLength - before,
             user: user.body.kind,
             head: user.content,
             // The projection hands the model the whole prefix, not the head the document keeps.
@@ -182,7 +179,7 @@ describe("the summarizer's prefix", () => {
       // The document grew by a head and a reference, not by 300 000 characters.
       expect(live[0]?.grew).toBeLessThan(10_000);
       // The settled run keeps its result and a one-line reference; the replaced message holds a head only.
-      const after = Y.encodeStateAsUpdate(plexus.doc).byteLength;
+      const after = plexus.doc.encodeStateAsUpdate().byteLength;
       expect(after - before).toBeLessThan(10_000);
     } finally {
       plexus.destroy();
@@ -192,7 +189,7 @@ describe("the summarizer's prefix", () => {
   it("stays inline when no bucket is seated: the document holds the text as it did", async () => {
     const { plexus, turn, cutoff, sliced } = homedRounds();
     try {
-      const before = Y.encodeStateAsUpdate(plexus.doc).byteLength;
+      const before = plexus.doc.encodeStateAsUpdate().byteLength;
       let grew = 0;
       await startAmbientCompact({
         home: turn,
@@ -203,7 +200,7 @@ describe("the summarizer's prefix", () => {
         model: "summarizer",
         inflight: new Map(),
         complete: (req) => {
-          grew = Y.encodeStateAsUpdate(plexus.doc).byteLength - before;
+          grew = plexus.doc.encodeStateAsUpdate().byteLength - before;
           req.round.succeed("settled", "S", "null", { result: { text: "S" } });
           return Promise.resolve({ text: "S" });
         },

@@ -401,7 +401,7 @@ export class SessionRuntime implements AsyncDisposable {
       const input = JSON.stringify({ prompt: args.prompt, kind: args.kind ?? null, visuals: args.visuals ?? [] });
       const commands = this.session.getMetaMap("harness:session-commands");
       const previous = commandId == null ? undefined : commands.get(commandId);
-      if (previous !== undefined) {
+      if (typeof previous === "string") {
         const saved = commandRecordSchema.parse(JSON.parse(previous));
         if (saved.input !== input) throw new Error("command id was already used for different input");
         await this.flush();
@@ -610,7 +610,7 @@ export class SessionRuntime implements AsyncDisposable {
     const abort = signal == null ? this.signal : AbortSignal.any([this.signal, signal]);
     const records = this.session.getMetaMap("harness:session-effects");
     const raw = records.get(request.operationId);
-    const saved = raw == null ? null : effectRecordSchema.parse(JSON.parse(raw));
+    const saved = typeof raw === "string" ? effectRecordSchema.parse(JSON.parse(raw)) : null;
     if (saved != null && (saved.request.method !== request.method || saved.request.payload !== request.payload)) {
       throw new Error("effect operation id was already used for different input");
     }

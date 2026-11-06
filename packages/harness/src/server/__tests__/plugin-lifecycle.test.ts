@@ -15,12 +15,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { BotCallJob } from "@inhuman.tools/harness-model";
 import { isCallPaused } from "@inhuman.tools/turn/agent-calls";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { reflectKernel } from "../daemon/kernel/fs-reflection/reflectKernel.js";
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
@@ -69,8 +68,7 @@ function packWires(kernel: KernelDaemon, pluginName: string): string[] {
 }
 
 describe("plugin lifecycle", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("install_restart_disable_reenable", async () => {
     const system = await mkdtemp(join(tmpdir(), "harness-life-k-"));
     let kernel = new KernelDaemon(system);

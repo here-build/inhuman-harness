@@ -1,4 +1,3 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   AgentCallJob,
   GLANCE_ASK_LINE_MAX_CHARS,
@@ -7,11 +6,10 @@ import {
   ProgrammaticJob,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 
 import { glanceAskLine } from "../glance-ask-line.js";
 
-beforeEach(() => resetLocalIDs());
 
 function shell(args: Record<string, unknown> = {}): SystemToolJob {
   return new SystemToolJob({

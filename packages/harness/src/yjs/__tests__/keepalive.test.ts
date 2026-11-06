@@ -1,6 +1,9 @@
-import { encodeAwarenessUpdate, PlexusAwareness } from "@here.build/plexus";
+import {
+  DocumentContainer,
+  encodeAwarenessUpdate,
+  ReactiveAwareness as PlexusAwareness,
+} from "@inhuman.tools/model";
 import { describe, expect, it, vi } from "vitest";
-import * as Y from "yjs";
 
 import {
   encodeAwarenessFrame,
@@ -10,6 +13,7 @@ import {
   peekMessageType,
 } from "@/protocol/document";
 
+import { GenericRoot } from "../generic-root.js";
 import { keepPlaneAlive, PLANE_PING_MS } from "../keepalive.js";
 import { AwarenessRoom, attachLens, type PlaneSocket } from "../relay.js";
 
@@ -77,7 +81,7 @@ describe("plane keep-alive", () => {
         onText: () => undefined,
         onClose: () => undefined,
       };
-      attachLens(new Y.Doc(), socket);
+      attachLens(new DocumentContainer(new GenericRoot()), socket);
       onBinary(outbound[0]!);
       onClose();
       vi.advanceTimersByTime(PLANE_PING_MS);
@@ -96,7 +100,7 @@ describe("plane keep-alive", () => {
       vi.useRealTimers();
     }
 
-    const doc = new Y.Doc();
+    const doc = new DocumentContainer(new GenericRoot());
     const hub = new PlexusAwareness(doc);
     const room = new AwarenessRoom(hub);
     const a = fakeSocket();
@@ -110,7 +114,7 @@ describe("plane keep-alive", () => {
       text: "stream",
       thought: "",
     });
-    const peer = new PlexusAwareness(new Y.Doc());
+    const peer = new PlexusAwareness();
     peer.setLocalStateField("attention", ["x"]);
     const inbound = encodeAwarenessFrame(encodeAwarenessUpdate(peer, [...peer.meta.keys()]));
     const beforeA = a.sent.length;
@@ -131,6 +135,5 @@ describe("plane keep-alive", () => {
     room.close(1000, "test");
     hub.destroy();
     peer.destroy();
-    doc.destroy();
   });
 });

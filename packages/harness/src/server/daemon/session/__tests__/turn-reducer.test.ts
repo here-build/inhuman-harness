@@ -2,7 +2,6 @@ import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   admitQueue,
@@ -81,7 +80,6 @@ const rows: Row[] = [
 ];
 
 test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later turn bears previous", async () => {
-  resetLocalIDs();
 
   const replica = await phaseMintReplicaSees();
   expect(replica).toMatchObject({
@@ -245,7 +243,6 @@ test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later
 test.each(rows)(
   "loop-end lattice — $name",
   async (row) => {
-    resetLocalIDs();
     const session = await openSession();
     if (row.door != null) {
       const { got, want } = await runDoor(session, row.door);
@@ -259,7 +256,6 @@ test.each(rows)(
 );
 
 test("rename RPC and queued /rename set and clear the manual title", async () => {
-  resetLocalIDs();
   const session = await openSession();
   const root = session.root;
   const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`hello there` });

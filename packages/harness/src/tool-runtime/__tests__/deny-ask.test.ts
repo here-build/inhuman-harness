@@ -1,7 +1,6 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { SessionPlexus, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { bindSessionCatalog, KernelToolCatalog, type CatalogEntry } from "@/tool-catalog";
 
@@ -14,7 +13,6 @@ import {
   ToolCallHandler,
 } from "../index.js";
 
-beforeEach(() => resetLocalIDs());
 
 function shellEntry(execute: CatalogEntry["execute"]): CatalogEntry {
   return {

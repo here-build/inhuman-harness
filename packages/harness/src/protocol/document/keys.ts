@@ -3,9 +3,9 @@
  * prefixes. Directory names are not identities; images live at
  * `documents/{kind}/{sha256(id)}.yjs`.
  */
-import * as decoding from "lib0/decoding";
-import * as encoding from "lib0/encoding";
-import { digest } from "lib0/hash/sha256";
+import { createHash } from "node:crypto";
+
+import type { Decoder, Encoder } from "./codec.js";
 
 export const DOCUMENT_KINDS = ["kernel", "sessions", "projects"] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
@@ -68,7 +68,7 @@ export function publicRoomName(kind: DocumentKind): PublicRoomName {
 }
 
 export function sha256Hex(id: string): string {
-  return hex(digest(new TextEncoder().encode(id)));
+  return createHash("sha256").update(id).digest("hex");
 }
 
 export function documentImageFileName(id: string): string {
@@ -80,17 +80,11 @@ export function documentImageSegments(kind: string, id: string): readonly ["docu
   return ["documents", kind, documentImageFileName(id)];
 }
 
-export function writeDocumentKey(encoder: encoding.Encoder, key: DocumentKey): void {
-  encoding.writeVarString(encoder, key.kind);
-  encoding.writeVarString(encoder, key.id);
+export function writeDocumentKey(encoder: Encoder, key: DocumentKey): void {
+  encoder.writeVarString(key.kind);
+  encoder.writeVarString(key.id);
 }
 
-export function readDocumentKey(decoder: decoding.Decoder): DocumentKey {
-  return documentKey(parseDocumentKind(decoding.readVarString(decoder)), decoding.readVarString(decoder));
-}
-
-function hex(bytes: Uint8Array): string {
-  let out = "";
-  for (const byte of bytes) out += byte.toString(16).padStart(2, "0");
-  return out;
+export function readDocumentKey(decoder: Decoder): DocumentKey {
+  return documentKey(parseDocumentKind(decoder.readVarString()), decoder.readVarString());
 }

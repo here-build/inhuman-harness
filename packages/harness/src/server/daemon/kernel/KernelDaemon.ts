@@ -43,9 +43,19 @@ import { applyKv, type KvProposal, type PermissionMode } from "@inhuman.tools/ha
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import { disposeKernelConnections, dropConnection } from "@inhuman.tools/plexus-expectations/executor";
 import { sessionSummary, observeSessionSummary, type SessionSummary } from "@inhuman.tools/turn/runtime";
+import {
+  pendingAsksTable,
+  sessionEffectsTable,
+  sessionsTable,
+  sessionTurnsTable,
+  sessionUpdatesTable,
+} from "@inhuman.tools/harness-contract";
+import { DocumentContainer, encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
+import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane";
+import type { SessionCheckpoint, SessionReceipt } from "@inhuman.tools/turn/session-runtime";
+import { eq } from "drizzle-orm";
 import fs from "fs-extra";
 import { autorun, comparer, observable, reaction, runInAction, type IReactionDisposer } from "mobx";
-import * as Y from "yjs";
 
 import { NAMED_AGENT_BOTS } from "@/builtin-tools";
 import { allocateConnectionId, openDriverRegistry, type DriverRegistry } from "@/connections";
@@ -135,6 +145,8 @@ function documentSlot(key: DocumentKey): string {
 }
 
 export class KernelDaemon extends RequestHost implements Disposable, AsyncDisposable {
+  readonly db: HarnessDatabase;
+  readonly laneHub: UpdateLaneHub;
   plexus!: KernelPlexus;
   #room!: AwarenessRoom;
   readonly #flushStops = new Map<string, () => void>();
@@ -613,6 +625,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     registry: DriverRegistry = openDriverRegistry(PRODUCT_PROVIDERS),
   ) {
     super();
+    this.db = new HarnessDatabase(join(root, "harness.db"));
+    this.laneHub = new UpdateLaneHub(this.db);
     this.#connector = new RemoteConnector({
       access: this.#remote,
       sockPath: daemonSocketPath(realpathOrSelf(root)),
@@ -1155,7 +1169,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   }
 
   protected override attach(socket: PlaneSocket): void {
-    attachLens(this.plexus.doc, socket, this.#room, this.plexus.awareness);
+    attachLens(this.plexus.doc, socket, this.#room, this.plexus.awareness, this.laneHub);
   }
 
   internSession(sessionId: string, plexus: SessionPlexus, daemon?: SessionDaemon): void {
@@ -1265,6 +1279,138 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
    */
   async flushSession(plexus: SessionPlexus, options?: { readonly force?: boolean }): Promise<void> {
     await this.#flushDocument(sessionDocumentKey(plexus.root.sessionId), options);
+    this.#syncSessionToDb(plexus);
+  }
+
+  commitCheckpoint(checkpoint: SessionCheckpoint): SessionReceipt {
+    this.db.writeTransaction(
+      ["sessions", "session_turns", "pending_asks", "session_updates", "session_effects"],
+      (tx) => {
+        const row = checkpoint.sessionRow;
+        tx.insert(sessionsTable)
+          .values({
+            sessionId: checkpoint.sessionId,
+            title: row.title ?? "",
+            workspacePath: row.workspacePath ?? "",
+            mode: row.mode ?? "assistant",
+            permissionMode: row.permissionMode ?? "ask",
+            running: row.running ?? false,
+            headTurnId: row.headTurnId ?? null,
+            parentSessionId: row.parentSessionId ?? null,
+            parentCallId: row.parentCallId ?? null,
+            depth: row.depth ?? 0,
+            revision: checkpoint.revision,
+            createdAtMs: row.createdAtMs ?? Date.now(),
+            lastActiveAtMs: row.lastActiveAtMs ?? Date.now(),
+            archivedAtMs: row.archivedAtMs ?? null,
+          })
+          .onConflictDoUpdate({
+            target: sessionsTable.sessionId,
+            set: {
+              ...(row.title !== undefined ? { title: row.title } : {}),
+              ...(row.workspacePath !== undefined ? { workspacePath: row.workspacePath } : {}),
+              ...(row.mode !== undefined ? { mode: row.mode } : {}),
+              ...(row.permissionMode !== undefined ? { permissionMode: row.permissionMode } : {}),
+              ...(row.running !== undefined ? { running: row.running } : {}),
+              ...(row.headTurnId !== undefined ? { headTurnId: row.headTurnId } : {}),
+              ...(row.parentSessionId !== undefined ? { parentSessionId: row.parentSessionId } : {}),
+              ...(row.parentCallId !== undefined ? { parentCallId: row.parentCallId } : {}),
+              ...(row.depth !== undefined ? { depth: row.depth } : {}),
+              revision: checkpoint.revision,
+              lastActiveAtMs: row.lastActiveAtMs ?? Date.now(),
+              ...(row.archivedAtMs !== undefined ? { archivedAtMs: row.archivedAtMs } : {}),
+            },
+          })
+          .run();
+
+        if (checkpoint.dirtyTurns.length > 0) {
+          for (const turn of checkpoint.dirtyTurns) {
+            tx.insert(sessionTurnsTable)
+              .values(turn)
+              .onConflictDoUpdate({
+                target: sessionTurnsTable.turnId,
+                set: {
+                  status: turn.status,
+                  cancelRequested: turn.cancelRequested,
+                  reducerExited: turn.reducerExited,
+                  snapshotJson: turn.snapshotJson,
+                  endedAtMs: turn.endedAtMs,
+                },
+              })
+              .run();
+          }
+        }
+
+        tx.delete(pendingAsksTable)
+          .where(eq(pendingAsksTable.sessionId, checkpoint.sessionId))
+          .run();
+        for (const ask of checkpoint.pendingAsks) {
+          tx.insert(pendingAsksTable).values(ask).run();
+        }
+
+        if (checkpoint.patchBatch.patches.length > 0) {
+          tx.insert(sessionUpdatesTable)
+            .values({
+              sessionId: checkpoint.sessionId,
+              revision: checkpoint.revision,
+              incarnation: checkpoint.incarnation,
+              patchJson: JSON.stringify(checkpoint.patchBatch.patches),
+              createdAtMs: Date.now(),
+            })
+            .onConflictDoNothing()
+            .run();
+        }
+
+        if (checkpoint.effectRecords.length > 0) {
+          for (const eff of checkpoint.effectRecords) {
+            tx.insert(sessionEffectsTable)
+              .values(eff)
+              .onConflictDoNothing()
+              .run();
+          }
+        }
+      },
+    );
+
+    return {
+      sessionId: checkpoint.sessionId,
+      incarnation: checkpoint.incarnation,
+      revision: checkpoint.revision,
+    };
+  }
+
+  #syncSessionToDb(plexus: SessionPlexus): void {
+    const root = plexus.root;
+    const sessionId = root.sessionId;
+    const now = Date.now();
+    this.db.writeTransaction(["sessions"], (tx) => {
+      tx.insert(sessionsTable)
+        .values({
+          sessionId,
+          title: root.manualTitle ?? "",
+          workspacePath: root.path ?? "",
+          mode: root.mode === "act" ? "agentic" : "assistant",
+          permissionMode: root.standingPermissionMode === "manual" ? "ask" : "auto",
+          running: sessionIsOccupied(this.plexus.awareness, sessionId),
+          headTurnId: root.head?.uuid ?? null,
+          revision: plexus.doc.revision ?? 0,
+          createdAtMs: now,
+          lastActiveAtMs: now,
+        })
+        .onConflictDoUpdate({
+          target: sessionsTable.sessionId,
+          set: {
+            title: root.manualTitle ?? "",
+            workspacePath: root.path ?? "",
+            mode: root.mode === "act" ? "agentic" : "assistant",
+            running: sessionIsOccupied(this.plexus.awareness, sessionId),
+            headTurnId: root.head?.uuid ?? null,
+            revision: plexus.doc.revision ?? 0,
+            lastActiveAtMs: now,
+          },
+        })
+        .run();
+    });
   }
 
   async mintSessionDocument(sessionId: string, path: string): Promise<SessionPlexus> {
@@ -1281,14 +1427,14 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       return SessionPlexus.connect(opened.ref.doc, { undo: "stub" });
     }
     const boot = SessionPlexus.create(sessionId, path);
-    const created = await documents.create(key, Y.encodeStateAsUpdate(boot.doc));
+    const created = await documents.create(key, encodeDocumentStateAsUpdate(boot.doc));
     boot.doc.destroy();
     if (!created.ok) throw new Error(`session document create failed: ${created.reason}`);
     this.#bindDocumentFlush(key);
     return SessionPlexus.connect(created.ref.doc, { undo: "stub" });
   }
 
-  async loadProjectDoc(path: string): Promise<{ readonly doc: Y.Doc; readonly existing: boolean }> {
+  async loadProjectDoc(path: string): Promise<{ readonly doc: DocumentContainer<any, any>; readonly existing: boolean }> {
     const key = documentKey("projects", path);
     const documents = this.#requireDocuments();
     const opened = await documents.openExisting(key);
@@ -1594,6 +1740,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     this.#reflector = null;
     if (this.plexus != null) disposeKernelConnections(this.plexus.root);
     this.catalog[Symbol.dispose]();
+    this.db[Symbol.dispose]();
   }
 
   #requireDocuments(): DocumentService {
@@ -1610,7 +1757,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       return KernelPlexus.connect(opened.ref.doc);
     }
     const boot = KernelPlexus.bootstrap();
-    const created = await documents.create(KERNEL_DOCUMENT_KEY, Y.encodeStateAsUpdate(boot.doc));
+    const created = await documents.create(KERNEL_DOCUMENT_KEY, encodeDocumentStateAsUpdate(boot.doc));
     boot.doc.destroy();
     if (!created.ok) throw new Error(`kernel document create failed: ${created.reason}`);
     this.#bindDocumentFlush(KERNEL_DOCUMENT_KEY);

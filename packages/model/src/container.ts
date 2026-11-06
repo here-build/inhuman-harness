@@ -1,9 +1,8 @@
 import { observable, runInAction } from "mobx";
 
 import { ReactiveAwareness, type AwarenessShape } from "./awareness.js";
-import { BrokenReferenceError } from "./errors.js";
 import { getModelMetadata } from "./metadata.js";
-import type { Model, ModelContainerLink } from "./model.js";
+import { Model, type ModelContainerLink } from "./model.js";
 import { hydrateModel, serializeModel } from "./serialize.js";
 import { CONTAINER_LINK } from "./symbols.js";
 import type { ModelPatch, ModelPatchBatch, SerializedDocument, SerializedDocumentNode } from "./types.js";
@@ -27,7 +26,7 @@ export class DocumentContainer<
   readonly #listeners = new Set<(batch: ModelPatchBatch) => void>();
   readonly #updateListeners = new Set<DocumentUpdateListener>();
   readonly #destroyListeners = new Set<() => void>();
-  readonly #meta = new Map<string, Map<string, string>>();
+  readonly #meta = new Map<string, Map<string, unknown>>();
   readonly #bufferedPatches: ModelPatch[] = [];
   #txDepth = 0;
   #metaModifiedInTx = false;
@@ -39,16 +38,17 @@ export class DocumentContainer<
       revision?: number;
       clientId?: number;
       guid?: string;
-      meta?: Record<string, Record<string, string>>;
+      meta?: Record<string, Record<string, unknown>>;
     },
   ) {
     this.root = root;
     this.guid = options?.guid ?? root.uuid;
     this.revision = options?.revision ?? 0;
     this.awareness = new ReactiveAwareness<TAwareness>(options?.clientId);
+    this.awareness.doc = this;
     if (options?.meta) {
       for (const [ns, entries] of Object.entries(options.meta)) {
-        const rawMap = new Map<string, string>(Object.entries(entries));
+        const rawMap = new Map<string, unknown>(Object.entries(entries));
         this.#meta.set(ns, this.#wrapMetaMap(rawMap));
       }
     }
@@ -110,6 +110,10 @@ export class DocumentContainer<
     this.awareness.destroy();
   }
 
+  [Symbol.dispose](): void {
+    this.destroy();
+  }
+
   static fromSnapshot<T extends Model = Model>(snapshot: SerializedDocument): DocumentContainer<any> {
     const root = hydrateModel<T>(snapshot);
     return new DocumentContainer<T>(root, { revision: snapshot.revision, meta: snapshot.meta });
@@ -123,8 +127,8 @@ export class DocumentContainer<
     return this.#registry.get(uuid);
   }
 
-  loadEntity(uuid: string): Model | undefined {
-    return this.#registry.get(uuid);
+  loadEntity<T extends Model = Model>(uuid: string): T | undefined {
+    return this.#registry.get(uuid) as T | undefined;
   }
 
   getAllOfType<T extends Model>(ctor: abstract new (...args: any[]) => T): T[] {
@@ -143,21 +147,28 @@ export class DocumentContainer<
   }
 
   registerNode(node: Model): void {
-    const alreadyRegistered = this.#registry.has(node.uuid);
-    if (!alreadyRegistered) {
-      this.#registry.set(node.uuid, node);
-
-      const link: ModelContainerLink = {
-        container: this,
-        isApplyingPatches: this.#isApplyingPatches,
-        awareness: this.awareness,
-        recordPatch: (patch: ModelPatch) => this.recordPatch(patch),
-        registerNode: (child: Model) => this.registerNode(child),
-        transact: <T>(fn: () => T) => this.transact(fn),
-      };
-
-      (node as any)[CONTAINER_LINK] = link;
+    if (!node || !node.uuid) return;
+    const current = this.#registry.get(node.uuid);
+    const currentLink = (node as any)[CONTAINER_LINK];
+    if (current === node && currentLink?.container === this) {
+      return;
     }
+
+    this.#registry.set(node.uuid, node);
+
+    const container = this;
+    const link: ModelContainerLink = {
+      container: this,
+      get isApplyingPatches(): boolean {
+        return container.#isApplyingPatches;
+      },
+      awareness: this.awareness,
+      recordPatch: (patch: ModelPatch) => this.recordPatch(patch),
+      registerNode: (child: Model) => this.registerNode(child),
+      transact: <T>(fn: () => T) => this.transact(fn),
+    };
+
+    (node as any)[CONTAINER_LINK] = link;
 
     const meta = getModelMetadata(node.constructor);
     for (const field of meta.stateFields.values()) {
@@ -181,6 +192,15 @@ export class DocumentContainer<
           for (const child of Object.values(rec)) {
             if (child) {
               this.registerNode(child);
+            }
+          }
+        }
+      } else if (field.kind === "list") {
+        const list = (node as any)[field.propertyKey];
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            if (item instanceof Model) {
+              this.registerNode(item);
             }
           }
         }
@@ -223,7 +243,7 @@ export class DocumentContainer<
       listener(batch);
     }
     if (this.#updateListeners.size > 0) {
-      const encoded = textEncoder.encode(JSON.stringify(this.toSnapshot()));
+      const encoded = textEncoder.encode(JSON.stringify(batch));
       for (const listener of this.#updateListeners) {
         listener(encoded, origin);
       }
@@ -272,107 +292,124 @@ export class DocumentContainer<
   #applySinglePatch(patch: ModelPatch): void {
     const node = this.#registry.get(patch.nodeId);
     if (!node) {
-      throw new Error(`Target node "${patch.nodeId}" not found in document container`);
+      return;
     }
 
     const meta = getModelMetadata(node.constructor);
     const colMeta = meta.columns.get(patch.field);
     const stateMeta = meta.stateFields.get(patch.field);
 
+    const rec = (node as unknown as Record<string, unknown>)[patch.field];
     if (patch.op === "set") {
       if (patch.key != null) {
-        const rec = (node as any)[patch.field];
         if (rec && typeof rec === "object") {
-          if (stateMeta?.kind === "childRecord") {
+          const recObj = rec as Record<string, unknown>;
+          const isModelNode =
+            patch.value != null &&
+            typeof patch.value === "object" &&
+            "tag" in patch.value &&
+            "uuid" in patch.value;
+          if (stateMeta?.kind === "childRecord" || isModelNode) {
             if (patch.value == null) {
-              delete rec[patch.key];
+              delete recObj[patch.key];
             } else {
-              const child = hydrateModel<Model>(patch.value as SerializedDocumentNode);
+              const child = hydrateModel<Model>(patch.value as SerializedDocumentNode, this.#registry);
               this.registerNode(child);
-              rec[patch.key] = child;
+              recObj[patch.key] = child;
             }
           } else {
-            rec[patch.key] = patch.value;
+            recObj[patch.key] = patch.value;
           }
         }
         return;
       }
 
       if (stateMeta?.kind === "ref") {
-        const target = patch.value ? (this.#registry.get(patch.value as string) ?? null) : null;
-        if (patch.value && !target) {
-          throw new BrokenReferenceError(
-            `Target node "${patch.value}" not found for ref field "${patch.field}" on "${patch.nodeId}"`,
-          );
-        }
-        (node as any)[patch.field] = target;
+        const target =
+          typeof patch.value === "string" ? (this.#registry.get(patch.value) ?? null) : null;
+        (node as unknown as Record<string, unknown>)[patch.field] = target;
       } else if (stateMeta?.kind === "child") {
         if (patch.value == null) {
-          (node as any)[patch.field] = null;
+          (node as unknown as Record<string, unknown>)[patch.field] = null;
         } else {
-          const child = hydrateModel<Model>(patch.value as SerializedDocumentNode);
+          const child = hydrateModel<Model>(patch.value as SerializedDocumentNode, this.#registry);
           this.registerNode(child);
-          (node as any)[patch.field] = child;
+          (node as unknown as Record<string, unknown>)[patch.field] = child;
         }
       } else if (colMeta) {
         const modelVal = colMeta.codec ? colMeta.codec.toModel(patch.value) : patch.value;
-        (node as any)[patch.field] = modelVal;
+        (node as unknown as Record<string, unknown>)[patch.field] = modelVal;
       } else {
-        (node as any)[patch.field] = patch.value;
+        const isModelNode =
+          patch.value != null &&
+          typeof patch.value === "object" &&
+          "tag" in patch.value &&
+          "uuid" in patch.value;
+        if (isModelNode) {
+          const child = hydrateModel<Model>(patch.value as SerializedDocumentNode, this.#registry);
+          this.registerNode(child);
+          (node as unknown as Record<string, unknown>)[patch.field] = child;
+        } else {
+          (node as unknown as Record<string, unknown>)[patch.field] = patch.value;
+        }
       }
       return;
     }
 
     if (patch.op === "splice") {
-      const arr = (node as any)[patch.field];
+      const arr = (node as unknown as Record<string, unknown>)[patch.field];
       if (!Array.isArray(arr)) {
         throw new TypeError(`Field "${patch.field}" on "${patch.nodeId}" is not an array`);
       }
 
       let items: unknown[];
       if (stateMeta?.kind === "refList") {
-        items = (patch.items as (string | null)[]).map((id) => {
-          if (!id) return null;
-          const target = this.#registry.get(id);
-          if (!target) {
-            throw new BrokenReferenceError(`Missing ref node "${id}" during patch splice`);
-          }
-          return target;
-        });
+        items = (patch.items as (string | null)[])
+          .map((id) => (id ? (this.#registry.get(id) ?? null) : null))
+          .filter((target): target is Model => target !== null);
       } else if (stateMeta?.kind === "childList") {
         items = (patch.items as SerializedDocumentNode[]).map((snap) => {
-          const child = hydrateModel<Model>(snap);
+          const child = hydrateModel<Model>(snap, this.#registry);
           this.registerNode(child);
           return child;
         });
       } else {
-        items = patch.items as unknown[];
+        items = (patch.items as unknown[]).map((item) => {
+          if (item && typeof item === "object" && "tag" in item && "uuid" in item) {
+            const child = hydrateModel<Model>(item as SerializedDocumentNode, this.#registry);
+            this.registerNode(child);
+            return child;
+          }
+          return item;
+        });
       }
 
       arr.splice(patch.index, patch.deleteCount, ...items);
       return;
     }
 
-    const rec = (node as any)[patch.field];
-    if (rec && typeof rec === "object") {
-      delete rec[patch.key];
+    if (patch.op === "del") {
+      const targetRec = (node as unknown as Record<string, unknown>)[patch.field];
+      if (targetRec && typeof targetRec === "object") {
+        delete (targetRec as Record<string, unknown>)[patch.key];
+      }
     }
   }
 
-  getMetaMap(name: string): Map<string, string> {
+  getMetaMap(name: string): Map<string, unknown> {
     let map = this.#meta.get(name);
     if (!map) {
-      map = this.#wrapMetaMap(new Map<string, string>());
+      map = this.#wrapMetaMap(new Map<string, unknown>());
       this.#meta.set(name, map);
     }
     return map;
   }
 
-  setMeta(namespace: string, key: string, value: string): void {
+  setMeta(namespace: string, key: string, value: unknown): void {
     this.getMetaMap(namespace).set(key, value);
   }
 
-  getMeta(namespace: string, key: string): string | undefined {
+  getMeta(namespace: string, key: string): unknown | undefined {
     return this.#meta.get(namespace)?.get(key);
   }
 
@@ -380,16 +417,15 @@ export class DocumentContainer<
     return this.getMetaMap(namespace).delete(key);
   }
 
-  #wrapMetaMap(raw: Map<string, string>): Map<string, string> {
+  #wrapMetaMap(raw: Map<string, unknown>): Map<string, unknown> {
     const container = this;
     return new Proxy(raw, {
       get(target, prop, receiver) {
         if (prop === "set") {
-          return (key: string, value: string) => {
-            const strVal = String(value);
+          return (key: string, value: unknown) => {
             const prev = target.get(key);
-            if (prev !== strVal) {
-              target.set(key, strVal);
+            if (prev !== value) {
+              target.set(key, value);
               container.#onMetaModified();
             }
             return receiver;
@@ -432,15 +468,18 @@ export class DocumentContainer<
     }
   }
 
-  getMap(name: string): Map<string, string> {
-    return this.getMetaMap(name);
+  getMap<T = unknown>(name: string): Map<string, T> {
+    return this.getMetaMap(name) as unknown as Map<string, T>;
   }
 
   hydrateFromSnapshot(snapshot: SerializedDocument, origin?: unknown): void {
+    if (this.revision > snapshot.revision) {
+      return;
+    }
     this.#isApplyingPatches = true;
     try {
       runInAction(() => {
-        const nextRoot = hydrateModel<TRoot>(snapshot);
+        const nextRoot = hydrateModel<TRoot>(snapshot, this.#registry);
         if (this.root && this.root.constructor === nextRoot.constructor) {
           const meta = getModelMetadata(this.root.constructor);
           (this.root as any).uuid = nextRoot.uuid;
@@ -528,7 +567,7 @@ export class DocumentContainer<
 
   toSnapshot(): SerializedDocument {
     this.registerNode(this.root);
-    const meta: Record<string, Record<string, string>> = {};
+    const meta: Record<string, Record<string, unknown>> = {};
     for (const [ns, map] of this.#meta) {
       if (map.size > 0) {
         meta[ns] = Object.fromEntries(map.entries());
@@ -559,5 +598,37 @@ export function mergeDocumentUpdates(updates: readonly Uint8Array[]): Uint8Array
     (u) => u.byteLength > 0 && !(u.byteLength === 2 && u[0] === 0 && u[1] === 0),
   );
   if (nonEmpty.length === 0) return new Uint8Array([0, 0]);
-  return nonEmpty[nonEmpty.length - 1]!;
+  if (nonEmpty.length === 1) return nonEmpty[0]!;
+
+  const allPatches: ModelPatch[] = [];
+  let latestRevision = 0;
+  let latestSnapshot: SerializedDocument | null = null;
+
+  for (const update of nonEmpty) {
+    const text = textDecoder.decode(update);
+    try {
+      const parsed = JSON.parse(text) as Record<string, unknown>;
+      if ("root" in parsed && parsed.root && typeof parsed.root === "object") {
+        latestSnapshot = parsed as unknown as SerializedDocument;
+        allPatches.length = 0;
+        latestRevision = Math.max(latestRevision, typeof parsed.revision === "number" ? parsed.revision : 0);
+      } else if ("patches" in parsed && Array.isArray(parsed.patches)) {
+        allPatches.push(...(parsed.patches as ModelPatch[]));
+        latestRevision = Math.max(latestRevision, typeof parsed.revision === "number" ? parsed.revision : 0);
+      }
+    } catch {
+      // not JSON, keep going
+    }
+  }
+
+  if (latestSnapshot) {
+    if (allPatches.length === 0) {
+      return textEncoder.encode(JSON.stringify(latestSnapshot));
+    }
+    const doc = DocumentContainer.fromSnapshot(latestSnapshot);
+    doc.applyPatchBatch({ revision: latestRevision, patches: allPatches });
+    return doc.encodeStateAsUpdate();
+  }
+
+  return textEncoder.encode(JSON.stringify({ revision: latestRevision, patches: allPatches }));
 }

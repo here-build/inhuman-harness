@@ -86,7 +86,13 @@ export abstract class Job<TValue = unknown, TReason = unknown> extends WorkConta
 
   /** Parent `child` when it is not already in `children`. Does not enqueue or wait. */
   registerJob<T extends Job<unknown, unknown>>(child: T): T {
-    if (!this.children.includes(child)) this.children.push(child);
+    const existingIndex = this.children.findIndex(
+      (c) => c === child || (c.uuid.length > 0 && c.uuid === child.uuid),
+    );
+    if (existingIndex >= 0) {
+      return this.children[existingIndex] as T;
+    }
+    this.children.push(child);
     if (this.container) {
       this.container.registerNode(child);
     }

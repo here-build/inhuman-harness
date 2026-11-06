@@ -1,6 +1,5 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import { AskAgentSpec } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   collectDelegatedGrants,
@@ -23,8 +22,7 @@ function snap(
 }
 
 describe("eligibility and delegated grants", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("activates from seats, the resident bit, and admitted calls", () => {
     const caller = sessionOf("caller");
     const worker = sessionOf("worker");

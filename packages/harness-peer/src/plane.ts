@@ -2,10 +2,10 @@
  * Plexus awareness on a y-websocket provider. Binary frames only.
  * String payloads are JSON-RPC (`bindTextFrames`). No `node:`, no `ws`.
  */
-import type { PlexusAwareness } from "@here.build/plexus";
-import { WebsocketProvider } from "y-websocket";
+import type { PlexusAwareness } from "@inhuman.tools/model";
 
 import { bindPlexusAwareness, encodeLocalAwarenessFrame } from "./awareness.js";
+import { WebsocketProvider } from "./provider.js";
 
 export function awarenessBytes(data: unknown): Uint8Array | null {
   if (typeof data === "string") return null;

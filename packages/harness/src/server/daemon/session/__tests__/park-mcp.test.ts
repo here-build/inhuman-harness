@@ -5,7 +5,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   DEFAULT_COMPACT_STRATEGY,
@@ -20,8 +19,7 @@ import { parseProviderRegistration, PROVIDER_SDK_CONTRACT } from "@inhuman.tools
 import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { mkdir, mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
-import * as Y from "yjs";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { openDriverRegistry } from "@/connections";
 import { McpToolActor, McpDriverConnection } from "@/providers/mcp";
@@ -188,8 +186,7 @@ function pewCount(job: MCPToolJob): number {
 }
 
 describe("Park MCP", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("drops a dispatched MCP result after its runtime is replaced on the same document", async () => {
     const session = await openParkMcp();
     const job = admitMcp(session);
@@ -197,13 +194,13 @@ describe("Park MCP", () => {
     await when(() => job.dispatched, { timeout: TIMEOUT });
     const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
-    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64");
+    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
     gate.settle.resolve({ ok: true, value: "late pong" });
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect({
       receipt: job.receiptJson,
       completed: job.completed,
-      state: Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64"),
+      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
     }).toEqual({ receipt: null, completed: false, state: before });
     replacement.recover({ kind: "interrupt", message: "new owner settles the interrupted work" });
   });

@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 import { vitestAliases } from "./scripts/src-alias.mjs";
 
-const dedupe = ["yjs", "@here.build/plexus", "@here.build/arrival"];
+const dedupe = ["@here.build/arrival", "@inhuman.tools/model"];
 
 const alias = vitestAliases();
 

@@ -8,10 +8,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
 import { mkdtemp, readJsonSync, writeJson } from "fs-extra";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { projectNousGatewayConnection } from "@/providers/nous";
 
@@ -25,7 +24,6 @@ const TOKEN_A = "portal-jwt-a";
 const TOKEN_B = "portal-jwt-b";
 const FAR_EXPIRY = "2099-01-01T00:00:00.000Z";
 
-beforeEach(() => resetLocalIDs());
 
 describe("SessionOrchestrator.ensure web-nous", () => {
   it("ensures Nous first, aliases the OIDC bag, and shares one chain across ticks", async () => {

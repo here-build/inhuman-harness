@@ -2,13 +2,18 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { DocumentContainer, Model, model, state } from "@inhuman.tools/model";
 import { afterEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
 
 import { documentKey } from "@/protocol/document";
 
 import { classifyPublicUpgrade, UPGRADE_NOT_FOUND, YjsServer } from "../index.js";
-import { SESSION_ROOT_TYPE } from "../registry/identity.js";
+
+@model("test:routes:root")
+class RoutesTestRoot extends Model {
+  @state accessor sessionId: string = "";
+  @state accessor extra: string = "";
+}
 
 const temps: string[] = [];
 
@@ -25,15 +30,11 @@ function tempRoot(): string {
 }
 
 function encodeSession(sessionId: string, extra?: string): Uint8Array {
-  const doc = new Y.Doc();
-  const typeMap = new Y.Map();
-  doc.getMap("types").set(SESSION_ROOT_TYPE, typeMap);
-  const node = new Y.XmlElement(SESSION_ROOT_TYPE);
-  typeMap.set("extract-root", node);
-  node.setAttribute("sessionId", sessionId);
-  doc.getMap("meta").set("root", "extract-root");
-  if (extra != null) doc.getMap("root").set("extra", extra);
-  const bytes = Y.encodeStateAsUpdate(doc);
+  const root = new RoutesTestRoot();
+  root.sessionId = sessionId;
+  if (extra != null) root.extra = extra;
+  const doc = new DocumentContainer(root);
+  const bytes = doc.encodeStateAsUpdate();
   doc.destroy();
   return bytes;
 }
@@ -83,7 +84,7 @@ describe("public routes", () => {
     expect({
       missing,
       created: created.ok,
-      extra: created.ok ? created.ref.doc.getMap("root").get("extra") : undefined,
+      extra: created.ok ? (created.ref.doc.root as RoutesTestRoot).extra : undefined,
       same: opened.ok && created.ok && opened.room.doc === created.ref.doc,
     }).toEqual({
       missing: { ok: false, reason: "not-found" },

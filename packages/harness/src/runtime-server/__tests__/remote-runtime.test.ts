@@ -7,10 +7,9 @@ import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { BotCallJob, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { joinReleased } from "@inhuman.tools/turn/agent-calls";
-import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
 import { openDriverRegistry } from "@/connections";
 import { documentKey, KERNEL_DOCUMENT_KEY, receiptCoversCheckpoint } from "@/protocol/document";
@@ -35,7 +34,6 @@ afterEach(() => {
   }
 });
 
-beforeEach(() => resetLocalIDs());
 
 function tempRoot(): string {
   const root = mkdtempSync(join(tmpdir(), "runtime-server-"));

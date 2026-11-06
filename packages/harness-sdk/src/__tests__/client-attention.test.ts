@@ -2,20 +2,17 @@
  * Client attention occupancy: kernel-plane publish, retract, dispose.
  * Interned connections outlive a session wrap, so occupancy is not session-plane.
  */
-import { PlexusAwareness, resetLocalIDs } from "@here.build/plexus";
 import { KernelPlexus, KernelRoot, ProjectPlexus } from "@inhuman.tools/harness-model/kernel";
 import { SessionPlexus } from "@inhuman.tools/harness-model/session";
 import { forwardPlexusAwareness, ingestPlexusAwareness } from "@inhuman.tools/harness-peer/awareness";
+import { PlexusAwareness } from "@inhuman.tools/model";
 import { revalidationDemandOf, ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { observable } from "mobx";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { Client } from "../client.js";
 
 describe("client kernel attention", () => {
-  beforeEach(() => resetLocalIDs());
-
   const clients: Client[] = [];
   afterEach(async () => {
     for (const client of clients.splice(0)) await client[Symbol.asyncDispose]();
@@ -51,7 +48,7 @@ describe("client kernel attention", () => {
     const wire = new ConnectionSpec({ driver, name: "work" });
     a.kernelRoot.drivers = { "openai-compat": driver };
     a.kernelRoot.connections = { work: wire };
-    const replica = new PlexusAwareness(new Y.Doc());
+    const replica = new PlexusAwareness();
     const stopA = forwardPlexusAwareness(a.kernelPlexus.awareness, (frame) => ingestPlexusAwareness(replica, frame));
     const stopB = forwardPlexusAwareness(b.kernelPlexus.awareness, (frame) => ingestPlexusAwareness(replica, frame));
     try {

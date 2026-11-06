@@ -15,7 +15,6 @@ import {
   ToolCallJob,
 } from "@inhuman.tools/harness-model";
 import { expect, onTestFinished, test } from "vitest";
-import * as Y from "yjs";
 
 import {
   boundaries,
@@ -317,10 +316,9 @@ test("all persisted response/decision/admission cuts recover once and remain sta
   const images = new Map<string, { image: Uint8Array; effect: string }>();
   const violations: unknown[] = [];
   const capture = (): void => {
-    const image = Y.encodeStateAsUpdate(live.session.root.__doc__!);
-    const doc = new Y.Doc();
-    Y.applyUpdate(doc, image);
-    const view = SessionPlexus.connect(doc, { undo: "stub" });
+    const image = live.session.doc.encodeStateAsUpdate();
+    const view = SessionPlexus.create(live.session.doc.guid);
+    view.applyUpdate(image);
     try {
       const saved = view.root.head as SessionTurn;
       const tape = [...saved.doneWork, ...saved.queue];
@@ -361,7 +359,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
       view.destroy();
     }
   };
-  const doc = live.session.root.__doc__!;
+  const doc = live.session.doc;
   doc.on("update", capture);
   onTestFinished(() => doc.off("update", capture));
   live.model.reply({
@@ -400,7 +398,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
       phase,
       effect: "seed\nhit",
     });
-    let stableImage = Y.encodeStateAsUpdate(recovered.session.root.__doc__!);
+    let stableImage = recovered.session.doc.encodeStateAsUpdate();
     const identities = rounds(resumed).map((job) => job.uuid);
     for (let restart = 0; restart < 2; restart += 1) {
       const restarted = await liveSession(stableImage, { "effect.txt": "seed\nhit" }, live.project.path);
@@ -412,7 +410,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
         tools: toolJobs(final).map((job) => job.toolCallId),
       }).toEqual({ phase, exited: true, rounds: identities, tools: ["title", "effect"] });
       expect(readFileSync(join(restarted.project.path, "effect.txt"), "utf8")).toBe("seed\nhit");
-      stableImage = Y.encodeStateAsUpdate(restarted.session.root.__doc__!);
+      stableImage = restarted.session.doc.encodeStateAsUpdate();
     }
   }
 }, 40_000);
@@ -425,7 +423,7 @@ test("repeated restarts abandon each interrupted provider attempt and grant one 
   for (let restart = 0; restart < 2; restart += 1) {
     await wait(() => rounds(current).at(-1)?.orchestrated === true);
     abandoned.push(rounds(current).at(-1)!.uuid);
-    const image = Y.encodeStateAsUpdate(live.session.root.__doc__!);
+    const image = live.session.doc.encodeStateAsUpdate();
     live = await liveSession(image, {}, live.project.path);
     current = live.session.root.head as SessionTurn;
     await wait(() => rounds(current).length === restart + 2);
@@ -465,12 +463,11 @@ test("a forced compaction and its expansion boundary survive the same durable cu
   let image: Uint8Array | null = null;
   let compactId = "";
   const violations: string[] = [];
-  const doc = live.session.root.__doc__!;
+  const doc = live.session.doc;
   const capture = (): void => {
-    const snapshot = Y.encodeStateAsUpdate(doc);
-    const replicaDoc = new Y.Doc();
-    Y.applyUpdate(replicaDoc, snapshot);
-    const replica = SessionPlexus.connect(replicaDoc, { undo: "stub" });
+    const snapshot = doc.encodeStateAsUpdate();
+    const replica = SessionPlexus.create(doc.guid);
+    replica.applyUpdate(snapshot);
     try {
       const saved = replica.root.head as SessionTurn;
       const compact = [...saved.doneWork, ...saved.queue].find(

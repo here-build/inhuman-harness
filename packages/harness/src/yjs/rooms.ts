@@ -3,7 +3,7 @@
  * execution hold without closing the room or destroying another consumer's replica.
  */
 import { DisposableClass, disposableGuard } from "@inhuman.tools/harness-commons";
-import type * as Y from "yjs";
+import type { DocumentContainer } from "@inhuman.tools/model";
 
 import type { DocumentKey, OccupancySeat, OccupancySnapshot } from "@/protocol/document";
 import {
@@ -96,7 +96,7 @@ export class DocumentRoom extends DisposableClass {
     return this.ref.key;
   }
 
-  get doc(): Y.Doc {
+  get doc(): DocumentContainer<any, any> {
     return this.ref.doc;
   }
 

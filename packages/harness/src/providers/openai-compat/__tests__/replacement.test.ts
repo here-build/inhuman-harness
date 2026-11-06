@@ -5,9 +5,9 @@ import {
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model/session";
+import { encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
 import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { expect, it } from "vitest";
-import * as Y from "yjs";
 
 import { OpenAiCompatChatActor, type RoundAnswer } from "../actor.js";
 import { OpenAiCompatDriverConnection } from "../connection.js";
@@ -69,11 +69,11 @@ it("does not stamp a parsed answer after its runtime is replaced on the same doc
     replacement = new SessionRuntime(runtime.session, { kind: "memory" });
     replacement.recover();
     replacement.activate();
-    const before = Y.encodeStateAsUpdate(runtime.session.doc);
+    const before = encodeDocumentStateAsUpdate(runtime.session.doc);
     answer.resolve({ content: "late answer", reasoning: "late thought", calls: [], finishReason: "stop" });
     await pending;
     await finished.promise;
-    expect({ text: round.responseText, state: Y.encodeStateAsUpdate(runtime.session.doc) }).toEqual({
+    expect({ text: round.responseText, state: encodeDocumentStateAsUpdate(runtime.session.doc) }).toEqual({
       text: "",
       state: before,
     });

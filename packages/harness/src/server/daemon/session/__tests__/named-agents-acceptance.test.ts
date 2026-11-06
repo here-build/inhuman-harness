@@ -3,7 +3,6 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
@@ -29,7 +28,7 @@ import {
 import { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
 import { forceStopLoop, namedWorkerIds } from "@inhuman.tools/turn/agent-calls";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { recoverSessionJobs } from "@/runtime";
 import { catalogRecipe } from "@/tool-catalog";
@@ -136,8 +135,7 @@ function workerDoc(id: string) {
 }
 
 describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("spawn doors: deny-before-license writes no roster; unknown recipe rejects; self-invoke; post-terminal no remint; replay same Call no remint", async () => {
     const { kernel, project, session } = await openHarness();
 

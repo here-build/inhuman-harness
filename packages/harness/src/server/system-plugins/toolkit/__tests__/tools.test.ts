@@ -12,7 +12,6 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   FileMutateToolJob,
@@ -61,7 +60,6 @@ describe("toolkit tools", () => {
   let outside = "";
 
   beforeEach(() => {
-    resetLocalIDs();
     root = realpathSync(mkdtempSync(path.join(tmpdir(), "ht-root-")));
     outside = realpathSync(mkdtempSync(path.join(tmpdir(), "ht-out-")));
     writeFileSync(path.join(root, "note.txt"), "alpha\nbeta\nalpha\n");

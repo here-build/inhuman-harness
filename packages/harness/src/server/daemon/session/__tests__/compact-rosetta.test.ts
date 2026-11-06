@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -41,7 +40,6 @@ const TIMEOUT = 2_000;
 const starterPath = fileURLToPath(new URL("fixtures/compact-starter/compact.scm", import.meta.url));
 
 test("compact cycle: occupancy, overflow insert, cutoff, pair-safety, later turn eats the card", async () => {
-  resetLocalIDs();
 
   const pairC1 = completion("one", { used: 10, total: 100 });
   const pairT1 = tool("t1");
@@ -198,7 +196,6 @@ test("compact cycle: occupancy, overflow insert, cutoff, pair-safety, later turn
 }, 30_000);
 
 test("require and .prompt pretreats resolve with sourcePath, unbound without it", async () => {
-  resetLocalIDs();
   const eat = spine([20_000, 40_000], 100_000);
   // The on-disk strategy's first line is `(require "compact.prompt")`; the
   // loader is jailed under its dirname. Without sourcePath the symbol is

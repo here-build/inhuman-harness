@@ -3,17 +3,15 @@
  * that completion's responseText — not a second copy on the cutoff job.
  * The caller is not required to wait; a later prefix wins.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { CompletionExpectation, CompletionJob, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
 import type { CompleteResult } from "@inhuman.tools/harness-provider-sdk";
-import { beforeEach, expect, test } from "vitest";
+import { expect, test } from "vitest";
 
 import { keepFloors, sliceCompactEat, historyBehind, Transcript } from "@/context";
 
 import { ambientCutoff, startAmbientCompact } from "../ambient-compact.js";
 
-beforeEach(() => resetLocalIDs());
 
 function round(text: string, used: number): CompletionExpectation {
   const node = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`${text}` });

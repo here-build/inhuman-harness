@@ -2,9 +2,7 @@
  * Identity inventory: catalog rows, pagination cuts, invalidations, and
  * explicit gaps. Filenames are hashes; overviews are not the catalog.
  */
-import * as decoding from "lib0/decoding";
-import * as encoding from "lib0/encoding";
-
+import { createDecoder, createEncoder } from "./codec.js";
 import { readDocumentKey, writeDocumentKey, type DocumentKey, type DocumentKind } from "./keys.js";
 
 export type InventoryEntry = {
@@ -51,32 +49,32 @@ export type InventoryError = {
 };
 
 export function encodeInventoryWatchEvent(event: InventoryWatchEvent): Uint8Array {
-  const encoder = encoding.createEncoder();
+  const encoder = createEncoder();
   if (event.type === "change") {
-    encoding.writeVarUint(encoder, 0);
+    encoder.writeVarUint(0);
     writeDocumentKey(encoder, event.key);
-    encoding.writeVarUint(encoder, event.revision);
+    encoder.writeVarUint(event.revision);
   } else {
-    encoding.writeVarUint(encoder, 1);
-    encoding.writeVarString(encoder, event.reason);
-    encoding.writeVarUint(encoder, event.serverEpoch);
+    encoder.writeVarUint(1);
+    encoder.writeVarString(event.reason);
+    encoder.writeVarUint(event.serverEpoch);
   }
-  return encoding.toUint8Array(encoder);
+  return encoder.toUint8Array();
 }
 
 export function decodeInventoryWatchEvent(bytes: Uint8Array): InventoryWatchEvent | null {
   try {
-    const decoder = decoding.createDecoder(bytes);
-    const type = decoding.readVarUint(decoder);
+    const decoder = createDecoder(bytes);
+    const type = decoder.readVarUint();
     if (type === 0) {
       const key = readDocumentKey(decoder);
-      const revision = decoding.readVarUint(decoder);
+      const revision = decoder.readVarUint();
       return { type: "change", key, revision };
     }
     if (type === 1) {
-      const reason = decoding.readVarString(decoder);
+      const reason = decoder.readVarString();
       if (reason !== "overflow" && reason !== "missing-checkpoint" && reason !== "epoch-change") return null;
-      const serverEpoch = decoding.readVarUint(decoder);
+      const serverEpoch = decoder.readVarUint();
       return { type: "gap", reason, serverEpoch };
     }
     return null;

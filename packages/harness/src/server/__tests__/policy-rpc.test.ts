@@ -6,11 +6,10 @@ import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { parseGrantRows, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { runInAction, when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { botPermissionMode } from "../daemon/bots/bot-mode.js";
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
@@ -42,8 +41,7 @@ function ask(session: SessionDaemon, command: string, id = "c1"): SystemToolJob 
 }
 
 describe("policy v2 over the daemon", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("policy/explain answers tier, class, resolver and outcome without running anything", async () => {
     const { session } = await open();
     const publish = (await session.handleRequest("policy/explain", {

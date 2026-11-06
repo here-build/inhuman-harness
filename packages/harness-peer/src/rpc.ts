@@ -7,30 +7,17 @@
  * terminal; `disconnected` is not.
  */
 import { encodeJsonRpcRequest, jsonRpcResponse, RpcClientError } from "@inhuman.tools/harness-contract";
-import { WebsocketProvider } from "y-websocket";
 
-import { MESSAGE_AWARENESS, MESSAGE_QUERY_AWARENESS } from "./frames.js";
+import { WebsocketProvider } from "./provider.js";
 
-type AwarenessSpeaker = WebsocketProvider & {
-  readonly _awarenessUpdateHandler?: (update: unknown, origin: unknown) => void;
-};
+export { WebsocketProvider, type WebsocketProviderOptions } from "./provider.js";
 
-/**
- * Mute y-websocket's stock Awareness. A live `{}` on `doc.clientID` is
- * plexus-applied as channel 0 and drops the kernel seat.
- */
 export function detachProtocolAwareness(provider: WebsocketProvider): void {
-  const speaker = provider as AwarenessSpeaker;
-  if (speaker._awarenessUpdateHandler != null) {
-    provider.awareness.off("update", speaker._awarenessUpdateHandler);
-  }
-  provider.messageHandlers[MESSAGE_AWARENESS] = () => undefined;
-  provider.messageHandlers[MESSAGE_QUERY_AWARENESS] = () => undefined;
   provider.awareness.setLocalState(null);
 }
 
 export function destroyProvider(provider: WebsocketProvider): void {
-  provider.disconnectBc = () => undefined;
+  provider.disconnectBc();
   provider.destroy();
 }
 

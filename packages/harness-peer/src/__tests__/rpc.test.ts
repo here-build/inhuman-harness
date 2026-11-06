@@ -1,6 +1,6 @@
 import { isRpcContractError, RpcClientError } from "@inhuman.tools/harness-contract";
 import { describe, expect, it } from "vitest";
-import type { WebsocketProvider } from "y-websocket";
+import type { WebsocketProvider } from "../provider.js";
 
 import { bindJsonRpc, bindTextFrames } from "../rpc.js";
 

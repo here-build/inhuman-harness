@@ -6,9 +6,8 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { SessionPlexus } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { documentKey } from "@/protocol/document";
 import { catalogRecipe } from "@/tool-catalog";
@@ -21,8 +20,7 @@ async function openKernel(label: string): Promise<string> {
 }
 
 describe("acquisition and activation gates", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("getLoaded does not read disk", async () => {
     const system = await openKernel("k");
     const workspace = await openKernel("p");

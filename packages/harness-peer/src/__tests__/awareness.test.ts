@@ -1,6 +1,5 @@
-import { PlexusAwareness } from "@here.build/plexus";
+import { ReactiveAwareness, type PlexusAwareness } from "@inhuman.tools/model";
 import { describe, expect, it } from "vitest";
-import * as Y from "yjs";
 
 import {
   bindPlexusAwareness,
@@ -11,8 +10,8 @@ import {
 
 function hubs(): { author: PlexusAwareness; replica: PlexusAwareness } {
   return {
-    author: new PlexusAwareness(new Y.Doc()),
-    replica: new PlexusAwareness(new Y.Doc()),
+    author: new ReactiveAwareness(),
+    replica: new ReactiveAwareness(),
   };
 }
 
@@ -79,8 +78,8 @@ describe("plexus awareness plane", () => {
   });
 
   it("reconnect flush re-enters local occupancy without a new write", () => {
-    const author = new PlexusAwareness(new Y.Doc());
-    const replica = new PlexusAwareness(new Y.Doc());
+    const author = new ReactiveAwareness();
+    const replica = new ReactiveAwareness();
     author.setLocalStateField("attention", [{ kind: "connection", id: "work" }]);
     author.setLocalStateField("seat", { sessionId: "s1" });
     const frame = encodeLocalAwarenessFrame(author);

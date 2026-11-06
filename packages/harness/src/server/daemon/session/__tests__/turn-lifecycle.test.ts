@@ -6,7 +6,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -17,7 +16,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { attachScriptedModel, modelOf, scriptedConnectionId } from "../../../testkit/scripted-model.js";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
@@ -55,8 +54,7 @@ async function openSession(): Promise<{ session: SessionDaemon; project: Project
 }
 
 describe("Turn lifecycle", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("a prompt sent right after Stop runs as the next turn instead of vanishing", async () => {
     const { session } = await openSession();
     const root = session.root;

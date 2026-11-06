@@ -1,6 +1,8 @@
+import { runInAction } from "mobx";
+
 import { BrokenReferenceError } from "./errors.js";
 import { getModelByTag, getModelMetadata } from "./metadata.js";
-import type { Model } from "./model.js";
+import { Model } from "./model.js";
 import type { SerializedDocument, SerializedDocumentNode } from "./types.js";
 
 export function serializeModel(root: Model): SerializedDocumentNode {
@@ -30,10 +32,23 @@ export function serializeModel(root: Model): SerializedDocumentNode {
         refs[field.propertyKey] = (val as Model | null)?.uuid ?? null;
         break;
       case "child":
-        children[field.propertyKey] = val ? serializeModel(val as Model) : null;
+        children[field.propertyKey] =
+          val instanceof Model
+            ? serializeModel(val as Model)
+            : val && typeof val === "object" && "tag" in val && "uuid" in val
+              ? (val as SerializedDocumentNode)
+              : null;
         break;
       case "list":
-        state[field.propertyKey] = Array.isArray(val) ? [...val] : [];
+        state[field.propertyKey] = Array.isArray(val)
+          ? val.map((item) =>
+              item instanceof Model
+                ? serializeModel(item)
+                : item && typeof item === "object" && "tag" in item && "uuid" in item
+                  ? (item as SerializedDocumentNode)
+                  : item,
+            )
+          : [];
         break;
       case "refList":
         refLists[field.propertyKey] = Array.isArray(val)
@@ -41,13 +56,28 @@ export function serializeModel(root: Model): SerializedDocumentNode {
           : [];
         break;
       case "childList":
-        childLists[field.propertyKey] = Array.isArray(val) ? val.map((m: Model) => serializeModel(m)) : [];
+        childLists[field.propertyKey] = Array.isArray(val)
+          ? val.map((m: any) =>
+              m instanceof Model
+                ? serializeModel(m)
+                : m && typeof m === "object" && "tag" in m && "uuid" in m
+                  ? (m as SerializedDocumentNode)
+                  : m,
+            )
+          : [];
         break;
       case "childRecord": {
         const rec: Record<string, SerializedDocumentNode> = {};
         if (val && typeof val === "object") {
-          for (const [k, child] of Object.entries(val as Record<string, Model | undefined>)) {
-            if (child) rec[k] = serializeModel(child);
+          for (const [k, child] of Object.entries(val as Record<string, any>)) {
+            if (child) {
+              rec[k] =
+                child instanceof Model
+                  ? serializeModel(child)
+                  : child && typeof child === "object" && "tag" in child && "uuid" in child
+                    ? (child as SerializedDocumentNode)
+                    : child;
+            }
           }
         }
         childRecords[field.propertyKey] = rec;
@@ -80,8 +110,16 @@ export function serializeDocument(root: Model, revision = 0): SerializedDocument
 }
 
 function materializeNode(node: SerializedDocumentNode, registry: Map<string, Model>): Model {
+  const existing = registry.get(node.uuid);
+  if (existing) {
+    return existing;
+  }
+
   const ctor = getModelByTag(node.tag);
   if (!ctor) {
+    if (!node.tag) {
+      return (existing ?? node) as unknown as Model;
+    }
     throw new Error(`Unknown model tag "${node.tag}"`);
   }
 
@@ -109,6 +147,19 @@ function materializeNode(node: SerializedDocumentNode, registry: Map<string, Mod
     }
   }
 
+  if (node.state) {
+    for (const [key, val] of Object.entries(node.state)) {
+      if (Array.isArray(val)) {
+        props[key] = val.map((item) => {
+          if (item && typeof item === "object" && "tag" in item && "uuid" in item) {
+            return materializeNode(item as SerializedDocumentNode, registry);
+          }
+          return item;
+        });
+      }
+    }
+  }
+
   const instance = new ctor(props) as Model;
   registry.set(instance.uuid, instance);
   return instance;
@@ -127,7 +178,7 @@ function linkReferences(node: SerializedDocumentNode, registry: Map<string, Mode
       const target = registry.get(refUuid);
       if (!target) {
         throw new BrokenReferenceError(
-          `Broken reference: model "${node.tag}" (${node.uuid}) references missing node "${refUuid}" on field "${key}"`,
+          `model "${node.tag}" references missing node "${refUuid}" on field "${key}"`,
         );
       }
       (instance as any)[key] = target;
@@ -140,7 +191,7 @@ function linkReferences(node: SerializedDocumentNode, registry: Map<string, Mode
       const target = registry.get(refUuid);
       if (!target) {
         throw new BrokenReferenceError(
-          `Broken reference list: model "${node.tag}" (${node.uuid}) references missing node "${refUuid}" on field "${key}"`,
+          `model "${node.tag}" references missing node "${refUuid}" on field "${key}"`,
         );
       }
       targets.push(target);
@@ -172,17 +223,34 @@ function linkReferences(node: SerializedDocumentNode, registry: Map<string, Mode
       }
     }
   }
+
+  if (node.state) {
+    for (const val of Object.values(node.state)) {
+      if (Array.isArray(val)) {
+        for (const item of val) {
+          if (item && typeof item === "object" && "tag" in item && "uuid" in item) {
+            linkReferences(item as SerializedDocumentNode, registry);
+          }
+        }
+      }
+    }
+  }
 }
 
-export function hydrateModel<T extends Model>(snapshot: SerializedDocument | SerializedDocumentNode): T {
-  const rootNode = "root" in snapshot ? snapshot.root : snapshot;
-  const registry = new Map<string, Model>();
+export function hydrateModel<T extends Model>(
+  snapshot: SerializedDocument | SerializedDocumentNode,
+  existingRegistry?: Map<string, Model>,
+): T {
+  return runInAction(() => {
+    const rootNode = "root" in snapshot ? snapshot.root : snapshot;
+    const registry = existingRegistry ?? new Map<string, Model>();
 
-  // Pass 1: Tree Materialization
-  const root = materializeNode(rootNode, registry);
+    // Pass 1: Tree Materialization
+    const root = materializeNode(rootNode, registry);
 
-  // Pass 2: Reference Linking
-  linkReferences(rootNode, registry);
+    // Pass 2: Reference Linking
+    linkReferences(rootNode, registry);
 
-  return root as T;
+    return root as T;
+  });
 }

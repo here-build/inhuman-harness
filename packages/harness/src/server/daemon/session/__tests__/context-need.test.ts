@@ -5,7 +5,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   admitSteer,
@@ -23,7 +22,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { historyBehind } from "@/context";
 
@@ -111,8 +110,7 @@ async function sealAfterNeed(session: SessionDaemon, turn: SessionTurn): Promise
 }
 
 describe("context_need loop", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("text-only overflow compacts without manufacturing continuation", async () => {
     const session = await openSession();
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`plan` });

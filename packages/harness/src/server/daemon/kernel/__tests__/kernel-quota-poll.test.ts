@@ -6,12 +6,11 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { applyAwarenessUpdate, encodeAwarenessUpdate, PlexusAwareness, resetLocalIDs } from "@here.build/plexus";
+import { applyAwarenessUpdate, encodeAwarenessUpdate, ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
 import { publishRevalidationDemand, publishRevalidationDemandFocus } from "@inhuman.tools/plexus-expectations";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
-import * as Y from "yjs";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { ChatGptDriverConnection } from "@/providers/chatgpt";
 import { ACCOUNT_IDLE_MS, ACCOUNT_STALE_MS, type AccountSnapshot } from "@/providers/openai-compat";
@@ -29,8 +28,6 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
-
-beforeEach(() => resetLocalIDs());
 
 function muteFetch(): void {
   globalThis.fetch = (async (input: string | URL | Request) => {
@@ -64,8 +61,7 @@ function remoteAuthor(hub: PlexusAwareness): {
   sync(): void;
   [Symbol.dispose](): void;
 } {
-  const doc = new Y.Doc();
-  const author = new PlexusAwareness(doc);
+  const author = new PlexusAwareness();
   const sync = (): void => {
     const clients = [...author.meta.keys()];
     if (clients.length === 0) return;
@@ -76,7 +72,6 @@ function remoteAuthor(hub: PlexusAwareness): {
     sync,
     [Symbol.dispose]() {
       author.destroy();
-      doc.destroy();
     },
   };
 }

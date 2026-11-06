@@ -1,5 +1,7 @@
+import { DocumentContainer } from "@inhuman.tools/model";
 import { describe, expect, it } from "vitest";
-import * as Y from "yjs";
+
+import { GenericRoot } from "../../yjs/generic-root.js";
 
 import {
   admitPrivateEnvelope,
@@ -32,7 +34,7 @@ import {
 
 describe("checkpoints and receipts", () => {
   it("roundtrips a checkpoint and covers the matching prefix", () => {
-    const doc = new Y.Doc();
+    const doc = new DocumentContainer(new GenericRoot());
     doc.getMap("root").set("k", "v");
     const key = documentKey("sessions", "s1");
     const checkpoint = checkpointOf(doc, key, 3, 10);
@@ -43,7 +45,7 @@ describe("checkpoints and receipts", () => {
       runtimeGeneration: 2,
       connectionEpoch: 1,
       revision: 11,
-      prefix: encodeDocUpdate(Y.encodeStateAsUpdate(doc)),
+      prefix: encodeDocUpdate(doc.encodeStateAsUpdate()),
     };
     const roundtrip = decodeDurableReceipt(encodeDurableReceipt(receipt));
     expect({
@@ -192,7 +194,7 @@ describe("private control and barrier payloads", () => {
       hello: { capability: "cap", identity },
     });
     const key = documentKey("sessions", "s1");
-    const doc = new Y.Doc();
+    const doc = new DocumentContainer(new GenericRoot());
     doc.getMap("root").set("k", "v");
     const checkpoint = checkpointOf(doc, key, 3, 4);
     const request = encodeBarrierRequest({ requestId: 9, checkpoint });
@@ -202,7 +204,7 @@ describe("private control and barrier payloads", () => {
       runtimeGeneration: 2,
       connectionEpoch: 5,
       revision: 4,
-      prefix: encodeDocUpdate(Y.encodeStateAsUpdate(doc)),
+      prefix: encodeDocUpdate(doc.encodeStateAsUpdate()),
     };
     const reply = encodeBarrierReply({
       requestId: 9,
@@ -213,7 +215,7 @@ describe("private control and barrier payloads", () => {
       requestId: 1,
       revision: 4,
       guid: "harness:session:s1",
-      image: Y.encodeStateAsUpdate(doc),
+      image: doc.encodeStateAsUpdate(),
     });
     expect({
       hello: decodePrivateControl(hello),

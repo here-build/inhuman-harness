@@ -1,7 +1,7 @@
 import { action, observable, observe, runInAction } from "mobx";
 
 import { getModelMetadata, registerStateMetadata } from "./metadata.js";
-import type { Model } from "./model.js";
+import { Model } from "./model.js";
 import { serializeModel } from "./serialize.js";
 import { CONTAINER_LINK, HYDRATION_DATA } from "./symbols.js";
 import type { ModelPatch } from "./types.js";
@@ -200,6 +200,12 @@ function bindArrayObserver<T>(
           link?.registerNode(child as unknown as Model);
         }
       }
+    } else if (kind === "list") {
+      for (const item of change.added) {
+        if (item && item instanceof Model) {
+          link?.registerNode(item);
+        }
+      }
     }
     if (!link || link.isApplyingPatches) {
       return;
@@ -211,7 +217,12 @@ function bindArrayObserver<T>(
     } else if (kind === "refList") {
       items = change.added.map((m) => (m as unknown as Model | null)?.uuid);
     } else {
-      items = change.added;
+      items = change.added.map((item) => {
+        if (item && item instanceof Model) {
+          return serializeModel(item);
+        }
+        return item;
+      });
     }
 
     link.recordPatch({

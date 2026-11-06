@@ -2,7 +2,6 @@
  * Client agent projection: roster ∪ live one-shots, programs from the
  * work graph, glance overlay. Interned rows keep identity.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   KernelAgentRelation,
@@ -23,7 +22,7 @@ import {
   SystemToolJob,
 } from "@inhuman.tools/harness-model/session";
 import { autorun } from "mobx";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   DRAWER_RECENT_SESSION_LIMIT,
@@ -41,8 +40,6 @@ import { hostAskEscalateSessionId } from "../client-agents.js";
 import { Client } from "../client.js";
 
 describe("client agents", () => {
-  beforeEach(() => resetLocalIDs());
-
   const clients: Client[] = [];
   afterEach(async () => {
     for (const client of clients.splice(0)) await client[Symbol.asyncDispose]();

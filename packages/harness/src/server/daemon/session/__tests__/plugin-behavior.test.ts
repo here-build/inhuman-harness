@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   BotCallJob,
@@ -21,7 +20,6 @@ import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
 import { expect, onTestFinished, test } from "vitest";
-import * as Y from "yjs";
 
 import {
   CallerLedger,
@@ -129,7 +127,6 @@ async function goal(kernel: KernelDaemon, sessionId: string, method: string, arg
 }
 
 test("the goal plugin's round hook continues a text-only turn until its loops are spent", async () => {
-  resetLocalIDs();
   const { kernel, session } = await withPlugins({
     "@inhuman.tools/plugin-goal": join(PLUGINS, "inhuman-plugin-goal"),
   });
@@ -168,7 +165,6 @@ test("the goal plugin's round hook continues a text-only turn until its loops ar
 }, 15_000);
 
 test("a failed round runs the goal's post-fail hook, which blocks it", async () => {
-  resetLocalIDs();
   const { kernel, session } = await withPlugins({
     "@inhuman.tools/plugin-goal": join(PLUGINS, "inhuman-plugin-goal"),
   });
@@ -191,7 +187,6 @@ test("a failed round runs the goal's post-fail hook, which blocks it", async () 
 }, 15_000);
 
 test("a plugin command calls its plugin's own state; the kernel lists /goal with its body", async () => {
-  resetLocalIDs();
   const { kernel, session } = await withPlugins({
     "@inhuman.tools/plugin-goal": join(PLUGINS, "inhuman-plugin-goal"),
   });
@@ -230,7 +225,6 @@ test("a plugin command calls its plugin's own state; the kernel lists /goal with
 });
 
 test("session plugin state lives on the session document and a rewind restores the turn's end state", async () => {
-  resetLocalIDs();
   const { kernel, session } = await withPlugins({
     "@inhuman.tools/plugin-goal": join(PLUGINS, "inhuman-plugin-goal"),
   });
@@ -326,7 +320,6 @@ const TOOLS_PROGRAM = `
 `;
 
 test("declared tools join the turn: JSON tools on the wire, the rest as scheme_repl symbols; both run", async () => {
-  resetLocalIDs();
   const root = inlinePackage("@test/tools", "tools-plugin", {
     "foreground.prompt": "---\nattach: foreground\nbehavior:\n  program: ./foreground.scm\n---\nTools.\n",
     "foreground.scm": TOOLS_PROGRAM,
@@ -399,7 +392,6 @@ Keep the notes you are asked to keep.
 };
 
 test("a plugin bot is a named agent whose worker runs its pinned behavior", async () => {
-  resetLocalIDs();
   const root = inlinePackage("@test/memo", "memo", MEMO_FILES, {
     bots: ["./writer.prompt"],
     states: { project: "./project.scm" },
@@ -556,7 +548,6 @@ Suspended plugin callback.
 test.each(["pre", "post"] as const)(
   "a suspended round %s hook times out and cannot write state or notes after the turn exits",
   async (phase) => {
-    resetLocalIDs();
     const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin(phase) });
     await session.handleRequest("kv/set", { key: "plugin.hook-timeout-ms", value: "40" });
     const callback = suspendPluginMutation(kernel);
@@ -595,7 +586,6 @@ test.each(["pre", "post"] as const)(
 test.each(["cancel", "park"] as const)(
   "%s stops a suspended pre hook before its deadline and revokes its eventual effects",
   async (stop) => {
-    resetLocalIDs();
     const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin("pre") });
     const callback = suspendPluginMutation(kernel);
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`start` });
@@ -622,7 +612,6 @@ test.each(["cancel", "park"] as const)(
 test.each(["pre", "post"] as const)(
   "replacement during a %s hook fences the old wrap and its finalizer on the same document",
   async (stage) => {
-    resetLocalIDs();
     const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin(stage) });
     const callback = suspendPluginMutation(kernel);
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`keep this turn` });
@@ -634,7 +623,7 @@ test.each(["pre", "post"] as const)(
     await callback.entered;
     const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
-    const before = Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64");
+    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
     callback.release();
     await callback.returned;
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -643,7 +632,7 @@ test.each(["pre", "post"] as const)(
       current: session.sessionRuntime.isCurrent,
       exited: turn.reducerExited,
       completed: turn.completed,
-      state: Buffer.from(Y.encodeStateAsUpdate(session.plexus.doc)).toString("base64"),
+      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
       log: kernel.behavior.directory.get(ownerId).log.map(toJS),
       notes: latePluginNotes(kernel),
     }).toEqual({ current: false, exited: false, completed: false, state: before, log: [], notes: [] });
@@ -652,7 +641,6 @@ test.each(["pre", "post"] as const)(
 );
 
 test("rewinding while a post hook awaits its state method prevents the old turn from changing the restored head", async () => {
-  resetLocalIDs();
   const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin("post") });
   const first = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`first` });
   session.root.head = first;
@@ -683,7 +671,6 @@ test("rewinding while a post hook awaits its state method prevents the old turn 
 }, 15_000);
 
 test("a suspended tool post hook preserves the effect receipt at its deadline and cannot later mutate the ended turn", async () => {
-  resetLocalIDs();
   const { kernel, session } = await withPlugins(
     { "@test/stalled": stalledPlugin("post") },
     { files: { "note.txt": "kept effect receipt" } },
@@ -723,7 +710,6 @@ test.each(["finish", "timeout", "nested owner"] as const)(
   "a completed worker call joins its owning turn finalizer before the snapshot: %s",
   async (variant) => {
     const ending = variant === "timeout" ? "timeout" : "finish";
-    resetLocalIDs();
     const memo = inlinePackage("@test/memo", "memo", MEMO_FILES, {
       bots: ["./writer.prompt"],
       states: { project: "./project.scm" },
@@ -807,7 +793,6 @@ test.each(["finish", "timeout", "nested owner"] as const)(
 test.each(["settle", "rewind"] as const)(
   "a retained background tool owns its post hook after its parent retires: %s",
   async (ending) => {
-    resetLocalIDs();
     const { kernel, session } = await withPlugins(
       { "@test/stalled": stalledPlugin("post") },
       { files: { "note.txt": "background receipt" } },

@@ -5,9 +5,8 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { mkdtemp, readJsonSync } from "fs-extra";
-import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
 import { GROK_CLIENT_VERSION } from "@/providers/grok";
 
@@ -19,7 +18,6 @@ import type { SessionDaemon } from "../SessionDaemon.js";
 
 const originalFetch = globalThis.fetch;
 
-beforeEach(() => resetLocalIDs());
 
 afterEach(() => {
   globalThis.fetch = originalFetch;

@@ -2,18 +2,30 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import * as encoding from "lib0/encoding";
+import { DocumentContainer, Model, model, state } from "@inhuman.tools/model";
 import { afterEach, describe, expect, it } from "vitest";
-import * as syncProtocol from "y-protocols/sync";
-import * as Y from "yjs";
 
-import { applyPeerSyncFrame, documentKey, encodeDocUpdate, MESSAGE_SYNC } from "@/protocol/document";
+import {
+  applyPeerSyncFrame,
+  documentKey,
+  encodeDocUpdate,
+  encodeSyncStep1,
+  MESSAGE_SYNC,
+} from "@/protocol/document";
 import { encodeJsonRpcRequest, JSON_RPC_VERSION } from "@/protocol/rpc";
 
-import { documentImagePath, SESSION_ROOT_TYPE } from "../registry/identity.js";
+import { documentImagePath } from "../registry/identity.js";
 import type { PlaneSocket } from "../relay.js";
 import { EXECUTION_UNAVAILABLE_CODE, EXECUTION_UNAVAILABLE_MESSAGE, YjsServer } from "../rooms.js";
 import { encodeLogEntry } from "../update-log.js";
+
+@model("test:rooms:root")
+class RoomsTestRoot extends Model {
+  @state accessor sessionId: string = "";
+  @state accessor extra: string = "";
+  @state accessor live: string = "";
+  @state accessor overflow: string = "";
+}
 
 const temps: string[] = [];
 
@@ -30,15 +42,11 @@ function tempRoot(): string {
 }
 
 function encodeSession(sessionId: string, extra?: string): Uint8Array {
-  const doc = new Y.Doc();
-  const typeMap = new Y.Map();
-  doc.getMap("types").set(SESSION_ROOT_TYPE, typeMap);
-  const node = new Y.XmlElement(SESSION_ROOT_TYPE);
-  typeMap.set("extract-root", node);
-  node.setAttribute("sessionId", sessionId);
-  doc.getMap("meta").set("root", "extract-root");
-  if (extra != null) doc.getMap("root").set("extra", extra);
-  const bytes = Y.encodeStateAsUpdate(doc);
+  const root = new RoomsTestRoot();
+  root.sessionId = sessionId;
+  if (extra != null) root.extra = extra;
+  const doc = new DocumentContainer(root);
+  const bytes = doc.encodeStateAsUpdate();
   doc.destroy();
   return bytes;
 }
@@ -47,13 +55,6 @@ function writeSession(root: string, sessionId: string, extra?: string): void {
   const path = documentImagePath(root, "sessions", sessionId);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, encodeLogEntry(encodeSession(sessionId, extra)));
-}
-
-function encodeSyncStep1(doc: Y.Doc): Uint8Array {
-  const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MESSAGE_SYNC);
-  syncProtocol.writeSyncStep1(encoder, doc);
-  return encoding.toUint8Array(encoder);
 }
 
 function fakeSocket(): {
@@ -123,7 +124,7 @@ describe("rooms", () => {
     const absent = await yjs.openExisting(missing);
     expect({
       opened: opened.ok,
-      extra: opened.ok ? opened.room.doc.getMap("root").get("extra") : undefined,
+      extra: opened.ok ? (opened.room.doc.root as any).extra : undefined,
       loaded: opened.ok && yjs.getLoaded(key)?.doc === opened.room.doc,
       absent,
       stillMissing: yjs.getLoaded(missing),
@@ -146,7 +147,7 @@ describe("rooms", () => {
     expect({
       before,
       created: created.ok,
-      extra: created.ok ? created.ref.doc.getMap("root").get("extra") : undefined,
+      extra: created.ok ? (created.ref.doc.root as any).extra : undefined,
       same: again.ok && created.ok && again.room.doc === created.ref.doc,
     }).toEqual({
       before: { ok: false, reason: "not-found" },
@@ -268,8 +269,8 @@ describe("rooms", () => {
     await yjs.openExisting(key);
     yjs.attach(key, a.socket);
     yjs.attach(key, b.socket);
-    const replicaA = new Y.Doc();
-    const replicaB = new Y.Doc();
+    const replicaA = new DocumentContainer(new RoomsTestRoot());
+    const replicaB = new DocumentContainer(new RoomsTestRoot());
     // Each seat opens with the replica's own STEP1, so a client can validate a cache.
     a.sent.length = 0;
     b.sent.length = 0;
@@ -280,17 +281,21 @@ describe("rooms", () => {
     expect(step2A != null && step2B != null).toBe(true);
     if (step2A != null) applyPeerSyncFrame(step2A, replicaA, "test");
     if (step2B != null) applyPeerSyncFrame(step2B, replicaB, "test");
-    replicaA.getMap("root").set("live", "yes");
-    const update = encodeDocUpdate(Y.encodeStateAsUpdate(replicaA, Y.encodeStateVector(replicaB)));
+    let replicaAUpdate: Uint8Array = new Uint8Array([0, 0]);
+    replicaA.on("update", (u) => {
+      replicaAUpdate = u;
+    });
+    replicaA.root.live = "yes";
+    const update = encodeDocUpdate(replicaAUpdate);
     a.sent.length = 0;
     b.sent.length = 0;
     a.deliver(update);
     const forwarded = b.sent.find((frame) => frame[0] === MESSAGE_SYNC);
     if (forwarded != null) applyPeerSyncFrame(forwarded, replicaB, "test");
     expect({
-      a: replicaA.getMap("root").get("extra"),
-      b: replicaB.getMap("root").get("extra"),
-      live: replicaB.getMap("root").get("live"),
+      a: replicaA.root.extra,
+      b: replicaB.root.extra,
+      live: replicaB.root.live || undefined,
       echo: a.sent.some((frame) => frame[0] === MESSAGE_SYNC),
     }).toEqual({
       a: "disk",
@@ -315,12 +320,12 @@ describe("rooms", () => {
     if (!created.ok) return;
     const socket = fakeSocket();
     expect(yjs.attach(key, socket.socket)).toBe(true);
-    const overflow = new Y.Doc();
-    overflow.getMap("root").set("overflow", "x".repeat(4000));
-    socket.deliver(encodeDocUpdate(Y.encodeStateAsUpdate(overflow)));
+    const overflow = new DocumentContainer(new RoomsTestRoot());
+    overflow.root.overflow = "x".repeat(4000);
+    socket.deliver(encodeDocUpdate(overflow.encodeStateAsUpdate()));
     overflow.destroy();
     expect({
-      overflow: created.ref.doc.getMap("root").has("overflow"),
+      overflow: (created.ref.doc.root as RoomsTestRoot).overflow?.length > 0,
       dirty: yjs.documents.memory().dirtyBytes,
     }).toEqual({
       overflow: false,

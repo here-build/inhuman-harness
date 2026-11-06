@@ -4,7 +4,7 @@
  * intern via session `kv/set` — a remembered model/connection write lands
  * last-choice onto project and kernel while walking candidates.
  */
-import type { PlexusAwareness } from "@here.build/plexus";
+import type { ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
 import type { ConnectModelsRow } from "@inhuman.tools/harness-contract";
 import { fail } from "@inhuman.tools/harness-diagnostics";
 import { liveModelsOf } from "@inhuman.tools/harness-scheme";

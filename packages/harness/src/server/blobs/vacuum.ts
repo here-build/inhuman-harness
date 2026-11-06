@@ -16,13 +16,12 @@
  *     summarizer's messages, and a replaced child stays in the document with its text.
  *
  * A completion that is still running is skipped, with its messages. A message owned by anything else (an
- * agent call reads its prompt whole) is left alone. Each entity is its own Plexus transaction, so each is one
+ * agent call reads its prompt whole) is left alone. Each entity is its own transaction, so each is one
  * update and a stop part-way leaves every entity either moved or untouched.
  *
  * The caller flushes the session with a forced snapshot afterwards: the update log still holds the text it was
  * first written with, and only a snapshot drops it.
  */
-import { docPlexus } from "@here.build/plexus/internals";
 import { asUserPrompt } from "@inhuman.tools/harness-commons";
 import {
   blobHeadOf,
@@ -35,6 +34,8 @@ import {
   type BlobRef,
   type SessionRoot,
 } from "@inhuman.tools/harness-model";
+import type { DocumentContainer } from "@inhuman.tools/model";
+import type { HarnessDatabase } from "@inhuman.tools/scope-plane";
 import { runInAction } from "mobx";
 
 /** Stores bytes under their hash and returns the reference. Throws when the bucket refuses. */
@@ -67,9 +68,10 @@ const TEXT_MIME = "text/plain";
 type Stub = { readonly head: string; readonly blobJson: string };
 
 export function vacuumSession(root: SessionRoot, put: BlobPut, options: VacuumOptions): VacuumCounts {
-  const doc = root.__doc__;
-  const plexus = doc == null ? undefined : docPlexus.get(doc);
-  if (plexus === undefined) return { fileMutates: 0, promptMessages: 0, promptTexts: 0, bytesMoved: 0 };
+  const plexus = (root.container?.container ?? root.plexus) as DocumentContainer<any, any> | null | undefined;
+  if (plexus == null || typeof plexus.getAllOfType !== "function") {
+    return { fileMutates: 0, promptMessages: 0, promptTexts: 0, bytesMoved: 0 };
+  }
 
   let fileMutates = 0;
   let promptMessages = 0;
@@ -136,4 +138,23 @@ export function vacuumSession(root: SessionRoot, put: BlobPut, options: VacuumOp
   }
 
   return { fileMutates, promptMessages, promptTexts, bytesMoved };
+}
+
+/**
+ * Sweeps the blob bucket against unreferenced blob hashes stored in SQLite `session_blobs`.
+ * Does not hydrate any session document into memory.
+ */
+export function vacuumDatabaseBlobs(
+  db: HarnessDatabase,
+  bucket: { list(): Iterable<string>; delete(sha256: string): void },
+): number {
+  const referenced = new Set(db.listReferencedBlobIds());
+  let deletedCount = 0;
+  for (const sha256 of bucket.list()) {
+    if (!referenced.has(sha256)) {
+      bucket.delete(sha256);
+      deletedCount += 1;
+    }
+  }
+  return deletedCount;
 }

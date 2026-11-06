@@ -3,7 +3,9 @@
  * replicas stay consistent with the server; this adapter does not host
  * session or kernel interpreters.
  */
-import * as Y from "yjs";
+import { applyDocumentUpdate, DocumentContainer } from "@inhuman.tools/model";
+
+import { GenericRoot } from "./generic-root.js";
 
 import {
   admitPrivateEnvelope,
@@ -75,7 +77,7 @@ type ControlPending = PendingOpen | PendingCreate | PendingFlush | PendingReleas
 
 type LocalReplica = {
   readonly key: DocumentKey;
-  readonly doc: Y.Doc;
+  readonly doc: DocumentContainer<any, any>;
   revision: number;
   readonly onUpdate: (update: Uint8Array, origin: unknown) => void;
 };
@@ -407,13 +409,13 @@ export class RemoteDocumentAdapter {
   #install(key: DocumentKey, snapshot: { revision: number; guid: string; image: Uint8Array }): DocumentRef {
     const existing = this.#replicas.get(keyId(key));
     if (existing != null) {
-      Y.applyUpdate(existing.doc, snapshot.image, REMOTE_ORIGIN);
+      applyDocumentUpdate(existing.doc, snapshot.image, REMOTE_ORIGIN);
       existing.revision = snapshot.revision;
       return toRef(existing);
     }
-    const doc = new Y.Doc({ guid: snapshot.guid });
+    const doc = new DocumentContainer(new GenericRoot());
     if (snapshot.image.byteLength > 0) {
-      Y.applyUpdate(doc, snapshot.image, REMOTE_ORIGIN);
+      applyDocumentUpdate(doc, snapshot.image, REMOTE_ORIGIN);
     }
     const replica: LocalReplica = {
       key,

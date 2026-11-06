@@ -61,7 +61,7 @@ export type DatabaseCommitListener = (event: DatabaseCommitEvent) => void;
 
 export type HarnessDatabaseOptions = BetterSqliteOptions;
 
-export class HarnessDatabase {
+export class HarnessDatabase implements Disposable {
   readonly #sqlite: BetterSqliteDatabase;
   readonly #drizzle: BetterSQLite3Database<HarnessSchema>;
   readonly #commitListeners = new Set<DatabaseCommitListener>();
@@ -353,7 +353,19 @@ export class HarnessDatabase {
     });
   }
 
+  listReferencedBlobIds(): string[] {
+    const rows = this.#drizzle
+      .selectDistinct({ blobId: sessionBlobsTable.blobId })
+      .from(sessionBlobsTable)
+      .all();
+    return rows.map((r) => r.blobId);
+  }
+
   close(): void {
     this.#sqlite.close();
+  }
+
+  [Symbol.dispose](): void {
+    this.close();
   }
 }

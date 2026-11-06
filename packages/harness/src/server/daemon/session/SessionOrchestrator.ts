@@ -648,7 +648,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         const liveSig = `${spec.readyState}|${can.join(",")}|${models.length}|${models.slice(0, 8).join(",")}`;
         if (this.#loggedError.get(`live:${connectionId}`) !== liveSig) {
           this.#loggedError.set(`live:${connectionId}`, liveSig);
-          const authoring = spec.__doc__;
+          const authoring = spec.container?.container;
           const transport = this.kernel.doc;
           step(
             `kernel live: connection=${connectionId} readyState=${spec.readyState} can=${can.join(",") || "(none)"} models=${models.length} ${models.length === 0 ? "(none)" : models.slice(0, 8).join(",")} shadow=${docTag(authoring)} main=${docTag(transport)} sameDoc=${authoring === transport}`,
@@ -1266,7 +1266,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
    */
   protected override stampCrash(job: Job, phase: "license" | "body", detail: string): void {
     const text = `${phase === "license" ? "license crashed" : "tool crashed"}: ${detail === "" ? "unknown error" : detail}`;
-    trace("harness:crash", `${job.__type__} ${phase} ${detail}`);
+    trace("harness:crash", `${job.constructor.name} ${phase} ${detail}`);
     if (job instanceof ToolCallJob) stampUnentered(job, { ok: false, text });
     else if (job instanceof ProgrammaticJob) job.outcomeSnap ??= { ok: false, text };
   }

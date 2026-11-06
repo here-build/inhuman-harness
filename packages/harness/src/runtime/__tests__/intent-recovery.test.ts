@@ -6,7 +6,6 @@ import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   AgentCallJob,
   BotCallJob,
@@ -27,7 +26,7 @@ import {
   TurnSteerChunk,
 } from "@inhuman.tools/harness-model";
 import { joinReleased, type CallsCatalog } from "@inhuman.tools/turn/agent-calls";
-import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
 import { documentKey, receiptCoversCheckpoint, type DocumentKey } from "@/protocol/document";
 import { KernelToolCatalog, type CatalogEntry } from "@/tool-catalog";
@@ -49,7 +48,6 @@ afterEach(() => {
   }
 });
 
-beforeEach(() => resetLocalIDs());
 
 function tempRoot(label: string): string {
   const root = mkdtempSync(join(tmpdir(), `k2-${label}-`));

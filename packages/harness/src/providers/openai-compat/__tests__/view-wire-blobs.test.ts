@@ -8,7 +8,6 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -58,7 +57,6 @@ function homed(round: CompletionExpectation): CompletionExpectation {
   return round;
 }
 
-beforeEach(() => resetLocalIDs());
 afterEach(() => bindBlobReader(null));
 
 describe("viewWire reads bodies stored beside the document", () => {

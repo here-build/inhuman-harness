@@ -52,6 +52,7 @@ import { turnRetentionJson } from "@inhuman.tools/turn/context";
 import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { writeBlob } from "@inhuman.tools/turn/tool-runtime";
 import { observable, type IReactionDisposer, reaction, runInAction } from "mobx";
+import type { DocumentContainer } from "@inhuman.tools/model";
 
 import { pluginStateSnapshotFromHead, restoreSessionPluginState, Refusal, toJS } from "@/extensions";
 import { explainCall } from "@/policy-processor/explain";
@@ -773,6 +774,10 @@ export class SessionDaemon extends RequestHost implements Disposable {
 
   get root() {
     return this.plexus.root;
+  }
+
+  get doc(): DocumentContainer {
+    return this.plexus.doc;
   }
 
   /** Serialized with the door so a concurrent `turn` cannot twin-mint. */

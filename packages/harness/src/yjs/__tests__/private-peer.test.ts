@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { DocumentContainer, Model, model, state } from "@inhuman.tools/model";
 import { afterEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
 
 import {
   checkpointOf,
@@ -16,12 +16,26 @@ import {
 import type { SupervisionIdentity } from "@/protocol/schemas";
 
 import { PrivatePeerHub } from "../private-peer.js";
-import { documentImagePath, SESSION_ROOT_TYPE } from "../registry/identity.js";
+import { documentImagePath } from "../registry/identity.js";
 import type { PlaneSocket } from "../relay.js";
 import { connectRemoteDocument } from "../remote-document.js";
 import { EXECUTION_UNAVAILABLE_CODE, EXECUTION_UNAVAILABLE_MESSAGE, YjsServer } from "../rooms.js";
 import { DocumentImageStore } from "../storage.js";
 import { encodeLogEntry } from "../update-log.js";
+
+@model("test:private-peer:root")
+class PrivatePeerTestRoot extends Model {
+  @state accessor sessionId: string = "";
+  @state accessor extra: string = "";
+  @state accessor saved: boolean = false;
+  @state accessor later: boolean | undefined = undefined;
+  @state accessor seen: string = "";
+  @state accessor overflow: string = "";
+  @state accessor live: string = "";
+  @state accessor server: string = "";
+  @state accessor after: string = "";
+  @state accessor keep: string = "";
+}
 
 const temps: string[] = [];
 
@@ -38,15 +52,11 @@ function tempRoot(): string {
 }
 
 function encodeSession(sessionId: string, extra?: string): Uint8Array {
-  const doc = new Y.Doc();
-  const typeMap = new Y.Map();
-  doc.getMap("types").set(SESSION_ROOT_TYPE, typeMap);
-  const node = new Y.XmlElement(SESSION_ROOT_TYPE);
-  typeMap.set("extract-root", node);
-  node.setAttribute("sessionId", sessionId);
-  doc.getMap("meta").set("root", "extract-root");
-  if (extra != null) doc.getMap("root").set("extra", extra);
-  const bytes = Y.encodeStateAsUpdate(doc);
+  const root = new PrivatePeerTestRoot();
+  root.sessionId = sessionId;
+  if (extra != null) root.extra = extra;
+  const doc = new DocumentContainer(root);
+  const bytes = doc.encodeStateAsUpdate();
   doc.destroy();
   return bytes;
 }
@@ -273,15 +283,15 @@ describe("private peer and remote document adapter", () => {
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;
     const serverRef = yjs.getLoaded(key);
-    opened.ref.doc.getMap("root").set("live", "from-remote");
+    (opened.ref.doc.root as PrivatePeerTestRoot).live = "from-remote";
     await drain();
-    serverRef?.doc.getMap("root").set("server", "from-server");
+    if (serverRef != null) (serverRef.doc.root as PrivatePeerTestRoot).server = "from-server";
     await drain();
     expect({
       distinct: opened.ref.doc !== serverRef?.doc,
-      extra: opened.ref.doc.getMap("root").get("extra"),
-      live: serverRef?.doc.getMap("root").get("live"),
-      server: opened.ref.doc.getMap("root").get("server"),
+      extra: (opened.ref.doc.root as PrivatePeerTestRoot).extra,
+      live: (serverRef?.doc.root as PrivatePeerTestRoot | undefined)?.live,
+      server: (opened.ref.doc.root as PrivatePeerTestRoot).server,
       loaded: connected.adapter.getLoaded(key)?.doc === opened.ref.doc,
     }).toEqual({
       distinct: true,
@@ -313,22 +323,22 @@ describe("private peer and remote document adapter", () => {
     const created = await connected.adapter.create(key, encodeSession("s1"));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    created.ref.doc.getMap("root").set("saved", true);
+    (created.ref.doc.root as PrivatePeerTestRoot).saved = true;
     const checkpoint = connected.adapter.checkpoint(key)!;
     const flushP = connected.adapter.flush(key, checkpoint);
-    created.ref.doc.getMap("root").set("later", true);
+    (created.ref.doc.root as PrivatePeerTestRoot).later = true;
     const result = await flushP;
     const store = new DocumentImageStore(root);
     const disk = result.ok ? await store.read(key) : undefined;
-    const captured = new Y.Doc();
-    if (disk != null) Y.applyUpdate(captured, disk);
+    const captured = new DocumentContainer(new PrivatePeerTestRoot());
+    if (disk != null) captured.applyUpdate(disk);
     expect({
       ok: result.ok,
       covers: result.ok && receiptCoversCheckpoint(result.receipt, checkpoint),
       epoch: result.ok ? result.receipt.connectionEpoch : 0,
       generation: result.ok ? result.receipt.runtimeGeneration : 0,
-      saved: captured.getMap("root").get("saved"),
-      later: captured.getMap("root").get("later"),
+      saved: captured.root.saved,
+      later: captured.root.later,
     }).toEqual({
       ok: true,
       covers: true,
@@ -351,7 +361,7 @@ describe("private peer and remote document adapter", () => {
       identity: yjsIdentity(),
       rpc: async (_method, params, key) => {
         const field = (params as { field: string }).field;
-        return yjs.getLoaded(key)?.doc.getMap("root").get(field);
+        return (yjs.getLoaded(key)?.doc.root as any)?.[field];
       },
     });
     const sockets = pairSockets();
@@ -366,7 +376,7 @@ describe("private peer and remote document adapter", () => {
     const opened = await connected.adapter.openExisting(key);
     expect(opened.ok).toBe(true);
     if (!opened.ok) return;
-    opened.ref.doc.getMap("root").set("seen", "yes");
+    (opened.ref.doc.root as PrivatePeerTestRoot).seen = "yes";
     const inspected = await connected.adapter.call(key, "inspect", {
       field: "seen",
     });
@@ -452,14 +462,14 @@ describe("private peer and remote document adapter", () => {
     } catch (error) {
       staleCall = error instanceof Error ? error.message : error;
     }
-    const closedDoc = new Y.Doc();
+    const closedDoc = new DocumentContainer(new PrivatePeerTestRoot());
     const explicit = checkpointOf(closedDoc, key, 1, 1);
     const staleExplicit = await first.adapter.flush(key, explicit);
     closedDoc.destroy();
     const reopened = await second.adapter.openExisting(key);
     expect(reopened.ok).toBe(true);
     if (!reopened.ok) return;
-    reopened.ref.doc.getMap("root").set("after", "reconnect");
+    (reopened.ref.doc.root as PrivatePeerTestRoot).after = "reconnect";
     await drain();
     secondPair.client.send(
       encodePrivateEnvelope({
@@ -480,9 +490,9 @@ describe("private peer and remote document adapter", () => {
       staleCreate,
       staleCall,
       staleExplicit,
-      extra: yjs.getLoaded(key)?.doc.getMap("root").get("extra"),
-      after: yjs.getLoaded(key)?.doc.getMap("root").get("after"),
-      stale: yjs.getLoaded(key)?.doc.getMap("root").get("extra") === "stale",
+      extra: (yjs.getLoaded(key)?.doc.root as PrivatePeerTestRoot | undefined)?.extra,
+      after: (yjs.getLoaded(key)?.doc.root as PrivatePeerTestRoot | undefined)?.after,
+      stale: (yjs.getLoaded(key)?.doc.root as PrivatePeerTestRoot | undefined)?.extra === "stale",
     }).toEqual({
       firstEpoch: 1,
       secondEpoch: 2,
@@ -527,7 +537,7 @@ describe("private peer and remote document adapter", () => {
     const otherDoc = await connected.adapter.create(other, encodeSession("s2"));
     expect(otherDoc.ok).toBe(true);
     if (!otherDoc.ok) return;
-    otherDoc.ref.doc.getMap("root").set("keep", "s2");
+    (otherDoc.ref.doc.root as PrivatePeerTestRoot).keep = "s2";
     await connected.adapter.flush(other);
     const mismatch = pairSockets();
     hub.accept(mismatch.server);
@@ -553,12 +563,12 @@ describe("private peer and remote document adapter", () => {
     await drain();
     const store = new DocumentImageStore(root);
     const otherDisk = await store.read(other);
-    const otherLive = new Y.Doc();
-    if (otherDisk != null) Y.applyUpdate(otherLive, otherDisk);
+    const otherLive = new DocumentContainer(new PrivatePeerTestRoot());
+    if (otherDisk != null) otherLive.applyUpdate(otherDisk);
     expect({
-      overflow: yjs.getLoaded(key)?.doc.getMap("root").has("overflow"),
-      other: otherLive.getMap("root").get("keep"),
-      otherHasForeign: otherLive.getMap("root").has("overflow"),
+      overflow: ((yjs.getLoaded(key)?.doc.root as PrivatePeerTestRoot | undefined)?.overflow?.length ?? 0) > 0,
+      other: otherLive.root.keep,
+      otherHasForeign: otherLive.root.overflow?.length > 0,
     }).toEqual({
       overflow: false,
       other: "s2",
@@ -592,7 +602,7 @@ describe("private peer and remote document adapter", () => {
     const created = await connected.adapter.create(key, encodeSession("s1"));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    created.ref.doc.getMap("root").set("overflow", "x".repeat(4000));
+    (created.ref.doc.root as PrivatePeerTestRoot).overflow = "x".repeat(4000);
     const flushP = connected.adapter.flush(key);
     let settled: unknown;
     void flushP.then((result) => {
@@ -603,7 +613,7 @@ describe("private peer and remote document adapter", () => {
     const beforeClose = settled;
     sockets.flushClose();
     expect({
-      overflow: yjs.getLoaded(key)?.doc.getMap("root").has("overflow"),
+      overflow: ((yjs.getLoaded(key)?.doc.root as PrivatePeerTestRoot | undefined)?.overflow?.length ?? 0) > 0,
       beforeClose,
       afterClose: await flushP,
     }).toEqual({

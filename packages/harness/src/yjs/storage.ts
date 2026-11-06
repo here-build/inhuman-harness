@@ -16,7 +16,9 @@ import { mkdir, open, readFile, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { trace } from "@inhuman.tools/harness-diagnostics";
-import * as Y from "yjs";
+import { applyDocumentUpdate, DocumentContainer, encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
+
+import { GenericRoot } from "./generic-root.js";
 
 import {
   documentImageSegments,
@@ -109,17 +111,17 @@ export class DocumentImageStore {
     }
     const updates = readUpdateLog(bytes);
     if (updates == null || updates.length === 0) return undefined;
-    const doc = new Y.Doc();
+    const doc = new DocumentContainer(new GenericRoot());
     try {
       for (let index = 0; index < updates.length; index += 1) {
         const update = updates[index];
         if (update == null) continue;
-        Y.applyUpdate(doc, update);
+        applyDocumentUpdate(doc, update);
         // One long replay used to freeze the process: the session socket
         // never opened, and the client gave up at the sync timeout.
         if ((index & 31) === 31) await yieldMacrotask();
       }
-      const merged = Y.encodeStateAsUpdate(doc);
+      const merged = encodeDocumentStateAsUpdate(doc);
       this.#sizes.set(slotOf(key), { logBytes: bytes.byteLength, snapshotBytes: merged.byteLength });
       if (updates.length > 1 && bytes.byteLength > merged.byteLength) {
         await this.#compactSnapshot(key, merged);

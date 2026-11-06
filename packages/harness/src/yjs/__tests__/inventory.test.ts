@@ -2,11 +2,12 @@ import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { DocumentContainer } from "@inhuman.tools/model";
 import { afterEach, describe, expect, it } from "vitest";
-import * as Y from "yjs";
 
 import { documentKey } from "@/protocol/document";
 
+import { GenericRoot } from "../generic-root.js";
 import { DocumentRegistry } from "../registry/document-registry.js";
 import { documentImagePath, SESSION_ROOT_TYPE } from "../registry/identity.js";
 import { encodeLogEntry } from "../update-log.js";
@@ -24,16 +25,15 @@ function tempRoot(): string {
 }
 
 function encodeSession(sessionId: string): Uint8Array {
-  const doc = new Y.Doc();
-  const typeMap = new Y.Map();
-  doc.getMap("types").set(SESSION_ROOT_TYPE, typeMap);
-  const node = new Y.XmlElement(SESSION_ROOT_TYPE);
-  typeMap.set("extract-root", node);
-  node.setAttribute("sessionId", sessionId);
-  doc.getMap("meta").set("root", "extract-root");
-  const bytes = Y.encodeStateAsUpdate(doc);
-  doc.destroy();
-  return bytes;
+  return new TextEncoder().encode(
+    JSON.stringify({
+      revision: 0,
+      root: {
+        type: SESSION_ROOT_TYPE,
+        state: { sessionId },
+      },
+    }),
+  );
 }
 
 function writeSession(root: string, sessionId: string): string {
@@ -87,7 +87,7 @@ describe("inventory cuts", () => {
     const root = tempRoot();
     writeSession(root, "disk");
     const registry = new DocumentRegistry({ root, pageSize: 10 });
-    const live = new Y.Doc({ guid: "harness:session:live" });
+    const live = new DocumentContainer(new GenericRoot(), { guid: "harness:session:live" });
     const key = documentKey("sessions", "live");
     const handle = registry.intern(key, live);
     const page = await registry.list({ kind: "sessions", cursor: null });
@@ -196,9 +196,9 @@ describe("invalidation gaps", () => {
     });
     const page = await registry.list({ kind: "sessions", cursor: null });
     const watch = registry.watchChanges("sessions", page.checkpoint);
-    const live = new Y.Doc();
-    const extra = new Y.Doc();
-    const overflowDoc = new Y.Doc();
+    const live = new DocumentContainer(new GenericRoot());
+    const extra = new DocumentContainer(new GenericRoot());
+    const overflowDoc = new DocumentContainer(new GenericRoot());
     registry.intern(documentKey("sessions", "b"), live);
     const changes = watch.pull();
     registry.intern(documentKey("sessions", "c"), extra);

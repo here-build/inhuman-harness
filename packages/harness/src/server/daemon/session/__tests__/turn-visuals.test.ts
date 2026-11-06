@@ -1,12 +1,11 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { SessionTurn } from "@inhuman.tools/harness-model";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
 import { PNG } from "pngjs";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import {
   attachScriptedModel,
@@ -42,8 +41,7 @@ const visuals = [
 ];
 
 describe("turn.send image capabilities", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it.each([
     { model: "gpt-6.1-sol", capabilities: { "gpt-6.1-sol": { inputModalities: ["text", "image"] } } },
     { model: "arbitrary", capabilities: { arbitrary: { inputModalities: ["image"] } } },

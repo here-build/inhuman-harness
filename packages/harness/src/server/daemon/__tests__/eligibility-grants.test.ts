@@ -6,7 +6,6 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   BotCallJob,
   publishKernelSeat,
@@ -16,7 +15,7 @@ import {
   type SessionRoot,
 } from "@inhuman.tools/harness-model";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { collectDelegatedGrants } from "@/runtime";
 
@@ -53,8 +52,7 @@ function admitCall(caller: { root: SessionRoot }, worker: { root: SessionRoot })
 }
 
 describe("eligibility and delegated grants", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("rootless cycle of acquired replicas does not activate honor", async () => {
     const system = await openKernel("cycle-k");
     const workspace = await openKernel("cycle-p");

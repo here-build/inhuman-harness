@@ -1,4 +1,4 @@
-import { DocumentContainer, type SerializedDocument } from "@inhuman.tools/model";
+import { DocumentContainer, serializeDocument, type SerializedDocument } from "@inhuman.tools/model";
 import type { SessionAwareness } from "@inhuman.tools/plexus-expectations";
 
 import { hydrateSessionRoot, SessionRoot } from "./SessionRoot.js";
@@ -14,10 +14,19 @@ export type SessionPlexusCreateOptions = {
 export type SessionPlexusBootstrapOptions = SessionPlexusCreateOptions;
 export type SerializedSessionDocument = SerializedDocument;
 
+function sessionDocumentGuid(id?: string): string | undefined {
+  if (!id) return undefined;
+  return id.startsWith("harness:session:") ? id : `harness:session:${id}`;
+}
+
 export class SessionDocument extends DocumentContainer<SessionRoot, SessionAwareness> {
   static override fromSnapshot(snapshot: SerializedDocument, sessionId?: string): SessionDocument {
     const doc = DocumentContainer.fromSnapshot<SessionRoot>(snapshot);
-    const sessionDoc = new SessionDocument(doc.root, { revision: snapshot.revision, meta: snapshot.meta });
+    const sessionDoc = new SessionDocument(doc.root, {
+      guid: sessionDocumentGuid(sessionId ?? doc.root.sessionId),
+      revision: snapshot.revision,
+      meta: snapshot.meta,
+    });
     if (sessionId && !sessionDoc.root.sessionId) {
       sessionDoc.root.sessionId = sessionId;
     }
@@ -27,20 +36,27 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
 
   static create(
     idOrProps?: string | SessionPlexusCreateOptions,
-    pathOrOptions?: string | SessionPlexusCreateOptions,
-    maybeOptions?: SessionPlexusCreateOptions,
+    pathOrOptions?: string | SessionPlexusCreateOptions | DocumentContainer<any, any> | unknown,
+    maybeOptions?: SessionPlexusCreateOptions | DocumentContainer<any, any> | unknown,
   ): SessionDocument {
     let sessionId = "";
     let path = "";
+    let docContainer: DocumentContainer<any, any> | undefined;
     let options: SessionPlexusCreateOptions | undefined;
 
     if (typeof idOrProps === "string") {
       sessionId = idOrProps;
       if (typeof pathOrOptions === "string") {
         path = pathOrOptions;
-        options = maybeOptions;
+        if (maybeOptions instanceof DocumentContainer) {
+          docContainer = maybeOptions;
+        } else if (maybeOptions && typeof maybeOptions === "object") {
+          options = maybeOptions as SessionPlexusCreateOptions;
+        }
+      } else if (pathOrOptions instanceof DocumentContainer) {
+        docContainer = pathOrOptions;
       } else if (pathOrOptions && typeof pathOrOptions === "object") {
-        options = pathOrOptions;
+        options = pathOrOptions as SessionPlexusCreateOptions;
       }
     } else if (idOrProps && typeof idOrProps === "object") {
       sessionId = idOrProps.sessionId ?? "";
@@ -48,9 +64,22 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
       options = idOrProps;
     }
 
+    if (docContainer) {
+      const root = new SessionRoot({ sessionId, path });
+      hydrateSessionRoot(root);
+      docContainer.hydrateFromSnapshot(serializeDocument(root));
+      Object.setPrototypeOf(docContainer, SessionDocument.prototype);
+      return docContainer as SessionDocument;
+    }
+
     const root = new SessionRoot({ sessionId, path });
     hydrateSessionRoot(root);
-    return new SessionDocument(root, { revision: options?.revision, clientId: options?.clientId, meta: options?.meta });
+    return new SessionDocument(root, {
+      guid: sessionDocumentGuid(sessionId),
+      revision: options?.revision,
+      clientId: options?.clientId,
+      meta: options?.meta,
+    });
   }
 
   static bootstrap(
@@ -67,55 +96,17 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
     source: SessionDocument | DocumentContainer<any, any> | SerializedDocument | unknown,
     options?: { readonly readOnly?: boolean; readonly clientId?: number; readonly undo?: string },
   ): SessionDocument {
+    if (source instanceof SessionDocument) return source;
     if (source instanceof DocumentContainer) {
-      let replica: SessionDocument;
-      if (source.root instanceof SessionRoot) {
-        replica = SessionDocument.fromSnapshot(source.toSnapshot());
-      } else {
+      if (!(source.root instanceof SessionRoot)) {
         const root = new SessionRoot();
         hydrateSessionRoot(root);
-        replica = new SessionDocument(root, { clientId: options?.clientId });
-        source.hydrateFromSnapshot(replica.toSnapshot());
+        source.hydrateFromSnapshot(serializeDocument(root));
+      } else {
+        hydrateSessionRoot(source.root as SessionRoot);
       }
-      let syncing = false;
-      source.onPatch((batch) => {
-        if (syncing) return;
-        syncing = true;
-        try {
-          try {
-            replica.applyPatchBatch(batch);
-          } catch {
-            replica.hydrateFromSnapshot(source.toSnapshot());
-          }
-        } finally {
-          syncing = false;
-        }
-      });
-      source.on("update", (update, origin) => {
-        if (syncing || origin === replica) return;
-        syncing = true;
-        try {
-          replica.applyUpdate(update, origin);
-        } finally {
-          syncing = false;
-        }
-      });
-      if (!options?.readOnly) {
-        replica.onPatch((batch) => {
-          if (syncing) return;
-          syncing = true;
-          try {
-            try {
-              source.applyPatchBatch(batch);
-            } catch {
-              source.hydrateFromSnapshot(replica.toSnapshot(), replica);
-            }
-          } finally {
-            syncing = false;
-          }
-        });
-      }
-      return replica;
+      Object.setPrototypeOf(source, SessionDocument.prototype);
+      return source as SessionDocument;
     }
     if (source && typeof source === "object" && "root" in source && "revision" in source) {
       return SessionDocument.fromSnapshot(source as SerializedDocument);

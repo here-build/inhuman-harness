@@ -6,7 +6,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -21,7 +20,7 @@ import {
 } from "@inhuman.tools/harness-model";
 import { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
 import { mkdtemp, writeJson } from "fs-extra";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../daemon/project/ProjectDaemon.js";
@@ -52,8 +51,7 @@ async function seedDemoPackKernel(): Promise<string> {
 }
 
 describe("SessionUnit", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("tool/constitution snapshot", async () => {
     const genesis = new SessionSystemPrompt({
       constitution: HARNESS_CONSTITUTION,

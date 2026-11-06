@@ -5,12 +5,11 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { SessionPlexus } from "@inhuman.tools/harness-model";
 import { registerProviders } from "@inhuman.tools/harness-provider-sdk";
 import { ConnectionSpec, type DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { disposeKernelConnections } from "@inhuman.tools/plexus-expectations/executor";
-import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
 import { memoryCredentialsStore, openDriverRegistry } from "@/connections";
 import { mcpProvider } from "@/providers/mcp";
@@ -91,8 +90,7 @@ function emptyTables(): {
 }
 
 describe("production runtime composition", () => {
-  beforeEach(() => resetLocalIDs());
-
+  
   it("constructs without observers; activate binds catalog projection", () => {
     const catalog = new KernelToolCatalog();
     const runtime = new ProductionRuntime({

@@ -16,10 +16,9 @@
   },
   "dependencies": {
     "@inhuman.tools/chunked-websocket": "workspace:*",
-    "jose": "^6.2.13",
-    "lib0": "0.2.119",
-    "y-protocols": "1.0.7",
-    "yjs": "13.6.33"
+    "@inhuman.tools/harness-peer": "workspace:*",
+    "@inhuman.tools/model": "workspace:*",
+    "jose": "^6.2.13"
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
@@ -27,15 +26,12 @@
     "@inhuman.tools/harness": "workspace:*",
     "@inhuman.tools/harness-contract": "workspace:*",
     "@inhuman.tools/harness-model": "workspace:*",
-    "@inhuman.tools/harness-peer": "workspace:*",
     "@inhuman.tools/harness-web-app": "workspace:*",
-    "@inhuman.tools/model": "workspace:*",
     "@types/node": "^24.19.2",
     "eslint": "10.13.0",
     "typescript": "6.0.3",
     "vitest": "5.0.5",
-    "wrangler": "^4.152.0",
-    "y-websocket": "3.1.0"
+    "wrangler": "^4.152.0"
   },
   "license": "MIT",
   "author": "Merkle Bonsai"
