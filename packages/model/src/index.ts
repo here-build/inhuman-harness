@@ -1,14 +1,25 @@
 export { auditModelClassOnce } from "./audit.js";
 export {
+  applyAwarenessUpdate,
+  encodeAwarenessUpdate,
   FieldAwareness,
   ReactiveAwareness,
   type AwarenessSerializable,
   type AwarenessShape,
+  type AwarenessUpdateChange,
+  type AwarenessUpdateListener,
   type PlexusAwareness,
   type ShapeOfAwareness,
 } from "./awareness.js";
 export { column } from "./column.js";
-export { DocumentContainer } from "./container.js";
+export {
+  applyDocumentUpdate,
+  DocumentContainer,
+  encodeDocumentStateAsUpdate,
+  encodeDocumentStateVector,
+  mergeDocumentUpdates,
+  type DocumentUpdateListener,
+} from "./container.js";
 export { model } from "./decorator-model.js";
 export { BrokenReferenceError, SchemaAuditError } from "./errors.js";
 export { getModelByTag, getModelMetadata, getModelTag, resetModelRegistry } from "./metadata.js";

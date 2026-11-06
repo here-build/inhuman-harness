@@ -64,14 +64,57 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
   }
 
   static connect(
-    source: SessionDocument | SerializedDocument | unknown,
+    source: SessionDocument | DocumentContainer<any, any> | SerializedDocument | unknown,
     options?: { readonly readOnly?: boolean; readonly clientId?: number; readonly undo?: string },
   ): SessionDocument {
     if (source instanceof DocumentContainer) {
-      const replica = SessionDocument.fromSnapshot(source.toSnapshot());
+      let replica: SessionDocument;
+      if (source.root instanceof SessionRoot) {
+        replica = SessionDocument.fromSnapshot(source.toSnapshot());
+      } else {
+        const root = new SessionRoot();
+        hydrateSessionRoot(root);
+        replica = new SessionDocument(root, { clientId: options?.clientId });
+        source.hydrateFromSnapshot(replica.toSnapshot());
+      }
+      let syncing = false;
       source.onPatch((batch) => {
-        replica.applyPatchBatch(batch);
+        if (syncing) return;
+        syncing = true;
+        try {
+          try {
+            replica.applyPatchBatch(batch);
+          } catch {
+            replica.hydrateFromSnapshot(source.toSnapshot());
+          }
+        } finally {
+          syncing = false;
+        }
       });
+      source.on("update", (update, origin) => {
+        if (syncing || origin === replica) return;
+        syncing = true;
+        try {
+          replica.applyUpdate(update, origin);
+        } finally {
+          syncing = false;
+        }
+      });
+      if (!options?.readOnly) {
+        replica.onPatch((batch) => {
+          if (syncing) return;
+          syncing = true;
+          try {
+            try {
+              source.applyPatchBatch(batch);
+            } catch {
+              source.hydrateFromSnapshot(replica.toSnapshot(), replica);
+            }
+          } finally {
+            syncing = false;
+          }
+        });
+      }
       return replica;
     }
     if (source && typeof source === "object" && "root" in source && "revision" in source) {
@@ -80,10 +123,6 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
     const root = new SessionRoot();
     hydrateSessionRoot(root);
     return new SessionDocument(root, { clientId: options?.clientId });
-  }
-
-  loadEntity(uuid: string): unknown {
-    return this.getNode(uuid);
   }
 }
 

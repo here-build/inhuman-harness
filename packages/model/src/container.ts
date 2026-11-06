@@ -8,17 +8,24 @@ import { hydrateModel, serializeModel } from "./serialize.js";
 import { CONTAINER_LINK } from "./symbols.js";
 import type { ModelPatch, ModelPatchBatch, SerializedDocument, SerializedDocumentNode } from "./types.js";
 
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+export type DocumentUpdateListener = (update: Uint8Array, origin?: unknown) => void;
+
 export class DocumentContainer<
   TRoot extends Model = Model,
   TAwareness extends AwarenessShape = AwarenessShape,
 > {
-  readonly root: TRoot;
+  root: TRoot;
+  readonly guid: string;
   readonly awareness: ReactiveAwareness<TAwareness>;
   @observable.ref accessor revision: number;
   #destroyed = false;
 
   readonly #registry = new Map<string, Model>();
   readonly #listeners = new Set<(batch: ModelPatchBatch) => void>();
+  readonly #updateListeners = new Set<DocumentUpdateListener>();
   readonly #destroyListeners = new Set<() => void>();
   readonly #meta = new Map<string, Map<string, string>>();
   readonly #bufferedPatches: ModelPatch[] = [];
@@ -31,12 +38,14 @@ export class DocumentContainer<
     options?: {
       revision?: number;
       clientId?: number;
+      guid?: string;
       meta?: Record<string, Record<string, string>>;
     },
   ) {
     this.root = root;
+    this.guid = options?.guid ?? root.uuid;
     this.revision = options?.revision ?? 0;
-    this.awareness = new ReactiveAwareness<TAwareness>(options?.clientId ?? 1);
+    this.awareness = new ReactiveAwareness<TAwareness>(options?.clientId);
     if (options?.meta) {
       for (const [ns, entries] of Object.entries(options.meta)) {
         const rawMap = new Map<string, string>(Object.entries(entries));
@@ -46,8 +55,36 @@ export class DocumentContainer<
     this.registerNode(root);
   }
 
+  get doc(): this {
+    return this;
+  }
+
+  get clientID(): number {
+    return this.awareness.clientId;
+  }
+
   get isDestroyed(): boolean {
     return this.#destroyed;
+  }
+
+  on(event: "update", listener: DocumentUpdateListener): void;
+  on(event: "destroy", listener: () => void): void;
+  on(event: "update" | "destroy", listener: DocumentUpdateListener | (() => void)): void {
+    if (event === "update") {
+      this.#updateListeners.add(listener as DocumentUpdateListener);
+    } else {
+      this.#destroyListeners.add(listener as () => void);
+    }
+  }
+
+  off(event: "update", listener: DocumentUpdateListener): void;
+  off(event: "destroy", listener: () => void): void;
+  off(event: "update" | "destroy", listener: DocumentUpdateListener | (() => void)): void {
+    if (event === "update") {
+      this.#updateListeners.delete(listener as DocumentUpdateListener);
+    } else {
+      this.#destroyListeners.delete(listener as () => void);
+    }
   }
 
   onDestroy(listener: () => void): () => void {
@@ -58,6 +95,7 @@ export class DocumentContainer<
   }
 
   destroy(): void {
+    if (this.#destroyed) return;
     this.#destroyed = true;
     for (const listener of this.#destroyListeners) {
       try {
@@ -67,8 +105,9 @@ export class DocumentContainer<
       }
     }
     this.#destroyListeners.clear();
+    this.#updateListeners.clear();
     this.#listeners.clear();
-    this.awareness.clearAll();
+    this.awareness.destroy();
   }
 
   static fromSnapshot<T extends Model = Model>(snapshot: SerializedDocument): DocumentContainer<any> {
@@ -84,27 +123,41 @@ export class DocumentContainer<
     return this.#registry.get(uuid);
   }
 
+  loadEntity(uuid: string): Model | undefined {
+    return this.#registry.get(uuid);
+  }
+
+  getAllOfType<T extends Model>(ctor: abstract new (...args: any[]) => T): T[] {
+    this.registerNode(this.root);
+    const out: T[] = [];
+    for (const node of this.#registry.values()) {
+      if (node instanceof ctor) {
+        out.push(node);
+      }
+    }
+    return out;
+  }
+
   get registry(): ReadonlyMap<string, Model> {
     return this.#registry;
   }
 
   registerNode(node: Model): void {
-    if (this.#registry.has(node.uuid)) {
-      return;
+    const alreadyRegistered = this.#registry.has(node.uuid);
+    if (!alreadyRegistered) {
+      this.#registry.set(node.uuid, node);
+
+      const link: ModelContainerLink = {
+        container: this,
+        isApplyingPatches: this.#isApplyingPatches,
+        awareness: this.awareness,
+        recordPatch: (patch: ModelPatch) => this.recordPatch(patch),
+        registerNode: (child: Model) => this.registerNode(child),
+        transact: <T>(fn: () => T) => this.transact(fn),
+      };
+
+      (node as any)[CONTAINER_LINK] = link;
     }
-
-    this.#registry.set(node.uuid, node);
-
-    const link: ModelContainerLink = {
-      container: this,
-      isApplyingPatches: this.#isApplyingPatches,
-      awareness: this.awareness,
-      recordPatch: (patch: ModelPatch) => this.recordPatch(patch),
-      registerNode: (child: Model) => this.registerNode(child),
-      transact: <T>(fn: () => T) => this.transact(fn),
-    };
-
-    (node as any)[CONTAINER_LINK] = link;
 
     const meta = getModelMetadata(node.constructor);
     for (const field of meta.stateFields.values()) {
@@ -162,12 +215,22 @@ export class DocumentContainer<
       revision: this.revision,
       patches: [patch],
     };
+    this.#emitBatch(batch);
+  }
+
+  #emitBatch(batch: ModelPatchBatch, origin?: unknown): void {
     for (const listener of this.#listeners) {
       listener(batch);
     }
+    if (this.#updateListeners.size > 0) {
+      const encoded = textEncoder.encode(JSON.stringify(this.toSnapshot()));
+      for (const listener of this.#updateListeners) {
+        listener(encoded, origin);
+      }
+    }
   }
 
-  transact<T>(fn: () => T): T {
+  transact<T>(fn: () => T, origin?: unknown): T {
     this.#txDepth++;
     try {
       const result = runInAction(fn);
@@ -186,9 +249,7 @@ export class DocumentContainer<
             revision: this.revision,
             patches,
           };
-          for (const listener of this.#listeners) {
-            listener(batch);
-          }
+          this.#emitBatch(batch, origin);
         }
       }
     }
@@ -367,13 +428,106 @@ export class DocumentContainer<
         revision: this.revision,
         patches: [],
       };
-      for (const listener of this.#listeners) {
-        listener(batch);
+      this.#emitBatch(batch);
+    }
+  }
+
+  getMap(name: string): Map<string, string> {
+    return this.getMetaMap(name);
+  }
+
+  hydrateFromSnapshot(snapshot: SerializedDocument, origin?: unknown): void {
+    this.#isApplyingPatches = true;
+    try {
+      runInAction(() => {
+        const nextRoot = hydrateModel<TRoot>(snapshot);
+        if (this.root && this.root.constructor === nextRoot.constructor) {
+          const meta = getModelMetadata(this.root.constructor);
+          (this.root as any).uuid = nextRoot.uuid;
+          for (const col of meta.columns.keys()) {
+            (this.root as any)[col] = (nextRoot as any)[col];
+          }
+          for (const [key, field] of meta.stateFields.entries()) {
+            const val = (nextRoot as any)[key];
+            if (field.kind === "list" || field.kind === "refList" || field.kind === "childList") {
+              const targetArr = (this.root as any)[key];
+              if (Array.isArray(targetArr) && Array.isArray(val)) {
+                targetArr.splice(0, targetArr.length, ...val);
+              } else {
+                (this.root as any)[key] = val;
+              }
+            } else if (field.kind === "record" || field.kind === "childRecord") {
+              const targetRec = (this.root as any)[key];
+              if (targetRec && typeof targetRec === "object" && val && typeof val === "object") {
+                for (const k of Object.keys(targetRec)) {
+                  if (!(k in val)) delete targetRec[k];
+                }
+                for (const [k, v] of Object.entries(val)) {
+                  targetRec[k] = v;
+                }
+              } else {
+                (this.root as any)[key] = val;
+              }
+            } else {
+              (this.root as any)[key] = val;
+            }
+          }
+          this.#registry.clear();
+          this.registerNode(this.root);
+        } else {
+          this.root = nextRoot;
+          this.#registry.clear();
+          this.registerNode(nextRoot);
+        }
+        if (snapshot.meta) {
+          this.#meta.clear();
+          for (const [ns, entries] of Object.entries(snapshot.meta)) {
+            this.#meta.set(ns, this.#wrapMetaMap(new Map(Object.entries(entries))));
+          }
+        }
+        this.revision = Math.max(this.revision, snapshot.revision);
+      });
+    } finally {
+      this.#isApplyingPatches = false;
+    }
+    if (this.#updateListeners.size > 0) {
+      const encoded = textEncoder.encode(JSON.stringify(snapshot));
+      for (const listener of this.#updateListeners) {
+        listener(encoded, origin);
+      }
+    }
+  }
+
+  encodeStateAsUpdate(): Uint8Array {
+    this.registerNode(this.root);
+    return textEncoder.encode(JSON.stringify(this.toSnapshot()));
+  }
+
+  encodeStateVector(): Uint8Array {
+    return textEncoder.encode(JSON.stringify({ revision: this.revision }));
+  }
+
+  applyUpdate(update: Uint8Array, origin?: unknown): void {
+    if (update.byteLength === 0) return;
+    if (update.byteLength === 2 && update[0] === 0 && update[1] === 0) return;
+    const text = textDecoder.decode(update);
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    if ("root" in parsed && parsed.root && typeof parsed.root === "object") {
+      this.hydrateFromSnapshot(parsed as unknown as SerializedDocument, origin);
+      return;
+    }
+    if ("patches" in parsed && Array.isArray(parsed.patches)) {
+      this.applyPatchBatch(parsed as unknown as ModelPatchBatch);
+      if (this.#updateListeners.size > 0) {
+        for (const listener of this.#updateListeners) {
+          listener(update, origin);
+        }
       }
     }
   }
 
   toSnapshot(): SerializedDocument {
+    this.registerNode(this.root);
     const meta: Record<string, Record<string, string>> = {};
     for (const [ns, map] of this.#meta) {
       if (map.size > 0) {
@@ -386,4 +540,24 @@ export class DocumentContainer<
       ...(Object.keys(meta).length > 0 ? { meta } : {}),
     };
   }
+}
+
+export function encodeDocumentStateAsUpdate(doc: DocumentContainer<any, any>): Uint8Array {
+  return doc.encodeStateAsUpdate();
+}
+
+export function encodeDocumentStateVector(doc: DocumentContainer<any, any>): Uint8Array {
+  return doc.encodeStateVector();
+}
+
+export function applyDocumentUpdate(doc: DocumentContainer<any, any>, update: Uint8Array, origin?: unknown): void {
+  doc.applyUpdate(update, origin);
+}
+
+export function mergeDocumentUpdates(updates: readonly Uint8Array[]): Uint8Array {
+  const nonEmpty = updates.filter(
+    (u) => u.byteLength > 0 && !(u.byteLength === 2 && u[0] === 0 && u[1] === 0),
+  );
+  if (nonEmpty.length === 0) return new Uint8Array([0, 0]);
+  return nonEmpty[nonEmpty.length - 1]!;
 }

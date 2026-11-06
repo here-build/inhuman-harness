@@ -188,6 +188,12 @@ function bindArrayObserver<T>(
     }
     const link = self[CONTAINER_LINK];
     if (kind === "childList") {
+      const remaining = new Set(arr);
+      for (const removed of change.removed) {
+        if (!remaining.has(removed)) {
+          detachParent(removed);
+        }
+      }
       arr.forEach((item, idx) => attachParent(item, self, idx));
       for (const child of change.added) {
         if (child) {
@@ -383,6 +389,15 @@ export function stateChildList<This, TItem extends Model>(
     },
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
+      const oldArr = getter.call(this);
+      const nextSet = new Set(value);
+      if (Array.isArray(oldArr)) {
+        for (const oldChild of oldArr) {
+          if (!nextSet.has(oldChild)) {
+            detachParent(oldChild);
+          }
+        }
+      }
       value.forEach((child, idx) => attachParent(child, this, idx));
       const obsArr = observable.array(value, {
         deep: false,
