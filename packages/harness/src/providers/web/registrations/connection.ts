@@ -2,6 +2,7 @@
  * Shared PEW connection for web-search vendor drivers.
  * Bootstrap is a no-op — HTTP is per interned method.
  */
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import {
   WebExtractExpectation,
   type WebExtractResult,
@@ -166,7 +167,7 @@ export async function adoptApiKey(
 ): Promise<DriverAdoptBags> {
   const { input } = await callback(
     "UI",
-    `(harness/input :name "${label} API key" :description "Required." :secret #t)`,
+    encodeUiDefinition({ kind: "input", name: `${label} API key`, description: "Required.", secret: true }),
   );
   const key = asAdoptString(input);
   if (key === "") throw new Error(`${label} API key is required`);

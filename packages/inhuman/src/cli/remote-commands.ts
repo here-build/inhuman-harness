@@ -4,7 +4,7 @@
  * open-url form and the status. The daemon reads HARNESS_REMOTE_URL (and the optional
  * HARNESS_REMOTE_WORKOS_CLIENT_ID override) from its own environment, inherited from the process that spawned it.
  */
-import { isUiForm } from "@inhuman.tools/harness-contract";
+import { isUiForm, parseUiDefinition } from "@inhuman.tools/harness-contract";
 import { type KernelRpc, openExternalUrl } from "@inhuman.tools/harness-sdk";
 import { Command, Option } from "clipanion";
 
@@ -155,7 +155,8 @@ async function runLogin(
   const open = deps.openBrowser ?? openExternalUrl;
   let result: unknown = await rpc.request("remote/login", args.name === undefined ? {} : { name: args.name });
   while (isUiForm(result)) {
-    const url = result.body.match(/https?:\/\/[^\s"'<>\\]+/i)?.[0];
+    const def = parseUiDefinition(result.body);
+    const url = def?.kind === "open-url" ? def.url : undefined;
     if (url === undefined) throw new Error("remote/login: the daemon parked a form with no address");
     const code = userCode(url);
     streams.stderr.write(`Approve this machine for remote access:\n  ${url}\n`);

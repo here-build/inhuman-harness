@@ -40,13 +40,15 @@ describe("authorizeInBrowser", () => {
     const paste = recording((body) => hitCallback(body, { code: "c", state: "s1" }));
     await authorizeInBrowser(paste.ui, { authUrl: AUTH_URL, description: "Sign in", paste: "Key" });
     const url = parkedUrl(plain.bodies[0]!);
+    const plainDef = JSON.parse(plain.bodies[0]!) as Record<string, unknown>;
+    const pasteDef = JSON.parse(paste.bodies[0]!) as Record<string, unknown>;
     expect({
       host: url.host,
       callback: callbackOf(url).pathname,
       challenge: url.searchParams.get("client_id"),
-      plainInput: plain.bodies[0]!.includes(":input"),
-      pasteInput: paste.bodies[0]!.includes(':name "Key" :input \'password'),
-      described: plain.bodies[0]!.includes(':description "Sign in"'),
+      plainInput: "input" in plainDef,
+      pasteInput: pasteDef.name === "Key" && pasteDef.input === "password",
+      described: plainDef.description === "Sign in",
     }).toEqual({
       host: "auth.example",
       callback: "/callback",

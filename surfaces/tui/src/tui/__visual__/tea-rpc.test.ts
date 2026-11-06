@@ -1,4 +1,3 @@
-import { exec } from "@here.build/arrival";
 import { defaultCommands } from "@inhuman.tools/harness/testkit";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
@@ -24,8 +23,7 @@ import { Client, ProjectPlexus } from "@inhuman.tools/harness-sdk";
 import { ConnectionSpec, DriverSpec, reportRole, revalidationDemandOf } from "@inhuman.tools/plexus-expectations";
 import { expect, test, vi } from "vitest";
 
-import { imageCapability } from "../../interpreter/imageCapability.js";
-import { uiCapability, UiNode } from "../../interpreter/uiCapability.js";
+import { evalUiSurface, UiNode } from "../../interpreter/uiCapability.js";
 import { paintChildrenOf } from "../paint-dom.js";
 import { bootComposerDraft, Tea } from "../tea.js";
 
@@ -525,7 +523,7 @@ test.each([
         compact: new CommandSpec({
           verb: "compact",
           description: "plugin shadow",
-          body: `(harness/action 'kv/set :params (dict :key "shadow" :value "1"))`,
+          body: JSON.stringify({ kind: "action", op: "kv/set", params: { key: "shadow", value: "1" } }),
         }),
       };
     },
@@ -557,11 +555,7 @@ test("Tea pick-wire hides LM Studio duplicate offer", async () => {
   const kernel = new KernelRoot();
   kernel.drivers = { "openai-compat": hideOpenai };
   kernel.connections = { work: hideWork };
-  const values = await exec(defaultCommandBody("connect"), {
-    capabilities: [imageCapability, uiCapability],
-    config: { kernel },
-  });
-  const surface = values.at(-1);
+  const surface = evalUiSurface(defaultCommandBody("connect"), { kernel });
   if (!(surface instanceof UiNode)) throw new TypeError("connect.scm did not eval to a UiNode");
   expect(surface.choices.map((row) => row.action.map((leaf) => ({ method: leaf.op, params: leaf.params })))).toEqual([
     [{ method: "kv/set", params: { key: "connection", value: "work", remember: "1" } }],
@@ -587,11 +581,7 @@ test("connect.scm paints needs-auth ahead of the stored sign-in", async () => {
   const kernel = new KernelRoot();
   kernel.drivers = { grok };
   kernel.connections = { grok: wire };
-  const values = await exec(defaultCommandBody("connect"), {
-    capabilities: [imageCapability, uiCapability],
-    config: { kernel },
-  });
-  const surface = values.at(-1);
+  const surface = evalUiSurface(defaultCommandBody("connect"), { kernel });
   if (!(surface instanceof UiNode)) throw new TypeError("connect.scm did not eval to a UiNode");
   const row = surface.choices.find((choice) => choice.name === "Grok");
   expect({ description: row?.description, health: row?.health, annotation: row?.annotation }).toEqual({
@@ -620,11 +610,7 @@ test("connect.scm says reconnect for a refused key and keeps a timeout as the co
   const kernel = new KernelRoot();
   kernel.drivers = { "openai-compat": openai };
   kernel.connections = { openai: refused, studio: down };
-  const values = await exec(defaultCommandBody("connect"), {
-    capabilities: [imageCapability, uiCapability],
-    config: { kernel },
-  });
-  const surface = values.at(-1);
+  const surface = evalUiSurface(defaultCommandBody("connect"), { kernel });
   if (!(surface instanceof UiNode)) throw new TypeError("connect.scm did not eval to a UiNode");
   const row = (name: string) => surface.choices.find((choice) => choice.name === name);
   expect({
@@ -1027,7 +1013,7 @@ test("Tea park confirm drop accept", async () => {
   client.request = async (method, params) => {
     calls.push({ method, params });
     if (method === "connect/drop") {
-      return { form: "ui", pending: "p1", body: '(harness/confirm :title "Remove work?")' };
+      return { form: "ui", pending: "p1", body: JSON.stringify({ kind: "confirm", title: "Remove work?" }) };
     }
     return { ok: true };
   };
@@ -1047,7 +1033,7 @@ test("Tea park confirm drop accept", async () => {
 
 /** A browser-sign-in park: the daemon owns the callback, the client opens the URL. */
 const PASTE_PARK = (url: string) =>
-  `(harness/open-url :url "${url}" :description "Authorize in the browser" :input 'password)`;
+  JSON.stringify({ kind: "open-url", url, description: "Authorize in the browser", input: "password" });
 
 test("Tea park browser sign-in: Enter opens and answers opened, Esc cancels the wait", async () => {
   const client = localClient();
@@ -1137,7 +1123,7 @@ test("Tea park Esc-cancel", async () => {
   escClient.request = async (method, params) => {
     escCalls.push({ method, params });
     if (method === "connect/drop") {
-      return { form: "ui", pending: "p3", body: '(harness/confirm :title "Remove work?")' };
+      return { form: "ui", pending: "p3", body: JSON.stringify({ kind: "confirm", title: "Remove work?" }) };
     }
     return { ok: false };
   };
@@ -1167,7 +1153,11 @@ test("Tea park Nous Portal device-code", async () => {
       return {
         form: "ui",
         pending: "p-nous",
-        body: `(harness/open-url :url "https://portal.nousresearch.com/manage-subscription?user_code=ABCD-EFGH" :description "Approve Nous Portal in the browser, then continue")`,
+        body: JSON.stringify({
+          kind: "open-url",
+          url: "https://portal.nousresearch.com/manage-subscription?user_code=ABCD-EFGH",
+          description: "Approve Nous Portal in the browser, then continue",
+        }),
       };
     }
     return { id: "nous-portal" };
@@ -1232,14 +1222,18 @@ async function playPickWire(row: PickWireRow): Promise<RpcCall[]> {
 }
 
 function parkChoice(op: string, params: Record<string, string>): CommandSpec {
-  const entries = Object.entries(params)
-    .map(([key, value]) => `:${key} "${value}"`)
-    .join(" ");
   return new CommandSpec({
     verb: "go",
-    body: `(harness/choice :choices (list
-             (harness/choice :name "row"
-               :action (list (harness/action '${op} :params (dict ${entries}))))))`,
+    body: JSON.stringify({
+      kind: "choice",
+      choices: [
+        {
+          kind: "choice",
+          name: "row",
+          action: [{ kind: "action", op, params }],
+        },
+      ],
+    }),
   });
 }
 

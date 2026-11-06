@@ -1,3 +1,5 @@
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
+
 import { asAdoptString, type AdoptCallback, type DriverAdoptArgs, type DriverAdoptBags } from "./adopt.js";
 import { WebSearchDriverConnection } from "./connection.js";
 import { firecrawlConfigurationSchema, webSearchSecretsSchema } from "./schemas.js";
@@ -20,11 +22,20 @@ export class FirecrawlWebSearchConnection extends WebSearchDriverConnection {
     const settings = { ...(args.settings ?? {}) };
     const { input: keyInput } = await callback(
       "UI",
-      '(harness/input :name "Firecrawl API key" :description "Optional when a self-hosted URL is set." :secret #t)',
+      encodeUiDefinition({
+        kind: "input",
+        name: "Firecrawl API key",
+        description: "Optional when a self-hosted URL is set.",
+        secret: true,
+      }),
     );
     const { input: urlInput } = await callback(
       "UI",
-      '(harness/input :name "Firecrawl API URL" :description "Optional. Empty uses api.firecrawl.dev.")',
+      encodeUiDefinition({
+        kind: "input",
+        name: "Firecrawl API URL",
+        description: "Optional. Empty uses api.firecrawl.dev.",
+      }),
     );
     const key = asAdoptString(keyInput);
     const apiUrl = asAdoptString(urlInput);

@@ -64,7 +64,12 @@ describe("screen field migration", () => {
         ? {
             form: "ui",
             pending: "key-park",
-            body: '(harness/input :name "API key" :description "Paste the exact key." :secret #t)',
+            body: JSON.stringify({
+              kind: "input",
+              name: "API key",
+              description: "Paste the exact key.",
+              secret: true,
+            }),
           }
         : { id: "connected" },
     );

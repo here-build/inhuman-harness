@@ -26,7 +26,7 @@ describe("kernel actions", () => {
     expect(urlPark).toMatchObject({
       form: "ui",
       pending: expect.any(String),
-      body: expect.stringMatching(/harness\/input[\s\S]*Base URL/),
+      body: expect.stringMatching(/"kind":"input"[\s\S]*Base URL/),
     });
     expect(await connectionsOf(root)).toEqual({});
 
@@ -40,7 +40,7 @@ describe("kernel actions", () => {
     expect(keyPark).toMatchObject({
       form: "ui",
       pending: expect.any(String),
-      body: expect.stringMatching(/API key[\s\S]*:secret/),
+      body: expect.stringMatching(/API key[\s\S]*"secret":true/),
     });
     expect(await connectionsOf(root)).toEqual({});
 
@@ -161,7 +161,7 @@ describe("kernel actions", () => {
     expect(dropPark).toMatchObject({
       form: "ui",
       pending: expect.any(String),
-      body: expect.stringMatching(/harness\/confirm/),
+      body: expect.stringMatching(/"kind":"confirm"/),
     });
     await expect(daemon.handleRequest("ui/resolve", { pending: "nope" })).rejects.toBeInstanceOf(RpcInvalidParams);
     await daemon.handleRequest("ui/resolve", { pending: dropPark.pending, kind: "cancel" });
@@ -847,7 +847,7 @@ function parked(value: unknown): { form: "ui"; pending: string; body: string } {
 }
 
 function urlFromPark(body: string): URL {
-  const match = /:url "([^"]+)"/.exec(body);
-  if (match === null) throw new Error(`parked body has no url: ${body}`);
-  return new URL(match[1]!.replaceAll('\\"', '"').replaceAll("\\\\", "\\"));
+  const parsed = JSON.parse(body) as { url?: unknown };
+  if (typeof parsed.url !== "string") throw new Error(`parked body has no url: ${body}`);
+  return new URL(parsed.url);
 }

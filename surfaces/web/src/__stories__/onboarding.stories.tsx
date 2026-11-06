@@ -1,3 +1,4 @@
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { userEvent, waitFor, within } from "storybook/test";
 
@@ -16,12 +17,11 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /*
- * The daemon's parks, as its drivers send them: one `harness/…` call in a
- * Scheme string. Authorize links are each provider's real endpoint with the
- * callback the daemon injects; the PKCE values are fixed, so Open reaches the
- * real sign-in page, and the story's own script finishes the flow.
+ * The daemon's parks, as its drivers send them: a JSON `UiDefinition`.
+ * Authorize links are each provider's real endpoint with the callback the
+ * daemon injects; the PKCE values are fixed, so Open reaches the real sign-in
+ * page, and the story's own script finishes the flow.
  */
-const scheme = (value: string) => `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 const authorize = (endpoint: string, params: Readonly<Record<string, string>>) => {
   const url = new URL(endpoint);
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
@@ -37,7 +37,12 @@ const OIDC = (clientId: string, scope: string) => ({
 });
 const REDIRECT_PASTE = "Browser on another machine? Paste the address it ended on";
 const OPEN = (url: string, hint: string, paste = "") =>
-  `(harness/open-url :url ${scheme(url)} :description ${scheme(hint)}${paste === "" ? "" : ` :name ${scheme(paste)} :input 'password`})`;
+  encodeUiDefinition({
+    kind: "open-url",
+    url,
+    description: hint,
+    ...(paste === "" ? {} : { name: paste, input: "password" }),
+  });
 const CHATGPT_SIGN_IN = OPEN(
   authorize("https://auth.openai.com/oauth/authorize", {
     ...OIDC("app_EMoamEEZ73f0CkXaXp7hrann", "openid profile email offline_access"),
@@ -66,9 +71,15 @@ const OPENROUTER_SIGN_IN = OPEN(
   "Authorize OpenRouter in the browser",
   "Or paste an OpenRouter key",
 );
-const KEY = (what: string) => `(harness/input :name "API key" :description "${what} API key" :secret #t)`;
-const URL_FIELD = `(harness/input :name "Base URL" :description "OpenAI-compatible endpoint")`;
-const OPTIONAL_KEY = `(harness/input :name "API key" :description "Optional. Empty to skip." :secret #t)`;
+const KEY = (what: string) =>
+  encodeUiDefinition({ kind: "input", name: "API key", description: `${what} API key`, secret: true });
+const URL_FIELD = encodeUiDefinition({ kind: "input", name: "Base URL", description: "OpenAI-compatible endpoint" });
+const OPTIONAL_KEY = encodeUiDefinition({
+  kind: "input",
+  name: "API key",
+  description: "Optional. Empty to skip.",
+  secret: true,
+});
 
 const chatgpt = WIRES.find((wire) => wire.id === "chatgpt");
 if (chatgpt == null) throw new Error("the fixture lists no ChatGPT wire");
@@ -80,9 +91,13 @@ const scripts: ConnectScripts = {
   "openai-compat:OpenAI-compatible": [URL_FIELD, OPTIONAL_KEY, { done: "chatgpt", wire: chatgpt }],
   "openai-compat:DeepSeek": [{ fail: "connect ECONNREFUSED 127.0.0.1:7788" }],
   "openai-compat:Mistral": [
-    '(harness/confirm :title "Replace Mistral" :description "A Mistral connection exists. Replace it?")',
+    encodeUiDefinition({
+      kind: "confirm",
+      title: "Replace Mistral",
+      description: "A Mistral connection exists. Replace it?",
+    }),
   ],
-  "openai-compat:Together": ['(harness/notice :message "Together needs a terminal step")'],
+  "openai-compat:Together": [encodeUiDefinition({ kind: "notice", message: "Together needs a terminal step" })],
   // Answers, but the kernel never lists the connection: the page holds on its landing line.
   "openai-compat:Cerebras": [KEY("Cerebras"), { done: "cerebras" }],
   // The daemon never answers the first call.

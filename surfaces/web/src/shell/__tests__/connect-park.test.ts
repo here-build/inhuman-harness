@@ -1,3 +1,4 @@
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import { describe, expect, it } from "vitest";
 
 import { openUrlFieldType, parsePark } from "../connect-park.js";
@@ -6,7 +7,11 @@ describe("park bodies", () => {
   it("reads a browser sign-in", async () => {
     expect(
       await parsePark(
-        String.raw`(harness/open-url :url "https://auth.example/authorize?x=1&y=\"2\"" :description "Authorize in the browser")`,
+        encodeUiDefinition({
+          kind: "open-url",
+          url: 'https://auth.example/authorize?x=1&y="2"',
+          description: "Authorize in the browser",
+        }),
       ),
     ).toEqual({
       kind: "open-url",
@@ -20,7 +25,13 @@ describe("park bodies", () => {
   it("offers a paste field when the sign-in also takes a typed input", async () => {
     expect(
       await parsePark(
-        `(harness/open-url :url "https://a.example/" :description "Go" :name "Or paste a key" :input 'password)`,
+        encodeUiDefinition({
+          kind: "open-url",
+          url: "https://a.example/",
+          description: "Go",
+          name: "Or paste a key",
+          input: "password",
+        }),
       ),
     ).toEqual({
       kind: "open-url",
@@ -36,30 +47,34 @@ describe("park bodies", () => {
   });
 
   it("paints only web links", async () => {
-    expect(await parsePark(`(harness/open-url :url "javascript:alert(1)" :description "x")`)).toEqual({
+    expect(await parsePark(encodeUiDefinition({ kind: "open-url", url: "javascript:alert(1)", description: "x" }))).toEqual({
       kind: "unknown",
     });
-    expect(await parsePark(`(harness/open-url :description "no link")`)).toEqual({ kind: "unknown" });
+    expect(await parsePark(JSON.stringify({ kind: "open-url", description: "no link" }))).toEqual({ kind: "unknown" });
   });
 
   it("reads a field, secret or not", async () => {
-    expect(await parsePark(`(harness/input :name "API key" :description "Paste it." :secret #t)`)).toEqual({
+    expect(
+      await parsePark(encodeUiDefinition({ kind: "input", name: "API key", description: "Paste it.", secret: true })),
+    ).toEqual({
       kind: "input",
       name: "API key",
       description: "Paste it.",
       secret: true,
     });
-    expect(await parsePark(`(harness/input :name "Base URL")`)).toEqual({
+    expect(await parsePark(encodeUiDefinition({ kind: "input", name: "Base URL" }))).toEqual({
       kind: "input",
       name: "Base URL",
       description: "",
       secret: false,
     });
-    expect(await parsePark(`(harness/input)`)).toMatchObject({ kind: "input", name: "Input" });
+    expect(await parsePark(encodeUiDefinition({ kind: "input" }))).toMatchObject({ kind: "input", name: "Input" });
   });
 
   it("reads a confirmation", async () => {
-    expect(await parsePark(`(harness/confirm :title "Replace" :description "Replace it?")`)).toEqual({
+    expect(
+      await parsePark(encodeUiDefinition({ kind: "confirm", title: "Replace", description: "Replace it?" })),
+    ).toEqual({
       kind: "confirm",
       name: "Replace",
       description: "Replace it?",
@@ -68,11 +83,10 @@ describe("park bodies", () => {
 
   it("leaves everything else to the terminal", async () => {
     for (const body of [
-      `(harness/notice :message "hi")`,
-      `(+ 1 2)`,
+      encodeUiDefinition({ kind: "notice", message: "hi" }),
+      `{"kind":"unknown"}`,
       `"just a string"`,
-      `(harness/input :name "a") (harness/input :name "b")`,
-      `(unbalanced`,
+      `{unbalanced`,
       ``,
     ]) {
       expect(await parsePark(body)).toEqual({ kind: "unknown" });

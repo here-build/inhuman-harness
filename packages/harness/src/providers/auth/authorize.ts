@@ -6,6 +6,7 @@
  * listener, so a browser client signs in the same way the TUI does.
  */
 
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
 
 import {
@@ -126,10 +127,10 @@ function pastedAuthorization(pasted: string, redirectUri: string): BrowserAuthor
 }
 
 function openUrlBody(url: string, description: string, paste: string): string {
-  const field = paste === "" ? "" : ` :name ${quote(paste)} :input 'password`;
-  return `(harness/open-url :url ${quote(url)} :description ${quote(description)}${field})`;
-}
-
-function quote(value: string): string {
-  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`)}"`;
+  return encodeUiDefinition({
+    kind: "open-url",
+    url,
+    description,
+    ...(paste === "" ? {} : { name: paste, input: "password" as const }),
+  });
 }

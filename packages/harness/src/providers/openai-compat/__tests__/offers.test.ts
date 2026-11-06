@@ -57,7 +57,9 @@ describe("OpenAiCompatDriverConnection.adopt", () => {
       login.callback,
     );
     expect({ questions: login.bodies, renewed }).toEqual({
-      questions: ['(harness/input :name "API key" :description "LM Studio API key" :secret #t)'],
+      questions: [
+        JSON.stringify({ kind: "input", name: "API key", description: "LM Studio API key", secret: true }),
+      ],
       renewed: { ...local, secrets: { apiKey: "new-local-key" } },
     });
   });
@@ -68,7 +70,9 @@ describe("OpenAiCompatDriverConnection.adopt", () => {
       { name: "Groq", settings: { baseUrl: "https://api.groq.com/openai/v1" } },
       ask.callback,
     );
-    expect(ask.bodies).toEqual(['(harness/input :name "API key" :description "Groq API key" :secret #t)']);
+    expect(ask.bodies).toEqual([
+      JSON.stringify({ kind: "input", name: "API key", description: "Groq API key", secret: true }),
+    ]);
     expect(bags).toEqual({
       name: "Groq",
       settings: { baseUrl: "https://api.groq.com/openai/v1" },
@@ -101,8 +105,8 @@ describe("OpenAiCompatDriverConnection.adopt", () => {
     const ask = asking("https://example.com/v1", "");
     const bags = await OpenAiCompatDriverConnection.adopt({ name: "OpenAI-compatible" }, ask.callback);
     expect(ask.bodies).toEqual([
-      '(harness/input :name "Base URL" :description "OpenAI-compatible endpoint")',
-      '(harness/input :name "API key" :description "Optional. Empty to skip." :secret #t)',
+      JSON.stringify({ kind: "input", name: "Base URL", description: "OpenAI-compatible endpoint" }),
+      JSON.stringify({ kind: "input", name: "API key", description: "Optional. Empty to skip.", secret: true }),
     ]);
     expect(bags).toEqual({ name: "example.com", settings: { baseUrl: "https://example.com/v1" }, secrets: {} });
   });

@@ -10,10 +10,31 @@ import { ConnectStep } from "../connect-step.js";
 const START = { driver: "openai-compat", name: "Groq", settings: { baseUrl: "https://api.groq.com/openai/v1" } };
 
 const park = (pending: string, body: string) => ({ form: "ui", pending, body });
-const OPEN = `(harness/open-url :url "https://auth.example/authorize" :description "Authorize in the browser")`;
-const PASTE = `(harness/open-url :url "https://auth.example/authorize" :description "Authorize in the browser" :name "Or paste a key" :input 'password)`;
-const REDIRECT = `(harness/open-url :url "https://auth.example/authorize" :description "Authorize in the browser" :name "Browser on another machine? Paste the address it ended on" :input 'password)`;
-const KEY = `(harness/input :name "API key" :description "Paste your key." :secret #t)`;
+const OPEN = JSON.stringify({
+  kind: "open-url",
+  url: "https://auth.example/authorize",
+  description: "Authorize in the browser",
+});
+const PASTE = JSON.stringify({
+  kind: "open-url",
+  url: "https://auth.example/authorize",
+  description: "Authorize in the browser",
+  name: "Or paste a key",
+  input: "password",
+});
+const REDIRECT = JSON.stringify({
+  kind: "open-url",
+  url: "https://auth.example/authorize",
+  description: "Authorize in the browser",
+  name: "Browser on another machine? Paste the address it ended on",
+  input: "password",
+});
+const KEY = JSON.stringify({
+  kind: "input",
+  name: "API key",
+  description: "Paste your key.",
+  secret: true,
+});
 
 type Call = { readonly method: string; readonly params: Record<string, unknown> };
 
@@ -209,7 +230,7 @@ describe("connect step", () => {
     expect(d.calls.at(-1)).toEqual({ method: "ui/resolve", params: { pending: "p1", kind: "text", input: "gsk_abc" } });
     expect(container.querySelector('[role="status"]')?.textContent).toContain("Connecting…");
 
-    await d.answer(park("p1", `(harness/input :name "Base URL")`));
+    await d.answer(park("p1", JSON.stringify({ kind: "input", name: "Base URL" })));
     expect(byLabel("Base URL").type).toBe("text");
     expect(byLabel("Base URL").value).toBe("");
   });
@@ -243,7 +264,9 @@ describe("connect step", () => {
   it("answers a confirmation with accept", async () => {
     const d = daemon();
     await render(d.request);
-    await d.answer(park("p1", `(harness/confirm :title "Replace" :description "Replace the existing connection?")`));
+    await d.answer(
+      park("p1", JSON.stringify({ kind: "confirm", title: "Replace", description: "Replace the existing connection?" })),
+    );
     expect(text()).toContain("Replace the existing connection?");
     await click(button("Accept"));
     expect(d.calls.at(-1)).toEqual({ method: "ui/resolve", params: { pending: "p1", kind: "accept" } });
@@ -252,7 +275,7 @@ describe("connect step", () => {
   it("sends anything else to the terminal, and still lets go", async () => {
     const d = daemon();
     await render(d.request);
-    await d.answer(park("p1", `(harness/notice :message "hi")`));
+    await d.answer(park("p1", JSON.stringify({ kind: "notice", message: "hi" })));
     expect(text()).toContain("Finish this in the terminal: /connect");
     expect(container.querySelector("input")).toBeNull();
     await click(button("Cancel"));

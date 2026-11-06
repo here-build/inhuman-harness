@@ -273,16 +273,23 @@ test("overlay Esc then Enter in one batch does not accept; park restores the sla
     answerLikeDaemon(client, method, params);
     calls.push({ method, params });
     if (method === "connect/drop") {
-      return { form: "ui", pending: "p1", body: '(harness/confirm :title "Remove work?")' };
+      return { form: "ui", pending: "p1", body: JSON.stringify({ kind: "confirm", title: "Remove work?" }) };
     }
     return { ok: true };
   };
   client.kernelRoot.commands = {
     go: new CommandSpec({
       verb: "go",
-      body: `(harness/choice :choices (list
-               (harness/choice :name "row"
-                 :action (list (harness/action 'connect/drop :params (dict :id "work"))))))`,
+      body: JSON.stringify({
+        kind: "choice",
+        choices: [
+          {
+            kind: "choice",
+            name: "row",
+            action: [{ kind: "action", op: "connect/drop", params: { id: "work" } }],
+          },
+        ],
+      }),
     }),
   };
   using tea = new Tea(client, () => undefined);

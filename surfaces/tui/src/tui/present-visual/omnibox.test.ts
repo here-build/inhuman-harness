@@ -42,16 +42,23 @@ test("overlay placeholder", async () => {
   const client = localClient();
   client.request = async (method) => {
     if (method === "connect/adopt" || method === "connect/login") {
-      return { form: "ui", pending: "p2", body: '(harness/input :name "Base URL")' };
+      return { form: "ui", pending: "p2", body: JSON.stringify({ kind: "input", name: "Base URL" }) };
     }
     return { ok: true };
   };
   client.kernelRoot.commands = {
     go: new CommandSpec({
       verb: "go",
-      body: `(harness/choice :choices (list
-               (harness/choice :name "row"
-                 :action (list (harness/action 'connect/adopt :params (dict :driver "local"))))))`,
+      body: JSON.stringify({
+        kind: "choice",
+        choices: [
+          {
+            kind: "choice",
+            name: "row",
+            action: [{ kind: "action", op: "connect/adopt", params: { driver: "local" } }],
+          },
+        ],
+      }),
     }),
   };
   seedConversation(client);

@@ -169,7 +169,7 @@ it("MCP OAuth lifecycle", async () => {
     await loginMcpHttp("row-1", server.mcpUrl, pkce.host);
     const authorize = authorizeFrom(pkce.parked.body);
     expect({
-      parked: pkce.parked.body.includes("harness/open-url"),
+      parked: pkce.parked.body.includes('"kind":"open-url"'),
       origin: authorize.origin,
       pathname: authorize.pathname,
       response_type: authorize.searchParams.get("response_type"),

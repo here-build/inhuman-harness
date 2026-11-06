@@ -1,26 +1,20 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { exec } from "@here.build/arrival";
 import { expect, test } from "vitest";
 
-import { rpcCapability } from "../rpcCapability.js";
-import { uiCapability, UiNode } from "../uiCapability.js";
+import { evalUiSurface, UiNode } from "../uiCapability.js";
 
 const PLUGINS = fileURLToPath(new URL("../../../../../plugins/", import.meta.url));
 
 async function surface(path: string, reply: unknown): Promise<{ node: UiNode; reads: unknown[] }> {
   const reads: unknown[] = [];
-  const values = await exec(readFileSync(PLUGINS + path, "utf8"), {
-    capabilities: [uiCapability, rpcCapability],
-    config: {
-      rpc: (method: string, params: unknown) => {
-        reads.push({ method, params });
-        return reply;
-      },
+  const node = evalUiSurface(readFileSync(PLUGINS + path, "utf8"), {
+    rpc: (method: string, params: unknown) => {
+      reads.push({ method, params });
+      return reply;
     },
   });
-  const node = values.at(-1);
   expect(node).toBeInstanceOf(UiNode);
   return { node: node as UiNode, reads };
 }

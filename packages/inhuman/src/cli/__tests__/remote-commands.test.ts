@@ -57,7 +57,11 @@ const URL_ = "https://auth.example/device?user_code=ABCD-EFGH";
 const PARK = {
   form: "ui",
   pending: "p1",
-  body: `(harness/open-url :url "${URL_}" :description "Approve this machine for remote access in the browser, then continue")`,
+  body: JSON.stringify({
+    kind: "open-url",
+    url: URL_,
+    description: "Approve this machine for remote access in the browser, then continue",
+  }),
 };
 
 it("routes the remote commands", () => {

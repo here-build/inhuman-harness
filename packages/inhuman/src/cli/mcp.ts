@@ -3,7 +3,7 @@
  */
 import { createInterface } from "node:readline";
 
-import { isUiForm, type UiAnswer, type UiForm } from "@inhuman.tools/harness-contract";
+import { isUiForm, parseUiDefinition, type UiAnswer, type UiForm } from "@inhuman.tools/harness-contract";
 import { type KernelRpc, openExternalUrl } from "@inhuman.tools/harness-sdk";
 
 import { type ShellContext, type Streams } from "./context.js";
@@ -202,11 +202,11 @@ type UiHandle = {
 };
 
 async function handleUi(form: UiForm, streams: Streams, opts: UiHandle): Promise<UiAnswer> {
-  const authorizeUrl = form.body.match(/https?:\/\/[^\s"'<>\\]+/i)?.[0];
-  if (authorizeUrl !== undefined) {
-    return await handleOAuth(authorizeUrl, streams, opts);
+  const def = parseUiDefinition(form.body);
+  if (def?.kind === "open-url") {
+    return await handleOAuth(def.url, streams, opts);
   }
-  if (form.body.includes("harness/confirm")) {
+  if (def?.kind === "confirm") {
     return { kind: "accept" };
   }
   throw new Error("unsupported ui park");

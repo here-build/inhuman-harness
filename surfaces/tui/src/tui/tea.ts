@@ -4,7 +4,6 @@
  *
  * Omnibox winner lives in omnibox-seat.ts, CHANGE ONLY.
  */
-import { exec } from "@here.build/arrival";
 import { isUiForm, type UiForm } from "@inhuman.tools/harness-contract";
 import { fail, step, trace } from "@inhuman.tools/harness-diagnostics";
 import {
@@ -141,12 +140,8 @@ import { rewindNeighborSlots } from "./rewind-chrome.js";
 import { cwdParts } from "./statusline-path.js";
 import { waitPhrase } from "./wait-phrase.js";
 import { askPinFace, askPinWorthPainting } from "./work-cells.js";
-import { ComputedExecBox } from "../interpreter/ComputedExecBox.js";
-import { imageCapability } from "../interpreter/imageCapability.js";
-import { rpcCapability } from "../interpreter/rpcCapability.js";
-import { uiCapability, UiNode } from "../interpreter/uiCapability.js";
+import { evalUiSurface, type UiEvalConfig, UiNode } from "../interpreter/uiCapability.js";
 
-const COMMAND_CAPABILITIES = [imageCapability, uiCapability, rpcCapability];
 /** Mash after cancel must not peel into history. Tea-local; the turn must also be idle. */
 const REWIND_GRACE_MS = 1000;
 
@@ -224,7 +219,8 @@ export class Tea implements Disposable {
   /** Blob text the document names, fetched on demand. Peeks are MobX reads: a landing repaints what peeked. */
   readonly #blobs: BlobPeek;
   readonly #disposers: IReactionDisposer[] = [];
-  readonly #execs = new Map<string, { body: string; exec: ComputedExecBox<unknown> }>();
+  readonly #pluginReplies = observable.map<string, unknown>([], { deep: false });
+  readonly #pluginFetches = new Set<string>();
   #lastModelEvalLog = "";
 
   #resolveWaiter: ((value: Record<string, unknown>) => void) | undefined;
@@ -1314,19 +1310,16 @@ export class Tea implements Disposable {
     return this.#callback?.surface ?? null;
   }
 
-  // COMMAND_SURFACE_KEEPALIVE: isolated-ask paint skips this surface for a
-  // tick. Without keepAlive, onBecomeUnobserved runs exec.get() and aborts
-  // the command-body eval.
-  @computed({ keepAlive: true })
+  @computed
   get #commandSurface(): UiNode | undefined {
     if (this.#callback !== undefined) return this.#callback.surface;
     const verb = slashVerb(this.draft.draft);
     if (verb === null) return undefined;
     const body = this.client.kernelRoot.commands[verb]?.body;
     if (body === undefined || body === "") return undefined;
-    const surface = this.#execFor(verb, body, this.client.kernelRoot).get();
+    const surface = evalUiSurface(body, this.#commandConfig());
     if (verb === "model") this.#noteModelEval(surface);
-    return surface instanceof UiNode ? surface : undefined;
+    return surface;
   }
 
   #noteModelEval(surface: unknown): void {
@@ -1346,24 +1339,32 @@ export class Tea implements Disposable {
     step(line);
   }
 
-  #commandConfig(extra: Record<string, unknown> = {}): Record<string, unknown> {
+  #commandConfig(extra: Partial<UiEvalConfig> = {}): UiEvalConfig {
     return {
       kernel: this.client.kernelRoot,
       session: this.client.sessionRoot,
-      rpc: (method: string, params?: unknown) => this.client.request(method, params),
+      rpc: (method: string, params?: unknown) => this.#commandRpc(method, params),
       ...extra,
     };
   }
 
-  #execFor(verb: string, body: string, kernel: KernelRoot): ComputedExecBox<unknown> {
-    const hit = this.#execs.get(verb);
-    if (hit !== undefined && hit.body === body) return hit.exec;
-    const box = new ComputedExecBox(body, {
-      capabilities: COMMAND_CAPABILITIES,
-      config: this.#commandConfig({ kernel }),
-    });
-    this.#execs.set(verb, { body, exec: box });
-    return box;
+  #commandRpc(method: string, params?: unknown): unknown {
+    const key = `${method}:${JSON.stringify(params ?? null)}`;
+    const cached = this.#pluginReplies.get(key);
+    if (!this.#pluginFetches.has(key)) {
+      this.#pluginFetches.add(key);
+      void Promise.resolve(this.client.request(method, params))
+        .then((reply) => {
+          runInAction(() => {
+            this.#pluginReplies.set(key, reply);
+          });
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          this.#pluginFetches.delete(key);
+        });
+    }
+    return cached;
   }
 
   @computed
@@ -1726,11 +1727,7 @@ export class Tea implements Disposable {
   }
 
   async #awaitCallback(form: UiForm): Promise<unknown> {
-    const values = await exec(form.body, {
-      capabilities: COMMAND_CAPABILITIES,
-      config: this.#commandConfig({ pending: form.pending }),
-    });
-    const surface = values.at(-1);
+    const surface = evalUiSurface(form.body, this.#commandConfig({ pending: form.pending }));
     invariant(surface instanceof UiNode, "ui form body did not eval to a UiNode");
     const saved = this.#savedDraft ?? {
       draft: this.draft.draft,

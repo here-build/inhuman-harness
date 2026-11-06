@@ -105,7 +105,7 @@ describe("harness client", () => {
 
     const call = client.kernel.connect.adopt({ driver: "openai-compat" });
     await tick();
-    const form = { form: "ui", pending: "p-1", body: '(harness/input :name "url")' };
+    const form = { form: "ui", pending: "p-1", body: '{"kind":"input","name":"url"}' };
     transport.reply(0, { result: form });
     await tick();
     expect(seen).toEqual([form]);
@@ -124,9 +124,9 @@ describe("harness client", () => {
     const client = createHarnessClient({ transport, onPark: () => ({ kind: "accept" }) });
     const call = client.kernel.connect.drop({ id: "c1" });
     await tick();
-    transport.reply(0, { result: { form: "ui", pending: "p-1", body: "(harness/confirm)" } });
+    transport.reply(0, { result: { form: "ui", pending: "p-1", body: '{"kind":"confirm"}' } });
     await tick();
-    transport.reply(1, { result: { form: "ui", pending: "p-2", body: "(harness/confirm)" } });
+    transport.reply(1, { result: { form: "ui", pending: "p-2", body: '{"kind":"confirm"}' } });
     await tick();
     expect(transport.sent.map((frame) => frame.method)).toEqual(["connect/drop", "ui/resolve", "ui/resolve"]);
     transport.reply(2, { result: { ok: true } });
@@ -138,7 +138,7 @@ describe("harness client", () => {
     const client = createHarnessClient({ transport });
     const call = client.kernel.connect.login({ id: "c1" });
     await tick();
-    const form = { form: "ui", pending: "p-9", body: "(harness/open-url)" };
+    const form = { form: "ui", pending: "p-9", body: '{"kind":"open-url","url":"https://x"}' };
     transport.reply(0, { result: form });
     const error = await call.catch((error_: unknown) => error_);
     expect(error).toBeInstanceOf(HarnessParkError);
@@ -157,7 +157,7 @@ describe("harness client", () => {
     const call = client.kernel.connect.login({ id: "c1" });
     const outcome = call.catch((error: unknown) => error);
     await tick();
-    transport.reply(0, { result: { form: "ui", pending: "p-3", body: "(harness/open-url)" } });
+    transport.reply(0, { result: { form: "ui", pending: "p-3", body: '{"kind":"open-url","url":"https://x"}' } });
     await tick();
     expect(transport.sent[1]).toMatchObject({ method: "ui/resolve", params: { pending: "p-3", kind: "cancel" } });
     transport.reply(1, { result: { ok: false } });

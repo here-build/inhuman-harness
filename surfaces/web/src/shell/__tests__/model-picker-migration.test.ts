@@ -183,7 +183,7 @@ describe("model picker shared-control migration parity", () => {
     const request = vi.fn<NonNullable<Props["request"]>>(async () => ({
       form: "ui",
       pending: "reauth",
-      body: '(harness/open-url :url "https://login.example.test" :description "Sign in")',
+      body: JSON.stringify({ kind: "open-url", url: "https://login.example.test", description: "Sign in" }),
     }));
     await render({ wires: [wire("expired", "ChatGPT", [], true)], request });
     const trigger = find<HTMLButtonElement>(".model-trigger");
@@ -426,7 +426,7 @@ describe("model picker shared-control migration parity", () => {
     const request = vi.fn(async () => ({
       form: "ui",
       pending: "reauth",
-      body: '(harness/open-url :url "https://login.example.test" :description "Sign in")',
+      body: JSON.stringify({ kind: "open-url", url: "https://login.example.test", description: "Sign in" }),
     }));
     await render({ wires: [wire("expired", "ChatGPT", [], true)], request });
     await open();
@@ -452,7 +452,7 @@ describe("model picker shared-control migration parity", () => {
         ? {
             form: "ui",
             pending: "dismissed-auth",
-            body: '(harness/input :name "API key")',
+            body: JSON.stringify({ kind: "input", name: "API key" }),
           }
         : { ok: false },
     );
@@ -473,7 +473,7 @@ describe("model picker shared-control migration parity", () => {
     const request = vi.fn<NonNullable<Props["request"]>>(async () => ({
       form: "ui",
       pending: "connect",
-      body: '(harness/input :name "API key" :description "Enter key")',
+      body: JSON.stringify({ kind: "input", name: "API key", description: "Enter key" }),
     }));
     await render({ request });
     await open();

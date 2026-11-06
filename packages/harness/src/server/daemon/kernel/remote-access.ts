@@ -8,6 +8,8 @@
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
+
 import type { CredentialsStore } from "@/connections/credentials";
 import {
   accessTokenExpiring,
@@ -78,10 +80,6 @@ function devEmail(token: string): string {
   return email === "" ? "dev@local" : email;
 }
 
-function quote(text: string): string {
-  return `"${text.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`)}"`;
-}
-
 export class RemoteAccess {
   readonly #credentials: RemoteAccessOptions["credentials"];
   readonly #env: Readonly<Record<string, string | undefined>>;
@@ -138,7 +136,11 @@ export class RemoteAccess {
     const client = this.#deviceClient(clientId);
     const device = await requestDeviceCode(client);
     await ui(
-      `(harness/open-url :url ${quote(device.verificationUriComplete)} :description ${quote(REMOTE_LOGIN_HINT)})`,
+      encodeUiDefinition({
+        kind: "open-url",
+        url: device.verificationUriComplete,
+        description: REMOTE_LOGIN_HINT,
+      }),
     );
     const tokens = await pollDeviceToken(client, device, this.#clock, options.signal);
     // The refresh token is bound to the client that minted it.

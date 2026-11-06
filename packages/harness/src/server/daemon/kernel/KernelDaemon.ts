@@ -16,7 +16,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import { DefaultedMap } from "@here.build/collections";
 import { asUserPrompt } from "@inhuman.tools/harness-commons";
-import { contract } from "@inhuman.tools/harness-contract";
+import { contract, encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import {
   AskAgentSpec,
@@ -230,8 +230,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     DaemonRpcMethod.fromContract(contract.kernel.connect.drop, async (args) => {
       if (args.confirm !== true) {
         try {
-          const title = `"${`Remove ${args.id}?`.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`)}"`;
-          await this.ui(`(harness/confirm :title ${title})`);
+          await this.ui(encodeUiDefinition({ kind: "confirm", title: `Remove ${args.id}?` }));
         } catch (error) {
           if (isUiCancelled(error)) return { ok: false };
           throw error;

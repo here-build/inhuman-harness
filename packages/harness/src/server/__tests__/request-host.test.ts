@@ -23,8 +23,8 @@ describe("RequestHost", () => {
     if (!isUiForm(second)) throw new Error("expected parked ui");
     const resolved = await host.handleRequest("ui/resolve", { pending: second.pending, kind: "text", input: "beta" });
     expect({ first, second }).toEqual({
-      first: { form: "ui", pending: expect.any(String), body: '(harness/input :name "one")' },
-      second: { form: "ui", pending: expect.any(String), body: '(harness/input :name "two")' },
+      first: { form: "ui", pending: expect.any(String), body: '{"kind":"input","name":"one"}' },
+      second: { form: "ui", pending: expect.any(String), body: '{"kind":"input","name":"two"}' },
     });
     expect(resolved).toEqual({
       label: "row",
@@ -37,7 +37,7 @@ describe("RequestHost", () => {
     expect(parked).toEqual({
       form: "ui",
       pending: expect.any(String),
-      body: '(harness/input :name "one")',
+      body: '{"kind":"input","name":"one"}',
     });
     await expect(
       cancelHost.handleRequest("ui/resolve", { pending: (parked as UiForm).pending, kind: "cancel" }),
@@ -52,8 +52,8 @@ describe("RequestHost", () => {
     if (!isUiForm(second)) throw new Error("the second park was dropped");
     const done = await host.handleRequest("ui/resolve", { pending: second.pending, kind: "text", input: "two" });
     expect({ first: first.body, second: second.body, done }).toEqual({
-      first: '(harness/input :name "a")',
-      second: '(harness/input :name "b")',
+      first: '{"kind":"input","name":"a"}',
+      second: '{"kind":"input","name":"b"}',
       done: { answers: ["one", "two"] },
     });
   });
@@ -224,8 +224,8 @@ const pingOutput = z.object({ pong: z.literal(true) });
 class ProbeHost extends RequestHost {
   override rpcMethods = [
     DaemonRpcMethod.define("probe", { input: probeInput, output: probeOutput }, async (args) => {
-      const first = await this.ui('(harness/input :name "one")');
-      const second = await this.ui('(harness/input :name "two")');
+      const first = await this.ui('{"kind":"input","name":"one"}');
+      const second = await this.ui('{"kind":"input","name":"two"}');
       // @ts-expect-error just quite vague type - input is basically string | undefind
       return { label: args.label, one: first.input, two: second.input };
     }),
@@ -233,7 +233,10 @@ class ProbeHost extends RequestHost {
       "both",
       { input: z.object({}), output: z.object({ answers: z.array(z.unknown()) }) },
       async () => {
-        const answers = await Promise.all([this.ui('(harness/input :name "a")'), this.ui('(harness/input :name "b")')]);
+        const answers = await Promise.all([
+          this.ui('{"kind":"input","name":"a"}'),
+          this.ui('{"kind":"input","name":"b"}'),
+        ]);
         return { answers: answers.map((answer) => (answer as { input?: unknown }).input) };
       },
     ),
@@ -241,7 +244,7 @@ class ProbeHost extends RequestHost {
     DaemonRpcMethod.define(
       "reenter",
       { input: z.object({ input: z.string().optional() }).passthrough(), output: z.unknown() },
-      (args) => (args.input == null ? { form: "ui", body: "(harness/confirm)" } : { pong: true as const }),
+      (args) => (args.input == null ? { form: "ui", body: '{"kind":"confirm"}' } : { pong: true as const }),
     ),
   ];
 }
@@ -267,7 +270,7 @@ class WaitHost extends RequestHost {
   override rpcMethods = [
     DaemonRpcMethod.define("wait", { input: z.object({}), output: z.object({ ok: z.boolean() }) }, async () => {
       const signal = this.requestSignal();
-      await this.ui('(harness/open-url :url "https://x")');
+      await this.ui('{"kind":"open-url","url":"https://x"}');
       this.#started();
       try {
         await new Promise<void>((resolve, reject) => {

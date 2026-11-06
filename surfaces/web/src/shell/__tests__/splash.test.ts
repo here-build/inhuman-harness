@@ -210,7 +210,7 @@ describe("first-run splash", () => {
     dial().kernelRpc = {
       request: vi.fn(async (method: string) =>
         method === "connect/adopt"
-          ? { form: "ui", pending: "p1", body: '(harness/input :name "API key" :secret #t)' }
+          ? { form: "ui", pending: "p1", body: JSON.stringify({ kind: "input", name: "API key", secret: true }) }
           : { ok: false },
       ),
     };

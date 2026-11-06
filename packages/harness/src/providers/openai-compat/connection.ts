@@ -21,6 +21,7 @@
  *   `when ((ready && fresh) || needsAuth || failed)` then stamp (stamp wins
  *   `init.headers`) then fetch once.
  */
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import { step, trace } from "@inhuman.tools/harness-diagnostics";
 import { CompletionExpectation } from "@inhuman.tools/harness-model";
 import type { CompleteResult, ConnectionCompleteRequest } from "@inhuman.tools/harness-provider-sdk";
@@ -147,7 +148,7 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
     if (custom) {
       const { input } = await callback(
         "UI",
-        '(harness/input :name "Base URL" :description "OpenAI-compatible endpoint")',
+        encodeUiDefinition({ kind: "input", name: "Base URL", description: "OpenAI-compatible endpoint" }),
       );
       baseUrl = asAdoptString(input);
     }
@@ -161,7 +162,7 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
     if (custom && args.reauthenticate !== true) {
       const { input: apiKey } = await callback(
         "UI",
-        '(harness/input :name "API key" :description "Optional. Empty to skip." :secret #t)',
+        encodeUiDefinition({ kind: "input", name: "API key", description: "Optional. Empty to skip.", secret: true }),
       );
       const key = asAdoptString(apiKey);
       if (key !== "") secrets.apiKey = key;
@@ -169,10 +170,9 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
       args.reauthenticate === true ||
       (!isLoopbackBaseUrl(baseUrl) && asAdoptString(args.secrets?.apiKey) === "")
     ) {
-      const quotedHint = `"${`${name} API key`.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`)}"`;
       const { input: apiKey } = await callback(
         "UI",
-        `(harness/input :name "API key" :description ${quotedHint} :secret #t)`,
+        encodeUiDefinition({ kind: "input", name: "API key", description: `${name} API key`, secret: true }),
       );
       const key = asAdoptString(apiKey);
       if (key === "") throw new Error(`${name} needs an API key`);

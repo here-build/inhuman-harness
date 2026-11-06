@@ -3,6 +3,7 @@
  * HTTP remainder that 401s with Protected Resource Metadata parks the same
  * PKCE `harness/open-url` as connect/login. Otherwise an optional token.
  */
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import invariant from "tiny-invariant";
 
 import { collectMcpHttpOAuth, offersMcpOAuth } from "./oauth.js";
@@ -80,7 +81,11 @@ export async function adoptMcp(args: McpAdoptArgs, callback: AdoptCallback): Pro
   if (!fromSettings && endpoint === "") {
     const { input } = await callback(
       "UI",
-      '(harness/input :name "MCP URL or command" :description "https://… or a stdio command")',
+      encodeUiDefinition({
+        kind: "input",
+        name: "MCP URL or command",
+        description: "https://… or a stdio command",
+      }),
     );
     endpoint = asAdoptString(input);
   }
@@ -102,7 +107,12 @@ export async function adoptMcp(args: McpAdoptArgs, callback: AdoptCallback): Pro
       throwIfAborted(signal);
       const { input: token } = await callback(
         "UI",
-        '(harness/input :name "Token" :description "Optional. Empty to skip; Authenticate later for OAuth." :secret #t)',
+        encodeUiDefinition({
+          kind: "input",
+          name: "Token",
+          description: "Optional. Empty to skip; Authenticate later for OAuth.",
+          secret: true,
+        }),
       );
       const key = asAdoptString(token);
       if (key !== "") secrets.token = key;

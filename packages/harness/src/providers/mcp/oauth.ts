@@ -7,6 +7,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import type { ConnectionSecretsView } from "@inhuman.tools/plexus-expectations/driver";
 import invariant from "tiny-invariant";
 
@@ -14,7 +15,7 @@ import { authorizeInBrowser } from "@/providers/auth";
 
 import { wrapFetchFailure } from "./fetch.js";
 import { asExpiresIn, asNonEmpty, asRecord, asStringArray } from "./json.js";
-import { asAdoptString, schemeQuote } from "./quote.js";
+import { asAdoptString } from "./quote.js";
 
 export type McpOAuthUi = (body: string) => Promise<Readonly<Record<string, unknown>>>;
 
@@ -321,11 +322,11 @@ async function resolveRegisteredClient(
   const docs = asNonEmpty(asMeta?.service_documentation);
   const description =
     "This authorization server has no dynamic registration. Create an OAuth or GitHub App with callback http://127.0.0.1/callback, then paste the client ID.";
-  const idInput = `(harness/input :name "OAuth client ID" :description ${schemeQuote(description)})`;
+  const idInput = encodeUiDefinition({ kind: "input", name: "OAuth client ID", description });
   let idAnswer = await ui(
     docs === undefined
       ? idInput
-      : `(harness/open-url :url ${schemeQuote(docs)} :name "OAuth client ID" :description ${schemeQuote(description)} :input 'text)`,
+      : encodeUiDefinition({ kind: "open-url", url: docs, name: "OAuth client ID", description, input: "text" }),
   );
   // An empty field on the docs park opens the link (`opened`); the client ID is still owed.
   if (idAnswer.kind === "opened") idAnswer = await ui(idInput);
@@ -335,7 +336,12 @@ async function resolveRegisteredClient(
     "mcp oauth: client_id is required — this authorization server has no dynamic registration",
   );
   const secretAnswer = await ui(
-    `(harness/input :name "OAuth client secret" :description ${schemeQuote("Optional. GitHub OAuth Apps need this to exchange the code.")} :secret #t)`,
+    encodeUiDefinition({
+      kind: "input",
+      name: "OAuth client secret",
+      description: "Optional. GitHub OAuth Apps need this to exchange the code.",
+      secret: true,
+    }),
   );
   return { clientId, clientSecret: asAdoptString(secretAnswer.input) };
 }

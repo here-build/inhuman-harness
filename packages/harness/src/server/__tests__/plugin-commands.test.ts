@@ -8,10 +8,8 @@ import { describe, expect, it } from "vitest";
 import { reflectKernel } from "../daemon/kernel/fs-reflection/reflectKernel.js";
 import { defaultCompactSource } from "../defaults/index.js";
 
-const PING = `(harness/choice :choices (list (harness/choice :name "from-plugin")))
-`;
-const OTHER = `(harness/choice :choices (list (harness/choice :name "from-other")))
-`;
+const PING = `{"kind":"choice","choices":[{"kind":"choice","name":"from-plugin"}]}\n`;
+const OTHER = `{"kind":"choice","choices":[{"kind":"choice","name":"from-other"}]}\n`;
 
 describe("plugin commands", () => {
   it("plugin verb resolution", async () => {
@@ -32,7 +30,7 @@ describe("plugin commands", () => {
     const loaded = {
       compact: {
         source: plexus.root.commands.compact?.source,
-        bodyHasAction: plexus.root.commands.compact?.body.includes("(harness/action") ?? false,
+        bodyHasAction: plexus.root.commands.compact?.body.includes('"action"') ?? false,
         bodyIsPing: plexus.root.commands.compact?.body === PING,
       },
       ping: {

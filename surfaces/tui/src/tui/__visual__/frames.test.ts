@@ -271,7 +271,7 @@ test("slash catalog — paint, Tab/arrows, wrap, Esc arm, /compact", async () =>
     go: new CommandSpec({
       verb: "go",
       description: "Go",
-      body: `(harness/choice :choices (list (harness/choice :name "row")))`,
+      body: JSON.stringify({ kind: "choice", choices: [{ kind: "choice", name: "row" }] }),
     }),
   };
   const withGo = await waitDump(ui.dump, (frame) => frame.composer.picker.rows.some((row) => row.name === "/go"));
@@ -315,12 +315,19 @@ test("/connect picker — rows, health, dim remainder, identity, same-name keys"
   client.kernelRoot.commands = {
     connect: new CommandSpec({
       verb: "connect",
-      body: `(harness/choice :choices (list
-               (harness/choice :name "openrouter"
-                 :health-status 'failed
-                 :health-annotation "openai-compat handshake failed: 401")
-               (harness/choice :name "openai")
-               (harness/choice :name "chatgpt")))`,
+      body: JSON.stringify({
+        kind: "choice",
+        choices: [
+          {
+            kind: "choice",
+            name: "openrouter",
+            healthStatus: "failed",
+            healthAnnotation: "openai-compat handshake failed: 401",
+          },
+          { kind: "choice", name: "openai" },
+          { kind: "choice", name: "chatgpt" },
+        ],
+      }),
     }),
   };
   typeText(ui.tea, "/connect");
@@ -331,10 +338,14 @@ test("/connect picker — rows, health, dim remainder, identity, same-name keys"
   client.kernelRoot.commands = {
     connect: new CommandSpec({
       verb: "connect",
-      body: `(harness/choice :choices (list
-               (harness/choice :name "openrouter")
-               (harness/choice :name "openai")
-               (harness/choice :name "chatgpt")))`,
+      body: JSON.stringify({
+        kind: "choice",
+        choices: [
+          { kind: "choice", name: "openrouter" },
+          { kind: "choice", name: "openai" },
+          { kind: "choice", name: "chatgpt" },
+        ],
+      }),
     }),
   };
   typeText(ui.tea, "/connect");
@@ -354,9 +365,13 @@ test("/connect picker — rows, health, dim remainder, identity, same-name keys"
   client.kernelRoot.commands = {
     connect: new CommandSpec({
       verb: "connect",
-      body: `(harness/choice :choices (list
-               (harness/choice :name "OpenAI")
-               (harness/choice :name "OpenAI")))`,
+      body: JSON.stringify({
+        kind: "choice",
+        choices: [
+          { kind: "choice", name: "OpenAI" },
+          { kind: "choice", name: "OpenAI" },
+        ],
+      }),
     }),
   };
   typeText(ui.tea, "/connect");
@@ -372,16 +387,23 @@ test("overlay confirm — drop confirm chrome", async () => {
   const client = localClient();
   client.request = async (method) => {
     if (method === "connect/drop") {
-      return { form: "ui", pending: "p1", body: '(harness/confirm :title "Remove work?")' };
+      return { form: "ui", pending: "p1", body: JSON.stringify({ kind: "confirm", title: "Remove work?" }) };
     }
     return { ok: true };
   };
   client.kernelRoot.commands = {
     go: new CommandSpec({
       verb: "go",
-      body: `(harness/choice :choices (list
-               (harness/choice :name "row"
-                 :action (list (harness/action 'connect/drop :params (dict :id "work"))))))`,
+      body: JSON.stringify({
+        kind: "choice",
+        choices: [
+          {
+            kind: "choice",
+            name: "row",
+            action: [{ kind: "action", op: "connect/drop", params: { id: "work" } }],
+          },
+        ],
+      }),
     }),
   };
   seedConversation(client);
@@ -415,18 +437,30 @@ test("overlay input — Base URL / instructional / auth wait / busy dim", async 
   client.request = async (method) => {
     if (method === "connect/adopt" || method === "connect/login") {
       parks += 1;
-      if (parks === 1) return { form: "ui", pending: "p2", body: '(harness/input :name "Base URL")' };
+      if (parks === 1) return { form: "ui", pending: "p2", body: JSON.stringify({ kind: "input", name: "Base URL" }) };
       if (parks === 2) {
         return {
           form: "ui",
           pending: "p-id",
-          body: `(harness/open-url :url "https://docs.github.com/apps" :name "OAuth client ID" :description "This authorization server has no dynamic registration. Create an OAuth or GitHub App with callback http://127.0.0.1/callback, then paste the client ID." :input 'text)`,
+          body: JSON.stringify({
+            kind: "open-url",
+            url: "https://docs.github.com/apps",
+            name: "OAuth client ID",
+            description:
+              "This authorization server has no dynamic registration. Create an OAuth or GitHub App with callback http://127.0.0.1/callback, then paste the client ID.",
+            input: "text",
+          }),
         };
       }
       return {
         form: "ui",
         pending: "p-url",
-        body: `(harness/open-url :url "https://openrouter.ai/auth?code_challenge=abc" :description "Authorize OpenRouter in the browser" :input 'password)`,
+        body: JSON.stringify({
+          kind: "open-url",
+          url: "https://openrouter.ai/auth?code_challenge=abc",
+          description: "Authorize OpenRouter in the browser",
+          input: "password",
+        }),
       };
     }
     if (method === "ui/resolve") {
@@ -438,9 +472,16 @@ test("overlay input — Base URL / instructional / auth wait / busy dim", async 
   client.kernelRoot.commands = {
     go: new CommandSpec({
       verb: "go",
-      body: `(harness/choice :choices (list
-               (harness/choice :name "row"
-                 :action (list (harness/action 'connect/adopt :params (dict :driver "local"))))))`,
+      body: JSON.stringify({
+        kind: "choice",
+        choices: [
+          {
+            kind: "choice",
+            name: "row",
+            action: [{ kind: "action", op: "connect/adopt", params: { driver: "local" } }],
+          },
+        ],
+      }),
     }),
   };
   const opened: string[] = [];
@@ -513,9 +554,16 @@ test("notice on fire reject", async () => {
   client.kernelRoot.commands = {
     go: new CommandSpec({
       verb: "go",
-      body: `(harness/choice :choices (list
-               (harness/choice :name "row"
-                 :action (list (harness/action 'connect/adopt :params (dict :driver "grok"))))))`,
+      body: JSON.stringify({
+        kind: "choice",
+        choices: [
+          {
+            kind: "choice",
+            name: "row",
+            action: [{ kind: "action", op: "connect/adopt", params: { driver: "grok" } }],
+          },
+        ],
+      }),
     }),
   };
   seedConversation(client);
@@ -669,9 +717,10 @@ test("/model remainder chrome — typed-id hint", async () => {
   client.kernelRoot.commands = {
     model: new CommandSpec({
       verb: "model",
-      body: `(harness/choice :action (list
-               (harness/action 'kv/set :name "Set model"
-                 :params (dict :key "model" :value ""))))`,
+      body: JSON.stringify({
+        kind: "choice",
+        action: [{ kind: "action", op: "kv/set", name: "Set model", params: { key: "model", value: "" } }],
+      }),
     }),
   };
   seedConversation(client);

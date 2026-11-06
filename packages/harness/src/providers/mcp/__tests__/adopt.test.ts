@@ -218,7 +218,7 @@ it("adopt", async () => {
     expect({
       parks: tokenParks.map((body) => ({
         token: body.includes("Token"),
-        oauth: body.includes("harness/open-url"),
+        oauth: body.includes('"kind":"open-url"'),
       })),
       bags: tokenBags,
     }).toEqual({
@@ -238,7 +238,7 @@ it("adopt", async () => {
     });
     expect({
       park: {
-        openUrl: oauthParks[0]?.includes("harness/open-url") ?? false,
+        openUrl: oauthParks[0]?.includes('"kind":"open-url"') ?? false,
         authorize: oauthParks[0]?.includes(`${server.origin}/authorize`) ?? false,
         redirectUri: oauthParks[0]?.includes("redirect_uri") ?? false,
       },

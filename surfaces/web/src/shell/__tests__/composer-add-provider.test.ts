@@ -187,7 +187,7 @@ describe("adding a provider from the model picker", () => {
     dial().sessionRpc?.request.mockResolvedValue({
       form: "ui",
       pending: "reauth",
-      body: '(harness/open-url :url "https://login.example.test" :description "Sign in")',
+      body: JSON.stringify({ kind: "open-url", url: "https://login.example.test", description: "Sign in" }),
     });
     await click(signin);
     expect(dial().sessionRpc?.request).toHaveBeenCalledWith("connect/login", { id: "chatgpt" });

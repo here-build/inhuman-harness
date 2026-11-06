@@ -3,11 +3,13 @@
  * daemon's loopback callback, then the client answers `opened`.
  */
 
-/** The authorize URL a parked `harness/open-url` carries. */
+import { parseUiDefinition } from "@inhuman.tools/harness-contract";
+
+/** The authorize URL a parked `open-url` carries. */
 export function parkedUrl(body: string): URL {
-  const match = /:url "((?:[^"\\]|\\.)*)"/.exec(body);
-  if (match?.[1] === undefined) throw new Error(`parked body has no url: ${body}`);
-  return new URL(match[1].replaceAll(String.raw`\"`, '"').replaceAll("\\\\", "\\"));
+  const def = parseUiDefinition(body);
+  if (def?.kind !== "open-url") throw new Error(`parked body has no url: ${body}`);
+  return new URL(def.url);
 }
 
 /** Where the daemon asked the authorization server to send the browser back. */

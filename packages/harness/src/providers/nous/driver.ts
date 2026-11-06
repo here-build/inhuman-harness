@@ -2,6 +2,7 @@
  * Nous Portal: openai-compat over device-code OAuth.
  * @see https://portal.nousresearch.com/api-docs
  */
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import { step } from "@inhuman.tools/harness-diagnostics";
 import { action, computed, type IReactionDisposer, observable, reaction } from "mobx";
 
@@ -203,9 +204,14 @@ export class NousDriverConnection extends NousOidcConnection {
     const settings = { ...(args.settings ?? {}), baseUrl: NOUS_BASE_URL };
     const name = asAdoptString(args.name) || "Nous Portal";
     const device = await requestNousDeviceCode();
-    const quotedUrl = `"${device.verificationUriComplete.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`)}"`;
-    const quotedHint = `"${NOUS_LOGIN_HINT.replaceAll("\\", "\\\\").replaceAll('"', String.raw`\"`)}"`;
-    await callback("UI", `(harness/open-url :url ${quotedUrl} :description ${quotedHint})`);
+    await callback(
+      "UI",
+      encodeUiDefinition({
+        kind: "open-url",
+        url: device.verificationUriComplete,
+        description: NOUS_LOGIN_HINT,
+      }),
+    );
     return {
       name,
       settings,

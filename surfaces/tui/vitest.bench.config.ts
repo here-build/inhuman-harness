@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-const dedupe = ["@inhuman.tools/model", "@here.build/arrival"];
+const dedupe = ["@inhuman.tools/model"];
 
 export default defineConfig({
   resolve: { dedupe },

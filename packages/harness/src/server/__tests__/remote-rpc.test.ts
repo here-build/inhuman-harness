@@ -72,7 +72,7 @@ describe("remote/* over the kernel", () => {
       body: string;
     };
     expect(parked.form).toBe("ui");
-    expect(parked.body).toContain("harness/open-url");
+    expect(parked.body).toContain('"kind":"open-url"');
     expect(parked.body).toContain("https://auth.example/device?user_code=AAAA-BBBB");
 
     const done = (await kernel.handleRequest("ui/resolve", { pending: parked.pending, kind: "accept" })) as {

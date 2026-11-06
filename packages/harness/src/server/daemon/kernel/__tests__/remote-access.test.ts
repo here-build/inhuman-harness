@@ -106,7 +106,11 @@ describe("RemoteAccess login", () => {
     expect(t.remote.status().loggedIn).toBe(false);
     const done = await t.remote.login(t.ui);
     expect(t.forms).toEqual([
-      '(harness/open-url :url "https://auth.example/device?user_code=ABCD-EFGH" :description "Approve this machine for remote access in the browser, then continue")',
+      JSON.stringify({
+        kind: "open-url",
+        url: "https://auth.example/device?user_code=ABCD-EFGH",
+        description: "Approve this machine for remote access in the browser, then continue",
+      }),
     ]);
     expect(t.workos.calls[0]).toEqual({ url: WORKOS_DEVICE_CODE_URL, form: { client_id: "client_test" } });
     expect(t.workos.calls[1]).toEqual({

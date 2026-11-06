@@ -16,8 +16,7 @@ import { KernelToolCatalog } from "../toolkit/tool-table.js";
 const DEMO_PACK = fileURLToPath(new URL("../toolkit/__tests__/fixtures/demo-pack", import.meta.url));
 const PLUGINS_ROOT = fileURLToPath(new URL("../../../../../plugins", import.meta.url));
 
-const PING = `(harness/choice :choices (list (harness/choice :name "from-plugin")))
-`;
+const PING = `{"kind":"choice","choices":[{"kind":"choice","name":"from-plugin"}]}\n`;
 
 describe("pack plugins", () => {
   it("plugin confinement and shipped load", async () => {

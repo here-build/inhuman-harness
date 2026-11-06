@@ -30,13 +30,11 @@
     "terminals:update": "UPDATE_SCREENSHOTS=1 vitest run --config vitest.terminals.config.ts"
   },
   "dependencies": {
-    "@here.build/arrival": "^0.10.2",
     "@here.build/collections": "^0.10.0",
     "@inhuman.tools/harness-contract": "workspace:^",
     "@inhuman.tools/harness-diagnostics": "workspace:^",
     "@inhuman.tools/harness-model": "workspace:^",
     "@inhuman.tools/harness-peer": "workspace:^",
-    "@inhuman.tools/harness-scheme": "workspace:^",
     "@inhuman.tools/harness-sdk": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
     "@inhuman.tools/plexus-expectations": "workspace:^",

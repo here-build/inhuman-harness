@@ -63,7 +63,11 @@ it("mcp login CLI: opens the URL, or hands back the paste; the daemon holds the 
   const loginPark = {
     form: "ui",
     pending: "p1",
-    body: `(harness/open-url :url "https://auth.example/authorize?x=1&redirect_uri=http%3A%2F%2F127.0.0.1%3A9%2Fcallback" :input 'password)`,
+    body: JSON.stringify({
+      kind: "open-url",
+      url: "https://auth.example/authorize?x=1&redirect_uri=http%3A%2F%2F127.0.0.1%3A9%2Fcallback",
+      input: "password",
+    }),
   };
   const authorize = "https://auth.example/authorize?x=1&redirect_uri=http%3A%2F%2F127.0.0.1%3A9%2Fcallback";
   const paste = fakeRpc(async (method) => (method === "connect/login" ? loginPark : { ok: true }));

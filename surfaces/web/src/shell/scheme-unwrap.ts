@@ -3,20 +3,10 @@
  * calls. The tape shows the calls. Any other statement keeps the batch row,
  * because that row is where the program's own result is read.
  *
- * Arrival's `parse` is async (`reader/parse.ts`), and the tape computed
- * cannot await it. The decision stays false until the reader settles, then
- * the map write wakes the computed. A batch with no admitted call yet stays
- * a row, so a reader error or a program that has not minted a call is not
- * a blank gap.
- *
- * Statement boundaries are the runner's, not the raw reader list.
- * `unwrapTopLevelBegins` splices top-level `begin`, `list`, and `[]`
- * (`packages-runtime/substrate/src/unwrap-begin.ts`). A `let` or `define`
- * around a call is still one statement and stays in the batch.
+ * Statement boundaries match the runner's top-level splice (`begin`, `list`,
+ * and `[]`). A `let` or `define` around a call is still one statement and
+ * stays in the batch.
  */
-import { parse, type SchemeValue } from "@here.build/arrival";
-import { APair, ASymbol } from "@here.build/arrival/reflect-internals";
-import { unwrapTopLevelBegins } from "@inhuman.tools/substrate/unwrap-begin";
 import { observable, runInAction } from "mobx";
 
 /**
@@ -46,7 +36,13 @@ const HOST_SYMBOLS = new Set([
   "agent/notify",
 ]);
 
-const formsOf = observable.map<string, readonly SchemeValue[] | "error">([], { deep: false });
+type SExpr =
+  | { readonly kind: "string"; readonly value: string }
+  | { readonly kind: "atom"; readonly text: string }
+  | { readonly kind: "quote"; readonly inner: SExpr }
+  | { readonly kind: "list"; readonly items: readonly SExpr[]; readonly bracket: "(" | "[" };
+
+const formsOf = observable.map<string, readonly SExpr[] | "error">([], { deep: false });
 const pending = new Map<string, Promise<void>>();
 
 export function schemeExprSettled(expr: string): boolean {
@@ -65,16 +61,11 @@ export function schemeExprReady(expr: string): Promise<void> {
 }
 
 async function settle(expr: string): Promise<void> {
-  try {
-    const forms = await parse(expr);
-    runInAction(() => {
-      formsOf.set(expr, forms);
-    });
-  } catch {
-    runInAction(() => {
-      formsOf.set(expr, "error");
-    });
-  }
+  await Promise.resolve();
+  const forms = readForms(expr);
+  runInAction(() => {
+    formsOf.set(expr, forms ?? "error");
+  });
 }
 
 export function schemeHostCallsOnly(expr: string, admitted: ReadonlySet<string>): boolean {
@@ -92,10 +83,143 @@ export function schemeHostCallsOnly(expr: string, admitted: ReadonlySet<string>)
   });
 }
 
-function headSymbol(form: SchemeValue): string | undefined {
-  if (!(form instanceof APair)) return undefined;
-  const head = form.car;
-  if (!(head instanceof ASymbol)) return undefined;
-  const name = head.valueOf();
-  return typeof name === "string" ? name : undefined;
+function unwrapTopLevelBegins(forms: readonly SExpr[]): readonly SExpr[] {
+  const out: SExpr[] = [];
+  const visit = (form: SExpr): void => {
+    if (form.kind === "list") {
+      if (form.bracket === "[" && !hasDottedPair(form.items)) {
+        for (const inner of form.items) visit(inner);
+        return;
+      }
+      if (form.bracket === "(" && form.items.length > 0 && !hasDottedPair(form.items)) {
+        const head = form.items[0]!;
+        if (head.kind === "atom" && (head.text === "begin" || head.text === "list")) {
+          for (const inner of form.items.slice(1)) visit(inner);
+          return;
+        }
+      }
+    }
+    out.push(form);
+  };
+  for (const form of forms) visit(form);
+  return out;
+}
+
+function hasDottedPair(items: readonly SExpr[]): boolean {
+  return items.some((item) => item.kind === "atom" && item.text === ".");
+}
+
+function headSymbol(form: SExpr): string | undefined {
+  if (form.kind !== "list" || form.bracket !== "(" || form.items.length === 0 || hasDottedPair(form.items)) {
+    return undefined;
+  }
+  const head = form.items[0]!;
+  if (head.kind !== "atom") return undefined;
+  if (head.text.startsWith("#") || head.text.startsWith(":") || /^-?\d+(?:\.\d+)?$/.test(head.text)) {
+    return undefined;
+  }
+  return head.text;
+}
+
+function readForms(input: string): readonly SExpr[] | null {
+  let pos = 0;
+  const len = input.length;
+
+  function skipWs(): void {
+    while (pos < len) {
+      const ch = input[pos]!;
+      if (ch === ";") {
+        while (pos < len && input[pos] !== "\n") pos++;
+      } else if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
+        pos++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  function readOne(): SExpr | null {
+    skipWs();
+    if (pos >= len) return null;
+    const ch = input[pos]!;
+    if (ch === ")" || ch === "]") return null;
+    if (ch === "(" || ch === "[") {
+      const open = ch;
+      const close = open === "(" ? ")" : "]";
+      pos++;
+      const items: SExpr[] = [];
+      for (;;) {
+        skipWs();
+        if (pos >= len) return null;
+        if (input[pos] === close) {
+          pos++;
+          return { kind: "list", items, bracket: open };
+        }
+        if (input[pos] === ")" || input[pos] === "]") return null;
+        const item = readOne();
+        if (item === null) return null;
+        items.push(item);
+      }
+    }
+    if (ch === "'" || ch === "`" || ch === ",") {
+      pos++;
+      if (ch === "," && pos < len && input[pos] === "@") pos++;
+      const inner = readOne();
+      if (inner === null) return null;
+      return { kind: "quote", inner };
+    }
+    if (ch === '"') {
+      pos++;
+      let out = "";
+      while (pos < len) {
+        const c = input[pos]!;
+        if (c === '"') {
+          pos++;
+          return { kind: "string", value: out };
+        }
+        if (c === "\\") {
+          pos++;
+          if (pos >= len) return null;
+          out += input[pos]!;
+          pos++;
+        } else {
+          out += c;
+          pos++;
+        }
+      }
+      return null;
+    }
+    const start = pos;
+    while (pos < len) {
+      const c = input[pos]!;
+      if (
+        c === " " ||
+        c === "\t" ||
+        c === "\n" ||
+        c === "\r" ||
+        c === "(" ||
+        c === ")" ||
+        c === "[" ||
+        c === "]" ||
+        c === '"' ||
+        c === ";"
+      ) {
+        break;
+      }
+      pos++;
+    }
+    const text = input.slice(start, pos);
+    if (text === "") return null;
+    return { kind: "atom", text };
+  }
+
+  const out: SExpr[] = [];
+  for (;;) {
+    skipWs();
+    if (pos >= len) break;
+    const item = readOne();
+    if (item === null) return null;
+    out.push(item);
+  }
+  return out;
 }
