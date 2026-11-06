@@ -122,11 +122,15 @@ export const sessionBlobsTable = sqliteTable(
 
 export type KernelStateRow = InferSelectModel<typeof kernelStateTable>;
 export type KernelStateRowInsert = InferInsertModel<typeof kernelStateTable>;
+export type KernelRow = KernelStateRow;
 
 export type SessionRow = InferSelectModel<typeof sessionsTable>;
 export type SessionRowInsert = InferInsertModel<typeof sessionsTable>;
+export type SessionSummaryRow = SessionRow;
 
-export type PendingAskRow = InferSelectModel<typeof pendingAsksTable>;
+export type PendingAskRow = InferSelectModel<typeof pendingAsksTable> & {
+  readonly id?: string;
+};
 export type PendingAskRowInsert = InferInsertModel<typeof pendingAsksTable>;
 
 export type SessionTurnRow = InferSelectModel<typeof sessionTurnsTable>;

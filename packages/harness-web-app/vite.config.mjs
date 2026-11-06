@@ -10,10 +10,13 @@ export default defineConfig({
   // Relative assets; index.html pins <base> so deep links resolve them too.
   base: "./",
   resolve: {
-    dedupe: ["yjs", "@here.build/plexus", "react", "react-dom", "mobx-react-lite"],
+    dedupe: ["@inhuman.tools/model", "react", "react-dom", "mobx-react-lite"],
   },
   // Pierre's diff worker dynamically imports its highlighter. An IIFE worker cannot split.
   worker: { format: "es" },
+  esbuild: {
+    target: "es2022",
+  },
   plugins: [tailwindcss()],
   build: {
     outDir: join(here, "dist/client"),

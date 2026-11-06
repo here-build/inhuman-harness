@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-const resolve = { dedupe: ["yjs", "@here.build/plexus", "react", "react-dom", "mobx-react-lite"] };
+const resolve = { dedupe: ["@inhuman.tools/model", "react", "react-dom", "mobx-react-lite"] };
 
 export default defineConfig({
   resolve,

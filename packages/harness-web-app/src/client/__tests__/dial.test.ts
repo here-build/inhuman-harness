@@ -1,27 +1,89 @@
 import { isObservableProp, reaction } from "mobx";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type * as Y from "yjs";
 
 import { Dial } from "../dial.js";
 
-const peer = vi.hoisted(() => ({
-  waitForSync: vi.fn<() => Promise<void>>(),
-  destroyProvider: vi.fn(),
-  sessionRoot: vi.fn(() => ({
-    path: "/workspace",
-    agent: { spec: { recipeScope: "project" } },
-  })),
-  providers: [] as FakeProvider[],
-  /** The kernel's glance rows. By default it lists every session a test opens. */
-  kernelSessions: new Proxy({}, { get: () => ({}) }) as Record<string, unknown>,
-  publish: vi.fn(),
-  bindJsonRpc: vi.fn(() => ({
-    request: vi.fn(async () => undefined),
-    rejectAll: vi.fn(),
-    whenLost: vi.fn(() => new Promise<void>(() => undefined)),
-    lost: false,
-  })),
-}));
+type FakeDoc = {
+  readonly guid: string;
+  readonly isDestroyed: boolean;
+  destroy(): void;
+  on(event: string, fn: (...args: unknown[]) => void): void;
+  off(event: string, fn: (...args: unknown[]) => void): void;
+};
+
+type FakeProvider = {
+  readonly roomName: string;
+  readonly doc: FakeDoc;
+  readonly params: Record<string, string>;
+  shouldConnect: boolean;
+  wsconnected: boolean;
+  emit(event: string, ...args: unknown[]): void;
+};
+
+const peer = vi.hoisted(() => {
+  const providers: FakeProvider[] = [];
+
+  class FakeWebsocketProvider {
+    disconnectBc = () => undefined;
+    readonly params: Record<string, string>;
+    shouldConnect = true;
+    wsconnected = true;
+    readonly #listeners = new Map<string, ((...args: unknown[]) => void)[]>();
+    constructor(
+      _origin: string,
+      readonly roomName: string,
+      readonly doc: FakeDoc,
+      options: { params: Record<string, string> },
+    ) {
+      this.params = options.params;
+      providers.push(this);
+    }
+    on(event: string, listener: (...args: unknown[]) => void): void {
+      this.#listeners.set(event, [...(this.#listeners.get(event) ?? []), listener]);
+    }
+    emit(event: string, ...args: unknown[]): void {
+      for (const listener of this.#listeners.get(event) ?? []) listener(...args);
+    }
+  }
+
+  const createDoc = (opts?: { guid?: string }) => {
+    let isDestroyed = false;
+    return {
+      guid: opts?.guid ?? "mock-doc-guid",
+      revision: 0,
+      clientID: 1,
+      get isDestroyed() {
+        return isDestroyed;
+      },
+      destroy() {
+        isDestroyed = true;
+      },
+      on() {},
+      off() {},
+    };
+  };
+
+  return {
+    waitForSync: vi.fn<() => Promise<void>>(),
+    destroyProvider: vi.fn(),
+    sessionRoot: vi.fn(() => ({
+      path: "/workspace",
+      agent: { spec: { recipeScope: "project" } },
+    })),
+    providers,
+    /** The kernel's glance rows. By default it lists every session a test opens. */
+    kernelSessions: new Proxy({}, { get: () => ({}) }) as Record<string, unknown>,
+    publish: vi.fn(),
+    bindJsonRpc: vi.fn(() => ({
+      request: vi.fn(async () => undefined),
+      rejectAll: vi.fn(),
+      whenLost: vi.fn(() => new Promise<void>(() => undefined)),
+      lost: false,
+    })),
+    createDoc: vi.fn(createDoc),
+    WebsocketProvider: FakeWebsocketProvider,
+  };
+});
 
 vi.mock("@inhuman.tools/harness-peer", () => ({
   KERNEL_DOC_GUID: "harness:kernel",
@@ -41,41 +103,10 @@ vi.mock("@inhuman.tools/harness-peer", () => ({
   detachProtocolAwareness: vi.fn(),
   destroyProvider: peer.destroyProvider,
   waitForSync: peer.waitForSync,
-}));
-
-type FakeProvider = {
-  readonly roomName: string;
-  readonly doc: Y.Doc;
-  readonly params: Record<string, string>;
-  shouldConnect: boolean;
-  wsconnected: boolean;
-  emit(event: string): void;
-};
-
-// Keep real Y.Doc and MobX behavior, but never open a socket or wait on timers.
-vi.mock("y-websocket", () => ({
-  WebsocketProvider: class {
-    disconnectBc = () => undefined;
-    readonly params: Record<string, string>;
-    shouldConnect = true;
-    wsconnected = true;
-    readonly #listeners = new Map<string, (() => void)[]>();
-    constructor(
-      _origin: string,
-      readonly roomName: string,
-      readonly doc: Y.Doc,
-      options: { params: Record<string, string> },
-    ) {
-      this.params = options.params;
-      peer.providers.push(this);
-    }
-    on(event: string, listener: () => void): void {
-      this.#listeners.set(event, [...(this.#listeners.get(event) ?? []), listener]);
-    }
-    emit(event: string): void {
-      for (const listener of this.#listeners.get(event) ?? []) listener();
-    }
-  },
+  decodeShapeFrame: vi.fn(() => null),
+  applyUpdate: vi.fn(),
+  createDoc: peer.createDoc,
+  WebsocketProvider: peer.WebsocketProvider,
 }));
 
 function deferred() {

@@ -1,5 +1,4 @@
-import { bindTextFrames } from "@inhuman.tools/harness-peer";
-import type { WebsocketProvider } from "y-websocket";
+import { bindTextFrames, type WebsocketProvider } from "@inhuman.tools/harness-peer";
 
 import type { Link } from "./dial.js";
 

@@ -100,6 +100,7 @@ export interface SerializedDocumentNode {
 }
 
 export interface SerializedDocument {
+  readonly guid?: string;
   readonly revision: number;
   readonly root: SerializedDocumentNode;
   readonly meta?: Record<string, Record<string, unknown>>;

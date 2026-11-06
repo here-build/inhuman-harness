@@ -15,6 +15,7 @@ import {
   encodeSyncStep1,
   MESSAGE_AWARENESS,
   MESSAGE_QUERY_AWARENESS,
+  MESSAGE_SHAPE,
   MESSAGE_SYNC,
   peekMessageType,
   SYNC_STEP2,
@@ -27,7 +28,7 @@ export type WebsocketProviderOptions = {
   readonly params?: Record<string, string>;
   readonly resyncInterval?: number;
   readonly awareness?: ReactiveAwareness<any>;
-  readonly shouldReconnect?: () => boolean;
+  readonly shouldReconnect?: (event: CloseEvent) => boolean;
   readonly maxBackoffTime?: number;
   readonly disableBc?: boolean;
 };
@@ -42,6 +43,8 @@ export class WebsocketProvider {
   get params(): Record<string, string> {
     return this.options.params ?? {};
   }
+
+  shouldConnect = true;
 
   ws: WebSocket | null = null;
   wsconnected = false;
@@ -68,6 +71,7 @@ export class WebsocketProvider {
     this.roomname = roomname;
     this.doc = doc;
     this.options = options;
+    this.shouldConnect = options.connect ?? true;
     this.awareness = options.awareness ?? doc.awareness;
 
     const onDocUpdate = (update: Uint8Array, origin?: unknown): void => {
@@ -99,6 +103,20 @@ export class WebsocketProvider {
     };
     this.awareness.on("update", onAwarenessUpdate);
     this.#awarenessUnsub = () => this.awareness.off("update", onAwarenessUpdate);
+
+    this.messageHandlers[MESSAGE_SYNC] = (_encoder: unknown, decoder: { arr: Uint8Array; pos: number }) => {
+      const frameBytes = decoder.arr;
+      const reply = applyPeerSyncFrame(frameBytes, this.doc, this);
+      if (reply != null && this.ws != null && this.ws.readyState === 1 /* OPEN */) {
+        this.ws.send(reply);
+      }
+      if (frameBytes.length >= 2 && (frameBytes[1] === SYNC_STEP2 || frameBytes[1] === SYNC_UPDATE)) {
+        if (!this.synced) {
+          this.synced = true;
+          this.emit("sync", true);
+        }
+      }
+    };
 
     if (options.connect !== false) {
       this.connect();
@@ -177,7 +195,10 @@ export class WebsocketProvider {
       }
 
       const type = peekMessageType(bytes);
-      if (type === MESSAGE_SYNC) {
+      const customHandler = this.messageHandlers[type];
+      if (customHandler != null) {
+        customHandler(null, { arr: bytes, pos: 1 }, this);
+      } else if (type === MESSAGE_SYNC) {
         const reply = applyPeerSyncFrame(bytes, this.doc, this);
         if (reply != null && ws.readyState === 1 /* OPEN */) {
           ws.send(reply);
@@ -202,7 +223,10 @@ export class WebsocketProvider {
         if (localAw != null && ws.readyState === 1 /* OPEN */) {
           ws.send(localAw);
         }
+      } else if (type === MESSAGE_SHAPE) {
+        this.emit("shape", bytes);
       }
+      this.emit("message", bytes);
     };
 
     ws.onerror = (error: Event): void => {
@@ -216,14 +240,16 @@ export class WebsocketProvider {
       this.wsconnected = false;
       this.synced = false;
       this.emit("status", { status: "disconnected" });
+      this.emit("connection-close", event);
 
       if (this.#destroyed) {
+        this.shouldConnect = false;
         this.emit("closed", event);
         return;
       }
 
-      const shouldReconnect = this.options.shouldReconnect ? this.options.shouldReconnect() : true;
-      if (shouldReconnect) {
+      const reconnectAllowed = this.options.shouldReconnect ? this.options.shouldReconnect(event) : true;
+      if (this.shouldConnect && reconnectAllowed) {
         const maxBackoff = this.options.maxBackoffTime ?? 2500;
         const delay = Math.min(Math.pow(2, this.#unsuccessfulReconnects) * 100, maxBackoff);
         this.#unsuccessfulReconnects++;
@@ -232,6 +258,7 @@ export class WebsocketProvider {
           this.connect();
         }, delay);
       } else {
+        this.shouldConnect = false;
         this.emit("closed", event);
       }
     };
@@ -246,6 +273,7 @@ export class WebsocketProvider {
   }
 
   disconnect(): void {
+    this.shouldConnect = false;
     if (this.#reconnectTimer !== undefined) {
       clearTimeout(this.#reconnectTimer);
       this.#reconnectTimer = undefined;

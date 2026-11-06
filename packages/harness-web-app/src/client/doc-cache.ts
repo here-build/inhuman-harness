@@ -1,10 +1,16 @@
-import * as Y from "yjs";
+import {
+  applyUpdate,
+  createDoc,
+  decodeStateVector,
+  encodeStateAsUpdate,
+  type Doc,
+} from "@inhuman.tools/harness-peer";
 
 /**
  * Where a client keeps a room's document between launches, so a reconnect
  * downloads only what the daemon has that the cache lacks.
  *
- * A room is a log of Yjs updates under one key. `load` returns them in the order they were
+ * A room is a log of updates under one key. `load` returns them in the order they were
  * appended; `append` adds one; `replace` swaps the whole log for one merged state (compaction);
  * `drop` forgets the key. Writes are fire-and-forget; the store orders them.
  */
@@ -37,15 +43,31 @@ export function cacheKey(origin: string, room: string, params: Readonly<Record<s
 }
 
 /** True when `doc` has a client clock the server's state vector lacks: the cache is not a subset of the daemon. */
-export function holdsBeyond(doc: Y.Doc, serverVector: Uint8Array): boolean {
-  const server = Y.decodeStateVector(serverVector);
-  for (const [client, clock] of Y.decodeStateVector(Y.encodeStateVector(doc))) {
-    if (clock > (server.get(client) ?? 0)) return true;
+export function holdsBeyond(doc: Doc, serverVector: Uint8Array): boolean {
+  if (doc.revision === 0) return false;
+  const server = decodeStateVector(serverVector);
+  if (server.size === 0) return true;
+
+  if (server.has(doc.guid)) {
+    const serverRev = server.get(doc.guid) ?? 0;
+    return doc.revision > serverRev;
   }
-  return false;
+
+  const clientKey = String(doc.clientID);
+  if (server.has(clientKey)) {
+    const serverRev = server.get(clientKey) ?? 0;
+    return doc.revision > serverRev;
+  }
+
+  if (server.has("revision") && server.size === 1) {
+    const serverRev = server.get("revision") ?? 0;
+    return doc.revision > serverRev;
+  }
+
+  return true;
 }
 
-function readVarUint(arr: Uint8Array, start: number): [number, number] {
+export function readVarUint(arr: Uint8Array, start: number): [number, number] {
   let value = 0;
   let shift = 0;
   let pos = start;
@@ -58,14 +80,16 @@ function readVarUint(arr: Uint8Array, start: number): [number, number] {
   }
 }
 
-/** y-websocket's handler: (encoder, decoder, provider, emitSynced, messageType). */
-type Guarded<Args extends [unknown, unknown, ...unknown[]]> = { messageHandlers: Array<(...args: Args) => void> };
+/** Provider message handler map: (encoder, decoder, provider, emitSynced, messageType). */
+type Guarded<Args extends [unknown, unknown, ...unknown[]]> = {
+  messageHandlers: Array<(...args: Args) => void> | Record<number, (...args: Args) => void>;
+};
 
 const SYNC = 0;
 const STEP1 = 0;
 
 /**
- * Stand between y-websocket and a cached doc.
+ * Stand between the provider and a cached doc.
  *
  * The daemon opens every seat with its own STEP1 (its state vector). Until that arrives and
  * the doc proves to be a subset of it, nothing else syncs: a STEP2 or update first means a daemon
@@ -78,7 +102,7 @@ const STEP1 = 0;
  */
 export function guardProvider<Args extends [unknown, unknown, ...unknown[]]>(
   provider: Guarded<Args>,
-  doc: Y.Doc,
+  doc: Doc,
   holdsCache: boolean,
   isSynced: () => boolean,
   onStale: (afterSync: boolean) => void,
@@ -128,7 +152,7 @@ export type Writer = {
 export function writeBehind(
   cache: DocCache,
   key: string,
-  doc: Y.Doc,
+  doc: Doc,
   loaded: readonly Uint8Array[],
   source: unknown,
 ): Writer {
@@ -138,17 +162,27 @@ export function writeBehind(
   let extra = 0;
   let live = true;
   let settled = false;
+  const remoteUpdates: Uint8Array[] = [...loaded];
+
   const compact = (): void => {
-    // Everything but this doc's own writes: a state vector already past them asks for none.
-    const state = Y.encodeStateAsUpdate(doc, Y.encodeStateVector(new Map([[doc.clientID, 2 ** 32]])));
+    // Only remote/server state (excluding local un-synced writes that did not come from source or CACHE_ORIGIN):
+    const cleanDoc = createDoc({ guid: doc.guid });
+    for (const update of remoteUpdates) {
+      applyUpdate(cleanDoc, update, CACHE_ORIGIN);
+    }
+    const state = encodeStateAsUpdate(cleanDoc);
     cache.replace(key, state);
     records = 1;
     base = state.byteLength;
     extra = 0;
+    remoteUpdates.length = 0;
+    remoteUpdates.push(state);
   };
+
   const onUpdate = (update: Uint8Array, origin: unknown): void => {
     if (!live || origin !== source) return;
     cache.append(key, update);
+    remoteUpdates.push(update);
     records += 1;
     if (!settled) {
       base += update.byteLength;
@@ -157,6 +191,7 @@ export function writeBehind(
     extra += update.byteLength;
     if (records > COMPACT_RECORDS || extra > Math.max(COMPACT_MIN_BYTES, base / 2)) compact();
   };
+
   doc.on("update", onUpdate);
   return {
     synced: () => {

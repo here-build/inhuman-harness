@@ -1,9 +1,9 @@
-import { Plexus } from "@here.build/plexus";
 import {
   CompletionExpectation,
   CompletionJob,
   FileMutateToolJob,
   ProgrammaticJob,
+  SessionPlexus,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -182,7 +182,7 @@ function projectJobs(jobs: SystemToolJob[]): TapeCell[] {
   const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], doneWork: jobs });
   for (const job of jobs) turn.pushChild(job);
   root.head = turn;
-  const plexus = Plexus.bootstrap(root);
+  const plexus = SessionPlexus.bootstrap(root);
   try {
     return tapeCells(root);
   } finally {
@@ -282,7 +282,7 @@ it("shows an edit inside the working directory as a relative path", () => {
   const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], doneWork: [job] });
   turn.pushChild(job);
   root.head = turn;
-  const plexus = Plexus.bootstrap(root);
+  const plexus = SessionPlexus.bootstrap(root);
   try {
     expect(diffs(tapeCells(root))[0]).toMatchObject({ body: { path: "src/a.ts" } });
   } finally {
@@ -318,7 +318,7 @@ it("projects actual direct and Scheme mutations into one cumulative diff across 
   });
   for (const chunk of turn.doneWork) turn.pushChild(chunk);
   root.head = turn;
-  const plexus = Plexus.bootstrap(root);
+  const plexus = SessionPlexus.bootstrap(root);
   try {
     const cells = tapeCells(root);
     const merged = diffs(cells);
