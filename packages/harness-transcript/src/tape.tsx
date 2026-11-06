@@ -26,21 +26,21 @@ import { observer } from "mobx-react-lite";
 import { createPortal } from "react-dom";
 
 import { glanceOf, LOOK_VERB, lookSentences, sessionBeats } from "./session-beats.js";
-import { useDial } from "../../harness-web-app/src/client/context.js";
-import { Button } from "../../harness-web-app/src/components/ui/button.js";
-import { glyph } from "../../harness-web-app/src/components/ui/glyph.js";
-import { Disclosure, FieldButton } from "../../harness-web-app/src/components/ui/navigation.js";
-import { CodeView } from "../../harness-web-app/src/shell/code-view.js";
-import { DiffView } from "../../harness-web-app/src/shell/diff-view.js";
-import { canEditMessages, editMessage } from "../../harness-web-app/src/shell/edit-message.js";
-import { type OpenFile, useFilePreview } from "../../harness-web-app/src/shell/file-sidebar.js";
-import { LinkNotice } from "../../harness-web-app/src/shell/link-notice.js";
-import { Markdown } from "../../harness-web-app/src/shell/markdown.js";
-import { naturalName, wireName } from "../../harness-web-app/src/shell/model-choice.js";
-import { projectNames } from "../../harness-web-app/src/shell/path.js";
-import { readStoredVisual } from "../../harness-web-app/src/shell/picture-draft.js";
-import { fileFace, readListParts } from "../../harness-web-app/src/shell/read-line.js";
-import { ShellTerm } from "../../harness-web-app/src/shell/shell-term.js";
+import { useDial } from "../../../surfaces/web/src/client/context.js";
+import { Button } from "../../../surfaces/web/src/components/ui/button.js";
+import { glyph } from "../../../surfaces/web/src/components/ui/glyph.js";
+import { Disclosure, FieldButton } from "../../../surfaces/web/src/components/ui/navigation.js";
+import { CodeView } from "../../../surfaces/web/src/shell/code-view.js";
+import { DiffView } from "../../../surfaces/web/src/shell/diff-view.js";
+import { canEditMessages, editMessage } from "../../../surfaces/web/src/shell/edit-message.js";
+import { type OpenFile, useFilePreview } from "../../../surfaces/web/src/shell/file-sidebar.js";
+import { LinkNotice } from "../../../surfaces/web/src/shell/link-notice.js";
+import { Markdown } from "../../../surfaces/web/src/shell/markdown.js";
+import { naturalName, wireName } from "../../../surfaces/web/src/shell/model-choice.js";
+import { projectNames } from "../../../surfaces/web/src/shell/path.js";
+import { readStoredVisual } from "../../../surfaces/web/src/shell/picture-draft.js";
+import { fileFace, readListParts } from "../../../surfaces/web/src/shell/read-line.js";
+import { ShellTerm } from "../../../surfaces/web/src/shell/shell-term.js";
 import {
   type AgentSpan,
   agentSpans,
@@ -48,8 +48,8 @@ import {
   modelSpans,
   stickyBeats,
   type TapeBeat,
-} from "../../harness-web-app/src/shell/tape-beats.js";
-import { turnBeats } from "../../harness-web-app/src/shell/tape-live.js";
+} from "../../../surfaces/web/src/shell/tape-beats.js";
+import { turnBeats } from "../../../surfaces/web/src/shell/tape-live.js";
 import {
   type AgentCell,
   agentCell,
@@ -59,18 +59,18 @@ import {
   type TapeBodyCell,
   type ToolBody,
   userPictureLine,
-} from "../../harness-web-app/src/shell/tape-read.js";
-import { toolLabel } from "../../harness-web-app/src/shell/tool-label.js";
+} from "../../../surfaces/web/src/shell/tape-read.js";
+import { toolLabel } from "../../../surfaces/web/src/shell/tool-label.js";
 import {
   outcomeOf,
   schemeHead,
   schemeSummary,
   type ToolOutcome,
-} from "../../harness-web-app/src/shell/tool-receipt.js";
-import { TranscriptDisclosurePanel } from "../../harness-web-app/src/shell/transcript-disclosure.js";
-import { jobCells } from "../../harness-web-app/src/workflow/cell.js";
-import { useWorkflowGraph } from "../../harness-web-app/src/workflow/use-workflow-graph.js";
-import { WorkflowGraph } from "../../harness-web-app/src/workflow/workflow-graph.js";
+} from "../../../surfaces/web/src/shell/tool-receipt.js";
+import { TranscriptDisclosurePanel } from "../../../surfaces/web/src/shell/transcript-disclosure.js";
+import { jobCells } from "../../../surfaces/web/src/workflow/cell.js";
+import { useWorkflowGraph } from "../../../surfaces/web/src/workflow/use-workflow-graph.js";
+import { WorkflowGraph } from "../../../surfaces/web/src/workflow/workflow-graph.js";
 
 /** The session whose tape this is. A program's graph is addressed by it. */
 const SessionIdContext = createContext("");

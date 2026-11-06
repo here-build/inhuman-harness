@@ -57,15 +57,12 @@
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
     "@here.build/arrival": "^0.10.2",
-    "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/harness-peer": "workspace:^",
     "@inhuman.tools/plexus-expectations": "workspace:^",
     "@types/node": "^24.19.2",
     "eslint": "10.13.0",
     "typescript": "6.0.3",
-    "vitest": "5.0.5",
-    "y-websocket": "3.1.0",
-    "yjs": "13.6.33"
+    "vitest": "5.0.5"
   }
 }

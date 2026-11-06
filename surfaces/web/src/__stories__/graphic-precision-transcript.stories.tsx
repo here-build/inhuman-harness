@@ -6,7 +6,7 @@ import { expect, userEvent, waitFor, within } from "storybook/test";
 import { agents, agentWorkers, agentWorkerTapes, looks } from "./scenes.js";
 import { sessionStage } from "./story-app.js";
 import { agent, session, speech } from "./world.js";
-import { TranscriptStage } from "../../../harness-transcript/src/stage.js";
+import { TranscriptStage } from "../../../../packages/harness-transcript/src/stage.js";
 
 const meta = {
   title: "Graphic Precision/Working transcript",

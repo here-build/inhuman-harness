@@ -3,7 +3,7 @@ import { bundledLanguages, createHighlighter, type BundledLanguage, type Bundled
 import { detectShellEmbeds, resolveLang, spliceEmbeds } from "./lang.js";
 // Arrival's TextMate grammar. Bundled Scheme marks `[]` illegal and has no `{…}` / `#null`.
 // eslint-disable-next-line import-x/no-relative-packages
-import { ARRIVAL_LANG } from "../../../quickdraw/src/widgets/internals/arrival-lang.js";
+import { ARRIVAL_LANG } from "../../../../packages/quickdraw/src/widgets/internals/arrival-lang.js";
 
 export type ColorScheme = "light" | "dark";
 

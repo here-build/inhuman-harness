@@ -1,4 +1,4 @@
-import type { ProgressItem } from "../../harness-web-app/src/shell/tape-read.js";
+import type { ProgressItem } from "../../../surfaces/web/src/shell/tape-read.js";
 
 export type PluginSnapshot = Readonly<Record<string, string>>;
 type Action = Readonly<Record<string, unknown>>;

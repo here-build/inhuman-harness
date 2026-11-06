@@ -1,10 +1,10 @@
 import { useState } from "react";
 
 import { Tape } from "./tape.js";
-import type { Staged } from "../../harness-web-app/src/__stories__/story-app.js";
-import { DialProvider } from "../../harness-web-app/src/client/context.js";
-import { FilePreviewPane, FilePreviewProvider } from "../../harness-web-app/src/shell/file-sidebar.js";
-import { readTarget } from "../../harness-web-app/src/shell/path.js";
+import type { Staged } from "../../../surfaces/web/src/__stories__/story-app.js";
+import { DialProvider } from "../../../surfaces/web/src/client/context.js";
+import { FilePreviewPane, FilePreviewProvider } from "../../../surfaces/web/src/shell/file-sidebar.js";
+import { readTarget } from "../../../surfaces/web/src/shell/path.js";
 
 /**
  * The transcript on its own. The story's dial is seated the way the router would seat it,

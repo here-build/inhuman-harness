@@ -4,7 +4,7 @@ export {
   detectShellEmbeds,
   guessLang,
   spliceEmbeds,
-} from "../../../quickdraw/src/widgets/internals/embedded-syntax.js";
+} from "../../../../packages/quickdraw/src/widgets/internals/embedded-syntax.js";
 /* eslint-enable import-x/no-relative-packages */
 
 const ALIASES: Readonly<Record<string, string>> = {

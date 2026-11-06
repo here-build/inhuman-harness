@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { composeStories, setProjectAnnotations } from "@storybook/react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import * as transcriptStories from "../../../harness-transcript/src/tape.stories.js";
+import * as transcriptStories from "../../../../packages/harness-transcript/src/tape.stories.js";
 import preview from "../../.storybook/preview.js";
 
 type StoryModule = Parameters<typeof composeStories>[0];

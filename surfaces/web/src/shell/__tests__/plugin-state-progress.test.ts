@@ -8,8 +8,8 @@ import {
 } from "@inhuman.tools/harness-model";
 import { describe, expect, it } from "vitest";
 
-import { pluginProgress } from "../../../../harness-transcript/src/plugin-progress.js";
-import { sessionBeats } from "../../../../harness-transcript/src/session-beats.js";
+import { pluginProgress } from "../../../../../packages/harness-transcript/src/plugin-progress.js";
+import { sessionBeats } from "../../../../../packages/harness-transcript/src/session-beats.js";
 
 const snapshot = (actions: object[], owner = "tasks:state") => ({ [owner]: JSON.stringify(actions) });
 const create = (id: string, subject = id) => ({ type: "create", "task-id": id, subject, program: "saved exam" });

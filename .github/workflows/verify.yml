@@ -65,7 +65,7 @@ jobs:
             echo "changed=$REQUESTED" >> "$GITHUB_OUTPUT"
           elif [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$BASE" HEAD | rg '^(packages/(harness-tui|harness-web-app|harness-transcript|quickdraw|harness-model|harness-sdk)/|package.json|pnpm-lock.yaml|turbo.json|.github/workflows/verify.yml)' >/dev/null; then
+          elif git diff --name-only "$BASE" HEAD | rg '^(surfaces/(tui|web)/|packages/(harness-transcript|quickdraw|harness-model|harness-sdk)/|package.json|pnpm-lock.yaml|turbo.json|.github/workflows/verify.yml)' >/dev/null; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"

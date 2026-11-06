@@ -33,7 +33,7 @@ import {
   isDarwin,
   runTerminalScenarioDetached,
   type TerminalMeta,
-} from "../../../../harness-tui/src/e2e/index.js";
+} from "../../../../../surfaces/tui/src/e2e/index.js";
 import { CATALOG } from "../catalog.js";
 import { expandGoldenMatrix, filterGoldenMatrix, goldenMatrixFilterFromEnv } from "../golden-matrix.js";
 

@@ -1347,7 +1347,12 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       this.#holdingCallbacks = this.#callbackPending;
       try {
         await waitUntil(
-          () => this.#closed || (liveEvalWork(this.session.root).size === 0 && !this.#callbackPending),
+          () =>
+            this.#closed ||
+            (liveEvalWork(this.session.root).size === 0 &&
+              !this.#callbackPending &&
+              !this.sessionDaemon.sessionRuntime.admissionHeld &&
+              !this.sessionDaemon.evalAdmissionHeld.get()),
           this.sessionDaemon.sessionRuntime.ownershipSignal,
         );
       } finally {

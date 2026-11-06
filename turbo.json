@@ -25,7 +25,7 @@
         "packages/quickdraw/scripts/check-color-parity.mjs",
         "packages/quickdraw/scripts/color-parity-baseline.json",
         "packages/quickdraw/src/**/*.ts",
-        "packages/harness-tui/src/e2e/**/*.ts"
+        "surfaces/tui/src/e2e/**/*.ts"
       ],
       "outputs": []
     },

@@ -72,7 +72,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/here-build/inhuman-harness.git",
-    "directory": "packages/harness-tui"
+    "directory": "surfaces/tui"
   },
   "author": "Merkle Bonsai",
   "homepage": "https://github.com/here-build/inhuman-harness#readme",

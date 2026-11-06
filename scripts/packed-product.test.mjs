@@ -42,7 +42,7 @@ function readJson(path) {
 
 function productPackages() {
   const out = [];
-  for (const forest of ["packages", "plugins"]) {
+  for (const forest of ["packages", "surfaces", "plugins"]) {
     const parent = join(ROOT, forest);
     if (!existsSync(parent)) continue;
     for (const name of readdirSync(parent, { withFileTypes: true })) {

@@ -11,8 +11,8 @@ import { dirname, join } from "node:path";
 
 import { expect } from "vitest";
 
-import { matchGolden } from "../../../../harness-tui/src/e2e/compare.js";
-import type { TerminalId } from "../../../../harness-tui/src/e2e/index.js";
+import { matchGolden } from "../../../../../surfaces/tui/src/e2e/compare.js";
+import type { TerminalId } from "../../../../../surfaces/tui/src/e2e/index.js";
 
 export type TerminalGoldenOpts = {
   suite: string;

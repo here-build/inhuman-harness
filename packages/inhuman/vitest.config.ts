@@ -1,8 +1,7 @@
 import { defineConfig } from "vitest/config";
 
 // The in-process tests run the core's daemon from its dist beside the sdk and the model.
-// SessionTurn extends Job (jobs dist -> plexus). One Y.Doc constructor.
-const dedupe = ["yjs", "@here.build/plexus", "@here.build/arrival"];
+const dedupe = ["mobx", "@here.build/arrival"];
 
 function packageResolve() {
   return { dedupe };

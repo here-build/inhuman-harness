@@ -2,18 +2,15 @@ import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { listenWebApp } from "@inhuman.tools/harness";
 import { HarnessDaemon } from "@inhuman.tools/harness/testkit";
 import { KERNEL_DOC_GUID, KernelPlexus } from "@inhuman.tools/harness-model";
 import "@inhuman.tools/harness-model/register";
-import { detachProtocolAwareness, waitForSync } from "@inhuman.tools/harness-peer";
+import { createDoc, detachProtocolAwareness, waitForSync, WebsocketProvider } from "@inhuman.tools/harness-peer";
 import { Client } from "@inhuman.tools/harness-sdk";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
-import { listenWebApp } from "@inhuman.tools/harness-web-app/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WebsocketProvider } from "y-websocket";
-import * as Y from "yjs";
 
-// The core ran these under its server project: 15 s, not the logic default.
 vi.setConfig({ testTimeout: 15_000, hookTimeout: 15_000 });
 
 const temps: string[] = [];
@@ -29,7 +26,7 @@ describe("web-app proxy", () => {
     const daemon = new HarnessDaemon(kernel);
     await daemon.listen();
     const app = await listenWebApp({ sockPath: daemonSocketPath(kernel), port: 0 });
-    const doc = new Y.Doc({ guid: KERNEL_DOC_GUID });
+    const doc = createDoc({ guid: KERNEL_DOC_GUID });
     const provider = new WebsocketProvider(`ws://127.0.0.1:${app.port}`, "kernel", doc, {
       disableBc: true,
       shouldReconnect: () => false,
@@ -103,7 +100,6 @@ describe("web-app proxy", () => {
         req.on("error", () => resolve("error"));
         req.end();
       });
-    // The daemon socket is absent, so a request the origin check lets through dies at the proxy, not at 403.
     const missing = join(tmpdir(), `harness-web-origin-${Date.now()}.sock`);
     const app = await listenWebApp({ sockPath: missing, port: 0, extraOrigins: ["https://ok.example"] });
     try {

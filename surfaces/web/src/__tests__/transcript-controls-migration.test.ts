@@ -6,7 +6,7 @@ import { runInAction } from "mobx";
 import { userEvent, within } from "storybook/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Tape } from "../../../harness-transcript/src/tape.js";
+import { Tape } from "../../../../packages/harness-transcript/src/tape.js";
 import { sessionStage } from "../__stories__/story-app.js";
 import { session, type StoryDial } from "../__stories__/world.js";
 import { DialProvider } from "../client/context.js";

@@ -1,11 +1,11 @@
 import type { SessionOverview, SessionRoot, SessionTurn } from "@inhuman.tools/harness-model";
 
 import { pluginProgress, type PluginSnapshot } from "./plugin-progress.js";
-import type { Dial } from "../../harness-web-app/src/client/dial.js";
-import { readListParts, type ReadPart } from "../../harness-web-app/src/shell/read-line.js";
-import { agentSpans, modelSpans, stickyBeats } from "../../harness-web-app/src/shell/tape-beats.js";
-import { turnOutline } from "../../harness-web-app/src/shell/tape-live.js";
-import { turnsOldestFirst, type LookItem, type LookVerb } from "../../harness-web-app/src/shell/tape-read.js";
+import type { Dial } from "../../../surfaces/web/src/client/dial.js";
+import { readListParts, type ReadPart } from "../../../surfaces/web/src/shell/read-line.js";
+import { agentSpans, modelSpans, stickyBeats } from "../../../surfaces/web/src/shell/tape-beats.js";
+import { turnOutline } from "../../../surfaces/web/src/shell/tape-live.js";
+import { turnsOldestFirst, type LookItem, type LookVerb } from "../../../surfaces/web/src/shell/tape-read.js";
 
 // Keep cumulative historical logs out of the streaming render hot path. Cache only
 // strings and projected items; this must not retain the session document.

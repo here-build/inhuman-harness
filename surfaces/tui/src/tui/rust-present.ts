@@ -73,7 +73,7 @@ export function qdBinary(): string {
   return resolveQdBinary({
     platform: process.platform,
     arch: process.arch,
-    devBinary: path.resolve(here, "../../../quickdraw/rust/qd/target/release/qd"),
+    devBinary: path.resolve(here, "../../../../packages/quickdraw/rust/qd/target/release/qd"),
     resolvePackageJson: (spec) => require.resolve(spec),
     exists: existsSync,
     executable: canExecute,

@@ -70,7 +70,7 @@ function loadRaster(): Promise<PngRaster> {
 
 async function importRaster(): Promise<PngRaster> {
   // bufferToPng is not a package export. The built module walks up to fonts/.
-  const file = join(presentDir, "../../../../quickdraw/dist/runtime/screenshot.js");
+  const file = join(presentDir, "../../../../../packages/quickdraw/dist/runtime/screenshot.js");
   const loaded: unknown = await import(pathToFileURL(file).href);
   if (!isPngRaster(loaded)) throw new Error(`quickdraw bufferToPng missing at ${file}`);
   return loaded;

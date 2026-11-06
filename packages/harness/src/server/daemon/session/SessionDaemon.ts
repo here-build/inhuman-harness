@@ -849,7 +849,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       rename: (title) => this.#applyRename(title),
       log: (message) => step(message),
       compactKeepTurns: () => this.kernel.plexus.root.compactKeepTurns,
-      closed: this.#closed || this.#parked,
+      closed: !this.interpreting,
     };
   }
 
@@ -902,7 +902,10 @@ export class SessionDaemon extends RequestHost implements Disposable {
     this.#stopGitWatch();
     this.kernel.dropReservation(this.sessionId);
     this.#parked = true;
-    this.sessionRuntime.park();
+    const honor = this.orchestrator.park();
+    if (!this.orchestrator.holdingEval) {
+      this.sessionRuntime.park();
+    }
     const keep = this.kernel.graphEligibleSessionIds();
     const workers: SessionDaemon[] = [];
     for (const id of namedWorkerIds(this.root)) {
@@ -911,8 +914,8 @@ export class SessionDaemon extends RequestHost implements Disposable {
       const spec = worker.root.agent.spec;
       if (spec.recipeScope === "session" || spec instanceof AskAgentSpec) workers.push(worker);
     }
-    const honor = this.orchestrator.park();
     if (!this.orchestrator.holding) {
+      this.sessionRuntime.park();
       this.#dropParked();
       for (const worker of workers) void worker.park();
       this.#parkWait = honor;
@@ -920,6 +923,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     }
     // eslint-disable-next-line promise/always-return
     const wait = honor.then(async () => {
+      this.sessionRuntime.park();
       this.#dropParked();
       await Promise.all(workers.map((worker) => worker.park()));
     });

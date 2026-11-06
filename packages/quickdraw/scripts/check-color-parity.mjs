@@ -7,7 +7,7 @@
  * mechanizes the scout-catalog greps into a CI gate.
  *
  * Scans `packages/quickdraw` (storybook included) and
- * `packages/harness-tui/src/e2e`
+ * `surfaces/tui/src/e2e`
  * (skipping dist/node_modules/*.test.ts)
  * for four literal shapes: `fg: <number>`, `bg: <number>`, `#<hex>`,
  * `dim: true`.
@@ -57,7 +57,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SCRIPT_DIR, "../../..");
 const BASELINE_PATH = path.join(SCRIPT_DIR, "color-parity-baseline.json");
 
-const SCAN_ROOTS = ["packages/quickdraw", "packages/harness-tui/src/e2e"];
+const SCAN_ROOTS = ["packages/quickdraw", "surfaces/tui/src/e2e"];
 const SKIP_DIRS = new Set(["node_modules", "dist", "docs", "scripts"]);
 
 // The four literal shapes named in the color-hygiene plan's parity law.

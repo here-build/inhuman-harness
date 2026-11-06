@@ -16,7 +16,7 @@ export const STRANGER = { sub: "user_stranger", email: "stranger@example.com" };
 
 const relayRoot = fileURLToPath(new URL("..", import.meta.url));
 const bootJs = fileURLToPath(new URL("../../harness/dist/server/boot.js", import.meta.url));
-export const webClientDir = fileURLToPath(new URL("../../harness-web-app/dist/client", import.meta.url));
+export const webClientDir = fileURLToPath(new URL("../../../surfaces/web/dist/client", import.meta.url));
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

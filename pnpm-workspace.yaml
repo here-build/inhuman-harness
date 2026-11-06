@@ -1,6 +1,7 @@
 packages:
   # Product forests (repo layout = monorepo harness/ content).
   - "packages/*"
+  - "surfaces/*"
   - "packages-policy/*"
   - "packages-statusline/*"
   - "packages-activity/*"

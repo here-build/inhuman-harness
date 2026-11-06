@@ -62,7 +62,7 @@ export type DumpOpts = {
 };
 
 const presentDir = dirname(fileURLToPath(import.meta.url));
-const RELEASE_QD = join(presentDir, "../../../../quickdraw/rust/qd/target/release/qd");
+const RELEASE_QD = join(presentDir, "../../../../../packages/quickdraw/rust/qd/target/release/qd");
 const STDOUT_CAP = 32 * 1024 * 1024;
 
 function qdBin(): string {

@@ -1,8 +1,10 @@
 {
   "name": "@inhuman.tools/scope-plane",
   "version": "0.0.1",
-  "private": true,
   "description": "Scope tree types, inheritance, and the row port. Adapters are separate packages.",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

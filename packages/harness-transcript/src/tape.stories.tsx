@@ -18,8 +18,8 @@ import {
   schemeBatch,
   terminals,
   tools,
-} from "../../harness-web-app/src/__stories__/scenes.js";
-import { sessionStage } from "../../harness-web-app/src/__stories__/story-app.js";
+} from "../../../surfaces/web/src/__stories__/scenes.js";
+import { sessionStage } from "../../../surfaces/web/src/__stories__/story-app.js";
 
 const meta = {
   title: "Tape",

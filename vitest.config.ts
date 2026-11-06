@@ -14,6 +14,7 @@ export default defineConfig({
     hookTimeout: 30_000,
     include: [
       "packages/*/src/**/__tests__/**/*.test.ts",
+      "surfaces/*/src/**/__tests__/**/*.test.ts",
       "packages-runtime/substrate/src/**/__tests__/**/*.test.ts",
       "extras/*/src/**/__tests__/**/*.test.ts",
     ],

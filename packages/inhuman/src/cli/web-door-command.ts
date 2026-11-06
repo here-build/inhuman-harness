@@ -3,14 +3,20 @@ import { realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { daemonRunning } from "@inhuman.tools/harness";
+import {
+  clearDoorRecord,
+  daemonRunning,
+  DOOR_MISSES_TO_LEAVE,
+  DOOR_PROBE_MS,
+  listenWebApp,
+  writeDoorRecord,
+} from "@inhuman.tools/harness";
 import { Client } from "@inhuman.tools/harness-sdk";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import { Option } from "clipanion";
 
 import { KernelCommand } from "./context.js";
 import { importShell } from "./shell-import.js";
-import { clearDoorRecord, DOOR_MISSES_TO_LEAVE, DOOR_PROBE_MS, writeDoorRecord } from "./web-door.js";
 
 /**
  * Internal: the detached process `inhuman start` and `inhuman web` start. Serves the built client until the daemon is gone.
@@ -55,13 +61,13 @@ export class WebDoorCommand extends KernelCommand {
     };
     let app;
     try {
-      app = await web.listenWebApp({ ...options, port });
+      app = await listenWebApp({ ...options, port });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EADDRINUSE") {
         this.context.writeErr(error);
         return 1;
       }
-      app = await web.listenWebApp({ ...options, port: 0 });
+      app = await listenWebApp({ ...options, port: 0 });
     }
     const url = `http://127.0.0.1:${app.port}/`;
     await writeDoorRecord(kernel, { pid: process.pid, port: app.port, url });
