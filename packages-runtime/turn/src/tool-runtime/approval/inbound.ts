@@ -2,7 +2,6 @@
  * LICENSE WHEN is the Approvable guard. Sequences typically return true;
  * inbound Turn waits predecessors without returning false (false is deny).
  */
-import { FieldAwareness } from "@here.build/plexus";
 import {
   ApprovableJob,
   applyDenyReceipt,
@@ -10,6 +9,7 @@ import {
   type PermissionMode,
   type SessionPlexus,
 } from "@inhuman.tools/harness-model";
+import { FieldAwareness } from "@inhuman.tools/model";
 import { when } from "mobx";
 
 function inboundPredecessorClosed(turn: SessionTurn): boolean {

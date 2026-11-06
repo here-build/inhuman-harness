@@ -1,9 +1,8 @@
 import { createHash } from "node:crypto";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { AgentCallJob, BotCallJob, CallDelivery } from "@inhuman.tools/harness-model";
 import { when } from "mobx";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { shouldSkipTurnCancel } from "../acceptance.js";
 import { isCallPaused, joinReleased, markDelivered } from "../index.js";
@@ -14,8 +13,6 @@ function revisionOf(definition: unknown): string {
 }
 
 describe("acceptance and join", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("call-lifetime join waits for delivery, not for prepared input", () => {
     const catalog = callsCatalog([botCall("offload", { lifetime: "call", background: true })]);
     const call = new BotCallJob({

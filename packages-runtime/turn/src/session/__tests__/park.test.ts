@@ -1,4 +1,3 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   MCPToolJob,
   McpToolExpectation,
@@ -8,12 +7,10 @@ import {
   SessionTurnEvalSpec,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { abortParkableWork, liveEvalWork, mcpJobOnWire } from "../index.js";
 import { sessionOf } from "./fixtures.js";
-
-beforeEach(() => resetLocalIDs());
 
 describe("park", () => {
   it("on-wire MCP and live eval hold; other in-flight work aborts with park", () => {

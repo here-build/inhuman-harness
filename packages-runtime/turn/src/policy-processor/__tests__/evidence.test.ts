@@ -2,27 +2,25 @@
  * Privileged cut for inner scheme tools. The bag is not classified;
  * empty eval prompt uses the owning ProgrammaticJob expr.
  */
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   ProgrammaticJob,
+  SessionPlexus,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { evidenceCuts } from "../evidence.js";
-
-beforeEach(() => resetLocalIDs());
 
 function nest(opts: { readonly prompt: string; readonly expr: string }): {
   readonly inner: SystemToolJob;
   [Symbol.dispose](): void;
 } {
   const root = new SessionRoot({ sessionId: "s-ev", path: "/tmp/ev" });
-  const plexus = Plexus.bootstrap(root);
+  const plexus = SessionPlexus.bootstrap(root);
   const inner = new SystemToolJob({
     name: "list_dir",
     argsJson: JSON.stringify({ path: ".." }),
@@ -58,7 +56,7 @@ describe("evidenceCuts scheme inner", () => {
 
   it("a turn-level tool with no prompt and no tail stays empty", () => {
     const root = new SessionRoot({ sessionId: "s-bare", path: "/tmp/bare" });
-    const plexus = Plexus.bootstrap(root);
+    const plexus = SessionPlexus.bootstrap(root);
     const leaf = new SystemToolJob({
       name: "list_dir",
       argsJson: JSON.stringify({ path: ".." }),
@@ -74,7 +72,7 @@ describe("evidenceCuts scheme inner", () => {
 
   it("continue empty prompt uses tail user messages", () => {
     const root = new SessionRoot({ sessionId: "s-cont", path: "/tmp/cont" });
-    const plexus = Plexus.bootstrap(root);
+    const plexus = SessionPlexus.bootstrap(root);
     const prior = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`what do you think about the tools`,

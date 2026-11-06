@@ -1,4 +1,3 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   admitQueue,
   admitSteer,
@@ -14,12 +13,10 @@ import {
   SessionTurnEvalSpec,
   SkillSpec,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { admitCompact, admitTurn, cancelTurnCommand, drainPromptQueue, retryTurn, rewindTurn } from "../index.js";
 import { commandHost, sessionOf, user } from "./fixtures.js";
-
-beforeEach(() => resetLocalIDs());
 
 function closedWork(): SessionTurn {
   const prior = new CompletionExpectation({ connectionId: "c1" });
@@ -144,7 +141,7 @@ describe("session commands", () => {
       action: "mint",
     });
     const turn = plexus.root.head;
-    if (!(turn instanceof SessionTurn)) throw new Error("expected turn");
+    if (!(turn instanceof SessionTurn)) throw new TypeError("expected turn");
     const pew = new CompletionExpectation({ connectionId: "c1" });
     turn.doneWork.push(new CompletionJob({ expectation: pew }));
     expect(retryTurn(host)).toEqual({ ok: true });
@@ -246,7 +243,7 @@ describe("session commands", () => {
     plexus.root.head = pin;
     plexus.root.tip = pin;
     const offTip: string[] = [];
-    plexus.doc.on("update", () => {
+    plexus.onPatch(() => {
       if (plexus.root.head !== plexus.root.tip) offTip.push(plexus.root.head?.prompt ?? "");
     });
     expect(admitTurn(commandHost(plexus), { prompt: "next" })).toEqual({ ok: true, action: "mint" });

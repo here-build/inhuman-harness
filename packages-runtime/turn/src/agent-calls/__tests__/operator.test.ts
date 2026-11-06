@@ -1,14 +1,11 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import { AgentCallJob, BotCallJob, FailureOutcome, SuccessfulOutcome } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { cancelAgentCall, inspectAgentCall, listAgentCalls } from "../index.js";
 import { operatorCallView } from "../operator.js";
 import { botCall, callsCatalog, closedTurn, hostOf, sessionOf } from "./fixtures.js";
 
 describe("operator views and cancel", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("projects admitted/accepted/terminal", () => {
     const catalog = callsCatalog([botCall("offload")]);
     const caller = sessionOf("caller");

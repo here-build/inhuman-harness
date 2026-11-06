@@ -1,4 +1,3 @@
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
@@ -13,8 +12,9 @@ import {
   SystemToolJob,
   ToolCallJob,
 } from "@inhuman.tools/harness-model";
+import { DocumentContainer } from "@inhuman.tools/model";
 import type { ToolCall } from "@inhuman.tools/tool-call-normalize";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { catalogRecipe, KernelToolCatalog, type CatalogEntry } from "../../tool-catalog/index.js";
 import { ToolCallHandler } from "../index.js";
@@ -49,8 +49,6 @@ function seeded(): KernelToolCatalog {
   ]);
   return catalog;
 }
-
-beforeEach(() => resetLocalIDs());
 
 describe("ToolCallHandler.admit", () => {
   it("appends the constructed job onto parent", () => {
@@ -277,7 +275,7 @@ describe("ToolCallHandler.admit", () => {
       invocation("agent__send", JSON.stringify({ spec: "echo", message: "hi", oneShot: true })),
     );
     expect(job instanceof AgentCallJob && job.args?.oneShot === undefined).toBe(true);
-    const doc = Plexus.bootstrap(job);
+    const doc = new DocumentContainer(job);
     onTestFinished(() => doc.destroy());
   });
 });

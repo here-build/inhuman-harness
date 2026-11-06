@@ -1,4 +1,3 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompactJob,
@@ -16,7 +15,7 @@ import {
   TurnPromptChunk,
   sessionDisplayTitle,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   CONTEXT_NEED_REMINDER,
@@ -29,8 +28,6 @@ import {
   TITLE_UPDATE_REMINDER,
   type SideChannelRound,
 } from "../side-channel-reminder.js";
-
-beforeEach(() => resetLocalIDs());
 
 const title = "update_metadata";
 const need = "context_need";

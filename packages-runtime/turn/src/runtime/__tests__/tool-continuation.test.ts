@@ -1,4 +1,3 @@
-import invariant from "tiny-invariant";
 import { prompt, type ToolContinuation } from "@inhuman.tools/harness-commons";
 import {
   admitSteer,
@@ -10,6 +9,7 @@ import {
   responseCall,
   SystemToolJob,
 } from "@inhuman.tools/harness-model/session";
+import invariant from "tiny-invariant";
 import { expect, it } from "vitest";
 
 import { turnFixture } from "./fixtures/turn-iterator.js";

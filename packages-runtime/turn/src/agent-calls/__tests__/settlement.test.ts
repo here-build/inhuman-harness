@@ -1,17 +1,16 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   AgentCallJob,
   BotCallJob,
   AgentCallbackJob,
   CallDelivery,
+  documentRoot,
   FailureOutcome,
   ProgrammaticJob,
-  type SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   completeCallExceptionally,
@@ -23,8 +22,6 @@ import {
 import { botCall, callsCatalog, closedTurn, hostOf, sessionOf } from "./fixtures.js";
 
 describe("settlement and reclaim", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("completeCallExceptionally settles the caller Call and drops the worker callback", () => {
     const catalog = callsCatalog([botCall("offload")]);
     const caller = sessionOf("caller");
@@ -170,7 +167,7 @@ describe("settlement and reclaim", () => {
 
   it.each([
     ["settleCancelledTurn", (turn: SessionTurn) => settleCancelledTurn(turn)],
-    ["forceStopLoop", (turn: SessionTurn) => forceStopLoop(turn.rootAncestor as SessionRoot)],
+    ["forceStopLoop", (turn: SessionTurn) => forceStopLoop(documentRoot(turn)!)],
   ] as const)("%s posts a cancelled background program's and shell's result", (_name, stop) => {
     const ack = (id: string) => JSON.stringify({ ok: true, value: { job_id: id, background: true } });
     const program = new ProgrammaticJob({

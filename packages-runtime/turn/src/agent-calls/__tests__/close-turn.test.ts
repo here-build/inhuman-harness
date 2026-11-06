@@ -2,7 +2,6 @@
  * One turn close. Every ending closes what is open under the turn; a finish
  * leaves background work alone; the record of a failure lands on the turn.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   CompletionExpectation,
   CompletionJob,
@@ -11,7 +10,7 @@ import {
   SessionTurn,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { closeTurn, forceStopLoop } from "../index.js";
 import { sessionOf } from "./fixtures.js";
@@ -32,8 +31,6 @@ function row(against: string): SessionAdmission {
 }
 
 describe("closeTurn", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("a broke ending records the error and closes the open completion and tool", () => {
     const { turn, pew, tool } = openTurn();
     sessionOf("broke").root.head = turn;

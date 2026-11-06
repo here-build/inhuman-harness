@@ -1,4 +1,3 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -9,7 +8,7 @@ import {
   SessionTurn,
   ToolSpec,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import {
   bindSessionCatalog,
@@ -67,8 +66,6 @@ function mount(
   if (extra?.catalog != null) bindSessionCatalog(plexus.root, extra.catalog);
   return pew;
 }
-
-beforeEach(() => resetLocalIDs());
 
 describe("selectCompletionTools", () => {
   it("uses frozen turn tools when present, not the live catalog", () => {

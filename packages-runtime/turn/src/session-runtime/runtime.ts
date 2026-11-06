@@ -1,12 +1,19 @@
-import { SessionPlexus, SessionTurn, resolvedTip, type SessionRoot } from "@inhuman.tools/harness-model/session";
+import type { SessionPatchBatch } from "@inhuman.tools/harness-contract/schema";
+import { resolvedTip, SessionPlexus, SessionTurn, type SessionRoot } from "@inhuman.tools/harness-model/session";
+import { serializeModel, type ModelPatch } from "@inhuman.tools/model";
 import { computed, observable, runInAction, when } from "mobx";
-import * as Y from "yjs";
 import { z } from "zod";
 
+import { glanceAskLine } from "./ask-line.js";
 import {
   receiptCovers,
   SessionOwnershipError,
   SessionPersistenceError,
+  type NewPendingAskRow,
+  type NewSessionEffectRow,
+  type NewSessionRow,
+  type NewSessionTurnRow,
+  type SerializedSessionDocument,
   type SessionCheckpoint,
   type SessionDurability,
   type SessionReceipt,
@@ -41,13 +48,38 @@ export type SessionRecoveryPolicy =
   { readonly kind: "resume" } | { readonly kind: "interrupt"; readonly message: string };
 
 type Binding = { readonly incarnation: string; revoke(): void };
-const bindings = new WeakMap<Y.Doc, Binding>();
+const bindings = new WeakMap<SessionPlexus, Binding>();
 
 const commandResultSchema = z.union([
   z.object({ ok: z.literal(true), action: z.enum(["noop", "mint", "steer", "queue", "continue"]) }),
   z.object({ ok: z.literal(false), reason: z.string(), invalid: z.boolean().optional() }),
 ]);
 const commandRecordSchema = z.object({ input: z.string(), result: commandResultSchema });
+
+function serializeTurnRow(sessionId: string, turn: SessionTurn, ordinal: number): NewSessionTurnRow {
+  let status: "running" | "completed" | "cancelled" | "failed" | "interrupted" = "running";
+  if (turn.cancelRequested) {
+    status = "cancelled";
+  } else if (turn.reducerExited) {
+    status = "completed";
+  }
+  const promptText =
+    typeof turn.prompt === "string"
+      ? turn.prompt
+      : ((turn.prompt as { text?: string } | undefined)?.text ?? String(turn.prompt ?? ""));
+  return {
+    turnId: turn.uuid,
+    sessionId,
+    ordinal,
+    prompt: promptText,
+    status,
+    cancelRequested: Boolean(turn.cancelRequested),
+    reducerExited: Boolean(turn.reducerExited),
+    snapshotJson: JSON.stringify(serializeModel(turn)),
+    startedAtMs: Date.now(),
+    endedAtMs: turn.reducerExited ? Date.now() : null,
+  };
+}
 
 export class SessionRuntime implements AsyncDisposable {
   readonly session: SessionPlexus;
@@ -58,7 +90,11 @@ export class SessionRuntime implements AsyncDisposable {
   readonly #operations = new Map<string, { readonly input: string; readonly run: Promise<SessionEffectOutcome> }>();
   readonly #runs = new Map<SessionTurn, AbortController>();
   readonly #stops: Array<() => void> = [];
+  readonly #accumulatedPatches: Array<{ patch: ModelPatch; revision: number }> = [];
+  readonly #dirtyNodeIds = new Set<string>();
+  #pendingEffectRecords: NewSessionEffectRow[] = [];
   #revision = 0;
+  #lastCommittedRevision = 0;
   #commands: Promise<unknown> = Promise.resolve();
   #flushes: Promise<unknown> = Promise.resolve();
   #blocked: SessionCheckpoint | null = null;
@@ -68,30 +104,52 @@ export class SessionRuntime implements AsyncDisposable {
   constructor(session: SessionPlexus, durability: SessionDurability) {
     this.session = session;
     this.#durability = durability;
-    if (session.doc.isDestroyed) throw new Error("cannot bind a destroyed session document");
-    const version = session.doc.getMap("harness:session-runtime").get("version");
-    if (version !== undefined && version !== 1) throw new Error("unsupported session runtime state version");
-    const previous = bindings.get(session.doc);
+    if (session.isDestroyed) throw new Error("cannot bind a destroyed session document");
+    const version = session.getMetaMap("harness:session-runtime").get("version");
+    if (version !== undefined && version !== "1") throw new Error("unsupported session runtime state version");
+    const previous = bindings.get(session);
     previous?.revoke();
-    bindings.set(session.doc, { incarnation: this.incarnation, revoke: () => this.#revoke("replaced") });
-    const update = (): void => {
-      this.#revision += 1;
-    };
-    session.doc.on("update", update);
-    this.#stops.push(() => session.doc.off("update", update));
-    const destroy = (): void => this.#revoke("destroyed");
-    session.doc.on("destroy", destroy);
-    this.#stops.push(() => session.doc.off("destroy", destroy));
+    bindings.set(session, { incarnation: this.incarnation, revoke: () => this.#revoke("replaced") });
+    this.#revision = session.revision;
+    this.#lastCommittedRevision = session.revision;
+
+    const patchDisposer = session.onPatch((batch) => {
+      this.#revision = batch.revision;
+      for (const patch of batch.patches) {
+        this.#accumulatedPatches.push({ patch, revision: batch.revision });
+        this.#dirtyNodeIds.add(patch.nodeId);
+      }
+    });
+    this.#stops.push(patchDisposer);
+
+    const destroyDisposer = session.onDestroy(() => this.#revoke("destroyed"));
+    this.#stops.push(destroyDisposer);
   }
 
   static create(sessionId: string, durability: SessionDurability, workspacePath = ""): SessionRuntime {
     return new SessionRuntime(SessionPlexus.create(sessionId, workspacePath), durability);
   }
 
-  static restore(sessionId: string, state: Uint8Array, durability: SessionDurability): SessionRuntime {
-    const doc = new Y.Doc({ guid: `harness:session:${sessionId}` });
-    Y.applyUpdate(doc, state);
-    const session = SessionPlexus.connect(doc, { undo: "stub" });
+  static restore(
+    sessionId: string,
+    stateOrSnapshot: Uint8Array | SerializedSessionDocument | SessionCheckpoint,
+    durability: SessionDurability,
+  ): SessionRuntime {
+    let snapshot: SerializedSessionDocument;
+    if (stateOrSnapshot instanceof Uint8Array) {
+      const text = new TextDecoder().decode(stateOrSnapshot);
+      const parsed = JSON.parse(text) as unknown;
+      if (parsed && typeof parsed === "object" && "snapshot" in parsed) {
+        snapshot = (parsed as { snapshot: SerializedSessionDocument }).snapshot;
+      } else {
+        snapshot = parsed as SerializedSessionDocument;
+      }
+    } else if (stateOrSnapshot && typeof stateOrSnapshot === "object" && "snapshot" in stateOrSnapshot) {
+      snapshot = (stateOrSnapshot as SessionCheckpoint).snapshot;
+    } else {
+      snapshot = stateOrSnapshot as SerializedSessionDocument;
+    }
+    const session = SessionPlexus.fromSnapshot(snapshot, sessionId);
     if (session.root.sessionId !== sessionId) {
       session.destroy();
       throw new Error("session checkpoint identity does not match its document");
@@ -107,7 +165,7 @@ export class SessionRuntime implements AsyncDisposable {
   }
 
   get isCurrent(): boolean {
-    return bindings.get(this.session.doc)?.incarnation === this.incarnation && !this.session.doc.isDestroyed;
+    return bindings.get(this.session)?.incarnation === this.incarnation && !this.session.isDestroyed;
   }
 
   get ownershipSignal(): AbortSignal {
@@ -143,11 +201,97 @@ export class SessionRuntime implements AsyncDisposable {
 
   checkpoint(): SessionCheckpoint {
     this.#assertOwned();
+    const snapshot = this.session.toSnapshot();
+    const state = new TextEncoder().encode(JSON.stringify(snapshot));
+
+    const turnsToInclude = new Map<string, SessionTurn>();
+    if (this.root.head instanceof SessionTurn) {
+      turnsToInclude.set(this.root.head.uuid, this.root.head);
+    }
+    for (const turnId of this.#dirtyNodeIds) {
+      const node = this.session.getNode(turnId);
+      if (node instanceof SessionTurn) {
+        turnsToInclude.set(node.uuid, node);
+      } else if (node) {
+        let curr: unknown = node;
+        while (curr && typeof curr === "object") {
+          if (curr instanceof SessionTurn) {
+            turnsToInclude.set(curr.uuid, curr);
+            break;
+          }
+          curr = (curr as { parent?: unknown }).parent;
+        }
+      }
+    }
+
+    const dirtyTurns: NewSessionTurnRow[] = [];
+    let ordinal = 0;
+    for (const turn of turnsToInclude.values()) {
+      dirtyTurns.push(serializeTurnRow(this.root.sessionId, turn, ordinal++));
+    }
+
+    const pendingAsks: NewPendingAskRow[] = [];
+    for (const workItem of this.root.work) {
+      if (!(workItem instanceof SessionTurn)) continue;
+      for (const job of workItem.approvalLeaves) {
+        if (!job.completed && !job.cancelled) {
+          const isAck = job.ackState === "pending";
+          const isAsk = job.policyResult === "ask" && job.humanApprove == null;
+          if (isAck || isAsk) {
+            pendingAsks.push({
+              jobId: job.uuid,
+              sessionId: this.root.sessionId,
+              turnId: workItem.uuid,
+              kind: isAck ? "ack" : "ask",
+              object: glanceAskLine(job) || (job as { name?: string }).name || job.constructor.name,
+              summary: job.policyMessage ?? glanceAskLine(job) ?? "",
+              createdAtMs: Date.now(),
+            });
+          }
+        }
+      }
+    }
+
+    const sessionRow: Partial<NewSessionRow> = {
+      sessionId: this.root.sessionId,
+      title: this.root.title,
+      workspacePath: this.root.path,
+      mode: this.root.mode === "agentic" ? "agentic" : "assistant",
+      permissionMode: this.root.standingPermissionMode,
+      running: Boolean(this.root.openTurn),
+      headTurnId: this.root.head?.uuid ?? null,
+      revision: this.#revision,
+      lastActiveAtMs: Date.now(),
+    };
+
+    const patches: SessionPatchBatch["patches"] = this.#accumulatedPatches.map((item) => {
+      if (item.patch.op === "splice") {
+        return { ...item.patch, items: [...item.patch.items] };
+      }
+      return item.patch;
+    });
+
+    const patchBatch: SessionPatchBatch = {
+      sessionId: this.root.sessionId,
+      fromRevision: this.#lastCommittedRevision,
+      toRevision: this.#revision,
+      patches,
+      incarnation: this.incarnation,
+      createdAtMs: Date.now(),
+    };
+
     return {
       sessionId: this.root.sessionId,
       incarnation: this.incarnation,
+      fromRevision: this.#lastCommittedRevision,
       revision: this.#revision,
-      state: Y.encodeStateAsUpdate(this.session.doc),
+      snapshot,
+      state,
+      sessionRow,
+      dirtyTurns,
+      pendingAsks,
+      patchBatch,
+      effectRecords: [...this.#pendingEffectRecords],
     };
   }
 
@@ -175,6 +319,15 @@ export class SessionRuntime implements AsyncDisposable {
       this.#assertOwned();
       if (!receiptCovers(receipt, checkpoint))
         throw new SessionPersistenceError("receipt does not cover session checkpoint");
+      this.#lastCommittedRevision = checkpoint.revision;
+      this.#accumulatedPatches.splice(
+        0,
+        !this.#accumulatedPatches.some((item) => item.revision > receipt.revision)
+          ? this.#accumulatedPatches.length
+          : this.#accumulatedPatches.findIndex((item) => item.revision > receipt.revision),
+      );
+      this.#dirtyNodeIds.clear();
+      this.#pendingEffectRecords = this.#pendingEffectRecords.filter((record) => record.revision > receipt.revision);
       if (this.#revision > checkpoint.revision) {
         checkpoint = this.checkpoint();
         continue;
@@ -187,6 +340,10 @@ export class SessionRuntime implements AsyncDisposable {
     }
   }
 
+  #recordEffect(record: NewSessionEffectRow): void {
+    this.#pendingEffectRecords.push(record);
+  }
+
   commitMutation(
     operationId: string,
     input: string,
@@ -196,7 +353,7 @@ export class SessionRuntime implements AsyncDisposable {
     return this.#serialize(async () => {
       this.#assertOwned();
       signal?.throwIfAborted();
-      const records = this.session.doc.getMap<string>("harness:session-commits");
+      const records = this.session.getMetaMap("harness:session-commits");
       const previous = records.get(operationId);
       if (previous !== undefined) {
         if (previous !== input) throw new Error("commit operation id was already used for different input");
@@ -211,9 +368,9 @@ export class SessionRuntime implements AsyncDisposable {
         this.#holds += 1;
       });
       try {
-        this.session.doc.transact(() => {
+        this.session.transact(() => {
           runInAction(mutate);
-          this.session.doc.getMap("harness:session-runtime").set("version", 1);
+          this.session.getMetaMap("harness:session-runtime").set("version", "1");
           records.set(operationId, input);
         });
       } catch (error) {
@@ -224,6 +381,15 @@ export class SessionRuntime implements AsyncDisposable {
         });
         throw error;
       }
+      this.#recordEffect({
+        sessionId: this.root.sessionId,
+        effectKey: operationId,
+        kind: "command",
+        inputHash: operationId,
+        outcomeJson: JSON.stringify({ input }),
+        revision: this.#revision,
+        createdAtMs: Date.now(),
+      });
       this.#blocked = this.checkpoint();
       return this.flush();
     });
@@ -233,7 +399,7 @@ export class SessionRuntime implements AsyncDisposable {
     return this.#serialize(async () => {
       this.#assertHost(host);
       const input = JSON.stringify({ prompt: args.prompt, kind: args.kind ?? null, visuals: args.visuals ?? [] });
-      const commands = this.session.doc.getMap<string>("harness:session-commands");
+      const commands = this.session.getMetaMap("harness:session-commands");
       const previous = commandId == null ? undefined : commands.get(commandId);
       if (previous !== undefined) {
         const saved = commandRecordSchema.parse(JSON.parse(previous));
@@ -251,12 +417,23 @@ export class SessionRuntime implements AsyncDisposable {
       let result: TurnAdmitResult;
       try {
         result = runInAction(() => admitTurn(host, args));
-        this.session.doc.transact(() => {
-          this.session.doc.getMap("harness:session-runtime").set("version", 1);
+        this.session.transact(() => {
+          this.session.getMetaMap("harness:session-runtime").set("version", "1");
           if (commandId != null) {
             commands.set(commandId, JSON.stringify({ input, result }));
           }
         });
+        if (commandId != null) {
+          this.#recordEffect({
+            sessionId: this.root.sessionId,
+            effectKey: commandId,
+            kind: "command",
+            inputHash: commandId,
+            outcomeJson: JSON.stringify(result),
+            revision: this.#revision,
+            createdAtMs: Date.now(),
+          });
+        }
         this.#blocked = this.checkpoint();
         await this.flush();
         return result;
@@ -301,7 +478,7 @@ export class SessionRuntime implements AsyncDisposable {
           if (turn != null) this.#runs.get(turn)?.abort("cancel");
           return cancellation;
         });
-        this.session.doc.getMap("harness:session-runtime").set("version", 1);
+        this.session.getMetaMap("harness:session-runtime").set("version", "1");
       } catch (error) {
         this.#revoke("command-failed");
         runInAction(() => {
@@ -431,7 +608,7 @@ export class SessionRuntime implements AsyncDisposable {
     signal?: AbortSignal,
   ): Promise<SessionEffectOutcome> {
     const abort = signal == null ? this.signal : AbortSignal.any([this.signal, signal]);
-    const records = this.session.doc.getMap<string>("harness:session-effects");
+    const records = this.session.getMetaMap("harness:session-effects");
     const raw = records.get(request.operationId);
     const saved = raw == null ? null : effectRecordSchema.parse(JSON.parse(raw));
     if (saved != null && (saved.request.method !== request.method || saved.request.payload !== request.payload)) {
@@ -464,6 +641,15 @@ export class SessionRuntime implements AsyncDisposable {
       () => {
         apply(checked);
         records.set(request.operationId, JSON.stringify({ phase: "result", request, outcome: checked }));
+        this.#recordEffect({
+          sessionId: this.root.sessionId,
+          effectKey: request.operationId,
+          kind: "effect",
+          inputHash: `${request.method}:${request.payload}`,
+          outcomeJson: JSON.stringify(checked),
+          revision: this.#revision,
+          createdAtMs: Date.now(),
+        });
       },
       abort,
     );
@@ -482,7 +668,7 @@ export class SessionRuntime implements AsyncDisposable {
     this.park();
     this.#ownershipController.abort("disposed");
     for (const stop of this.#stops.splice(0)) stop();
-    if (bindings.get(this.session.doc)?.incarnation === this.incarnation) bindings.delete(this.session.doc);
+    if (bindings.get(this.session)?.incarnation === this.incarnation) bindings.delete(this.session);
     runInAction(() => {
       this.phase = "disposed";
     });
@@ -495,7 +681,7 @@ export class SessionRuntime implements AsyncDisposable {
   }
 
   #assertOwned(): void {
-    if (this.signal.aborted || bindings.get(this.session.doc)?.incarnation !== this.incarnation) {
+    if (this.signal.aborted || bindings.get(this.session)?.incarnation !== this.incarnation) {
       throw new SessionOwnershipError();
     }
   }
@@ -525,7 +711,7 @@ export class SessionRuntime implements AsyncDisposable {
       let result: T;
       try {
         result = runInAction(apply);
-        this.session.doc.getMap("harness:session-runtime").set("version", 1);
+        this.session.getMetaMap("harness:session-runtime").set("version", "1");
       } catch (error) {
         this.#revoke("command-failed");
         runInAction(() => {

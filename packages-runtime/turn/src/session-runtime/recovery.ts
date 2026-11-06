@@ -13,6 +13,7 @@ import {
   WebExtractToolJob,
   WebSearchToolJob,
 } from "@inhuman.tools/harness-model/session";
+import { getModelTag } from "@inhuman.tools/model";
 import { Job, WorkExpectation } from "@inhuman.tools/plexus-expectations";
 import { runInAction } from "mobx";
 
@@ -138,7 +139,7 @@ export function recoverSessionJobs(root: SessionRoot, options: JobRecoveryOption
     for (const job of nodes) {
       const action = classifyJobRecovery(job);
       applyJobRecovery(job, action, options.catalog, options.releaseCall, root);
-      recovered.push({ job, kind: job.__type__, action });
+      recovered.push({ job, kind: getModelTag(job.constructor) ?? job.constructor.name, action });
     }
   });
   return recovered;

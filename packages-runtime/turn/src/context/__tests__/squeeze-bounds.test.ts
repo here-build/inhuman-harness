@@ -2,14 +2,11 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { ProgrammaticJob, SessionPlexus, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { compactToolLine, SQUEEZE_COMPACT_CHARS, squeezeObservation } from "../squeeze.js";
-
-beforeEach(() => resetLocalIDs());
 
 describe("programmatic results are bounded", () => {
   it("caps a huge scheme_repl result on the squeeze line and points at context_recall", () => {

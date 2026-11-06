@@ -19,14 +19,30 @@ export class DocumentContainer<
 
   readonly #registry = new Map<string, Model>();
   readonly #listeners = new Set<(batch: ModelPatchBatch) => void>();
+  readonly #destroyListeners = new Set<() => void>();
+  readonly #meta = new Map<string, Map<string, string>>();
   readonly #bufferedPatches: ModelPatch[] = [];
   #txDepth = 0;
+  #metaModifiedInTx = false;
   #isApplyingPatches = false;
 
-  constructor(root: TRoot, options?: { revision?: number; clientId?: number }) {
+  constructor(
+    root: TRoot,
+    options?: {
+      revision?: number;
+      clientId?: number;
+      meta?: Record<string, Record<string, string>>;
+    },
+  ) {
     this.root = root;
     this.revision = options?.revision ?? 0;
     this.awareness = new ReactiveAwareness<TAwareness>(options?.clientId ?? 1);
+    if (options?.meta) {
+      for (const [ns, entries] of Object.entries(options.meta)) {
+        const rawMap = new Map<string, string>(Object.entries(entries));
+        this.#meta.set(ns, this.#wrapMetaMap(rawMap));
+      }
+    }
     this.registerNode(root);
   }
 
@@ -34,15 +50,30 @@ export class DocumentContainer<
     return this.#destroyed;
   }
 
+  onDestroy(listener: () => void): () => void {
+    this.#destroyListeners.add(listener);
+    return () => {
+      this.#destroyListeners.delete(listener);
+    };
+  }
+
   destroy(): void {
     this.#destroyed = true;
+    for (const listener of this.#destroyListeners) {
+      try {
+        listener();
+      } catch {
+        // preserve destroy semantics
+      }
+    }
+    this.#destroyListeners.clear();
     this.#listeners.clear();
     this.awareness.clearAll();
   }
 
-  static fromSnapshot<T extends Model = Model>(snapshot: SerializedDocument): DocumentContainer<any> {
+  static fromSnapshot<T extends Model = Model>(snapshot: SerializedDocument): DocumentContainer<T> {
     const root = hydrateModel<T>(snapshot);
-    return new DocumentContainer<T>(root, { revision: snapshot.revision });
+    return new DocumentContainer<T>(root, { revision: snapshot.revision, meta: snapshot.meta });
   }
 
   get isApplyingPatches(): boolean {
@@ -143,16 +174,21 @@ export class DocumentContainer<
       return result;
     } finally {
       this.#txDepth--;
-      if (this.#txDepth === 0 && this.#bufferedPatches.length > 0) {
-        const patches = [...this.#bufferedPatches];
-        this.#bufferedPatches.length = 0;
-        this.revision++;
-        const batch: ModelPatchBatch = {
-          revision: this.revision,
-          patches,
-        };
-        for (const listener of this.#listeners) {
-          listener(batch);
+      if (this.#txDepth === 0) {
+        const hasPatches = this.#bufferedPatches.length > 0;
+        const hasMeta = this.#metaModifiedInTx;
+        if (hasPatches || hasMeta) {
+          const patches = [...this.#bufferedPatches];
+          this.#bufferedPatches.length = 0;
+          this.#metaModifiedInTx = false;
+          this.revision++;
+          const batch: ModelPatchBatch = {
+            revision: this.revision,
+            patches,
+          };
+          for (const listener of this.#listeners) {
+            listener(batch);
+          }
         }
       }
     }
@@ -262,10 +298,92 @@ export class DocumentContainer<
     }
   }
 
+  getMetaMap(name: string): Map<string, string> {
+    let map = this.#meta.get(name);
+    if (!map) {
+      map = this.#wrapMetaMap(new Map<string, string>());
+      this.#meta.set(name, map);
+    }
+    return map;
+  }
+
+  setMeta(namespace: string, key: string, value: string): void {
+    this.getMetaMap(namespace).set(key, value);
+  }
+
+  getMeta(namespace: string, key: string): string | undefined {
+    return this.#meta.get(namespace)?.get(key);
+  }
+
+  deleteMeta(namespace: string, key: string): boolean {
+    return this.getMetaMap(namespace).delete(key);
+  }
+
+  #wrapMetaMap(raw: Map<string, string>): Map<string, string> {
+    const container = this;
+    return new Proxy(raw, {
+      get(target, prop, receiver) {
+        if (prop === "set") {
+          return (key: string, value: string) => {
+            const strVal = String(value);
+            const prev = target.get(key);
+            if (prev !== strVal) {
+              target.set(key, strVal);
+              container.#onMetaModified();
+            }
+            return receiver;
+          };
+        }
+        if (prop === "delete") {
+          return (key: string) => {
+            const existed = target.delete(key);
+            if (existed) {
+              container.#onMetaModified();
+            }
+            return existed;
+          };
+        }
+        if (prop === "clear") {
+          return () => {
+            if (target.size > 0) {
+              target.clear();
+              container.#onMetaModified();
+            }
+          };
+        }
+        const val = Reflect.get(target, prop, target);
+        return typeof val === "function" ? val.bind(target) : val;
+      },
+    });
+  }
+
+  #onMetaModified(): void {
+    if (this.#isApplyingPatches) return;
+    if (this.#txDepth > 0) {
+      this.#metaModifiedInTx = true;
+    } else {
+      this.revision++;
+      const batch: ModelPatchBatch = {
+        revision: this.revision,
+        patches: [],
+      };
+      for (const listener of this.#listeners) {
+        listener(batch);
+      }
+    }
+  }
+
   toSnapshot(): SerializedDocument {
+    const meta: Record<string, Record<string, string>> = {};
+    for (const [ns, map] of this.#meta) {
+      if (map.size > 0) {
+        meta[ns] = Object.fromEntries(map.entries());
+      }
+    }
     return {
       revision: this.revision,
       root: serializeModel(this.root),
+      ...(Object.keys(meta).length > 0 ? { meta } : {}),
     };
   }
 }

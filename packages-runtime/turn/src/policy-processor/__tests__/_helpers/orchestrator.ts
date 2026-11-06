@@ -2,11 +2,11 @@
  * Test orchestrator: real Job claim, license as the guard.
  * Programs are stamped on the session root before enqueue.
  */
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   KernelPlexus,
   KernelRoot,
+  SessionPlexus,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -67,7 +67,6 @@ export function setup(opts: {
   enqueue(job: ToolCallJob): void;
   [Symbol.dispose](): void;
 } {
-  resetLocalIDs();
   const kernel = KernelPlexus.bootstrap(new KernelRoot());
   const root = new SessionRoot({
     sessionId: "s-lic",
@@ -80,7 +79,7 @@ export function setup(opts: {
     grantsJson: opts.grants === undefined ? "" : JSON.stringify(opts.grants),
     readRoots: Object.fromEntries((opts.readRoots ?? []).map((path) => [path, "session"])),
   });
-  const session = Plexus.bootstrap(root);
+  const session = SessionPlexus.bootstrap(root);
   const doneWork: TurnChunk[] = [];
   if (opts.priorTurn !== undefined && opts.priorTurn !== "") doneWork.push(completedAssistant(opts.priorTurn));
   if (opts.quarantined !== undefined && opts.quarantined !== "") doneWork.push(sealedObservation(opts.quarantined));

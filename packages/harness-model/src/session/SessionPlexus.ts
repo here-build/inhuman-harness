@@ -8,6 +8,7 @@ export type SessionPlexusCreateOptions = {
   readonly path?: string;
   readonly revision?: number;
   readonly clientId?: number;
+  readonly meta?: Record<string, Record<string, string>>;
 };
 
 export type SessionPlexusBootstrapOptions = SessionPlexusCreateOptions;
@@ -16,7 +17,7 @@ export type SerializedSessionDocument = SerializedDocument;
 export class SessionDocument extends DocumentContainer<SessionRoot, SessionAwareness> {
   static override fromSnapshot(snapshot: SerializedDocument, sessionId?: string): SessionDocument {
     const doc = DocumentContainer.fromSnapshot<SessionRoot>(snapshot);
-    const sessionDoc = new SessionDocument(doc.root, { revision: snapshot.revision });
+    const sessionDoc = new SessionDocument(doc.root, { revision: snapshot.revision, meta: snapshot.meta });
     if (sessionId && !sessionDoc.root.sessionId) {
       sessionDoc.root.sessionId = sessionId;
     }
@@ -49,7 +50,7 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
 
     const root = new SessionRoot({ sessionId, path });
     hydrateSessionRoot(root);
-    return new SessionDocument(root, { revision: options?.revision, clientId: options?.clientId });
+    return new SessionDocument(root, { revision: options?.revision, clientId: options?.clientId, meta: options?.meta });
   }
 
   static bootstrap(
@@ -79,6 +80,10 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
     const root = new SessionRoot();
     hydrateSessionRoot(root);
     return new SessionDocument(root, { clientId: options?.clientId });
+  }
+
+  loadEntity(uuid: string): unknown {
+    return this.getNode(uuid);
   }
 }
 

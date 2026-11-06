@@ -1,12 +1,9 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import { BotCallJob, CallDelivery } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { stampCallLifetime } from "../index.js";
 
 describe("delivery lifetime", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("stampCallLifetime fills empty delivery and leaves an existing lifetime", () => {
     const empty = new BotCallJob({ name: "a" });
     stampCallLifetime(empty, "turn");

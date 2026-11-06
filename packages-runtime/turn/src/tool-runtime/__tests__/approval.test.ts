@@ -1,5 +1,4 @@
 /** Cancel writes `cancelled`, not `approved`. Deny-side stamps a receipt. */
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   CLASSIFIER_DENIED,
   POLICY_PROHIBITS,
@@ -8,12 +7,10 @@ import {
   SystemToolJob,
   USER_REFUSED,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { stampToolOutcome } from "../approval/approved.js";
 import { cancelUnstartedTool, inboundTurnGuard, stampLicenseDeny } from "../index.js";
-
-beforeEach(() => resetLocalIDs());
 
 function deny(leaf: SystemToolJob): void {
   stampLicenseDeny(leaf, "manual");

@@ -9,7 +9,6 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   BLOB_HEAD_CHARS,
@@ -67,7 +66,6 @@ function memoryBucket(): {
   return { writer, stored, puts };
 }
 
-beforeEach(() => resetLocalIDs());
 afterEach(() => bindBlobWriter(null));
 
 describe("externalizePrior", () => {
@@ -265,7 +263,7 @@ describe("admit stamps the prior text", () => {
     catalog.replacePack([packEntry("write_file"), packEntry("edit_file")]);
     const session = new SessionRoot({ sessionId: "s-prior", path: root });
     const job = new ToolCallHandler({ catalog }).admit(invocation(name, args), catalog, { session });
-    if (!(job instanceof FileMutateToolJob)) throw new Error(`admit minted ${job.constructor.name}`);
+    if (!(job instanceof FileMutateToolJob)) throw new TypeError(`admit minted ${job.constructor.name}`);
     return job;
   }
 

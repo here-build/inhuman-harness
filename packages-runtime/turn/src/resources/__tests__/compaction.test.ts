@@ -10,7 +10,6 @@ import {
 import * as sessionModel from "@inhuman.tools/harness-model/session";
 import { reaction } from "mobx";
 import { expect, it, onTestFinished, vi } from "vitest";
-import * as Y from "yjs";
 
 import { Transcript, textOfCell } from "../../context/index.js";
 import { runCompactJob } from "../../session/compact-actor.js";
@@ -123,7 +122,7 @@ it("checkpoints source and imported content before use, then restores only the c
   turn.pushChild(job);
   session.root.head = turn;
   const bundle = createModuleBundle({ id: "capture", revision: "v1", modules: { "card.txt": "original card" } });
-  let committed: Uint8Array | undefined;
+  let committed: ReturnType<SessionPlexus["toSnapshot"]> | undefined;
   const checkpoints: string[] = [];
   const failures: string[] = [];
   await runCompactJob(job, {
@@ -140,7 +139,7 @@ it("checkpoints source and imported content before use, then restores only the c
     },
     async checkpoint(node) {
       checkpoints.push(node.resourceSnapshotJson.includes("original card") ? "module" : "source");
-      committed = Y.encodeStateAsUpdate(session.doc);
+      committed = session.toSnapshot();
     },
     fail: (label, error) => failures.push(`${label}: ${String(error)}`),
   });
@@ -151,9 +150,7 @@ it("checkpoints source and imported content before use, then restores only the c
     failures: [],
   });
   if (committed === undefined) throw new Error("missing committed source checkpoint");
-  const document = new Y.Doc({ guid: session.doc.guid });
-  Y.applyUpdate(document, committed);
-  const restored = SessionPlexus.connect(document);
+  const restored = SessionPlexus.fromSnapshot(committed);
   onTestFinished(() => restored.destroy());
   const restoredTurn = restored.root.head;
   if (!(restoredTurn instanceof SessionTurn)) throw new TypeError("missing restored turn");

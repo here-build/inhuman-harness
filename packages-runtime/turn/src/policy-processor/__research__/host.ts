@@ -6,11 +6,11 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Plexus, resetLocalIDs } from "@here.build/plexus";
 import {
   CompletionExpectation,
   KernelPlexus,
   KernelRoot,
+  SessionPlexus,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -89,7 +89,6 @@ export function researchSetup(opts?: {
   enqueue(job: ToolCallJob): void;
   [Symbol.dispose](): void;
 } {
-  resetLocalIDs();
   const kernel = KernelPlexus.bootstrap(new KernelRoot());
   const driver = new DriverSpec({
     name: "openai-compat",
@@ -109,7 +108,7 @@ export function researchSetup(opts?: {
     policyProgram: reasonableDefaultsSource,
     judgeAskProgram: distAskSource(),
   });
-  const session = Plexus.bootstrap(root);
+  const session = SessionPlexus.bootstrap(root);
   root.applyKvs([
     { form: "kv-set", key: "connection", value: LM_CONNECTION },
     { form: "kv-set", key: "model", value: LM_MODEL },

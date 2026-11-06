@@ -1,7 +1,6 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { SessionPlexus, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { SQUEEZE_COMPACT_CHARS, SQUEEZE_MICRO_MIN_CHARS, squeezeToolCall, toolCallRepresentation } from "../index.js";
 
@@ -120,8 +119,6 @@ const rows = [
 ] as const;
 
 describe("tool call representation", () => {
-  beforeEach(() => resetLocalIDs());
-
   it("squeeze walk: live approvalComment is not painted onto the result; persistable dumps / regeneratable does not / idempotent / micro", () => {
     const call = homed(tool("hello-from-disk"), "squeeze-note");
     call.approvalComment = "keep the export";

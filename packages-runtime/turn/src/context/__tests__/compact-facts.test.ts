@@ -2,7 +2,6 @@
  * A CompactJob's cut is a fact of the job (F8), and its card is a typed cell
  * that later compactions can recognise (F10).
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
@@ -16,13 +15,11 @@ import {
   SessionPlexus,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { applyCompact } from "../../session/index.js";
 import { stampCompactInputs } from "../compact-floors.js";
 import { historyBehind, textOfCell, Transcript } from "../index.js";
-
-beforeEach(() => resetLocalIDs());
 
 /** `n` rounds where each completion carries the cells before it, as production does. */
 function rounds(n: number): unknown[] {

@@ -3,7 +3,6 @@
  * the squeeze band is stored tool lines, keep stays verbatim, and cells after
  * the job stay on the live tape. A failed job is not a cutoff.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompactJob,
@@ -46,7 +45,6 @@ function tool(
 }
 
 function eat(rounds: number): Transcript {
-  resetLocalIDs();
   const cells = [];
   for (let i = 0; i < rounds; i += 1) {
     const expectation = completion(`turn ${i}`, "ok");
@@ -89,7 +87,6 @@ describe("compact zones", () => {
   });
 
   it("squeeze rows drop regeneratable and empty stamps; keep cells stay the originals", () => {
-    resetLocalIDs();
     const fold = completion("fold-user", "fold-asst");
     const foldTool = tool("fold_tool", "shell", { outcome: "FOLD_SECRET" });
     const squeeze = completion("sq-user", "sq-asst");
@@ -110,7 +107,6 @@ describe("compact zones", () => {
   });
 
   it("a cutoff projects the eat; a failure leaves it, and the notice is not history", () => {
-    resetLocalIDs();
     const fold = completion("fold-user", "fold-asst");
     const foldTool = tool("fold_tool", "shell", { outcome: "FOLD_SECRET" });
     const squeeze = completion("sq-user", "sq-asst");

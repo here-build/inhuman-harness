@@ -638,4 +638,110 @@ describe("portable session lifecycle and durable effects", () => {
       callback: "parent",
     });
   });
+
+  it("emits structured sessionRow, dirtyTurns, patchBatch, and effectRecords with O(delta) patches across sequential mutations", async () => {
+    const committedCheckpoints: SessionCheckpoint[] = [];
+    const runtime = SessionRuntime.create("conversation", {
+      kind: "durable",
+      async commit(checkpoint) {
+        committedCheckpoints.push(checkpoint);
+        return {
+          sessionId: checkpoint.sessionId,
+          incarnation: checkpoint.incarnation,
+          revision: checkpoint.revision,
+        };
+      },
+    });
+    runtime.recover();
+    runtime.activate();
+    onTestFinished(async () => {
+      await runtime[Symbol.asyncDispose]();
+      runtime.session.destroy();
+    });
+
+    // Checkpoint 0: initial mutation and flush
+    runtime.root.kvs.connection = "model";
+    await runtime.flush();
+    expect(committedCheckpoints).toHaveLength(1);
+    const cp0 = committedCheckpoints[0];
+    expect(cp0.sessionId).toBe("conversation");
+    expect(cp0.fromRevision).toBe(0);
+    expect(cp0.revision).toBeGreaterThanOrEqual(1);
+    expect(cp0.patchBatch.fromRevision).toBe(0);
+    expect(cp0.patchBatch.toRevision).toBe(cp0.revision);
+    const initialPatchCount = cp0.patchBatch.patches.length;
+    expect(initialPatchCount).toBeGreaterThan(0);
+    expect(cp0.sessionRow).toMatchObject({
+      sessionId: "conversation",
+      running: false,
+      headTurnId: null,
+      revision: cp0.revision,
+    });
+    expect(cp0.dirtyTurns).toHaveLength(0);
+    expect(cp0.effectRecords).toHaveLength(0);
+
+    // Mutation 1: kvs change
+    await runtime.commitMutation("mutation-1", "{}", () => {
+      runtime.root.kvs.foo = "bar";
+    });
+    expect(committedCheckpoints).toHaveLength(2);
+    const cp1 = committedCheckpoints[1];
+    expect(cp1.fromRevision).toBe(cp0.revision);
+    expect(cp1.revision).toBeGreaterThan(cp0.revision);
+    expect(cp1.patchBatch.fromRevision).toBe(cp0.revision);
+    expect(cp1.patchBatch.toRevision).toBe(cp1.revision);
+    // O(delta): only the patches from mutation-1, not previous patches
+    expect(cp1.patchBatch.patches.length).toBeGreaterThan(0);
+    expect(cp1.patchBatch.patches.some((p) => p.nodeId === runtime.root.uuid && p.field === "kvs")).toBe(true);
+
+    // Mutation 2: admission
+    await runtime.admit(commands(runtime), { prompt: "first turn" });
+    const cp2 = committedCheckpoints[committedCheckpoints.length - 1];
+    expect(cp2.fromRevision).toBe(cp1.revision);
+    expect(cp2.revision).toBeGreaterThan(cp1.revision);
+    expect(cp2.patchBatch.fromRevision).toBe(cp1.revision);
+    expect(cp2.patchBatch.toRevision).toBe(cp2.revision);
+    expect(cp2.patchBatch.patches.length).toBeGreaterThan(0);
+    expect(cp2.patchBatch.patches.some((p) => p.field === "kvs")).toBe(false);
+    expect(cp2.sessionRow).toMatchObject({
+      sessionId: "conversation",
+      running: true,
+      headTurnId: runtime.root.head?.uuid,
+      revision: cp2.revision,
+    });
+    expect(cp2.dirtyTurns).toHaveLength(1);
+    expect(cp2.dirtyTurns[0].turnId).toBe(runtime.root.head?.uuid);
+
+    // Mutation 3: effect
+    const port = {
+      async invoke() {
+        return { kind: "success" as const, payload: "effect-result" };
+      },
+    };
+    await runtime.effect("eff-delta", "write", '{"test":1}', port, (outcome) => {
+      if (outcome.kind === "success") runtime.root.kvs.effectOut = outcome.payload;
+    });
+
+    const cp3 = committedCheckpoints[committedCheckpoints.length - 1];
+    expect(cp3.revision).toBeGreaterThan(cp2.revision);
+    expect(cp3.effectRecords.length).toBeGreaterThanOrEqual(1);
+    const eff = cp3.effectRecords.find((r) => r.effectKey === "eff-delta");
+    expect(eff).toMatchObject({
+      sessionId: "conversation",
+      effectKey: "eff-delta",
+      kind: "effect",
+      inputHash: 'write:{"test":1}',
+      outcomeJson: JSON.stringify({ kind: "success", payload: "effect-result" }),
+    });
+
+    // Verification of restoration from structured checkpoint
+    const restored = SessionRuntime.restore("conversation", cp3, { kind: "memory" });
+    onTestFinished(async () => {
+      await restored[Symbol.asyncDispose]();
+      restored.session.destroy();
+    });
+    expect(restored.root.kvs.foo).toBe("bar");
+    expect(restored.root.head?.prompt).toBe("first turn");
+    expect(restored.root.kvs.effectOut).toBe("effect-result");
+  });
 });

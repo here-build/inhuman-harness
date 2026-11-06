@@ -1,4 +1,3 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import {
   AGENT_VOID,
   AgentCallJob,
@@ -7,7 +6,7 @@ import {
   FailureOutcome,
   SuccessfulOutcome,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { loadOpenCall, settleCallFromCallback } from "../index.js";
 import { closedTurn, scopeOf, sessionOf } from "./fixtures.js";
@@ -16,8 +15,6 @@ describe.each([
   { name: "child agent", CallType: AgentCallJob },
   { name: "bot request", CallType: BotCallJob },
 ])("callbacks for $name", ({ CallType }) => {
-  beforeEach(() => resetLocalIDs());
-
   it("loadOpenCall reads the caller Call from an acquired replica", () => {
     const caller = sessionOf("caller");
     const worker = sessionOf("worker");

@@ -2,7 +2,6 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompactJob,
@@ -12,7 +11,7 @@ import {
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Transcript } from "../../context/index.js";
 import { createModuleBundle } from "../../resources/index.js";
@@ -24,8 +23,6 @@ const KEEP_FIRST = `
   (let ((xs (transcript/cells compact-transcript)))
     (if (null? xs) xs (list (car xs)))))
 `;
-
-beforeEach(() => resetLocalIDs());
 
 function spine(gauges: readonly number[], total = 100): Transcript {
   const cells = gauges.map((used, i) => {

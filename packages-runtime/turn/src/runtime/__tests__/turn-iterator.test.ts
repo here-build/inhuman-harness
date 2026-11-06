@@ -1,4 +1,3 @@
-import invariant from "tiny-invariant";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   admitSteer,
@@ -21,6 +20,7 @@ import {
   ToolCallJob,
 } from "@inhuman.tools/harness-model/session";
 import { autorun } from "mobx";
+import invariant from "tiny-invariant";
 import { describe, expect, it } from "vitest";
 
 import { restorePendingRound } from "../../agent-calls/index.js";
@@ -33,8 +33,8 @@ describe("turn sequence rules with mock resolution", () => {
     const { session, turn } = turnFixture();
     const job = new CompletionJob({ expectation: new CompletionExpectation({ connectionId: "mock" }) });
     turn.enqueue(job);
-    const updates: Uint8Array[] = [];
-    session.__doc__?.on("update", (update: Uint8Array) => updates.push(update));
+    const updates: unknown[] = [];
+    session.container?.container.onPatch((batch: unknown) => updates.push(batch));
     const gaps: boolean[] = [];
     const stop = autorun(() => {
       gaps.push(!turn.queue.includes(job) && !turn.doneWork.includes(job));

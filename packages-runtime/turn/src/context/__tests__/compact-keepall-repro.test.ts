@@ -7,7 +7,6 @@
  * overflow — so the model can disable the forced-compaction safety valve.
  * AD-7 (cohort-compaction-wiring README:186): "one dial, no second code path".
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -33,7 +32,6 @@ function completion(used: number, total: number): CompletionJob {
 }
 
 function turnAt(used: number, total: number): SessionTurn {
-  resetLocalIDs();
   return new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`hi`,

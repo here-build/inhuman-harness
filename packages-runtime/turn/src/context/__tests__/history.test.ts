@@ -1,7 +1,6 @@
 /**
  * Same history fixtures as openai-compat viewWire, before vendor encoding.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { asSystemPrompt, prompt } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
@@ -24,7 +23,7 @@ import {
   CompactJob,
   userVisualsJson,
 } from "@inhuman.tools/harness-model";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { CONTEXT_NEED_REMINDER } from "../../session/side-channel-reminder.js";
 import { BACKGROUND_TOOL, IN_FLIGHT_TOOL, NO_TOOLS_SYSTEM, projectHistory, type HistoryMessage } from "../index.js";
@@ -124,8 +123,6 @@ function history(
   plexus.root.head = turn;
   return [...projectHistory(tip, { echoEmptyThought: extra?.echoEmptyThought })];
 }
-
-beforeEach(() => resetLocalIDs());
 
 describe("projectHistory", () => {
   it.each([

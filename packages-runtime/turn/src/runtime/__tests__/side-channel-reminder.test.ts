@@ -1,4 +1,3 @@
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -103,7 +102,6 @@ test("an empty context_need-only reply opens another round, and speech seals", a
 });
 
 test("a cutoff compact eat keeps the summary and drops the buried nag", () => {
-  resetLocalIDs();
   const pew = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`old` });
   pew.systemNote = prompt.system`BURIED NAG`;
   pew.succeed("settled", "", "null", { result: { text: "old work" } });

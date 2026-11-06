@@ -1,16 +1,12 @@
 /** Missing catalog seals a fail receipt instead of leaving outcomeJson empty. */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { SessionPlexus, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
-import { beforeEach, expect, it, onTestFinished } from "vitest";
-import * as Y from "yjs";
+import { expect, it, onTestFinished } from "vitest";
 
 import { SessionRuntime } from "../../session-runtime/index.js";
 import { bindBehaviorEntries, bindSessionCatalog, KernelToolCatalog } from "../../tool-catalog/index.js";
 import { runWithExtraRoot } from "../extra-root.js";
 import { extraRootAllowed, executeSystemTool, sealToolCall } from "../index.js";
-
-beforeEach(() => resetLocalIDs());
 
 it("drops a late tool receipt and stream after another runtime binds the same document", async () => {
   const plexus = SessionPlexus.create("late-tool", "/tmp/late-tool");
@@ -50,10 +46,10 @@ it("drops a late tool receipt and stream after another runtime binds the same do
     catalog[Symbol.dispose]();
     plexus.destroy();
   });
-  const before = Y.encodeStateAsUpdate(plexus.doc);
+  const before = plexus.toSnapshot();
   release.resolve();
   await running;
-  expect({ state: Y.encodeStateAsUpdate(plexus.doc), receipt: job.receiptJson }).toEqual({
+  expect({ state: plexus.toSnapshot(), receipt: job.receiptJson }).toEqual({
     state: before,
     receipt: null,
   });

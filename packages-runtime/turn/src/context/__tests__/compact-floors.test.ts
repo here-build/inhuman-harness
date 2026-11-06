@@ -2,7 +2,6 @@
  * Preserve floors defaulted to 0 and replaced the in-flight exchange.
  * Floors must be >= 1; explicit /compact keeps more thread than mid-turn.
  */
-import { resetLocalIDs } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { CompletionExpectation, SystemToolJob } from "@inhuman.tools/harness-model";
 import { expect, test } from "vitest";
@@ -11,7 +10,6 @@ import { DEFAULT_COMPACT_KEEP_TURNS } from "../compact-floors.js";
 import { keepFloors, sliceCompactEat, Transcript } from "../index.js";
 
 function eat(rounds: number): Transcript {
-  resetLocalIDs();
   const cells = [];
   for (let i = 0; i < rounds; i += 1) {
     const expectation = new CompletionExpectation({
