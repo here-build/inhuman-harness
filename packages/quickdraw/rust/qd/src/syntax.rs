@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use irosashi::{CodeToTokensOptions, DiagnosticKind, Highlighter, TokensResult};
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::{Rgb, Style};
 
 const ARRIVAL: &[u8] = include_bytes!("arrival.tmLanguage.json");
@@ -82,12 +83,13 @@ pub fn set_polarity(polarity: Polarity) {
 /// Load the highlighter and register Arrival. A second call does not reload.
 /// Stays cold when the embedded catalog fails to open.
 pub fn warm() -> bool {
-    let Some(engine) = ENGINE.get_or_init(load_engine).as_ref() else {
-        return false;
-    };
-    let _ = engine;
+    engine().is_some()
+}
+
+pub(crate) fn engine() -> Option<&'static Highlighter> {
+    let engine = ENGINE.get_or_init(load_engine).as_ref()?;
     WARM.store(true, Ordering::Release);
-    true
+    Some(engine)
 }
 
 fn load_engine() -> Option<Highlighter> {
@@ -302,6 +304,7 @@ pub fn lang_for_path(path: &str) -> Option<&'static str> {
 }
 
 /// Write token color onto a paint style. No color leaves `fg_rgb` alone.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn apply_run(style: &mut Style, run: &TokenRun) {
     if let Some(color) = run.color.as_deref() {
         if let Some(rgb) = parse_hex(color) {
@@ -353,6 +356,7 @@ fn plain(text: &str) -> TokenRun {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn parse_hex(color: &str) -> Option<Rgb> {
     let hex = color.strip_prefix('#').unwrap_or(color);
     if hex.len() != 6 {

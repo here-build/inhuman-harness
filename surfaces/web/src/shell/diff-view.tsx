@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import { FileDiff, type FileDiffMetadata, type ThemedDiffResult } from "@pierre/diffs";
-import { WorkerPoolManager, type WorkerStats } from "@pierre/diffs/worker";
 
 import { projectDiff, type DiffInput } from "./diff-model.js";
 import type { ColorScheme } from "./highlight.js";
 import { useScheme } from "./scheme.js";
+import { wasmHighlightDiff, type DiffHighlightResult } from "./syntax-wasm.js";
 
 const THEME = { light: "github-light-high-contrast", dark: "github-dark-default" } as const;
 
@@ -35,7 +35,7 @@ const DIFF_CSS = `
 /** Color variables only. Weight, style, and background would change the line box. */
 const TOKEN_COLOR = ["--diffs-token-light", "--diffs-token-dark"] as const;
 
-/** The next diff's worker waits until this one has finished. Layout does not. */
+/** The next diff's highlight turn waits until this one has finished. Layout does not. */
 let highlightTurn: Promise<void> = Promise.resolve();
 
 function takeHighlightTurn(): { readonly ready: Promise<void>; release(): void } {
@@ -46,19 +46,6 @@ function takeHighlightTurn(): { readonly ready: Promise<void>; release(): void }
   const ready = highlightTurn;
   highlightTurn = highlightTurn.then(() => ticket);
   return { ready, release };
-}
-
-function diffWorker(): Worker {
-  return new Worker(new URL("@pierre/diffs/worker/worker.js", import.meta.url), { type: "module" });
-}
-
-function highlightSettled(stats: WorkerStats): boolean {
-  return (
-    stats.managerState === "initialized" &&
-    stats.busyWorkers === 0 &&
-    stats.activeTasks === 0 &&
-    stats.queuedTasks === 0
-  );
 }
 
 type HastNode = {
@@ -132,6 +119,24 @@ export function paintTokenColors(root: ParentNode, result: ThemedDiffResult): vo
     const expected = runs.map((run) => run.text).join("");
     if (line.textContent !== expected) continue;
     paintLine(line, runs);
+  }
+}
+
+export function paintDiffRuns(root: ParentNode, diff: DiffHighlightResult, baseLine = 1): void {
+  for (const line of root.querySelectorAll<HTMLElement>("[data-content] [data-line]")) {
+    if (line.querySelector("span[style*='--diffs-token-']") != null) continue;
+    const lineNum = Number(line.dataset.line);
+    if (!Number.isFinite(lineNum)) continue;
+    const index = lineNum - baseLine;
+    const side = line.dataset.lineType === "change-deletion" ? diff.oldLines : diff.newLines;
+    const runs = side.at(index);
+    if (!runs?.some((run) => run.color != null)) continue;
+    const expected = runs.map((run) => run.text).join("");
+    if (line.textContent !== expected) continue;
+    paintLine(
+      line,
+      runs.map((run) => ({ text: run.text, color: run.color ?? null })),
+    );
   }
 }
 
@@ -209,80 +214,44 @@ export function DiffView({ oldText, newText, path, lineStart }: DiffInput) {
     const node = host.current;
     if (model.status !== "diff" || node == null) return;
     const fileDiff = model.fileDiff;
+    const baseLine = lineStart != null && Number.isFinite(lineStart) && lineStart > 1 ? Math.floor(lineStart) : 1;
     const container = document.createElement("diffs-container");
     node.append(container);
     let cancelled = false;
     let laidOut = false;
-    let colored = false;
-    let pending: ThemedDiffResult | null = null;
+    let pending: DiffHighlightResult | null = null;
     const apply = (): void => {
       const shadow = container.shadowRoot;
-      if (cancelled || colored || !laidOut || pending == null || shadow == null) return;
-      paintTokenColors(shadow, pending);
-      colored = true;
+      if (cancelled || !laidOut || pending == null || shadow == null) return;
+      paintDiffRuns(shadow, pending, baseLine);
     };
     const renderer = mountDiff(container, fileDiff, scheme, () => {
       laidOut = true;
       apply();
     });
-    let release = (): void => {};
-    let stopWorker = (): void => {};
-    if (typeof Worker === "function") {
-      const turn = takeHighlightTurn();
-      release = turn.release;
-      void turn.ready.then(() => {
-        if (cancelled || !node.isConnected) {
-          release();
-          return undefined;
+    const turn = takeHighlightTurn();
+    const release = turn.release;
+    const runHighlight = async (): Promise<void> => {
+      await turn.ready;
+      try {
+        if (!node.isConnected) return;
+        const result = await wasmHighlightDiff(oldText, newText, path);
+        if (result != null) {
+          pending = result;
+          apply();
         }
-        const pool = new WorkerPoolManager(
-          { poolSize: 1, workerFactory: diffWorker },
-          { theme: THEME, lineDiffType: "word-alt" },
-        );
-        let settled = false;
-        const finish = (): void => {
-          if (settled) return;
-          settled = true;
-          release();
-          queueMicrotask(() => {
-            pool.terminate();
-          });
-        };
-        const instance = {
-          __id: "diff-color",
-          onHighlightSuccess(_diff: FileDiffMetadata, result: ThemedDiffResult): undefined {
-            pending = result;
-            if (!cancelled) apply();
-            finish();
-            return undefined;
-          },
-          onHighlightError(): undefined {
-            finish();
-            return undefined;
-          },
-        };
-        let unsubscribe = (): void => {};
-        unsubscribe = pool.subscribeToStatChanges((stats) => {
-          if (settled) return;
-          if (stats.workersFailed || highlightSettled(stats)) finish();
-        });
-        pool.highlightDiffAST(instance, fileDiff);
-        stopWorker = () => {
-          unsubscribe();
-          pool.cleanUpTasks(instance);
-          pool.terminate();
-        };
-        return undefined;
-      });
-    }
+      } finally {
+        release();
+      }
+    };
+    void runHighlight();
     return () => {
       cancelled = true;
       release();
-      stopWorker();
       renderer.cleanUp();
       container.remove();
     };
-  }, [model, scheme]);
+  }, [lineStart, model, newText, oldText, path, scheme]);
 
   return (
     <div className="diff" aria-label={path === "" ? "Diff" : path}>

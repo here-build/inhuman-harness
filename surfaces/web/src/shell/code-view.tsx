@@ -1,7 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 
 import { highlightLines, type HighlightLine, type TokenRun } from "./highlight.js";
-import { guessLang } from "./lang.js";
 import { useScheme } from "./scheme.js";
 
 export function CodeView({
@@ -17,18 +16,18 @@ export function CodeView({
   readonly plain?: boolean;
 }) {
   const scheme = useScheme();
-  const resolved = guess && (lang === "" || lang === "text") ? (guessLang(text) ?? "text") : lang;
   const [paint, setPaint] = useState<{
     text: string;
     lang: string;
+    guess: boolean;
     scheme: typeof scheme;
     lines: HighlightLine[];
   } | null>(null);
   useEffect(() => {
     let live = true;
-    void highlightLines(text, resolved, scheme).then(
+    void highlightLines(text, lang, scheme, guess).then(
       (lines) => {
-        if (live && lines !== null) setPaint({ text, lang: resolved, scheme, lines });
+        if (live && lines !== null) setPaint({ text, lang, guess, scheme, lines });
         return undefined;
       },
       () => {
@@ -38,8 +37,11 @@ export function CodeView({
     return () => {
       live = false;
     };
-  }, [resolved, scheme, text]);
-  const current = paint?.text === text && paint.lang === resolved && paint.scheme === scheme ? paint.lines : null;
+  }, [guess, lang, scheme, text]);
+  const current =
+    paint?.text === text && paint.lang === lang && paint.guess === guess && paint.scheme === scheme
+      ? paint.lines
+      : null;
   const code = (
     <pre className="mono">
       <code>

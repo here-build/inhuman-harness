@@ -10,44 +10,79 @@
 //! Highlighting is irosashi. `embed` splices a second language into a bash
 //! command after the bash tokens exist.
 
-pub mod birth;
-pub mod bridge;
-mod buffer;
-pub mod capabilities;
-pub mod composer_command;
-pub mod copy_toast;
-pub mod decode;
-mod draft;
-pub mod drawers;
-mod echo;
 mod embed;
-pub mod expand;
-mod host_overlay;
-pub mod layout_chrome;
-pub mod layout_engine;
-pub mod layout_flex;
-pub mod layout_hit;
-pub mod layout_text;
-mod mailbox_scene;
-mod measure;
-pub mod paint_replica;
-mod paint_widget;
-mod pierre;
-pub mod present;
-mod present_dump;
-mod selection_host;
-pub mod state;
-pub mod stderr_hold;
 pub mod syntax;
+pub mod wasm;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod birth;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod bridge;
+#[cfg(not(target_arch = "wasm32"))]
+mod buffer;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod capabilities;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod composer_command;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod copy_toast;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod decode;
+#[cfg(not(target_arch = "wasm32"))]
+mod draft;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod drawers;
+#[cfg(not(target_arch = "wasm32"))]
+mod echo;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod expand;
+#[cfg(not(target_arch = "wasm32"))]
+mod host_overlay;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod layout_chrome;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod layout_engine;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod layout_flex;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod layout_hit;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod layout_text;
+#[cfg(not(target_arch = "wasm32"))]
+mod mailbox_scene;
+#[cfg(not(target_arch = "wasm32"))]
+mod measure;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod paint_replica;
+#[cfg(not(target_arch = "wasm32"))]
+mod paint_widget;
+#[cfg(not(target_arch = "wasm32"))]
+mod pierre;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod present;
+#[cfg(not(target_arch = "wasm32"))]
+mod present_dump;
+#[cfg(not(target_arch = "wasm32"))]
+mod selection_host;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod state;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod stderr_hold;
+#[cfg(not(target_arch = "wasm32"))]
 mod syntax_diff;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod theme;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod widgets;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use buffer::{
     clone_buffer, create_buffer, dirty_rows, emit_ansi, emit_ansi_detailed, guard_content, put,
     Buffer, EmitAnsiOpts, EmitAnsiStats, Rgb, Style,
 };
+#[cfg(not(target_arch = "wasm32"))]
 pub use measure::{
     display_width, display_width_ambiguous, grapheme_width, is_two_column_symbol, is_unit_width_run,
 };
+#[cfg(not(target_arch = "wasm32"))]
 pub use present_dump::{dump, up_json, Dump, DumpError, DumpRun};

@@ -13,11 +13,11 @@ use regex::Regex;
 
 use crate::syntax::TokenRun;
 
-#[derive(Clone, Copy)]
-struct Region {
-    start: usize,
-    end: usize,
-    lang: &'static str,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Region {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) lang: &'static str,
 }
 
 /// A line's byte range in the command. The newline is not included.
@@ -106,7 +106,7 @@ pub(crate) fn splice_shell(
     splice(baseline, code, &regions, &mut tokenize)
 }
 
-fn detect(command: &str) -> Vec<Region> {
+pub(crate) fn detect(command: &str) -> Vec<Region> {
     if !has_embed_shape(command) {
         return Vec::new();
     }

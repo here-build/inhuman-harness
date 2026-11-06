@@ -1,11 +1,14 @@
-// Shell embed detection stays in quickdraw so the web paint and the JS tape share one scanner.
-/* eslint-disable import-x/no-relative-packages */
-export {
-  detectShellEmbeds,
-  guessLang,
-  spliceEmbeds,
-} from "../../../../packages/quickdraw/src/widgets/internals/embedded-syntax.js";
-/* eslint-enable import-x/no-relative-packages */
+import { wasmDetectShellEmbeds, wasmGuessLang } from "./syntax-wasm.js";
+
+export type { EmbedRegion } from "./syntax-wasm.js";
+
+export function guessLang(code: string): string | undefined {
+  return wasmGuessLang(code);
+}
+
+export function detectShellEmbeds(command: string) {
+  return wasmDetectShellEmbeds(command);
+}
 
 const ALIASES: Readonly<Record<string, string>> = {
   ts: "typescript",
@@ -103,7 +106,7 @@ const EXT: Readonly<Record<string, string>> = {
   jl: "julia",
 };
 
-/** Shiki language id. `text` means leave the source uncolored. */
+/** Grammar language id. `text` means leave the source uncolored. */
 export function resolveLang(lang: string): string {
   const name = lang.trim().toLowerCase();
   if (name === "") return "text";
