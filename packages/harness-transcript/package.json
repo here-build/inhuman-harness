@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/model": "workspace:^",
     "@tabler/icons-react": "^3.49.0",
     "mdast-util-from-markdown": "^2.1.0",
     "mdast-util-gfm": "^3.1.0",

@@ -46,6 +46,7 @@
     "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/harness-contract": "workspace:^",
     "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/model": "workspace:^",
     "@inhuman.tools/plexus-expectations": "workspace:^",
     "lib0": "0.2.119",
     "y-protocols": "1.0.7",

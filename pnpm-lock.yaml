@@ -1045,9 +1045,6 @@ importers:
       '@here.build/collections':
         specifier: ^0.10.0
         version: 0.10.0(mobx@6.16.1)
-      '@here.build/plexus':
-        specifier: ^0.9.6
-        version: 0.9.6(lib0@0.2.119)(mobx@6.16.1)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)
       '@inhuman.tools/continuation':
         specifier: workspace:^
         version: link:../../packages-continuation/continuation
@@ -1102,9 +1099,6 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
-      yjs:
-        specifier: 13.6.33
-        version: 13.6.33
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -1645,9 +1639,6 @@ importers:
       '@-internal-/eslint-configs':
         specifier: workspace:*
         version: link:../../internal/eslint-config
-      '@here.build/plexus':
-        specifier: ^0.9.6
-        version: 0.9.6(lib0@0.2.119)(mobx@6.16.1)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -1660,9 +1651,6 @@ importers:
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@24.19.2)(happy-dom@21.0.4)(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
-      yjs:
-        specifier: 13.6.33
-        version: 13.6.33
 
   packages/harness-peer:
     dependencies:
@@ -1675,6 +1663,9 @@ importers:
       '@inhuman.tools/harness-model':
         specifier: workspace:^
         version: link:../harness-model
+      '@inhuman.tools/model':
+        specifier: workspace:^
+        version: link:../model
       '@inhuman.tools/plexus-expectations':
         specifier: workspace:^
         version: link:../plexus-expectations
@@ -1796,12 +1787,18 @@ importers:
       '@inhuman.tools/harness-contract':
         specifier: workspace:*
         version: link:../harness-contract
+      '@inhuman.tools/harness-model':
+        specifier: workspace:*
+        version: link:../harness-model
       '@inhuman.tools/harness-peer':
         specifier: workspace:*
         version: link:../harness-peer
       '@inhuman.tools/harness-web-app':
         specifier: workspace:*
         version: link:../harness-web-app
+      '@inhuman.tools/model':
+        specifier: workspace:*
+        version: link:../model
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -1923,12 +1920,18 @@ importers:
       '@inhuman.tools/harness-peer':
         specifier: workspace:^
         version: link:../harness-peer
+      '@inhuman.tools/model':
+        specifier: workspace:^
+        version: link:../model
       '@inhuman.tools/plexus-expectations':
         specifier: workspace:^
         version: link:../plexus-expectations
       '@inhuman.tools/pretty-mcp':
         specifier: workspace:^
         version: link:../pretty-mcp
+      '@inhuman.tools/scope-plane':
+        specifier: workspace:^
+        version: link:../scope-plane
       mobx:
         specifier: 6.16.1
         version: 6.16.1
@@ -1975,6 +1978,9 @@ importers:
       '@inhuman.tools/harness-model':
         specifier: workspace:^
         version: link:../harness-model
+      '@inhuman.tools/model':
+        specifier: workspace:^
+        version: link:../model
       '@tabler/icons-react':
         specifier: ^3.49.0
         version: 3.49.0(react@19.3.1)
@@ -2428,9 +2434,6 @@ importers:
       '@-internal-/tsconfig':
         specifier: workspace:*
         version: link:../../internal/tsconfig
-      '@here.build/plexus':
-        specifier: ^0.9.6
-        version: 0.9.6(lib0@0.2.119)(mobx@6.16.1)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -2446,9 +2449,6 @@ importers:
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@24.19.2)(happy-dom@21.0.4)(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
-      yjs:
-        specifier: 13.6.33
-        version: 13.6.33
 
   packages/pretty-mcp:
     dependencies:
