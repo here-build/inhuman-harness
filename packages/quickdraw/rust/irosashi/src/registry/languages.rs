@@ -25,7 +25,6 @@ pub const DEFAULT_ALIASES: &[(&str, &str)] = &[
     ("cs", "csharp"),
     ("cts", "typescript"),
     ("dockerfile", "docker"),
-    ("elisp", "emacs-lisp"),
     ("erl", "erlang"),
     ("f", "fortran-fixed-form"),
     ("f#", "fsharp"),
@@ -96,7 +95,6 @@ pub const DEFAULT_ALIASES: &[(&str, &str)] = &[
     ("vim", "viml"),
     ("vimscript", "viml"),
     ("vy", "vyper"),
-    ("wl", "wolfram"),
     ("yml", "yaml"),
     ("zsh", "shellscript"),
 ];

@@ -701,6 +701,8 @@ mod tests {
             let root = Path::new(&src_dir);
             let index_bytes = fs::read(root.join("grammars").join("index.json")).unwrap();
             let mut index: Index = serde_json::from_slice(&index_bytes).unwrap();
+            index.grammars.remove("emacs-lisp");
+            index.grammars.remove("wolfram");
 
             // Also include Arrival ("scm") so runtime needs zero JSON parsing.
             let arrival_path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -736,7 +738,7 @@ mod tests {
                 themes.push((name.to_owned(), t));
             }
 
-            let blob = CorpusEncoder::new().build(&grammars, &themes);
+            let blob = CorpusEncoder::new().build(&mut grammars, &mut themes);
             let header = corpus::parse_corpus_header(&blob).unwrap();
             assert_eq!(header.grammars.len(), grammars.len());
             assert_eq!(header.themes.len(), themes.len());
@@ -768,11 +770,14 @@ mod tests {
         }
 
         let r = Registry::embedded().unwrap();
-        assert_eq!(r.languages().count(), 258);
+        assert_eq!(r.languages().count(), 256);
         assert_eq!(r.themes().count(), 4);
-        assert!(r.grammar("typescript").is_ok());
-        assert!(r.grammar("tsx").is_ok());
-        assert!(r.grammar("scm").is_ok());
+        for lang in r.languages() {
+            let g = r.grammar(lang).unwrap_or_else(|e| panic!("{lang}: {e}"));
+            let root = crate::grammar::compile_patterns(&g, crate::grammar::ROOT_RULE_ID, &g, &r)
+                .unwrap_or_else(|e| panic!("{lang} compile_patterns: {e}"));
+            assert!(!root.is_empty(), "{lang} produced empty root patterns");
+        }
         assert!(r.theme("github-dark").is_ok());
         assert!(r.theme("github-dark-default").is_ok());
         assert!(r.theme("github-light").is_ok());

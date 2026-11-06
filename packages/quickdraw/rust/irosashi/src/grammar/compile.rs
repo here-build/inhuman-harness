@@ -231,6 +231,10 @@ impl Compiler<'_> {
                 Some(id) => self.compile_resolved(&Context::for_rule(&context.grammar, id), id),
                 None => Ok(()),
             },
+            Include::ResolvedLocal(target) => match *target {
+                Some(id) => self.compile_resolved(&Context::for_rule(&context.grammar, id), id),
+                None => Ok(()),
+            },
             Include::Scope(scope) => match self.resolver.grammar_by_scope(scope) {
                 Some(foreign) => {
                     let foreign_context = Context::root(&foreign);
@@ -339,6 +343,14 @@ impl Compiler<'_> {
             Rule::Include(include) => match include {
                 Include::SelfRef | Include::Base => false,
                 Include::Local(key) => match context.lookup(key) {
+                    Some(target) => self.is_hollow(
+                        &Context::for_rule(&context.grammar, target),
+                        target,
+                        visiting,
+                    ),
+                    None => true,
+                },
+                Include::ResolvedLocal(target) => match *target {
                     Some(target) => self.is_hollow(
                         &Context::for_rule(&context.grammar, target),
                         target,

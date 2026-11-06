@@ -27,6 +27,8 @@ pub enum Include {
     Base,
     /// `#key`: a repository entry of the current grammar.
     Local(String),
+    /// Pre-resolved `#key` target (`None` when the key did not exist).
+    ResolvedLocal(Option<RuleId>),
     /// `source.x`: another grammar's top-level patterns.
     Scope(String),
     /// `source.x#key`: a repository entry of another grammar.

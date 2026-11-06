@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::Error;
@@ -11,7 +11,7 @@ use crate::registry::GrammarMeta;
 use crate::theme::matcher::CompiledSelector;
 use crate::theme::{ColorId, FontStyle, Theme, TokenColor, TokenSettings};
 
-const MAGIC: &[u8; 5] = b"IROC\x02";
+const MAGIC: &[u8; 5] = b"IROC\x03";
 
 #[derive(Clone, Copy)]
 pub(crate) struct CorpusSlice {
@@ -274,9 +274,7 @@ pub(crate) fn decode_grammar(
     let name = r.opt_str_owned(strings)?;
     let rules_len = r.varint()? as usize;
     let mut rules = Vec::with_capacity(rules_len);
-    let mut enclosing = Vec::with_capacity(rules_len);
     for _ in 0..rules_len {
-        enclosing.push(r.opt_rule_id()?);
         let tag = r.u8()?;
         let rule = match tag {
             0 => Rule::Noop,
@@ -284,7 +282,7 @@ pub(crate) fn decode_grammar(
                 let inc = match r.u8()? {
                     0 => Include::SelfRef,
                     1 => Include::Base,
-                    2 => Include::Local(r.str_owned(strings)?),
+                    2 => Include::ResolvedLocal(r.opt_rule_id()?),
                     3 => Include::Scope(r.str_owned(strings)?),
                     _ => Include::ScopeKey(r.str_owned(strings)?, r.str_owned(strings)?),
                 };
@@ -345,15 +343,9 @@ pub(crate) fn decode_grammar(
             }
             _ => {
                 let patterns = r.rule_id_vec()?;
-                let has_repo = r.u8()? != 0;
-                let repository = if has_repo {
-                    Some(r.repository(strings)?)
-                } else {
-                    None
-                };
                 Rule::Collection {
                     patterns,
-                    repository,
+                    repository: None,
                 }
             }
         };
@@ -363,11 +355,10 @@ pub(crate) fn decode_grammar(
     let inj_len = r.varint()? as usize;
     let mut injections = Vec::with_capacity(inj_len);
     for _ in 0..inj_len {
-        let raw_selector = r.str_owned(strings)?;
         let selector = r.selector(strings)?;
         let rule = RuleId(r.varint()?);
         injections.push(Injection {
-            raw_selector,
+            raw_selector: String::new(),
             selector,
             rule,
         });
@@ -383,7 +374,7 @@ pub(crate) fn decode_grammar(
         scope_name,
         name,
         rules,
-        enclosing,
+        enclosing: vec![None; rules_len],
         repository,
         injections,
         injection_selector,
@@ -420,7 +411,6 @@ pub(crate) fn decode_theme(
     let tc_len = r.varint()? as usize;
     let mut token_colors = Vec::with_capacity(tc_len);
     for _ in 0..tc_len {
-        let scopes = r.str_vec(strings)?;
         let fg_raw = r.varint()?;
         let bg_raw = r.varint()?;
         let fs_raw = r.u8()?;
@@ -449,7 +439,7 @@ pub(crate) fn decode_theme(
             selectors.push(CompiledSelector { parts, scope_depth });
         }
         token_colors.push(TokenColor {
-            scopes,
+            scopes: Vec::new(),
             settings,
             selectors,
         });
@@ -467,6 +457,181 @@ pub(crate) fn decode_theme(
         default_foreground,
         default_background,
     })
+}
+
+fn collect_selector_paths(composites: &[Composite], out: &mut HashSet<String>) {
+    for comp in composites {
+        for expr in &comp.expressions {
+            match &expr.term {
+                Term::Path(p) => {
+                    if !p.is_empty() {
+                        out.insert(p.clone());
+                    }
+                }
+                Term::Group(alts) => collect_selector_paths(alts, out),
+            }
+        }
+    }
+}
+
+fn canonicalize_scope_token<'a>(tok: &'a str, prefixes: &HashSet<String>) -> &'a str {
+    if tok.contains('$') {
+        return tok;
+    }
+    let mut cur = tok;
+    loop {
+        if prefixes.contains(cur) {
+            return cur;
+        }
+        match cur.rfind('.') {
+            Some(pos) => cur = &cur[..pos],
+            None => return "_",
+        }
+    }
+}
+
+fn canonicalize_scope_name(opt: &mut Option<String>, prefixes: &HashSet<String>) {
+    let Some(raw) = opt.as_deref() else {
+        return;
+    };
+    let mut out = String::new();
+    for tok in raw.split_whitespace() {
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        out.push_str(canonicalize_scope_token(tok, prefixes));
+    }
+    *opt = if out.is_empty() { None } else { Some(out) };
+}
+
+fn canonicalize_captures(captures: &mut Captures, prefixes: &HashSet<String>) {
+    for cap in captures.0.iter_mut().flatten() {
+        canonicalize_scope_name(&mut cap.name, prefixes);
+    }
+}
+
+fn resolve_local_include(grammar: &Grammar, rule_idx: usize, key: &str) -> Option<RuleId> {
+    let mut current = grammar.enclosing.get(rule_idx).copied().flatten();
+    while let Some(collection) = current {
+        if let Rule::Collection {
+            repository: Some(repo),
+            ..
+        } = grammar.rule(collection)
+            && let Some(id) = repo.get(key)
+        {
+            return Some(id);
+        }
+        current = grammar.enclosing[collection.index()];
+    }
+    grammar.repository.get(key)
+}
+
+/// Pre-evaluates grammar scopes against the union of all theme and injection selector
+/// prefixes, resolves `#local` includes directly to `RuleId`s, and strips unreferenced
+/// repository keys and dead parse metadata.
+pub fn pre_evaluate_corpus(
+    grammars: &mut [(String, GrammarMeta, Grammar)],
+    themes: &mut [(String, Theme)],
+) {
+    let mut prefixes = HashSet::new();
+    for (_, theme) in themes.iter() {
+        for tc in &theme.token_colors {
+            for sel in &tc.selectors {
+                for part in &sel.parts {
+                    if !part.is_empty() {
+                        prefixes.insert(part.clone());
+                    }
+                }
+            }
+        }
+    }
+    for (_, _, g) in grammars.iter() {
+        for inj in &g.injections {
+            collect_selector_paths(&inj.selector.composites, &mut prefixes);
+        }
+        if let Some(sel) = &g.injection_selector {
+            collect_selector_paths(&sel.composites, &mut prefixes);
+        }
+    }
+
+    let mut external_repo_keys: HashSet<(String, String)> = HashSet::new();
+    for (_, _, g) in grammars.iter() {
+        for rule in &g.rules {
+            if let Rule::Include(Include::ScopeKey(scope, key)) = rule
+                && scope != &g.scope_name
+            {
+                external_repo_keys.insert((scope.clone(), key.clone()));
+            }
+        }
+    }
+
+    for (_, _, g) in grammars.iter_mut() {
+        let resolved_includes: Vec<Option<Option<RuleId>>> = (0..g.rules.len())
+            .map(|idx| match &g.rules[idx] {
+                Rule::Include(Include::Local(key)) => Some(resolve_local_include(g, idx, key)),
+                Rule::Include(Include::ScopeKey(scope, key)) if scope == &g.scope_name => {
+                    Some(g.repository.get(key))
+                }
+                _ => None,
+            })
+            .collect();
+
+        for (idx, rule) in g.rules.iter_mut().enumerate() {
+            if let Some(target) = resolved_includes[idx] {
+                *rule = Rule::Include(Include::ResolvedLocal(target));
+                continue;
+            }
+            match rule {
+                Rule::Match { name, captures, .. } => {
+                    canonicalize_scope_name(name, &prefixes);
+                    canonicalize_captures(captures, &prefixes);
+                }
+                Rule::BeginEnd {
+                    name,
+                    content_name,
+                    begin_captures,
+                    end_captures,
+                    ..
+                } => {
+                    canonicalize_scope_name(name, &prefixes);
+                    canonicalize_scope_name(content_name, &prefixes);
+                    canonicalize_captures(begin_captures, &prefixes);
+                    canonicalize_captures(end_captures, &prefixes);
+                }
+                Rule::BeginWhile {
+                    name,
+                    content_name,
+                    begin_captures,
+                    while_captures,
+                    ..
+                } => {
+                    canonicalize_scope_name(name, &prefixes);
+                    canonicalize_scope_name(content_name, &prefixes);
+                    canonicalize_captures(begin_captures, &prefixes);
+                    canonicalize_captures(while_captures, &prefixes);
+                }
+                Rule::Collection { repository, .. } => {
+                    *repository = None;
+                }
+                Rule::Include(_) | Rule::Noop => {}
+            }
+        }
+
+        g.enclosing = vec![None; g.rules.len()];
+        let scope_name = g.scope_name.clone();
+        g.repository
+            .0
+            .retain(|k, _| external_repo_keys.contains(&(scope_name.clone(), k.clone())));
+        for inj in &mut g.injections {
+            inj.raw_selector.clear();
+        }
+    }
+
+    for (_, t) in themes.iter_mut() {
+        for tc in &mut t.token_colors {
+            tc.scopes.clear();
+        }
+    }
 }
 
 pub struct CorpusEncoder {
@@ -604,8 +769,7 @@ impl CorpusEncoder {
         self.write_str(&mut out, &g.scope_name);
         self.write_opt_str(&mut out, g.name.as_deref());
         Self::write_varint(&mut out, g.rules.len() as u32);
-        for (idx, rule) in g.rules.iter().enumerate() {
-            Self::write_opt_rule_id(&mut out, g.enclosing[idx]);
+        for rule in &g.rules {
             match rule {
                 Rule::Noop => out.push(0),
                 Rule::Include(inc) => {
@@ -613,9 +777,12 @@ impl CorpusEncoder {
                     match inc {
                         Include::SelfRef => out.push(0),
                         Include::Base => out.push(1),
-                        Include::Local(k) => {
+                        Include::ResolvedLocal(target) => {
                             out.push(2);
-                            self.write_str(&mut out, k);
+                            Self::write_opt_rule_id(&mut out, *target);
+                        }
+                        Include::Local(_) => {
+                            unreachable!("local includes must be pre-resolved by pre_evaluate_corpus")
                         }
                         Include::Scope(s) => {
                             out.push(3);
@@ -686,25 +853,15 @@ impl CorpusEncoder {
                     self.write_captures(&mut out, while_captures);
                     Self::write_rule_id_vec(&mut out, patterns);
                 }
-                Rule::Collection {
-                    patterns,
-                    repository,
-                } => {
+                Rule::Collection { patterns, .. } => {
                     out.push(5);
                     Self::write_rule_id_vec(&mut out, patterns);
-                    if let Some(repo) = repository {
-                        out.push(1);
-                        self.write_repository(&mut out, repo);
-                    } else {
-                        out.push(0);
-                    }
                 }
             }
         }
         self.write_repository(&mut out, &g.repository);
         Self::write_varint(&mut out, g.injections.len() as u32);
         for inj in &g.injections {
-            self.write_str(&mut out, &inj.raw_selector);
             self.write_selector(&mut out, &inj.selector);
             Self::write_varint(&mut out, inj.rule.0);
         }
@@ -733,7 +890,6 @@ impl CorpusEncoder {
         Self::write_varint(&mut out, t.default_background.0);
         Self::write_varint(&mut out, t.token_colors.len() as u32);
         for tc in &t.token_colors {
-            self.write_str_vec(&mut out, &tc.scopes);
             match tc.settings.foreground {
                 None => Self::write_varint(&mut out, 0),
                 Some(id) => Self::write_varint(&mut out, id.0 + 1),
@@ -802,9 +958,10 @@ impl CorpusEncoder {
 
     pub fn build(
         mut self,
-        grammars: &[(String, GrammarMeta, Grammar)],
-        themes: &[(String, Theme)],
+        grammars: &mut [(String, GrammarMeta, Grammar)],
+        themes: &mut [(String, Theme)],
     ) -> Vec<u8> {
+        pre_evaluate_corpus(grammars, themes);
         // Pass 1: collect all unique strings, then sort lexicographically for front-coding.
         let _ = self.encode_sections(grammars, themes);
         self.strings[1..].sort();
