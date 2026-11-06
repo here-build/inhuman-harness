@@ -4,13 +4,16 @@ import {
   type ShapeSubscribeFrame,
   type UpdateLaneName,
 } from "@inhuman.tools/harness-contract";
-import type { Model } from "@inhuman.tools/model";
 import { createAtom, observable, runInAction, type IAtom, type ObservableMap } from "mobx";
 
 import type { UpdateLaneHub } from "./lane-server.js";
 
 function toModelRow<TRow extends Record<string, unknown>>(raw: Record<string, unknown>): TRow {
   return raw as TRow;
+}
+
+function hasApplyRow<T>(val: unknown): val is { applyRow: (row: T) => void } {
+  return typeof val === "object" && val !== null && "applyRow" in val && typeof (val as Record<string, unknown>).applyRow === "function";
 }
 
 export interface ShapeTransport {
@@ -30,15 +33,16 @@ export interface LiveShapeOptions {
 }
 
 export class LiveShape<
-  TRow extends Record<string, unknown>,
-  TModel extends Model<TRow>,
-  TKey extends keyof TRow & string,
+  TKey = string,
+  TRow extends Record<string, unknown> = Record<string, unknown>,
+  TModel = TRow,
 > {
-  readonly #lane: UpdateLaneName;
-  readonly #params: Record<string, unknown>;
-  readonly #keyField: TKey;
-  readonly #ModelCtor: new (row: TRow) => TModel;
-  readonly #transport: ShapeTransport;
+  readonly #lane?: UpdateLaneName;
+  readonly #params?: Record<string, unknown>;
+  readonly #keyField?: keyof TRow & string;
+  readonly #keyFn?: (row: TRow) => unknown;
+  readonly #ModelCtor?: new (row: TRow) => TModel;
+  readonly #transport?: ShapeTransport;
   readonly #graceMs: number;
   readonly #atom: IAtom;
   readonly #items: ObservableMap<string, TModel>;
@@ -48,30 +52,45 @@ export class LiveShape<
   #unsubscribe: (() => void) | null = null;
   #stopTimer: ReturnType<typeof setTimeout> | null = null;
 
+  constructor(keyFn: (row: TRow) => unknown);
   constructor(
     lane: UpdateLaneName,
     params: Record<string, unknown>,
-    keyField: TKey,
+    keyField: keyof TRow & string,
     ModelCtor: new (row: TRow) => TModel,
     transport: ShapeTransport,
     options?: LiveShapeOptions,
+  );
+  constructor(
+    laneOrKeyFn: UpdateLaneName | ((row: TRow) => unknown),
+    params?: Record<string, unknown>,
+    keyField?: keyof TRow & string,
+    ModelCtor?: new (row: TRow) => TModel,
+    transport?: ShapeTransport,
+    options?: LiveShapeOptions,
   ) {
-    this.#lane = lane;
-    this.#params = params;
-    this.#keyField = keyField;
-    this.#ModelCtor = ModelCtor;
-    this.#transport = transport;
-    this.#graceMs = options?.graceMs ?? 3_000;
-    this.#subscriptionId = crypto.randomUUID();
     this.#items = observable.map<string, TModel>([], { deep: false });
-    this.#atom = createAtom(
-      `LiveShape:${lane}`,
-      () => this.#onBecomeObserved(),
-      () => this.#onBecomeUnobserved(),
-    );
+    this.#subscriptionId = crypto.randomUUID();
+    if (typeof laneOrKeyFn === "function") {
+      this.#keyFn = laneOrKeyFn;
+      this.#graceMs = 3_000;
+      this.#atom = createAtom("LiveShape:client");
+    } else {
+      this.#lane = laneOrKeyFn;
+      this.#params = params ?? {};
+      this.#keyField = keyField;
+      this.#ModelCtor = ModelCtor;
+      this.#transport = transport;
+      this.#graceMs = options?.graceMs ?? 3_000;
+      this.#atom = createAtom(
+        `LiveShape:${laneOrKeyFn}`,
+        () => this.#onBecomeObserved(),
+        () => this.#onBecomeUnobserved(),
+      );
+    }
   }
 
-  get lane(): UpdateLaneName {
+  get lane(): UpdateLaneName | undefined {
     return this.#lane;
   }
 
@@ -99,29 +118,74 @@ export class LiveShape<
     return this.#unsubscribe != null;
   }
 
-  applyDelta(frame: ShapeDeltaFrame): void {
+  get(key: string | TKey): TModel | undefined {
+    this.#atom.reportObserved();
+    return this.#items.get(String(key));
+  }
+
+  has(key: string | TKey): boolean {
+    this.#atom.reportObserved();
+    return this.#items.has(String(key));
+  }
+
+  applyFrame(frame: unknown): void {
     runInAction(() => {
-      this.#offset = frame.offset;
-      if (frame.reset) {
+      if (!frame || typeof frame !== "object") return;
+      const obj = frame as Record<string, unknown>;
+      if (typeof obj.offset === "number") {
+        this.#offset = obj.offset;
+      }
+      if (obj.reset === true) {
         this.#items.clear();
       }
-      for (const id of frame.deletes) {
-        this.#items.delete(id);
+      if (Array.isArray(obj.deletes)) {
+        for (const id of obj.deletes) {
+          this.#items.delete(String(id));
+        }
       }
-      for (const raw of frame.upserts) {
-        const row = toModelRow<TRow>(raw);
-        const rawId = row[this.#keyField];
-        const id = String(rawId);
-        const existing = this.#items.get(id);
-        if (existing != null) {
-          existing.applyRow(row);
-        } else {
-          this.#items.set(id, new this.#ModelCtor(row));
+      const upserts = Array.isArray(obj.upserts)
+        ? obj.upserts
+        : Array.isArray(obj.rows)
+          ? obj.rows
+          : Array.isArray(obj.items)
+            ? obj.items
+            : Array.isArray(obj.data)
+              ? obj.data
+              : Array.isArray(frame)
+                ? frame
+                : null;
+      if (upserts) {
+        for (const raw of upserts) {
+          if (raw && typeof raw === "object") {
+            const row = toModelRow<TRow>(raw as Record<string, unknown>);
+            const id = this.#keyFn
+              ? String(this.#keyFn(row))
+              : this.#keyField
+                ? String(row[this.#keyField])
+                : String(
+                    (row as Record<string, unknown>).id ??
+                      (row as Record<string, unknown>).sessionId ??
+                      (row as Record<string, unknown>).jobId ??
+                      "",
+                  );
+            const existing = this.#items.get(id);
+            if (hasApplyRow<TRow>(existing)) {
+              existing.applyRow(row);
+            } else if (this.#ModelCtor) {
+              this.#items.set(id, new this.#ModelCtor(row));
+            } else {
+              this.#items.set(id, row as unknown as TModel);
+            }
+          }
         }
       }
       this.#synced.set(true);
       this.#atom.reportChanged();
     });
+  }
+
+  applyDelta(frame: ShapeDeltaFrame): void {
+    this.applyFrame(frame);
   }
 
   dispose(): void {
@@ -158,6 +222,7 @@ export class LiveShape<
   }
 
   #connect(): void {
+    if (!this.#transport || !this.#lane) return;
     const frame = shapeSubscribeFrameSchema.parse({
       kind: "shape/subscribe",
       subscriptionId: this.#subscriptionId,

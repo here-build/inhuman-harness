@@ -7,7 +7,6 @@
  * daemon's timing. A story that wants a later state mutates the same models.
  */
 import type { RegionGraph } from "@here.build/arrival-provenance";
-import { Plexus } from "@here.build/plexus";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
@@ -273,7 +272,7 @@ export function session(spec: SessionSpec): SessionPlexus {
   let head: SessionTurn | null = null;
   for (const next of spec.turns) head = turn(next, head ?? new SessionSystemPrompt());
   root.head = head;
-  const plexus = Plexus.bootstrap(root) as SessionPlexus;
+  const plexus = SessionPlexus.bootstrap(root);
   if (spec.kvs != null) {
     plexus.root.applyKvs(Object.entries(spec.kvs).map(([key, value]) => ({ form: "kv-set", key, value })));
   }

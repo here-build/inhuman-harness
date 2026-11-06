@@ -17,7 +17,7 @@ export class DocumentContainer<
   TAwareness extends AwarenessShape = AwarenessShape,
 > {
   root: TRoot;
-  readonly guid: string;
+  guid: string;
   readonly awareness: ReactiveAwareness<TAwareness>;
   @observable.ref accessor revision: number;
   #destroyed = false;
@@ -421,6 +421,9 @@ export class DocumentContainer<
     const container = this;
     return new Proxy(raw, {
       get(target, prop, receiver) {
+        if (prop === "toJSON") {
+          return () => Object.fromEntries(target.entries());
+        }
         if (prop === "set") {
           return (key: string, value: unknown) => {
             const prev = target.get(key);
@@ -518,6 +521,7 @@ export class DocumentContainer<
           this.#registry.clear();
           this.registerNode(nextRoot);
         }
+        this.guid = (snapshot as { guid?: string }).guid ?? nextRoot.uuid;
         if (snapshot.meta) {
           this.#meta.clear();
           for (const [ns, entries] of Object.entries(snapshot.meta)) {
@@ -543,14 +547,19 @@ export class DocumentContainer<
   }
 
   encodeStateVector(): Uint8Array {
-    return textEncoder.encode(JSON.stringify({ revision: this.revision }));
+    return textEncoder.encode(JSON.stringify({ guid: this.guid, revision: this.revision }));
   }
 
   applyUpdate(update: Uint8Array, origin?: unknown): void {
     if (update.byteLength === 0) return;
     if (update.byteLength === 2 && update[0] === 0 && update[1] === 0) return;
     const text = textDecoder.decode(update);
-    const parsed = JSON.parse(text) as Record<string, unknown>;
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return;
+    }
     if ("root" in parsed && parsed.root && typeof parsed.root === "object") {
       this.hydrateFromSnapshot(parsed as unknown as SerializedDocument, origin);
       return;
@@ -574,6 +583,7 @@ export class DocumentContainer<
       }
     }
     return {
+      guid: this.guid,
       revision: this.revision,
       root: serializeModel(this.root),
       ...(Object.keys(meta).length > 0 ? { meta } : {}),

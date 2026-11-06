@@ -1,7 +1,7 @@
-import { Plexus } from "@here.build/plexus";
 import {
   CompletionExpectation,
   CompletionJob,
+  SessionPlexus,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -98,7 +98,7 @@ describe("committed plugin progress", () => {
     const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
     root.head = head;
     root.pluginState = snapshot([...before, action("verdict", "a", { ok: true })]);
-    const doc = Plexus.bootstrap(root);
+    const doc = SessionPlexus.bootstrap(root);
     try {
       const items = () => sessionBeats(root).flatMap((beat) => beat.mark?.items ?? []);
       expect(items().map((item) => [item.label, item.detail])).toEqual([

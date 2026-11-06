@@ -1,9 +1,13 @@
 import type { RegionGraph } from "@here.build/arrival-provenance";
 import { ChunkedWebSocket } from "@inhuman.tools/chunked-websocket/client";
+import type { KernelRow, PendingAskRow, SessionSummaryRow } from "@inhuman.tools/harness-contract";
 import type { WorkflowFrame } from "@inhuman.tools/harness-model/session";
 import {
+  applyUpdate,
   bindJsonRpc,
   bindProviderAwareness,
+  createDoc,
+  decodeShapeFrame,
   destroyProvider,
   detachProtocolAwareness,
   KERNEL_DOC_GUID,
@@ -12,11 +16,12 @@ import {
   publishRevalidationDemand,
   SessionPlexus,
   waitForSync,
+  WebsocketProvider,
+  type Doc,
   type JsonRpcPort,
 } from "@inhuman.tools/harness-peer";
-import { makeObservable, observable, runInAction } from "mobx";
-import { WebsocketProvider } from "y-websocket";
-import * as Y from "yjs";
+import { LiveShape } from "@inhuman.tools/scope-plane";
+import { observable, runInAction } from "mobx";
 
 import { cacheKey, CACHE_ORIGIN, guardProvider, writeBehind, type DocCache, type Writer } from "./doc-cache.js";
 import { appLocation, type AppLocation } from "./location.js";
@@ -26,7 +31,7 @@ import { type Feed, foldFrame } from "../workflow/feed.js";
 
 type Held = {
   readonly provider: WebsocketProvider;
-  readonly doc: Y.Doc;
+  readonly doc: Doc;
   stop: () => void;
   /** The kernel room's JSON-RPC port; the only way a tab without a session writes to the daemon. */
   rpc?: JsonRpcPort;
@@ -79,18 +84,25 @@ type Staged = {
 };
 
 export class Dial {
-  kernel: KernelPlexus | null = null;
+  @observable.ref accessor kernel: KernelPlexus | null = null;
   /** Every known project, attached for the sidebar. Not dropped on route changes. */
-  projects = new Map<string, ProjectPlexus>();
-  project: ProjectPlexus | null = null;
-  session: SessionPlexus | null = null;
-  sessionRpc: JsonRpcPort | null = null;
+  @observable.shallow accessor projects = new Map<string, ProjectPlexus>();
+  @observable.ref accessor project: ProjectPlexus | null = null;
+  @observable.ref accessor session: SessionPlexus | null = null;
+  @observable.ref accessor sessionRpc: JsonRpcPort | null = null;
   /** Kernel-plane JSON-RPC, open once the kernel room synced. Kernel documents are read-only here. */
-  kernelRpc: JsonRpcPort | null = null;
-  target: RouteTarget = { kind: "kernel" };
-  requestedTarget: RouteTarget = { kind: "kernel" };
-  link: Link | null = null;
-  attaching = true;
+  @observable.ref accessor kernelRpc: JsonRpcPort | null = null;
+  @observable.ref accessor target: RouteTarget = { kind: "kernel" };
+  @observable.ref accessor requestedTarget: RouteTarget = { kind: "kernel" };
+  @observable.ref accessor link: Link | null = null;
+  @observable.ref accessor attaching = true;
+
+  readonly kernelMeta = new LiveShape<string, KernelRow>((row) => row.id);
+  readonly activeSessions = new LiveShape<string, SessionSummaryRow>((row) => row.sessionId);
+  readonly recentSessions = new LiveShape<string, SessionSummaryRow>((row) => row.sessionId);
+  readonly pendingAsks = new LiveShape<string, PendingAskRow>((row) => row.id);
+  readonly childSessions = new Map<string, LiveShape<string, SessionSummaryRow>>();
+
   #generation = 0;
   /** Sidebar attachments. A newer kernel wins; a route change does not cancel them. */
   #catalogGeneration = 0;
@@ -121,18 +133,6 @@ export class Dial {
       fileUrl: (path) => `/file?path=${encodeURIComponent(path)}`,
     };
     this.#cache = options.cache ?? null;
-    makeObservable(this, {
-      kernel: observable.ref,
-      projects: observable,
-      project: observable.ref,
-      session: observable.ref,
-      sessionRpc: observable.ref,
-      kernelRpc: observable.ref,
-      target: observable.ref,
-      requestedTarget: observable.ref,
-      link: observable.ref,
-      attaching: observable,
-    });
   }
 
   /**
@@ -153,7 +153,7 @@ export class Dial {
    * write through. Route changes do not drop it; the caller releases it.
    */
   async peek(sessionId: string, signal?: AbortSignal): Promise<{ plexus: SessionPlexus; release: () => void }> {
-    const doc = new Y.Doc({ guid: `harness:session:${sessionId}` });
+    const doc = createDoc({ guid: `harness:session:${sessionId}` });
     const room = await this.#connect("session", { sessionId }, doc, () => signal?.aborted === true, signal);
     if (room == null) throw new Error("Peek cancelled.");
     const plexus = SessionPlexus.connect(room.doc);
@@ -306,13 +306,46 @@ export class Dial {
 
   async #kernel(staged: Staged, stale: () => boolean, signal?: AbortSignal): Promise<KernelPlexus | null> {
     if (this.kernel != null && this.#rooms.has("kernel")) return this.kernel;
-    const doc = new Y.Doc({ guid: KERNEL_DOC_GUID });
+    const doc = createDoc({ guid: KERNEL_DOC_GUID });
     const room = await this.#connect("kernel", {}, doc, stale, signal);
     if (room == null) return null;
     staged.rooms.set("kernel", room);
     const plexus = KernelPlexus.connect(room.doc);
     room.stop = bindProviderAwareness(plexus.awareness, room.provider);
     room.rpc = bindJsonRpc(room.provider);
+
+    const handleShapeBytes = (bytes: unknown): void => {
+      if (!(bytes instanceof Uint8Array)) return;
+      const decoded = decodeShapeFrame(bytes);
+      if (!decoded || typeof decoded !== "object") return;
+      const frame = decoded as Record<string, unknown>;
+      const lane = String(frame.lane ?? frame.topic ?? frame.channel ?? frame.name ?? "");
+      runInAction(() => {
+        if (lane === "kernel-meta" || lane === "kernel_meta") {
+          this.kernelMeta.applyFrame(frame);
+        } else if (lane === "sessions:active" || lane === "active_sessions") {
+          this.activeSessions.applyFrame(frame);
+        } else if (lane === "sessions:recent" || lane === "recent_sessions") {
+          this.recentSessions.applyFrame(frame);
+        } else if (lane === "asks:pending" || lane === "pending_asks") {
+          this.pendingAsks.applyFrame(frame);
+        } else if (lane === "sessions:children" || lane === "child_sessions") {
+          const parentId = String(
+            frame.parentSessionId ?? (frame.params as Record<string, unknown> | undefined)?.parentSessionId ?? "",
+          );
+          if (parentId) {
+            let childShape = this.childSessions.get(parentId);
+            if (!childShape) {
+              childShape = new LiveShape<string, SessionSummaryRow>((row) => row.sessionId);
+              this.childSessions.set(parentId, childShape);
+            }
+            childShape.applyFrame(frame);
+          }
+        }
+      });
+    };
+    room.provider.on("shape", handleShapeBytes);
+
     return plexus;
   }
 
@@ -324,7 +357,7 @@ export class Dial {
   ): Promise<ProjectPlexus | null> {
     const cached = this.#projects.get(path);
     if (cached != null) return cached;
-    const doc = new Y.Doc();
+    const doc = createDoc();
     const room = await this.#connect("project", { path }, doc, stale, signal);
     if (room == null) return null;
     staged.rooms.set(`project:${path}`, room);
@@ -343,10 +376,10 @@ export class Dial {
   ): Promise<{ project: ProjectPlexus | null; projectPath: string; session: Session } | null> {
     let held = this.#sessions.get(sessionId);
     if (held == null) {
-      const doc = new Y.Doc({ guid: `harness:session:${sessionId}` });
+      const doc = createDoc({ guid: `harness:session:${sessionId}` });
       const params: Record<string, string> = { sessionId };
-      if (mint) params.path = path ?? "";
-      const listed = this.kernel?.root.sessions[sessionId] != null;
+      if (mint && path != null) params.path = path;
+      const listed = Boolean(this.kernel?.root.sessions[sessionId]);
       // A listed session may still be replaying a long image before the socket opens.
       const room = await this.#connect("session", params, doc, stale, signal, listed && !mint ? 60_000 : 8_000).catch(
         (error: unknown) => {
@@ -378,43 +411,32 @@ export class Dial {
   }
 
   /**
-   * Seat a room. With a cache the doc starts from what the device kept, and the daemon is only
-   * asked for the difference. A cache the daemon does not contain is dropped and the room
-   * starts over empty, so the doc handed back may not be the one passed in: use `room.doc`.
+   * Connects one room.
+   *
+   * A route change while connecting abandons the staged room and the dial tries again (return `"restart"`).
+   * A cache that was superset of the daemon is stale; the cache is dropped and the room starts over clean.
+   * `stale()` says another route change made this attempt obsolete; the room is destroyed immediately.
    */
   async #connect(
-    roomName: string,
-    params: Record<string, string>,
-    doc: Y.Doc,
+    room: string,
+    params: Readonly<Record<string, string>>,
+    doc: Doc,
     stale: () => boolean,
     signal?: AbortSignal,
     timeoutMs = 8_000,
   ): Promise<Held | null> {
-    if (stale()) {
-      doc.destroy();
-      return null;
-    }
-    const cache = this.#cache;
-    const key = cache == null ? "" : cacheKey(this.origin, roomName, params);
-    let useCache = cache != null;
+    const key = cacheKey(this.origin, room, params);
     for (;;) {
-      const room = await this.#attempt(roomName, params, doc, useCache ? cache : null, key, stale, signal, timeoutMs);
-      if (room !== "restart") return room;
-      // The cache held something the daemon does not: forget it and sync everything.
-      cache?.drop(key);
-      useCache = false;
-      doc = new Y.Doc({ guid: doc.guid });
-      if (stale()) {
-        doc.destroy();
-        return null;
-      }
+      const reading = this.#cache;
+      const connected = await this.#connectOnce(room, params, doc, reading, key, stale, signal, timeoutMs);
+      if (connected !== "restart") return connected;
     }
   }
 
-  async #attempt(
+  async #connectOnce(
     roomName: string,
-    params: Record<string, string>,
-    doc: Y.Doc,
+    params: Readonly<Record<string, string>>,
+    doc: Doc,
     reading: DocCache | null,
     key: string,
     stale: () => boolean,
@@ -431,13 +453,13 @@ export class Dial {
           doc.destroy();
           return null;
         }
-        for (const update of loaded) Y.applyUpdate(doc, update, CACHE_ORIGIN);
+        for (const update of loaded) applyUpdate(doc, update, CACHE_ORIGIN);
       } catch {
         // An unreadable cache is no cache.
         cache?.drop(key);
         loaded = [];
         doc.destroy();
-        doc = new Y.Doc({ guid: doc.guid });
+        doc = createDoc({ guid: doc.guid });
       }
       if (stale()) {
         doc.destroy();

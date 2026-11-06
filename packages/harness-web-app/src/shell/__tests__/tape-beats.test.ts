@@ -1,8 +1,8 @@
-import { Plexus } from "@here.build/plexus";
 import {
   CompletionExpectation,
   CompletionJob,
   ProgrammaticJob,
+  SessionPlexus,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -26,7 +26,7 @@ describe("progress marks", () => {
     turn.pushChild(job);
     const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
     root.head = turn;
-    const doc = Plexus.bootstrap(root);
+    const doc = SessionPlexus.bootstrap(root);
     try {
       const cells = tapeCells(root);
       expect(cells.some((cell) => cell.kind === "tool" && cell.outcome === "failed")).toBe(true);
@@ -124,7 +124,7 @@ describe("progress marks", () => {
     });
     for (const chunk of turn.doneWork) turn.pushChild(chunk);
     root.head = turn;
-    const plexus = Plexus.bootstrap(root);
+    const plexus = SessionPlexus.bootstrap(root);
     await schemeExprReady(expr);
     expect(schemeExprSettled(expr)).toBe(true);
     const cells = tapeCells(root);
@@ -177,7 +177,7 @@ describe("progress marks", () => {
     });
     for (const chunk of turn.doneWork) turn.pushChild(chunk);
     root.head = turn;
-    const plexus = Plexus.bootstrap(root);
+    const plexus = SessionPlexus.bootstrap(root);
     const cells = tapeCells(root);
     expect(cells.map(face)).toEqual(["round", "progress:Ship the bar:Left pane", "speech", "reads"]);
     expect(cells.some((cell) => cell.kind === "tool" && /task__|goal__/.test(cell.summary))).toBe(false);
@@ -261,7 +261,7 @@ describe("context_need", () => {
     });
     for (const chunk of turn.doneWork) turn.pushChild(chunk);
     root.head = turn;
-    const plexus = Plexus.bootstrap(root);
+    const plexus = SessionPlexus.bootstrap(root);
     await schemeExprReady(mixed);
     expect(tapeCells(root).map(face)).toEqual(["round", "speech", "tool:shell pwd", "tool:shell pwd"]);
     plexus.destroy();

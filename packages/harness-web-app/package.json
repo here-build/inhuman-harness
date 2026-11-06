@@ -31,7 +31,6 @@
     "@here.build/arrival": "^0.10.2",
     "@here.build/arrival-env": "^0.10.2",
     "@here.build/arrival-provenance": "^0.10.0",
-    "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/chunked-websocket": "workspace:^",
     "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/harness-contract": "workspace:^",
@@ -75,9 +74,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "6.0.3",
     "vite": "^7.3.7",
-    "vitest": "5.0.5",
-    "y-websocket": "3.1.0",
-    "yjs": "13.6.33"
+    "vitest": "5.0.5"
   },
   "license": "MIT",
   "browserslist": [

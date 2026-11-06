@@ -1,9 +1,9 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Plexus } from "@here.build/plexus";
 import {
   ProgrammaticJob,
   SCHEME_WATCH_TOOL_NAME,
+  SessionPlexus,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -185,7 +185,7 @@ function projectNow(expr: string, tools: readonly SystemToolJob[], toolName = "s
   });
   turn.pushChild(program);
   root.head = turn;
-  const plexus = Plexus.bootstrap(root);
+  const plexus = SessionPlexus.bootstrap(root);
   try {
     return tapeCells(root);
   } finally {
