@@ -642,4 +642,31 @@ describe("turn sequence rules with mock resolution", () => {
       afterRollback: ["from the call", "from the bag", "job job-scheme finished: cancelled"],
     });
   });
+
+  it.each([
+    { kvEffort: "xhigh", specEffort: "medium" as const, expected: "xhigh" },
+    { kvEffort: "", specEffort: "high" as const, expected: "high" },
+    { kvEffort: undefined, specEffort: "low" as const, expected: "low" },
+  ])(
+    "resolves CompletionExpectation.reasoningEffort ($kvEffort -> $expected) and freezes it across rounds",
+    async ({ kvEffort, specEffort, expected }) => {
+      const f = turnFixture(
+        (completion) => {
+          completion.responseCalls.push(responseCall("t1", "echo", "{}"));
+          f.session.kvs.reasoningEffort = "minimal";
+        },
+        (completion) => {
+          completion.responseText = "Done.";
+        },
+      );
+      f.session.agent.spec.reasoningEffort = specEffort;
+      if (kvEffort !== undefined) {
+        f.session.kvs.reasoningEffort = kvEffort;
+      } else {
+        delete f.session.kvs.reasoningEffort;
+      }
+      await f.run();
+      expect(f.completions().map((job) => job.expectation.reasoningEffort)).toEqual([expected, expected]);
+    },
+  );
 });

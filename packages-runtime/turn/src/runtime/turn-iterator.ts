@@ -9,6 +9,7 @@ import {
   parseCompactTrigger,
   ProgrammaticJob,
   ReACTChunk,
+  reasoningEffortOf,
   SessionRoot,
   SessionTurn,
   ToolCallJob,
@@ -88,6 +89,7 @@ export async function iterateTurn(turn: SessionTurn, host: TurnIteratorHost, sig
   const session = host.session;
   const connectionId = session.kvs.connection?.trim() ?? "";
   const model = session.kvs.model?.trim() ?? "";
+  const reasoningEffort = reasoningEffortOf(session.kvs.reasoningEffort) ?? session.agent.spec.reasoningEffort;
   // Recorded once: a live setting change does not move a turn that is already running.
   turn.stampLoopLimits(host.loopLimits?.(turn) ?? { maxRounds: 0, lengthContinuations: DEFAULT_LENGTH_CONTINUATIONS });
   for (const chunk of turnSequence(turn, signal)) {
@@ -160,7 +162,7 @@ export async function iterateTurn(turn: SessionTurn, host: TurnIteratorHost, sig
           connectionId,
           model,
           messages,
-          reasoningEffort: session.agent.spec.reasoningEffort,
+          reasoningEffort,
         });
         const enrichment = boundaryNote(turn, chunk instanceof ReACTChunk ? chunk : null, host);
         completion.systemNote = enrichment.note;
