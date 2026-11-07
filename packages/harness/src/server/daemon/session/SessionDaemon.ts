@@ -92,7 +92,7 @@ import type { KernelDaemon } from "../kernel/KernelDaemon.js";
 import type { ProjectDaemon } from "../project/ProjectDaemon.js";
 
 function isModelChoiceKey(key: string): boolean {
-  return key === "model" || key === "connection";
+  return key === "model" || key === "connection" || key === "reasoningEffort";
 }
 
 function parsePluginArgs(json: string | undefined): Record<string, unknown> {

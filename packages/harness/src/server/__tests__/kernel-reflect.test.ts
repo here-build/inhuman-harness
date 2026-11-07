@@ -20,17 +20,39 @@ import { reflectKernel } from "../daemon/kernel/fs-reflection/reflectKernel.js";
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 
 describe("kernel reflect", () => {
-  it("kernel advertise genesis connect.scm", async () => {
+  it("kernel advertise genesis connect.scm and effort.scm", async () => {
     const genesisDir = await mkdtemp(join(tmpdir(), "harness-corecmd-"));
     using daemon = new KernelDaemon(genesisDir);
     await daemon.ready;
     const connect = daemon.plexus.root.commands.connect;
+    const effort = daemon.plexus.root.commands.effort;
     expect({
       source: connect?.source,
       nonempty: (connect?.body.length ?? 0) > 0,
+      effortSource: effort?.source,
+      effortDescription: effort?.description,
+      effortBody: effort == null ? null : JSON.parse(effort.body),
     }).toEqual({
       source: expect.stringMatching(/defaults\/commands\/connect\.scm$/),
       nonempty: true,
+      effortSource: expect.stringMatching(/defaults\/commands\/effort\.scm$/),
+      effortDescription: "Reasoning effort",
+      effortBody: {
+        kind: "choice",
+        context: "effort",
+        action: [
+          {
+            kind: "action",
+            op: "kv/set",
+            name: "Set reasoning effort",
+            params: {
+              key: "reasoningEffort",
+              value: "",
+              remember: "1",
+            },
+          },
+        ],
+      },
     });
   }, 15_000);
 

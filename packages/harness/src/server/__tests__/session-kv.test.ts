@@ -219,38 +219,58 @@ describe("session kv", () => {
     // Bare session writes stay on the session. Subagent and --model use this.
     await merged.handleRequest("kv/set", { key: "connection", value: "work" });
     await merged.handleRequest("kv/set", { key: "model", value: "gpt-5" });
+    await merged.handleRequest("kv/set", { key: "reasoningEffort", value: "medium" });
     expect({
       sessionModel: merged.root.kvs.model,
+      sessionEffort: merged.root.kvs.reasoningEffort,
       sessionLast: merged.root.lastUsedConnectionModel.work,
       projectModel: project.root.kvs.model,
+      projectEffort: project.root.kvs.reasoningEffort,
       projectLast: project.root.lastUsedConnectionModel.work,
       kernelModel: kernel.plexus.root.kvs.model,
+      kernelEffort: kernel.plexus.root.kvs.reasoningEffort,
       kernelLast: kernel.plexus.root.lastUsedConnectionModel.work,
       used: kernel.plexus.root.modelsUsage["work/gpt-5"],
     }).toEqual({
       sessionModel: "gpt-5",
+      sessionEffort: "medium",
       sessionLast: "gpt-4o",
       projectModel: undefined,
+      projectEffort: undefined,
       projectLast: "gpt-4o",
       kernelModel: undefined,
+      kernelEffort: undefined,
       kernelLast: "gpt-4",
       used: undefined,
     });
 
-    // /model and /connect pass remember: session + project + kernel.
+    // /model, /connect, and /effort pass remember: session + project + kernel.
     await merged.handleRequest("kv/set", { key: "connection", value: "work", remember: true });
     await merged.handleRequest("kv/set", { key: "model", value: "gpt-5", remember: true });
+    await merged.handleRequest("kv/set", { key: "reasoningEffort", value: "high", remember: true });
     expect({
       session: merged.root.lastUsedConnectionModel.work,
       project: project.root.lastUsedConnectionModel.work,
       kernel: kernel.plexus.root.lastUsedConnectionModel.work,
-    }).toEqual({ session: "gpt-5", project: "gpt-5", kernel: "gpt-5" });
+      sessionEffort: merged.root.kvs.reasoningEffort,
+      projectEffort: project.root.kvs.reasoningEffort,
+      kernelEffort: kernel.plexus.root.kvs.reasoningEffort,
+    }).toEqual({
+      session: "gpt-5",
+      project: "gpt-5",
+      kernel: "gpt-5",
+      sessionEffort: "high",
+      projectEffort: "high",
+      kernelEffort: "high",
+    });
 
     // Later sessions mint the remembered state.
-    expect((await project.session("lucm-s3")).root.lastUsedConnectionModel).toEqual({
+    const mintedLater = await project.session("lucm-s3");
+    expect(mintedLater.root.lastUsedConnectionModel).toEqual({
       work: "gpt-5",
       personal: "claude",
     });
+    expect(mintedLater.root.kvs.reasoningEffort).toBe("high");
   });
 });
 
