@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { InstalledPlugin, KernelRoot } from "@inhuman.tools/harness-model";
+import { InstalledPlugin, KernelRoot, SessionRoot, SessionTurn } from "@inhuman.tools/harness-model";
+import { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
 import { expect, test } from "vitest";
 
-import { evalUiSurface, UiNode } from "../uiCapability.js";
+import { buildEffortSurface, effortChoices, evalUiSurface, UiNode } from "../uiCapability.js";
 
 const PLUGINS = fileURLToPath(new URL("../../../../../plugins/", import.meta.url));
 const DEFAULTS = fileURLToPath(
@@ -225,4 +226,87 @@ test("/plugins lists installed plugins with toggle/foreground/remove actions and
       },
     ],
   });
+});
+
+test("/effort builds model-filtered effort choices and annotates current and cache-drop transitions", () => {
+  const kernel = new KernelRoot();
+  const conn = new ConnectionSpec({
+    id: "openai",
+    name: "OpenAI",
+  });
+  conn.configuration = { baseUrl: "https://api.openai.com/v1" };
+  conn.live = {
+    modelCapabilities: {
+      o3: {
+        supportsReasoning: true,
+        reasoningEfforts: ["low", "medium", "high"],
+      },
+    },
+  };
+  kernel.connections.openai = conn;
+
+  const session = new SessionRoot();
+  session.kvs.connection = "openai";
+  session.kvs.model = "o3";
+  session.kvs.reasoningEffort = "medium";
+  session.agent.spec.reasoningEffort = "high";
+
+  const coldChoices = effortChoices(kernel, session).map((c) => ({
+    name: c.name,
+    description: c.description,
+    annotation: c.annotation,
+    value: c.action[0]?.params.value,
+  }));
+  expect(coldChoices).toEqual([
+    { name: "default", description: "default (high)", annotation: "", value: "" },
+    { name: "low", description: "", annotation: "", value: "low" },
+    { name: "medium", description: "current", annotation: "current", value: "medium" },
+    { name: "high", description: "", annotation: "", value: "high" },
+  ]);
+
+  session.head = new SessionTurn();
+  const warmSurface = buildEffortSurface(kernel, session);
+  expect({
+    action: warmSurface.action.map((a) => ({ op: a.op, name: a.name, params: a.params })),
+    choices: warmSurface.choices.map((c) => ({
+      name: c.name,
+      description: c.description,
+      annotation: c.annotation,
+      value: c.action[0]?.params.value,
+    })),
+  }).toEqual({
+    action: [
+      {
+        op: "kv/set",
+        name: "Set reasoning effort",
+        params: { key: "reasoningEffort", value: "", remember: "1" },
+      },
+    ],
+    choices: [
+      { name: "default", description: "default (high) · drops cache", annotation: "drops cache", value: "" },
+      { name: "low", description: "drops cache", annotation: "drops cache", value: "low" },
+      { name: "medium", description: "current", annotation: "current", value: "medium" },
+      { name: "high", description: "drops cache", annotation: "drops cache", value: "high" },
+    ],
+  });
+
+  const fromCommandFile = evalUiSurface(readFileSync(`${DEFAULTS}effort.scm`, "utf8"), { kernel, session });
+  expect(fromCommandFile?.choices.map((c) => c.name)).toEqual(["default", "low", "medium", "high"]);
+
+  // Anthropic model uses "drops message cache" when warm, and preserves when target matches effective effort
+  session.kvs.model = "claude-opus-4-6";
+  delete session.kvs.reasoningEffort;
+  const anthropicWarm = effortChoices(kernel, session).map((c) => ({
+    name: c.name,
+    description: c.description,
+    annotation: c.annotation,
+  }));
+  expect(anthropicWarm).toEqual([
+    { name: "default", description: "default (high) · current", annotation: "current" },
+    { name: "off", description: "drops message cache", annotation: "drops message cache" },
+    { name: "low", description: "drops message cache", annotation: "drops message cache" },
+    { name: "medium", description: "drops message cache", annotation: "drops message cache" },
+    { name: "high", description: "", annotation: "" },
+    { name: "max", description: "drops message cache", annotation: "drops message cache" },
+  ]);
 });

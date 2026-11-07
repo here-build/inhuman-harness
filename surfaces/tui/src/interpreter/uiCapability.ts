@@ -10,7 +10,17 @@
  * leaves with `pending`.
  */
 import { parseUiDefinition, type UiDefinition } from "@inhuman.tools/harness-contract";
-import type { KernelRoot, SessionRoot } from "@inhuman.tools/harness-model";
+import {
+  formatReasoningEffortLabel,
+  type KernelRoot,
+  REASONING_EFFORTS,
+  type ReasoningEffort,
+  reasoningEffortOf,
+  reasoningProfileFor,
+  type ReasoningProfileHint,
+  type SessionRoot,
+  willEffortSwitchDropCache,
+} from "@inhuman.tools/harness-model";
 import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 
 export type UiHealth = "ok" | "degraded" | "failed";
@@ -609,6 +619,73 @@ export function buildModelSurface(kernel: KernelRoot, session?: SessionRoot): Ui
   });
 }
 
+export function effortChoices(kernel: KernelRoot, session?: SessionRoot): readonly UiNode[] {
+  const connectionId = text(session?.kvs.connection ?? kernel.kvs.connection).trim();
+  const model = text(session?.kvs.model ?? kernel.kvs.model).trim();
+  const conn = connectionId === "" ? undefined : kernel.connections[connectionId];
+  const baseUrl = conn ? connectionUrl(conn) : "";
+  const capRaw = conn && model !== "" ? asDict(liveOf(conn).modelCapabilities)[model] : undefined;
+  const cap = asDict(capRaw);
+  const rawEfforts = Array.isArray(cap.reasoningEfforts)
+    ? cap.reasoningEfforts
+        .map((item) => reasoningEffortOf(item))
+        .filter((item): item is ReasoningEffort => item !== null)
+    : undefined;
+  const hint: ReasoningProfileHint = {
+    supportsReasoning: typeof cap.supportsReasoning === "boolean" ? cap.supportsReasoning : undefined,
+    reasoningEfforts: rawEfforts,
+    baseUrl,
+  };
+  const profile = reasoningProfileFor(model, hint);
+  const efforts: readonly ReasoningEffort[] =
+    profile.supportsReasoning && profile.supportedEfforts.length > 0 ? profile.supportedEfforts : REASONING_EFFORTS;
+  const kvEffort = reasoningEffortOf(session?.kvs.reasoningEffort ?? kernel.kvs.reasoningEffort);
+  const agentEffort = reasoningEffortOf(session?.agent.spec.reasoningEffort);
+  const effectiveCurrent = kvEffort ?? agentEffort ?? null;
+  const hasWarmTrajectory = session?.head != null;
+  const options: readonly ("" | ReasoningEffort)[] = ["", ...efforts];
+
+  return options.map((effort) => {
+    const name = effort === "" ? "default" : formatReasoningEffortLabel(effort);
+    const isCurrent = effort === "" ? kvEffort === null : kvEffort === effort;
+    const targetEffective = effort === "" ? agentEffort : effort;
+    const impact = willEffortSwitchDropCache(profile, effectiveCurrent, targetEffective, hasWarmTrajectory);
+    const statusTags: string[] = [];
+    if (isCurrent) {
+      statusTags.push("current");
+    } else if (impact !== "preserve") {
+      statusTags.push(impact === "drops-messages" ? "drops message cache" : "drops cache");
+    }
+    const descParts: string[] = [];
+    if (effort === "" && agentEffort !== null) {
+      descParts.push(`default (${formatReasoningEffortLabel(agentEffort)})`);
+    }
+    descParts.push(...statusTags);
+    return uiChoice({
+      name,
+      description: descParts.join(" · "),
+      annotation: statusTags.join(" · "),
+      action: [
+        uiAction("kv/set", {
+          params: { key: "reasoningEffort", value: effort, remember: "1" },
+        }),
+      ],
+    });
+  });
+}
+
+export function buildEffortSurface(kernel: KernelRoot, session?: SessionRoot): UiNode {
+  return uiChoice({
+    action: [
+      uiAction("kv/set", {
+        name: "Set reasoning effort",
+        params: { key: "reasoningEffort", value: "", remember: "1" },
+      }),
+    ],
+    choices: effortChoices(kernel, session),
+  });
+}
+
 export function mcpConnectionChoices(kernel: KernelRoot, session?: SessionRoot): readonly UiNode[] {
   const connections = Object.values(kernel.connections).filter((c) => driverCan(c.driver).includes("mcp"));
   return connections.map((c) => {
@@ -841,22 +918,28 @@ function applyPluginStatusChoice(choices: readonly UiNode[], description: string
 // Static JSON UI reader (no Scheme interpreter)
 // ---------------------------------------------------------------------------
 
-export function evalUiDef(def: UiDefinition, config: UiEvalConfig = {}): UiNode {
+export function evalUiDef(def: UiDefinition, config: UiEvalConfig = {}, effortContext = false): UiNode {
   switch (def.kind) {
     case "choice": {
       let choices: readonly UiNode[] = (def.choices ?? []).map((item) => evalUiDef(item, config));
-      if (def.context === "connect" && config.kernel !== undefined) {
+      let action: readonly UiNode[] = (def.action ?? []).map((item) => evalUiDef(item, config));
+      const context: string | undefined = effortContext ? "effort" : def.context;
+      if (context === "connect" && config.kernel !== undefined) {
         choices = [...connectChoices(config.kernel, config.session), ...choices];
-      } else if (def.context === "model" && config.kernel !== undefined) {
+      } else if (context === "model" && config.kernel !== undefined) {
         choices = [...modelChoices(config.kernel, config.session), ...choices];
-      } else if (def.context === "mcp" && config.kernel !== undefined) {
+      } else if (context === "effort" && config.kernel !== undefined) {
+        const surface = buildEffortSurface(config.kernel, config.session);
+        choices = [...surface.choices, ...choices];
+        if (action.length === 0) action = surface.action;
+      } else if (context === "mcp" && config.kernel !== undefined) {
         choices = [...mcpConnectionChoices(config.kernel, config.session), ...choices];
-      } else if (def.context === "plugins" && config.kernel !== undefined) {
+      } else if (context === "plugins" && config.kernel !== undefined) {
         choices = [...pluginChoices(config.kernel), ...choices];
-      } else if (def.context === "goal") {
+      } else if (context === "goal") {
         const reply = config.rpc?.("plugin/method", { plugin: "inhuman-plugin-goal", method: "get" });
         choices = applyPluginStatusChoice(choices, goalStatusLine(reply));
-      } else if (def.context === "plan") {
+      } else if (context === "plan") {
         const reply = config.rpc?.("plugin/method", { plugin: "fusion", method: "get" });
         choices = applyPluginStatusChoice(choices, planStatusLine(reply));
       }
@@ -868,7 +951,7 @@ export function evalUiDef(def: UiDefinition, config: UiEvalConfig = {}): UiNode 
         healthStatus: def.healthStatus,
         healthAnnotation: def.healthAnnotation,
         hotkey: def.hotkey,
-        action: (def.action ?? []).map((item) => evalUiDef(item, config)),
+        action,
         alternateActions: (def.alternateActions ?? []).map((item) => evalUiDef(item, config)),
         choices,
         secret: def.secret,
@@ -910,22 +993,42 @@ export function evalUiDef(def: UiDefinition, config: UiEvalConfig = {}): UiNode 
   }
 }
 
+function parseUiDefinitionCompat(
+  source: string,
+): { readonly def: UiDefinition; readonly effortContext: boolean } | null {
+  const direct = parseUiDefinition(source);
+  if (direct !== null) return { def: direct, effortContext: false };
+  if (!source.includes("effort")) return null;
+  const adapted = source
+    .replaceAll(/("context"\s*:\s*)"effort"/g, '$1"model"')
+    .replaceAll(/(:context\s+)"effort"/g, '$1"model"');
+  if (adapted === source) return null;
+  const fallback = parseUiDefinition(adapted);
+  if (fallback?.kind !== "choice" || fallback.context !== "model") return null;
+  return { def: fallback, effortContext: true };
+}
+
 export function evalUiSurface(source: string, config: UiEvalConfig = {}): UiNode | undefined {
-  const def = parseUiDefinition(source);
-  if (def === null) return undefined;
-  return evalUiDef(def, config);
+  const parsed = parseUiDefinitionCompat(source);
+  if (parsed === null) return undefined;
+  return evalUiDef(parsed.def, config, parsed.effortContext);
 }
 
 export async function evalUiSurfaceAsync(source: string, config: UiEvalConfig = {}): Promise<UiNode | undefined> {
-  const def = parseUiDefinition(source);
-  if (def === null) return undefined;
+  const parsed = parseUiDefinitionCompat(source);
+  if (parsed === null) return undefined;
+  const { def, effortContext } = parsed;
   if (config.rpc !== undefined && def.kind === "choice" && (def.context === "goal" || def.context === "plan")) {
     const plugin = def.context === "goal" ? "inhuman-plugin-goal" : "fusion";
     const reply = await config.rpc("plugin/method", { plugin, method: "get" });
-    return evalUiDef(def, {
-      ...config,
-      rpc: () => reply,
-    });
+    return evalUiDef(
+      def,
+      {
+        ...config,
+        rpc: () => reply,
+      },
+      effortContext,
+    );
   }
-  return evalUiDef(def, config);
+  return evalUiDef(def, config, effortContext);
 }
