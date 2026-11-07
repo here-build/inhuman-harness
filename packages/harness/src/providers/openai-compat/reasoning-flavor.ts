@@ -92,7 +92,11 @@ export function reasoningFlavorFromBaseUrl(baseUrl: string): ReasoningFlavor {
     host.endsWith(".moonshot.ai") ||
     host.endsWith(".moonshot.cn") ||
     host === "api.kimi.com" ||
-    host.endsWith(".kimi.com")
+    host.endsWith(".kimi.com") ||
+    host === "api.z.ai" ||
+    host.endsWith(".z.ai") ||
+    host === "open.bigmodel.cn" ||
+    host.endsWith(".bigmodel.cn")
   ) {
     return "kimi";
   }
@@ -109,23 +113,25 @@ export function reasoningFlavorFromBaseUrl(baseUrl: string): ReasoningFlavor {
 
 function cannotDisable(flavor: ReasoningFlavor, model: string): boolean {
   const id = modelId(model);
-  switch (flavor) {
-    case "grok":
-      return true;
-    case "chatgpt":
-    case "openai":
-      return /(?:^|[^a-z0-9])gpt-6/.test(id);
-    case "gemini":
-      return id.includes("pro") || /gemini-3/.test(id);
-    case "groq":
-      return id.includes("gpt-oss");
-    case "kimi":
-      return id.includes("k3") || id.includes("k2.7") || id.includes("k2-7");
-    case "together":
-      return id.includes("gpt-oss");
-    default:
-      return false;
+  if (flavor === "grok" || /(?:^|\/)grok-/.test(id)) return true;
+  if (
+    /(?:^|[^a-z0-9])gpt-6/.test(id) ||
+    /(?:^|\/|-)o[134](?:$|[-_])/.test(id) ||
+    id.includes("gpt-5-pro") ||
+    id.includes("gpt-5-codex") ||
+    id.includes("gpt-oss")
+  ) {
+    return true;
   }
+  if (id.includes("k3") || id.includes("kimi-3") || id.includes("k2.7") || id.includes("k2-7")) {
+    return true;
+  }
+  if (id.includes("glm-5")) return true;
+  if (id.includes("deepseek-r1") || id.includes("deepseek-reasoner")) return true;
+  if (/(?:^|\/)(?:qwq|qvq)/.test(id)) return true;
+  if (flavor === "gemini") return id.includes("pro") || /gemini-3/.test(id);
+  if (id.includes("gemini-2.5-pro") || id.includes("gemini-3")) return true;
+  return false;
 }
 
 /** Wire token after clamp. `default` is Groq Qwen's enable-without-tier. */
@@ -144,18 +150,33 @@ function mapKimiEffort(effort: ReasoningEffort): "low" | "high" | "max" {
   return "high";
 }
 
+function isQwen38(id: string): boolean {
+  return id.includes("qwen3.8") || id.includes("qwen-3.8") || id.includes("qwen3_8");
+}
+
 function clampEffort(flavor: ReasoningFlavor, model: string, effort: ReasoningEffort): WireEffort {
+  const id = modelId(model);
   if (effort === "none" && cannotDisable(flavor, model)) return "low";
+  if (isQwen38(id)) {
+    if (effort === "none") return "none";
+    if (effort === "minimal") return "low";
+    if (effort === "high" || effort === "max") return "xhigh";
+    return effort;
+  }
+  if (id.includes("glm-5")) {
+    if (effort === "none" || effort === "minimal" || effort === "low") return "low";
+    if (effort === "max" || effort === "xhigh") return "max";
+    return "high";
+  }
   if (flavor === "deepseek") return mapDeepSeekEffort(effort);
   if (flavor === "kimi") return mapKimiEffort(effort);
   if (flavor === "grok") {
     if (effort === "minimal") return "low";
-    if (effort === "max") return modelId(model).includes("4.6") || modelId(model).includes("4.20") ? "xhigh" : "high";
-    if (effort === "xhigh" && !modelId(model).includes("4.6") && !modelId(model).includes("4.20")) return "high";
+    if (effort === "max") return id.includes("4.6") || id.includes("4.20") ? "xhigh" : "high";
+    if (effort === "xhigh" && !id.includes("4.6") && !id.includes("4.20")) return "high";
     return effort;
   }
   if (flavor === "groq") {
-    const id = modelId(model);
     if (id.includes("gpt-oss")) {
       if (effort === "none" || effort === "minimal") return "low";
       if (effort === "max" || effort === "xhigh") return "high";
@@ -209,7 +230,9 @@ function deepSeekChatBody(effort: WireEffort): Record<string, unknown> {
 
 function kimiChatBody(model: string, effort: WireEffort): Record<string, unknown> {
   const id = modelId(model);
-  if (id.includes("k3")) return { reasoning_effort: effort };
+  if (id.includes("k3") || id.includes("kimi-3") || id.includes("glm-5")) {
+    return { reasoning_effort: effort };
+  }
   if (id.includes("k2.7") || id.includes("k2-7")) return EMPTY_BODY;
   if (effort === "none") return { thinking: { type: "disabled" } };
   return { thinking: { type: "enabled" } };
@@ -234,9 +257,20 @@ function chatFieldFor(flavor: ReasoningFlavor): ReasoningChatField {
   return "reasoning_content";
 }
 
-function echoFor(flavor: ReasoningFlavor, hasTools: boolean): ReasoningEcho {
-  if (flavor === "deepseek" && hasTools) return "always";
-  if (flavor === "kimi" || flavor === "qwen") return "always";
+function echoFor(flavor: ReasoningFlavor, hasTools: boolean, model = ""): ReasoningEcho {
+  const id = modelId(model);
+  if ((flavor === "deepseek" || id.includes("deepseek")) && hasTools) return "always";
+  if (
+    flavor === "kimi" ||
+    flavor === "qwen" ||
+    id.includes("kimi") ||
+    id.includes("qwen") ||
+    id.includes("qwq") ||
+    id.includes("qvq") ||
+    id.includes("glm")
+  ) {
+    return "always";
+  }
   return "omit-empty";
 }
 
@@ -286,7 +320,7 @@ export function reasoningDialectFor(
       : chatBody(flavor, ctx.model, mapped);
   return {
     flavor,
-    echo: echoFor(flavor, ctx.hasTools),
+    echo: echoFor(flavor, ctx.hasTools, ctx.model),
     chatField: chatFieldFor(flavor),
     body,
   };

@@ -134,4 +134,91 @@ describe("reasoning flavor", () => {
       responsesDefault: { reasoning: { summary: "auto" } },
     });
   });
+
+  it("clamps Qwen 3.8 high/max to xhigh and minimal to low", () => {
+    expect(
+      reasoningDialectFor("qwen", "high", {
+        api: "chat",
+        model: "qwen3.8-27b",
+        hasTools: false,
+      }).body,
+    ).toEqual({ enable_thinking: true, reasoning_effort: "xhigh" });
+    expect(
+      reasoningDialectFor("qwen", "minimal", {
+        api: "chat",
+        model: "qwen-3.8-plus",
+        hasTools: false,
+      }).body,
+    ).toEqual({ enable_thinking: true, reasoning_effort: "low" });
+    expect(
+      reasoningDialectFor("openrouter", "high", {
+        api: "chat",
+        model: "qwen/qwen3.8-27b",
+        hasTools: false,
+      }).body,
+    ).toEqual({ reasoning: { effort: "xhigh", exclude: false } });
+    expect(
+      reasoningDialectFor("qwen", "none", {
+        api: "chat",
+        model: "qwen3.8-27b",
+        hasTools: false,
+      }).body,
+    ).toEqual({ enable_thinking: false });
+  });
+
+  it("applies model-origin cannotDisable and echoFor across gateways", () => {
+    expect(
+      reasoningDialectFor("openrouter", "none", {
+        api: "chat",
+        model: "x-ai/grok-4.6",
+        hasTools: false,
+      }).body,
+    ).toEqual({ reasoning: { effort: "low", exclude: false } });
+    expect(
+      reasoningDialectFor("openrouter", "none", {
+        api: "chat",
+        model: "openai/gpt-6-astra",
+        hasTools: false,
+      }).body,
+    ).toEqual({ reasoning: { effort: "low", exclude: false } });
+    expect(
+      reasoningDialectFor("openrouter", "none", {
+        api: "chat",
+        model: "moonshotai/kimi-k3",
+        hasTools: false,
+      }).body,
+    ).toEqual({ reasoning: { effort: "low", exclude: false } });
+    expect(
+      reasoningDialectFor("openrouter", "none", {
+        api: "chat",
+        model: "z-ai/glm-5.3",
+        hasTools: false,
+      }).body,
+    ).toEqual({ reasoning: { effort: "low", exclude: false } });
+
+    expect(
+      reasoningDialectFor("openrouter", "medium", {
+        api: "chat",
+        model: "deepseek/deepseek-v4-pro",
+        hasTools: true,
+      }).echo,
+    ).toBe("always");
+    expect(
+      reasoningDialectFor("openrouter", "medium", {
+        api: "chat",
+        model: "qwen/qwen3.8-27b",
+        hasTools: false,
+      }).echo,
+    ).toBe("always");
+    expect(
+      reasoningDialectFor("openrouter", "medium", {
+        api: "chat",
+        model: "z-ai/glm-5.3",
+        hasTools: false,
+      }),
+    ).toMatchObject({
+      echo: "always",
+      body: { reasoning: { effort: "high", exclude: false } },
+    });
+  });
 });

@@ -2,7 +2,26 @@
 export type ModelCapabilities = {
   inputModalities?: string[];
   supportsVision?: boolean;
+  supportsReasoning?: boolean;
+  reasoningEfforts?: string[];
 };
+
+const VALID_REASONING_EFFORTS: ReadonlySet<string> = new Set([
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]);
+
+const REASONING_PARAMETERS: ReadonlySet<string> = new Set([
+  "reasoning",
+  "reasoning_effort",
+  "include_reasoning",
+  "thinking",
+]);
 
 /** Per-million-token USD rates declared on a `/models` catalog row. */
 export type ModelPricing = {
@@ -20,11 +39,76 @@ export function modelCapabilitiesOf(row: object): ModelCapabilities | undefined 
       : undefined;
   const inputModalities = modalitiesOf(rec.input_modalities) ?? modalitiesOf(routed);
   const supportsVision = typeof rec.supports_vision === "boolean" ? rec.supports_vision : undefined;
-  if (inputModalities === undefined && supportsVision === undefined) return undefined;
+  const supportsReasoning = supportsReasoningOf(rec);
+  const reasoningEfforts = reasoningEffortsOf(rec);
+  if (
+    inputModalities === undefined &&
+    supportsVision === undefined &&
+    supportsReasoning === undefined &&
+    reasoningEfforts === undefined
+  ) {
+    return undefined;
+  }
   return {
     ...(inputModalities === undefined ? {} : { inputModalities }),
     ...(supportsVision === undefined ? {} : { supportsVision }),
+    ...(supportsReasoning === undefined ? {} : { supportsReasoning }),
+    ...(reasoningEfforts === undefined ? {} : { reasoningEfforts }),
   };
+}
+
+function supportsReasoningOf(rec: Record<string, unknown>): boolean | undefined {
+  if (typeof rec.supports_reasoning === "boolean") return rec.supports_reasoning;
+  if (Array.isArray(rec.supported_parameters)) {
+    const hasReasoningParam = rec.supported_parameters.some(
+      (param) => typeof param === "string" && REASONING_PARAMETERS.has(param.trim().toLowerCase()),
+    );
+    if (hasReasoningParam) return true;
+  }
+  if (typeof rec.reasoning === "boolean") return rec.reasoning;
+  if (typeof rec.reasoning === "object" && rec.reasoning !== null) {
+    const r = rec.reasoning as Record<string, unknown>;
+    if (typeof r.supported === "boolean") return r.supported;
+    if (typeof r.enabled === "boolean") return r.enabled;
+    return true;
+  }
+  if (
+    (Array.isArray(rec.supported_reasoning_levels) && rec.supported_reasoning_levels.length > 0) ||
+    (Array.isArray(rec.reasoning_efforts) && rec.reasoning_efforts.length > 0)
+  ) {
+    return true;
+  }
+  return undefined;
+}
+
+function reasoningEffortsOf(rec: Record<string, unknown>): string[] | undefined {
+  const reasoningObj =
+    typeof rec.reasoning === "object" && rec.reasoning !== null
+      ? (rec.reasoning as Record<string, unknown>)
+      : undefined;
+  const raw =
+    rec.supported_reasoning_levels ??
+    rec.reasoning_efforts ??
+    reasoningObj?.supported_efforts ??
+    reasoningObj?.efforts;
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const seen = new Set<string>();
+  const efforts: string[] = [];
+  for (const item of raw) {
+    const val =
+      typeof item === "string"
+        ? item
+        : typeof item === "object" && item !== null && typeof (item as { effort?: unknown }).effort === "string"
+          ? (item as { effort: string }).effort
+          : undefined;
+    if (val === undefined) continue;
+    const normalized = val.trim().toLowerCase();
+    if (VALID_REASONING_EFFORTS.has(normalized) && !seen.has(normalized)) {
+      seen.add(normalized);
+      efforts.push(normalized);
+    }
+  }
+  return efforts.length > 0 ? efforts : undefined;
 }
 
 const NON_CHAT_TYPES = new Set([

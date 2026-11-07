@@ -34,6 +34,49 @@ describe("model capability normalization", () => {
     });
   });
 
+  it("extracts supportsReasoning and reasoningEfforts across catalog schemas", () => {
+    expect(modelCapabilitiesOf({ supports_reasoning: true })).toEqual({ supportsReasoning: true });
+    expect(modelCapabilitiesOf({ supports_reasoning: false })).toEqual({ supportsReasoning: false });
+    expect(
+      modelCapabilitiesOf({
+        supported_parameters: ["temperature", "reasoning", "max_tokens"],
+      }),
+    ).toEqual({ supportsReasoning: true });
+    expect(
+      modelCapabilitiesOf({
+        supported_parameters: ["reasoning_effort"],
+      }),
+    ).toEqual({ supportsReasoning: true });
+    expect(modelCapabilitiesOf({ reasoning: true })).toEqual({ supportsReasoning: true });
+    expect(modelCapabilitiesOf({ reasoning: false })).toEqual({ supportsReasoning: false });
+    expect(modelCapabilitiesOf({ reasoning: { supported: false } })).toEqual({ supportsReasoning: false });
+    expect(modelCapabilitiesOf({ reasoning: { enabled: true, supported_efforts: ["LOW", "Medium", "high", "invalid"] } })).toEqual({
+      supportsReasoning: true,
+      reasoningEfforts: ["low", "medium", "high"],
+    });
+    expect(
+      modelCapabilitiesOf({
+        supported_reasoning_levels: [
+          { effort: "low", description: "fast" },
+          { effort: "MEDIUM" },
+          { effort: "high" },
+          { effort: "xhigh" },
+        ],
+      }),
+    ).toEqual({
+      supportsReasoning: true,
+      reasoningEfforts: ["low", "medium", "high", "xhigh"],
+    });
+    expect(
+      modelCapabilitiesOf({
+        reasoning_efforts: ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+      }),
+    ).toEqual({
+      supportsReasoning: true,
+      reasoningEfforts: ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    });
+  });
+
   it.each([
     {},
     { id: "gpt-4o" },
