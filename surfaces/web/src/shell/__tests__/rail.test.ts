@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { harnessCommand } from "../add-project.js";
 import { railPane } from "../project-tabs.js";
 import { orderSessions, overviewList, shortAge } from "../rail-sessions.js";
 
@@ -62,13 +61,5 @@ describe("railPane", () => {
       kind: "bots",
     });
     expect(railPane({ kind: "project", path: "/work" }, bots, true)).toEqual({ kind: "bots" });
-  });
-});
-
-describe("harnessCommand", () => {
-  it("is the bare command, or cd into a typed directory", () => {
-    expect(harnessCommand("")).toBe("harness");
-    expect(harnessCommand("  /tmp/a b  ")).toBe("cd '/tmp/a b'\nharness");
-    expect(harnessCommand("/tmp/it's")).toBe("cd '/tmp/it'\\''s'\nharness");
   });
 });

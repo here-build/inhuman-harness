@@ -114,6 +114,7 @@ type PerformCtx = {
   readonly cycle: ParkCycle;
   readonly abort: AbortController;
   readonly parks: Set<string>;
+  readonly remote: boolean;
 };
 
 type Pending =
@@ -197,6 +198,10 @@ export class RequestHost implements RpcApplication {
     return performAls.getStore()?.abort.signal ?? NEVER_ABORTED;
   }
 
+  protected isRemoteRequest(): boolean {
+    return performAls.getStore()?.remote === true;
+  }
+
   /** A closed plane can never answer its parks. Parent dispatch tracked the same id. */
   onPlaneClose(connectionId: string): void {
     const set = this.#planePerforms.get(connectionId);
@@ -268,7 +273,7 @@ export class RequestHost implements RpcApplication {
   ): Promise<unknown> {
     const cycle = createParkCycle();
     const abort = new AbortController();
-    const ctx: PerformCtx = { cycle, abort, parks: new Set() };
+    const ctx: PerformCtx = { cycle, abort, parks: new Set(), remote: identity?.remote === true };
     const connectionId = identity?.connectionId;
     this.#trackPerform(connectionId, ctx);
     const done = performAls.run(ctx, async () => {

@@ -21,7 +21,7 @@ import {
   type JsonRpcPort,
 } from "@inhuman.tools/harness-peer";
 import { LiveShape } from "@inhuman.tools/scope-plane";
-import { observable, runInAction } from "mobx";
+import { comparer, observable, reaction, runInAction } from "mobx";
 
 import { cacheKey, CACHE_ORIGIN, guardProvider, writeBehind, type DocCache, type Writer } from "./doc-cache.js";
 import { appLocation, type AppLocation } from "./location.js";
@@ -311,7 +311,18 @@ export class Dial {
     if (room == null) return null;
     staged.rooms.set("kernel", room);
     const plexus = KernelPlexus.connect(room.doc);
-    room.stop = bindProviderAwareness(plexus.awareness, room.provider);
+    const stopAwareness = bindProviderAwareness(plexus.awareness, room.provider);
+    const stopProjects = reaction(
+      () => Object.keys(plexus.root.projects),
+      () => {
+        if (this.kernel === plexus) this.#fillCatalog(plexus);
+      },
+      { equals: comparer.structural },
+    );
+    room.stop = () => {
+      stopProjects();
+      stopAwareness();
+    };
     room.rpc = bindJsonRpc(room.provider);
 
     const handleShapeBytes = (bytes: unknown): void => {

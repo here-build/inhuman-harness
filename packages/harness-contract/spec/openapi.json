@@ -7889,6 +7889,68 @@
         "x-host": "kernel"
       }
     },
+    "/kernel/project/pick": {
+      "post": {
+        "operationId": "kernel.project.pick",
+        "summary": "Pick and register a project directory using the host OS native folder picker",
+        "description": "Local-only: opens the native OS folder chooser dialog, registers the selected directory as a project, and returns `{ok: true, path}`. Cancelling the dialog answers `{ok: false}`. Refused over remote connections.",
+        "tags": [
+          "kernel.project"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "const": true
+                        },
+                        "path": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "path"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "x-rpc-method": "project/pick",
+        "x-host": "kernel"
+      }
+    },
     "/ui/resolve": {
       "post": {
         "operationId": "ui.resolve",

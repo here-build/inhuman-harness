@@ -369,7 +369,9 @@ export class RemoteConnector {
     const relay = new ChunkedWebSocket(`${this.#wsBase()}/d/${encodeURIComponent(machineId)}/room${path}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    const local = new WebSocket(`ws+unix://${this.#sockPath}:${path}`);
+    const local = new WebSocket(`ws+unix://${this.#sockPath}:${path}`, {
+      headers: { "x-harness-remote": "1" },
+    });
     const room: Room = { relay, local, closed: false };
     this.#rooms.set(path, room);
     this.#bridge(path, room);

@@ -3,7 +3,6 @@ import { IconSettings } from "@tabler/icons-react";
 import { Outlet, useRouter } from "@tanstack/react-router";
 import { observer } from "mobx-react-lite";
 
-import { AddProjectDialog } from "./add-project.js";
 import { Composer } from "./composer.js";
 import { readEmbed } from "./embed.js";
 import { FilePreviewPane, FilePreviewProvider } from "./file-sidebar.js";
@@ -83,6 +82,25 @@ export const Frame = observer(function Shell() {
     focusStage();
     go(projectHref(path));
   };
+  const isRemote = dial.where?.remote ?? remote;
+  const addProject = (): void => {
+    const rpc = dial.kernelRpc;
+    if (isRemote || rpc == null || adding) return;
+    setAdding(true);
+    void rpc
+      .request("project/pick", {})
+      .then((raw) => {
+        const result = raw as { readonly ok?: boolean; readonly path?: string } | null;
+        if (result?.ok === true && typeof result.path === "string" && result.path !== "") {
+          openStage(result.path);
+        }
+        return undefined;
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        setAdding(false);
+      });
+  };
 
   const embed = readEmbed(typeof window === "undefined" ? "" : window.location.search);
   if (embed.active) {
@@ -118,7 +136,7 @@ export const Frame = observer(function Shell() {
 
   return (
     <FilePreviewProvider resetKey={sessionId}>
-      <div className="frame">
+      <div className="frame" data-picking={adding ? "" : undefined}>
         <div className="frame-body">
           <aside
             id="navigation-rail"
@@ -126,7 +144,7 @@ export const Frame = observer(function Shell() {
             className={`rail w-full shrink-0 flex-col overflow-y-auto bg-wash max-[63.999rem]:max-h-[70dvh] min-[64rem]:w-72 min-[64rem]:max-h-none min-[64rem]:overflow-hidden min-[64rem]:border-r min-[64rem]:border-line ${railOpen ? "flex max-[63.999rem]:border-b max-[63.999rem]:border-line" : "hidden min-[64rem]:flex"}`}
           >
             <h1 className="rail-brand">Inhuman</h1>
-            {remote ? (
+            {isRemote ? (
               <Link className="rail-machines" href="/">
                 All machines
               </Link>
@@ -170,11 +188,12 @@ export const Frame = observer(function Shell() {
               setBrowsingBots(true);
               setRailOpen(true);
             }}
-            onAdd={() => setAdding(true)}
+            onAdd={isRemote ? undefined : addProject}
+            adding={adding}
             onMint={openStage}
           />
         </div>
-        {adding ? <AddProjectDialog onDismiss={() => setAdding(false)} /> : null}
+        {adding ? <div className="picker-backdrop" aria-hidden="true" /> : null}
         {settingsOpen ? <SettingsDialog onDismiss={() => setSettingsOpen(false)} /> : null}
       </div>
     </FilePreviewProvider>

@@ -18,6 +18,7 @@ import { parseJsonUnknown, readField } from "../util/read-field.js";
 export type RpcRequestIdentity = {
   readonly requestId: JsonRpcId | undefined;
   readonly connectionId: string;
+  readonly remote?: boolean;
 };
 
 /** Application dispatch/validation/UI park. Transport does not construct a domain host. */
@@ -31,6 +32,7 @@ export async function serveJsonRpc(
   application: RpcApplication,
   text: string,
   connectionId: string,
+  remote = false,
 ): Promise<void> {
   let raw: unknown;
   try {
@@ -47,7 +49,7 @@ export async function serveJsonRpc(
   }
 
   const { method, params, id } = parsed.data;
-  const identity: RpcRequestIdentity = { requestId: id, connectionId };
+  const identity: RpcRequestIdentity = { requestId: id, connectionId, remote };
   try {
     const result = await application.handleRequest(method, params, identity);
     if (identity.requestId === undefined) return;

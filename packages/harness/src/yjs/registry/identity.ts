@@ -46,25 +46,35 @@ export function documentGuid(key: DocumentKey): string {
 export function decodeImageIdentity(kind: DocumentKind, bytes: Uint8Array): IdentityDecode {
   if (bytes.byteLength === 0) return { ok: false, reason: "empty" };
   const updates = readUpdateLog(bytes);
-  const first = updates?.[0];
-  if (first == null) return { ok: false, reason: "corrupt" };
+  if (updates == null || updates.length === 0) return { ok: false, reason: "corrupt" };
   if (kind === "kernel") return { ok: true, id: KERNEL_DOCUMENT_KEY.id };
 
-  let parsed: any;
-  try {
-    const text = new TextDecoder().decode(first);
-    parsed = JSON.parse(text);
-  } catch {
-    return { ok: false, reason: "corrupt" };
-  }
-
   const field = kind === "sessions" ? "sessionId" : "path";
-  const root = parsed?.root;
-  const val = root?.columns?.[field] ?? root?.state?.[field] ?? parsed?.meta?.root?.[field];
-  if (typeof val === "string" && val.trim().length > 0) {
-    return { ok: true, id: val.trim() };
+  const decoder = new TextDecoder();
+  let anyParsed = false;
+  for (const update of updates) {
+    if (update == null) continue;
+    let parsed: any;
+    try {
+      parsed = JSON.parse(decoder.decode(update));
+      anyParsed = true;
+    } catch {
+      continue;
+    }
+    const root = parsed?.root;
+    const val = root?.columns?.[field] ?? root?.state?.[field] ?? parsed?.meta?.root?.[field];
+    if (typeof val === "string" && val.trim().length > 0) {
+      return { ok: true, id: val.trim() };
+    }
+    if (Array.isArray(parsed?.patches)) {
+      for (const patch of parsed.patches) {
+        if (patch?.op === "set" && patch?.field === field && typeof patch?.value === "string" && patch.value.trim().length > 0) {
+          return { ok: true, id: patch.value.trim() };
+        }
+      }
+    }
   }
-  return { ok: false, reason: "decode-failure" };
+  return { ok: false, reason: anyParsed ? "decode-failure" : "corrupt" };
 }
 
 export function identifyStoredImage(

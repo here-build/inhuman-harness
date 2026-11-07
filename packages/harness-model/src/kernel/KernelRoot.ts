@@ -139,6 +139,11 @@ export class KernelRoot extends Model<any, null> {
   }
 
   @state.action
+  registerProject(path: string): void {
+    this.projects[path] = "";
+  }
+
+  @state.action
   stampModelUsage(connection: string, model: string, at: number = Date.now()): void {
     const conn = connection.trim();
     const mid = model.trim();

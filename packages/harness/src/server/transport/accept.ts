@@ -24,12 +24,13 @@ export function acceptJsonRpc(
   wss.handleUpgrade(request, socket, head, (ws) => {
     const plane = wrapWebSocket(ws);
     const connectionId = randomUUID();
+    const remote = request.headers["x-harness-remote"] === "1";
     attach?.(plane);
     plane.onClose(() => {
       application.onPlaneClose?.(connectionId);
     });
     plane.onText((text) => {
-      void serveJsonRpc(plane, application, text, connectionId);
+      void serveJsonRpc(plane, application, text, connectionId, remote);
     });
   });
 }

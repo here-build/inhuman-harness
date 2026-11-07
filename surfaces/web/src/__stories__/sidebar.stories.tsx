@@ -194,7 +194,7 @@ export const TabStatus: Story = {
   },
 };
 
-/** Add explains that `harness` in a directory is what registers a project. */
+/** Add invokes the local OS directory picker, dims the frame while picking, and opens the chosen project. */
 export const AddProject: Story = {
   args: {
     stage: () => ({
@@ -202,10 +202,12 @@ export const AddProject: Story = {
       at: "/",
     }),
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Add" }));
-    await expect(canvas.getByRole("dialog", { name: "Add a project" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "kley" })).toHaveAttribute("aria-current", "page");
+    await expect(canvasElement.querySelector(".picker-backdrop")).toBeNull();
+    void args;
   },
 };
 

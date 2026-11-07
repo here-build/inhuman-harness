@@ -386,6 +386,15 @@ const kernel = {
       .input(shapes.botRemoveInput)
       .output(shapes.botRemoveOutput),
   },
+  project: {
+    pick: rpc("kernel", "project/pick", {
+      summary: "Pick and register a project directory using the host OS native folder picker",
+      description:
+        "Local-only: opens the native OS folder chooser dialog, registers the selected directory as a project, and returns `{ok: true, path}`. Cancelling the dialog answers `{ok: false}`. Refused over remote connections.",
+    })
+      .input(shapes.projectPickInput)
+      .output(shapes.projectPickOutput),
+  },
 };
 
 const common = {

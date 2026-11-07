@@ -24,12 +24,15 @@ export class ProjectDocument extends DocumentContainer<ProjectRoot, AwarenessSha
   }
 
   static create(path: string, docOrOptions?: DocumentContainer<any, any> | ProjectPlexusCreateOptions | unknown): ProjectDocument {
-    const root = new ProjectRoot({ path });
     if (docOrOptions instanceof DocumentContainer) {
-      const doc = new ProjectDocument(root);
-      docOrOptions.hydrateFromSnapshot(doc.toSnapshot());
+      if (!(docOrOptions.root instanceof ProjectRoot) || docOrOptions.root.path !== path) {
+        const root = new ProjectRoot({ path });
+        const doc = new ProjectDocument(root, { guid: docOrOptions.guid, revision: docOrOptions.revision });
+        docOrOptions.hydrateFromSnapshot(doc.toSnapshot());
+      }
       return ProjectDocument.connect(docOrOptions);
     }
+    const root = new ProjectRoot({ path });
     const options =
       docOrOptions && typeof docOrOptions === "object" && !("root" in docOrOptions)
         ? (docOrOptions as ProjectPlexusCreateOptions)

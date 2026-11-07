@@ -7391,6 +7391,52 @@
       "x-host": "kernel"
     },
     {
+      "name": "project/pick",
+      "summary": "Pick and register a project directory using the host OS native folder picker",
+      "description": "Local-only: opens the native OS folder chooser dialog, registers the selected directory as a project, and returns `{ok: true, path}`. Cancelling the dialog answers `{ok: false}`. Refused over remote connections.",
+      "tags": [
+        {
+          "name": "kernel.project"
+        }
+      ],
+      "paramStructure": "by-name",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "const": true
+                },
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "ok",
+                "path"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "const": false
+                }
+              },
+              "required": [
+                "ok"
+              ]
+            }
+          ]
+        }
+      },
+      "x-host": "kernel"
+    },
+    {
       "name": "ui/resolve",
       "summary": "Answer a parked UI form",
       "description": "Finishes a call that answered `{form: \"ui\", pending, body}`. The reply is the resumed call's result, or another park form. `kind: \"cancel\"` aborts the parked call. Closing the socket cancels every park it owns.",

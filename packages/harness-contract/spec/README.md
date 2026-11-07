@@ -166,6 +166,7 @@ host's own auth. Not built yet; the JSON-RPC transport remains the only server t
 | `remote/logout` | `kernel.remote.logout` |  | Drop remote access tokens |
 | `bot/write` | `kernel.bot.write` |  | Write a bot definition |
 | `bot/remove` | `kernel.bot.remove` |  | Remove a bot definition |
+| `project/pick` | `kernel.project.pick` |  | Pick and register a project directory using the host OS native folder picker |
 
 ### Any host
 

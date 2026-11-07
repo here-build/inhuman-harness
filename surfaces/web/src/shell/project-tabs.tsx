@@ -47,18 +47,21 @@ export const ProjectTabs = observer(function ProjectTabsView({
   pane,
   onBrowseBots,
   onAdd,
+  adding,
   onMint,
 }: {
   readonly projectSessions?: ReadonlyMap<string, string>;
   readonly go: (href: string) => void;
   readonly pane: RailPane;
   readonly onBrowseBots: () => void;
-  readonly onAdd: () => void;
+  readonly onAdd?: () => void;
+  readonly adding?: boolean;
   readonly onMint: (path: string) => void;
 }) {
   const dial = useDial();
   const kernel = dial.kernel;
-  const paths = Object.keys(kernel?.root.projects ?? {});
+  const known = Object.keys(kernel?.root.projects ?? {});
+  const paths = pane.kind === "project" && !known.includes(pane.path) ? [...known, pane.path] : known;
   const names = projectNames(paths);
   const listRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
@@ -105,12 +108,14 @@ export const ProjectTabs = observer(function ProjectTabsView({
           />
         ) : null}
       </nav>
-      <div className="project-add">
-        <Button variant="secondary" onClick={onAdd}>
-          <IconPlus {...glyph} aria-hidden />
-          Add
-        </Button>
-      </div>
+      {onAdd == null ? null : (
+        <div className="project-add">
+          <Button variant="secondary" disabled={adding} onClick={onAdd}>
+            <IconPlus {...glyph} aria-hidden />
+            Add
+          </Button>
+        </div>
+      )}
     </div>
   );
 });

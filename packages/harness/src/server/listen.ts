@@ -16,7 +16,7 @@ export type ListenWebAppOptions = {
   readonly staticDir?: string;
   readonly viteRoot?: string;
   /** Project roots the /file route may read. Empty refuses every file request. */
-  readonly fileRoots?: readonly string[];
+  readonly fileRoots?: readonly string[] | (() => readonly string[]);
   /**
    * Extra browser origins allowed to open a room, beside the server's own loopback origins.
    * A request with no Origin header (a native client) is always allowed.
@@ -36,7 +36,8 @@ export async function listenWebApp(options: ListenWebAppOptions): Promise<WebApp
     if (request.method === "GET" || request.method === "HEAD") {
       const pathname = (request.url ?? "/").split("?")[0] ?? "/";
       if (pathname === "/file") {
-        void sendProjectFile(options.fileRoots ?? [], request, response);
+        const roots = typeof options.fileRoots === "function" ? options.fileRoots() : (options.fileRoots ?? []);
+        void sendProjectFile(roots, request, response);
         return;
       }
       handle(request, response);
@@ -112,7 +113,9 @@ function replayUpgrade(sockPath: string, request: IncomingMessage, socket: Duple
   upstream.once("connect", () => {
     const lines = [`${request.method ?? "GET"} ${request.url ?? "/"} HTTP/1.1`];
     for (let i = 0; i < request.rawHeaders.length; i += 2) {
-      lines.push(`${request.rawHeaders[i] ?? ""}: ${request.rawHeaders[i + 1] ?? ""}`);
+      const name = request.rawHeaders[i] ?? "";
+      if (name.toLowerCase() === "x-harness-remote") continue;
+      lines.push(`${name}: ${request.rawHeaders[i + 1] ?? ""}`);
     }
     upstream.write(`${lines.join("\r\n")}\r\n\r\n`);
     if (head.length > 0) upstream.write(head);
@@ -159,7 +162,9 @@ async function pageHandler(pages: "none" | "vite" | "static", options: ListenWeb
                   next();
                   return;
                 }
-                void sendProjectFile(options.fileRoots ?? [], request, response);
+                const roots =
+                  typeof options.fileRoots === "function" ? options.fileRoots() : (options.fileRoots ?? []);
+                void sendProjectFile(roots, request, response);
               });
             },
           },

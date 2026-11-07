@@ -327,8 +327,15 @@ pre,
   box-shadow: var(--overlay-shadow);
 }
 
-.settings-dialog::backdrop {
+.settings-dialog::backdrop,
+.picker-backdrop {
   background: light-dark(rgb(0 0 0 / 0.25), rgb(0 0 0 / 0.55));
+}
+
+.picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
 }
 
 .settings-layout {
@@ -766,21 +773,6 @@ pre,
   padding: --spacing(1) --spacing(2);
   border-radius: var(--radius-xs);
   text-align: start;
-}
-
-.add-project {
-  inline-size: min(28rem, calc(100vw - 2 * --spacing(6)));
-  margin: auto;
-  padding: --spacing(6);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-canvas);
-  color: var(--color-ink);
-  box-shadow: var(--overlay-shadow);
-}
-
-.add-project::backdrop {
-  background: light-dark(rgb(0 0 0 / 0.25), rgb(0 0 0 / 0.55));
 }
 
 @media (pointer: coarse) {

@@ -4,6 +4,7 @@ import {
   readlinkSync,
   realpathSync,
   rmSync,
+  statSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -76,6 +77,12 @@ import { DocumentService, AwarenessRoom, attachLens, type PlaneSocket } from "@/
 import { internLookedAt, probeCompletionCatalog, warmCompletionCatalog } from "./completion-catalog.js";
 import { loginConnection, requireConnection, settingsBag, toListRow } from "./connection-rpc.js";
 import { healKernelDependencies, KERNEL_SEED_PACKAGES } from "./kernel-package.js";
+import {
+  disposeNativeDirectoryPicker,
+  pickNativeDirectory,
+  warmNativeDirectoryPicker,
+  type DirectoryPicker,
+} from "./pick-directory.js";
 import { RemoteAccess, remoteLoggedIn } from "./remote-access.js";
 import { RemoteConnector } from "./remote-connector.js";
 import { WEB_STATIC_DIR_ENV } from "./remote-http.js";
@@ -218,6 +225,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
    */
   #writeChain: Promise<void> = Promise.resolve();
   readonly #loginAttempts = new Map<string, object>();
+  #pickDirectory: DirectoryPicker = pickNativeDirectory;
+  #pickingProject: Promise<string | null> | null = null;
   override rpcMethods = [
     DaemonRpcMethod.fromContract(contract.kernel.termContinue.set, (args) => {
       this.plexus.root.termContinue[args.key] = args.sessionId;
@@ -615,6 +624,37 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     DaemonRpcMethod.fromContract(contract.kernel.bot.remove, (args) => {
       removeBotFile(this.#botDir(args.scope, args.project), args.name);
       return { ok: true as const };
+    }),
+    DaemonRpcMethod.fromContract(contract.kernel.project.pick, async () => {
+      RpcInvalidParams.invariant(!this.isRemoteRequest(), "project/pick: only available locally");
+      const signal = this.requestSignal();
+      let picking = this.#pickingProject;
+      if (picking == null) {
+        const run = Promise.resolve().then(() => this.#pickDirectory(signal));
+        this.#pickingProject = run;
+        picking = run.finally(() => {
+          if (this.#pickingProject === run) this.#pickingProject = null;
+        });
+      }
+      let picked: string | null;
+      try {
+        picked = await picking;
+      } catch (error) {
+        if (isAbortError(error)) return { ok: false as const };
+        RpcInvalidParams.invariant(false, error instanceof Error ? error.message : "project/pick failed");
+      }
+      if (picked == null || picked.trim() === "" || signal.aborted) return { ok: false as const };
+      let resolved: string;
+      try {
+        resolved = realpathSync(picked.trim());
+        RpcInvalidParams.invariant(statSync(resolved).isDirectory(), `project/pick: not a directory: ${picked}`);
+      } catch (error) {
+        if (error instanceof RpcInvalidParams) throw error;
+        RpcInvalidParams.invariant(false, `project/pick: invalid directory: ${picked}`);
+      }
+      const project = this.project(resolved);
+      await project.ready;
+      return { ok: true as const, path: project.path };
     }),
   ];
 
@@ -1154,7 +1194,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   }
 
   protected override queuesExecute(method: string): boolean {
-    return method !== "term-continue/set" && method !== "term-continue/clear";
+    return method !== "term-continue/set" && method !== "term-continue/clear" && method !== "project/pick";
   }
 
   protected override execute(run: () => unknown | Promise<unknown>) {
@@ -1441,7 +1481,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       this.#bindDocumentFlush(key);
       return { doc: opened.ref.doc, existing: true };
     }
-    const created = await documents.create(key);
+    const boot = ProjectPlexus.create(path);
+    const created = await documents.create(key, encodeDocumentStateAsUpdate(boot.doc));
+    boot.doc.destroy();
     if (!created.ok) throw new Error(`project document create failed: ${created.reason}`);
     this.#bindDocumentFlush(key);
     return { doc: created.ref.doc, existing: false };
@@ -1481,7 +1523,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   registerProject(project: ProjectDaemon): void {
     if (project.globalHost) return;
     this.#projects.set(project.path, project);
-    this.plexus.root.projects[project.path] = "";
+    this.plexus.root.registerProject(project.path);
   }
 
   /** Title tracks `SessionRoot.title`; recency is turn/steer. Liveness is not recency. */
@@ -1618,6 +1660,24 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     }
   }
 
+  setDirectoryPicker(picker: DirectoryPicker): void {
+    this.#pickDirectory = picker;
+  }
+
+  warmDirectoryPicker(): void {
+    if (this.#closed || this.#pickDirectory !== pickNativeDirectory || process.env["VITEST"]) return;
+    warmNativeDirectoryPicker();
+  }
+
+  hasProject(workspacePath: string): boolean {
+    try {
+      const resolved = realpathSync(workspacePath);
+      return Object.hasOwn(this.plexus.root.projects, resolved);
+    } catch {
+      return false;
+    }
+  }
+
   project(path: string): ProjectDaemon {
     if (this.#globalHost != null) {
       try {
@@ -1685,6 +1745,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   [Symbol.dispose](): void {
     this.#closed = true;
+    disposeNativeDirectoryPicker();
     void this.#connector.stop();
     this.#eligibilityWatch?.();
     this.#eligibilityWatch = null;

@@ -97,4 +97,36 @@ describe("kernel lifetime", () => {
     await kernel.ready;
     expect(load).not.toHaveBeenCalled();
   });
+
+  it("project/pick registers a directory chosen locally and refuses remote callers", async () => {
+    const system = await scratch("k");
+    const workspace = await scratch("picked");
+    const kernel = new KernelDaemon(system);
+    onTestFinished(() => kernel[Symbol.dispose]());
+    await kernel.ready;
+
+    kernel.setDirectoryPicker(async () => workspace);
+    const picked = await kernel.handleRequest("project/pick", {}, { requestId: 1, connectionId: "local-1" });
+    expect(picked).toEqual({ ok: true, path: workspace });
+    expect(kernel.hasProject(workspace)).toBe(true);
+    expect(Object.keys(kernel.plexus.root.projects)).toContain(workspace);
+
+    kernel.setDirectoryPicker(async () => null);
+    const cancelled = await kernel.handleRequest("project/pick", {}, { requestId: 2, connectionId: "local-1" });
+    expect(cancelled).toEqual({ ok: false });
+
+    await expect(
+      kernel.handleRequest("project/pick", {}, { requestId: 3, connectionId: "remote-1", remote: true }),
+    ).rejects.toThrow(/only available locally/);
+
+    // Persist and restore even when the picked project has zero sessions.
+    kernel[Symbol.dispose]();
+    const restored = new KernelDaemon(system);
+    onTestFinished(() => restored[Symbol.dispose]());
+    await restored.ready;
+    expect(restored.hasProject(workspace)).toBe(true);
+    expect(Object.keys(restored.plexus.root.projects)).toContain(workspace);
+    expect(restored.project(workspace).root.path).toBe(workspace);
+    expect(restored.project(workspace).root.sessions).toEqual({});
+  });
 });

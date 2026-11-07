@@ -42,10 +42,9 @@ export class WebDoorCommand extends KernelCommand {
       this.context.writeErr("web-door: daemon socket is missing");
       return 1;
     }
-    const fileRoots = new Set<string>([process.cwd()]);
+    let kernelClient: Awaited<ReturnType<typeof Client.kernel>> | undefined;
     try {
-      await using client = await Client.kernel(kernel);
-      for (const path of Object.keys(client.plexus.root.projects)) fileRoots.add(path);
+      kernelClient = await Client.kernel(kernel);
     } catch {
       // /file still serves the process cwd.
     }
@@ -53,7 +52,7 @@ export class WebDoorCommand extends KernelCommand {
       sockPath: sock,
       pages: "static" as const,
       staticDir: join(webAppRoot, "dist/client"),
-      fileRoots: [...fileRoots],
+      fileRoots: () => [...new Set([process.cwd(), ...Object.keys(kernelClient?.plexus.root.projects ?? {})])],
       extraOrigins: (process.env["HARNESS_WEB_ALLOWED_ORIGINS"] ?? "")
         .split(",")
         .map((origin) => origin.trim())
@@ -92,6 +91,7 @@ export class WebDoorCommand extends KernelCommand {
     this.context.stdout.write("web-door leaving\n");
     await clearDoorRecord(kernel, process.pid);
     await app.close();
+    await kernelClient?.[Symbol.asyncDispose]();
     return 0;
   }
 }

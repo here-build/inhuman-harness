@@ -400,3 +400,9 @@ export const remoteStatusOutput = z.object({
 });
 export const remoteLogoutInput = z.object({});
 export const remoteLogoutOutput = z.object({ ok: z.literal(true), wasLoggedIn: z.boolean() });
+
+export const projectPickInput = z.object({}).strict();
+export const projectPickOutput = z.union([
+  z.object({ ok: z.literal(true), path: z.string() }),
+  z.object({ ok: z.literal(false) }),
+]);

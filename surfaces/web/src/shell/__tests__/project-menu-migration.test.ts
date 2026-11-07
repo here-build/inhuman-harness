@@ -2,6 +2,7 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { observable, runInAction } from "mobx";
 import { userEvent, within } from "storybook/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -267,4 +268,65 @@ describe("project menu migration", () => {
       expect(onMint).not.toHaveBeenCalled();
     },
   );
+
+  it("omits the Add button when onAdd is undefined (remote mode) and disables it while picking", async () => {
+    await act(async () => {
+      root.render(
+        createElement(ProjectTabs, {
+          pane: { kind: "project", path },
+          go: vi.fn(),
+          onMint: vi.fn(),
+          onBrowseBots: vi.fn(),
+        }),
+      );
+    });
+    expect(within(container).queryByRole("button", { name: "Add" })).toBeNull();
+
+    const onAdd = vi.fn();
+    await act(async () => {
+      root.render(
+        createElement(ProjectTabs, {
+          pane: { kind: "project", path },
+          go: vi.fn(),
+          onMint: vi.fn(),
+          onBrowseBots: vi.fn(),
+          onAdd,
+          adding: true,
+        }),
+      );
+    });
+    expect(within(container).getByRole("button", { name: "Add" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("auto-updates project tabs when kernel.root.projects gains an empty project", async () => {
+    const projects = observable.object<Record<string, string>>({ [path]: "" });
+    const emptyPath = "/work/empty-project";
+    state.dial = {
+      kernel: { root: { projects, sessions: {}, botsRoster: {} } },
+      projects: new Map([[path, { root: { path, sessions: {}, botsRoster: {} } }]]),
+      project: null,
+      session: null,
+    };
+    await act(async () => {
+      root.render(
+        createElement(ProjectTabs, {
+          pane: { kind: "overview" },
+          go: vi.fn(),
+          onMint: vi.fn(),
+          onBrowseBots: vi.fn(),
+          onAdd: vi.fn(),
+        }),
+      );
+    });
+    expect(within(container).queryByRole("link", { name: "empty-project" })).toBeNull();
+
+    await act(async () => {
+      runInAction(() => {
+        projects[emptyPath] = "";
+      });
+    });
+    expect(within(container).getByRole("link", { name: "empty-project" }).getAttribute("href")).toBe(
+      projectHref(emptyPath),
+    );
+  });
 });

@@ -67,6 +67,11 @@ export class ProjectDaemon extends RequestHost implements Disposable {
       const loaded = await kernel.loadProjectDoc(path);
       if (kernel.disposed) return;
       this.plexus = loaded.existing ? ProjectPlexus.connect(loaded.doc) : ProjectPlexus.create(path, loaded.doc);
+      if (this.plexus.root.path !== path) {
+        runInAction(() => {
+          this.plexus.root.path = path;
+        });
+      }
       this.#syncProjectBots(false);
       this.#botsWatcher = new BotsWatcher(projectBotsDir(path), () => this.#syncProjectBots(true));
       if (kernel.disposed) return;

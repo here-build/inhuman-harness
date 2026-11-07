@@ -38,6 +38,7 @@ export class HTTPServer implements AsyncDisposable {
       };
 
       try {
+        const remote = request.headers["x-harness-remote"] === "1";
         const classified = classifyPublicUpgrade(url);
         switch (classified.action) {
           case "refuse":
@@ -47,9 +48,17 @@ export class HTTPServer implements AsyncDisposable {
             // Existing identity: this process still attaches the runtime host.
             const key = classified.key;
             let host: RequestHost | undefined;
-            if (key.kind === "kernel") host = await this.harnessDaemon.kernel();
-            else if (key.kind === "projects") host = await this.harnessDaemon.project(key.id);
-            else host = await this.harnessDaemon.attachSession(key.id);
+            if (key.kind === "kernel") {
+              const kernel = await this.harnessDaemon.kernel();
+              if (!remote) kernel.warmDirectoryPicker();
+              host = kernel;
+            } else if (key.kind === "projects") {
+              if (remote && !(await this.harnessDaemon.kernel()).hasProject(key.id)) {
+                refuse(UPGRADE_NOT_FOUND, "not found");
+                break;
+              }
+              host = await this.harnessDaemon.project(key.id);
+            } else host = await this.harnessDaemon.attachSession(key.id);
             if (host == null) {
               refuse(UPGRADE_NOT_FOUND, "not found");
               break;
@@ -61,6 +70,10 @@ export class HTTPServer implements AsyncDisposable {
           case "create": {
             if (classified.path == null || classified.path === "") {
               refuse(400, "missing path");
+              break;
+            }
+            if (remote && !(await this.harnessDaemon.kernel()).hasProject(classified.path)) {
+              refuse(UPGRADE_NOT_FOUND, "not found");
               break;
             }
             const project = await this.harnessDaemon.project(classified.path);

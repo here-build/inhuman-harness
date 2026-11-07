@@ -163,7 +163,8 @@ const ProjectSessions = observer(function ProjectSessionsView({
   const dial = useDial();
   const kernel = dial.kernel;
   if (kernel == null) return null;
-  const name = projectNames(Object.keys(kernel.root.projects)).get(path) ?? path;
+  const known = Object.keys(kernel.root.projects);
+  const name = projectNames(known.includes(path) ? known : [...known, path]).get(path) ?? path;
   const held = dial.projects.get(path) ?? (dial.project?.root.path === path ? dial.project : null);
   const [query, setQuery] = useState("");
   useEffect(() => {

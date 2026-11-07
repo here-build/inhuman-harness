@@ -867,6 +867,15 @@ export class StoryDial {
         case "connect/login":
         case "connect/logout":
           return { ok: true as const };
+        case "project/pick": {
+          if (root != null) {
+            root.projects[OTHER_PROJECT] = "";
+            if (!this.projects.has(OTHER_PROJECT)) {
+              this.projects.set(OTHER_PROJECT, project(OTHER_PROJECT, []));
+            }
+          }
+          return { ok: true as const, path: OTHER_PROJECT };
+        }
         default:
           throw new Error(`no story handler for ${method}`);
       }

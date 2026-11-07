@@ -1,4 +1,4 @@
-import { isObservableProp, reaction } from "mobx";
+import { isObservableProp, observable, reaction, runInAction } from "mobx";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Dial } from "../dial.js";
@@ -682,6 +682,23 @@ describe("Dial attachment safety", () => {
     await dial.follow(target("alpha", "/workspace"));
     expect(dial.projects.get("/other")).toBe(held);
     expect(peer.destroyProvider).not.toHaveBeenCalled();
+  });
+
+  it("auto-attaches newly added projects when kernel.root.projects updates over the transport channel", async () => {
+    const { KernelPlexus } = await import("@inhuman.tools/harness-peer");
+    const projects = observable.object<Record<string, string>>({ "/workspace": "" });
+    vi.mocked(KernelPlexus.connect).mockReturnValueOnce({
+      awareness: {},
+      root: { projects, sessions: peer.kernelSessions },
+    } as never);
+    const dial = new Dial("ws://localhost");
+    await dial.follow({ kind: "kernel" });
+    await vi.waitFor(() => expect([...dial.projects.keys()]).toEqual(["/workspace"]));
+
+    runInAction(() => {
+      projects["/empty-project"] = "";
+    });
+    await vi.waitFor(() => expect([...dial.projects.keys()]).toEqual(["/workspace", "/empty-project"]));
   });
 
   it("mints only after explicit prepareMint, consuming that permission once", async () => {
