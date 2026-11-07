@@ -18,6 +18,8 @@ export type SessionStage = {
   agent: string;
   /** Null until the person picks. A pick is not the kernel default. */
   permission: StagedPermission | null;
+  /** Null until the person picks. Empty string clears to default. */
+  reasoningEffort: ReasoningEffort | "" | null;
   sending: boolean;
   status: string;
 };
@@ -28,6 +30,7 @@ type PendingSession = {
   readonly model: ModelChoice | null;
   readonly agent: string;
   readonly permission: StagedPermission | null;
+  readonly reasoningEffort?: ReasoningEffort | "" | null;
 };
 
 export type AgentFace = {
@@ -75,6 +78,7 @@ export function stageOf(path: string): SessionStage {
       model: null,
       agent: "",
       permission: null,
+      reasoningEffort: null,
       sending: false,
       status: "",
     };
@@ -91,6 +95,14 @@ export function mintedModel(
   const connection = own(project, "connection") ?? own(kernel, "connection") ?? "";
   const model = own(project, "model") ?? own(kernel, "model") ?? "";
   return { connection, model };
+}
+
+/** Project keys win, including an empty string, matching session mint. */
+export function mintedReasoningEffort(
+  kernel: Readonly<Record<string, string>> | null | undefined,
+  project: Readonly<Record<string, string>> | null | undefined,
+): ReasoningEffort | null {
+  return reasoningEffortOf(own(project, "reasoningEffort") ?? own(kernel, "reasoningEffort"));
 }
 
 /** A missing key inherits. An empty string is a real value and wins. */
@@ -130,6 +142,7 @@ export function queueSession(id: string, payload: PendingSession): void {
     model: payload.model == null ? null : { connection: payload.model.connection, model: payload.model.model },
     agent: payload.agent,
     permission: payload.permission,
+    reasoningEffort: payload.reasoningEffort ?? null,
   });
 }
 
@@ -202,6 +215,14 @@ export async function admitStagedSession(
     if (!isOk(connectionResult)) return { ok: false, status: "Model was not changed." };
     const modelResult = await rpc.request("kv/set", { key: "model", value: choice.model, remember: true });
     if (!isOk(modelResult)) return { ok: false, status: "Connection changed, but the model was not." };
+  }
+  if (payload.reasoningEffort != null) {
+    const effortResult = await rpc.request("kv/set", {
+      key: "reasoningEffort",
+      value: payload.reasoningEffort,
+      remember: true,
+    });
+    if (!isOk(effortResult)) status = "Reasoning effort was not changed.";
   }
   if (payload.permission != null) {
     const policyResult = await rpc.request("policy/set", { policy: payload.permission });

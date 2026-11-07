@@ -1216,7 +1216,8 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .permission-trigger,
-.agent-trigger {
+.agent-trigger,
+.effort-trigger {
   max-width: 100%;
   padding: 0 --spacing(2);
   border-radius: var(--radius-sm);
@@ -1232,8 +1233,13 @@ html:has(.composer-pill[data-drop]) {
   anchor-name: --agent-menu;
 }
 
+.effort-trigger {
+  anchor-name: --reasoning-effort;
+}
+
 .permission-trigger:hover,
-.agent-trigger:hover {
+.agent-trigger:hover,
+.effort-trigger:hover {
   background: var(--hover);
   color: var(--ink);
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { sessionMintPermissionMode } from "@inhuman.tools/harness-model";
+import { reasoningEffortOf, sessionMintPermissionMode, type ReasoningEffort } from "@inhuman.tools/harness-model";
 import { IconCornerDownLeft } from "@tabler/icons-react";
 import { useRouter } from "@tanstack/react-router";
 import { observer } from "mobx-react-lite";
@@ -13,6 +13,7 @@ import { ModelPicker } from "./model-picker.js";
 import {
   dropSession,
   mintedModel,
+  mintedReasoningEffort,
   queueSession,
   stageOf,
   stagedAgents,
@@ -25,6 +26,7 @@ import { PictureChips } from "./picture-chips.js";
 import { adoptPictureFiles, clipboardImageFiles } from "./picture-draft.js";
 import { PictureDrop } from "./picture-drop.js";
 import { useProjectSkills } from "./project-skills.js";
+import { ReasoningEffortPicker } from "./reasoning-effort.js";
 import { SkillSlashMenu } from "./skill-slash-menu.js";
 import { useSkillSlash } from "./use-skill-slash.js";
 import { useDial } from "../client/context.js";
@@ -67,6 +69,8 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
   const agentOptions =
     stage.agent !== "" && !agents.some((row) => row.name === stage.agent) ? [{ name: stage.agent }, ...agents] : agents;
   const agentLabel = stage.agent === "" ? "Default" : stage.agent;
+  const seedEffort = mintedReasoningEffort(dial.kernel?.root.kvs, held?.kvs);
+  const stagedAgentEffort = reasoningEffortOf(agents.find((row) => row.name === stage.agent)?.face.reasoningEffort);
   const seedPermission = sessionMintPermissionMode(
     dial.kernel?.root.defaultPermissionMode ?? "",
     held?.defaultPermissionMode ?? "",
@@ -112,6 +116,12 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
     stage.status = "";
     refresh();
   };
+  const chooseEffort = (effort: ReasoningEffort | ""): void => {
+    stage.reasoningEffort = effort;
+    stage.revision += 1;
+    stage.status = "";
+    refresh();
+  };
 
   async function send(): Promise<void> {
     if (!canSend) return;
@@ -119,7 +129,14 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
     const pictures = stage.pictures.map(cloneDraftPicture);
     const revision = stage.revision;
     const id = crypto.randomUUID();
-    queueSession(id, { prompt, pictures, model: stage.model, agent: stage.agent, permission: stage.permission });
+    queueSession(id, {
+      prompt,
+      pictures,
+      model: stage.model,
+      agent: stage.agent,
+      permission: stage.permission,
+      reasoningEffort: stage.reasoningEffort,
+    });
     stage.sending = true;
     stage.status = "";
     refresh();
@@ -132,6 +149,7 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
         stage.model = null;
         stage.agent = "";
         stage.permission = null;
+        stage.reasoningEffort = null;
       }
     } catch (error) {
       dropSession(id);
@@ -265,6 +283,15 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
               </Menu>
             </NativePopover>
           </MenuTrigger>
+          <ReasoningEffortPicker
+            model={shown}
+            wires={wires}
+            staged={stage.reasoningEffort}
+            seed={seedEffort}
+            agentEffort={stagedAgentEffort}
+            disabled={blocked}
+            onStage={chooseEffort}
+          />
           <PermissionMode staged={stage.permission} seed={seedPermission} onStage={choosePermission} />
         </div>
       </div>

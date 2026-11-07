@@ -1,4 +1,4 @@
-import { CompletionJob, SessionTurn } from "@inhuman.tools/harness-model";
+import { CompletionJob, isReasoningEffort, SessionTurn, type ReasoningEffort } from "@inhuman.tools/harness-model";
 
 import { wireAccount, type AccountSource, type WireAccount } from "./wire-account.js";
 
@@ -15,6 +15,11 @@ export type ModelPricing = {
   readonly cacheRead?: number;
 };
 
+export type ModelCapabilityHint = {
+  readonly supportsReasoning?: boolean;
+  readonly reasoningEfforts?: readonly ReasoningEffort[];
+};
+
 /** Enough of a kernel connection to list completion models and paint its account. */
 export type ModelCatalogSource = AccountSource & {
   readonly id: string;
@@ -27,6 +32,7 @@ export type ModelCatalogSource = AccountSource & {
     readonly catalogName?: unknown;
     readonly modelNames?: unknown;
     readonly modelPricing?: unknown;
+    readonly modelCapabilities?: unknown;
   } | null;
 };
 
@@ -36,9 +42,11 @@ export type ModelWire = {
   readonly name: string;
   readonly choices: readonly ModelChoice[];
   readonly account: WireAccount;
+  readonly baseUrl?: string;
   readonly openrouter?: boolean;
   readonly modelNames?: Readonly<Record<string, string>>;
   readonly modelPricing?: Readonly<Record<string, ModelPricing>>;
+  readonly modelCapabilities?: Readonly<Record<string, ModelCapabilityHint>>;
 };
 
 export type OpenRouterProvider = {
@@ -240,6 +248,11 @@ export function completionWires(
     const account = wireAccount(spec, name);
     const modelNames = parseModelNames(spec.live?.modelNames);
     const modelPricing = parseModelPricing(spec.live?.modelPricing);
+    const modelCapabilities = parseModelCapabilities(spec.live?.modelCapabilities);
+    const baseUrl =
+      typeof spec.settings?.baseUrl === "string" && spec.settings.baseUrl.trim() !== ""
+        ? spec.settings.baseUrl.trim()
+        : undefined;
     const rawModels = account.needsAuth ? [] : modelIds(spec.live?.models, modelNames);
     if (rawModels.length === 0 && !account.needsAuth) continue;
     const openrouter = isOpenRouter(spec, connection, name);
@@ -249,9 +262,11 @@ export function completionWires(
       name,
       choices: models.map((model) => ({ connection, model })),
       account,
+      ...(baseUrl === undefined ? {} : { baseUrl }),
       ...(openrouter ? { openrouter: true } : {}),
       ...(modelNames === undefined ? {} : { modelNames }),
       ...(modelPricing === undefined ? {} : { modelPricing }),
+      ...(modelCapabilities === undefined ? {} : { modelCapabilities }),
     };
     (models.length < SMALL_CATALOG ? small : large).push(wire);
   }
@@ -434,6 +449,27 @@ function parseModelPricing(raw: unknown): Readonly<Record<string, ModelPricing>>
       prompt: rec.prompt,
       completion: rec.completion,
       ...(cacheRead === undefined ? {} : { cacheRead }),
+    };
+    count += 1;
+  }
+  return count > 0 ? out : undefined;
+}
+
+function parseModelCapabilities(raw: unknown): Readonly<Record<string, ModelCapabilityHint>> | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const out: Record<string, ModelCapabilityHint> = {};
+  let count = 0;
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value !== "object" || value === null) continue;
+    const rec = value as Record<string, unknown>;
+    const supportsReasoning = typeof rec.supportsReasoning === "boolean" ? rec.supportsReasoning : undefined;
+    const reasoningEfforts = Array.isArray(rec.reasoningEfforts)
+      ? rec.reasoningEfforts.filter(isReasoningEffort)
+      : undefined;
+    if (supportsReasoning === undefined && (reasoningEfforts === undefined || reasoningEfforts.length === 0)) continue;
+    out[key] = {
+      ...(supportsReasoning === undefined ? {} : { supportsReasoning }),
+      ...(reasoningEfforts === undefined || reasoningEfforts.length === 0 ? {} : { reasoningEfforts }),
     };
     count += 1;
   }

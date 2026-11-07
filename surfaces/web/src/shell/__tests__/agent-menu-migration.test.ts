@@ -280,6 +280,7 @@ describe("staged agent menu migration", () => {
       model: { connection: "chosen", model: "chosen-model" },
       agent: "Removed Specialist",
       permission: "auto",
+      reasoningEffort: null,
     });
     expect(request).not.toHaveBeenCalled();
   });

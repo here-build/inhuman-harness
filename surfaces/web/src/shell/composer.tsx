@@ -20,6 +20,7 @@ import { PermissionMode } from "./permission-mode.js";
 import { PictureChips } from "./picture-chips.js";
 import { adoptPictureFiles, clipboardImageFiles, turnVisualPayload } from "./picture-draft.js";
 import { PictureDrop } from "./picture-drop.js";
+import { ReasoningEffortPicker } from "./reasoning-effort.js";
 import { SkillSlashMenu } from "./skill-slash-menu.js";
 import { StageComposer } from "./stage-composer.js";
 import { toolSummary } from "./tape-read.js";
@@ -603,6 +604,12 @@ const SessionComposer = observer(function SessionComposerView({
                 onLook={(connectionIds, driverNames) => dial.look(connectionIds, driverNames)}
               />
             )}
+            <ReasoningEffortPicker
+              model={shown}
+              wires={wires}
+              agentEffort={session.root.agent?.spec?.reasoningEffort ?? null}
+              disabled={unavailable || state.choosing}
+            />
             <PermissionMode />
           </div>
         </div>
