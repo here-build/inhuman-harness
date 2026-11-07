@@ -182,16 +182,20 @@ export const pluginSetInput = z
 export const pluginSetOutput = z.object({ ok: z.literal(true) });
 
 export const pluginInstallInput = z.object({
-  spec: z.string().trim().min(1, "spec is required"),
+  spec: z.string().optional(),
 });
-export const pluginInstallOutput = z.object({
-  name: z.string(),
-  npmName: z.string(),
-});
+export const pluginInstallOutput = z.union([
+  z.object({
+    name: z.string(),
+    npmName: z.string(),
+  }),
+  z.object({ ok: z.literal(false) }),
+]);
 export const pluginRemoveInput = z.object({
   name: z.string().trim().min(1, "name is required"),
+  confirm: z.boolean().optional(),
 });
-export const pluginRemoveOutput = z.object({ ok: z.literal(true) });
+export const pluginRemoveOutput = z.object({ ok: z.boolean() });
 
 /** Rename or merge settings of a connection that already exists. The id stays. */
 export const connectUpdateInput = z

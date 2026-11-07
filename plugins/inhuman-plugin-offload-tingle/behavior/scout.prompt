@@ -1,4 +1,5 @@
 ---
+description: Search and recall retained project memory
 mode: instruct
 tools: [read_file]
 behavior:

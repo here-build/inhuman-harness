@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -66,6 +66,7 @@ async function withPlugins(
     pkg.dependencies[npmName] = "0.0.0";
     const link = join(system, "node_modules", npmName);
     mkdirSync(dirname(link), { recursive: true });
+    rmSync(link, { recursive: true, force: true });
     symlinkSync(root, link);
   }
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
@@ -156,7 +157,7 @@ test("the goal plugin's round hook continues a text-only turn until its loops ar
     completions: completionsOf(turn).length,
     log: kernel.behavior.directory.get(goalOwner(kernel, "s1")).log.map((action) => toJS(action)),
   }).toEqual({
-    pinned: ["tasks/foreground", "inhuman-plugin-goal/foreground"],
+    pinned: ["tasks/foreground", "fusion/foreground", "inhuman-plugin-goal/foreground"],
     firstNote: "",
     secondNote: expect.stringContaining("ship it"),
     completions: 2,
@@ -396,7 +397,10 @@ test("a plugin bot is a named agent whose worker runs its pinned behavior", asyn
     bots: ["./writer.prompt"],
     states: { project: "./project.scm" },
   });
-  const { kernel, session } = await withPlugins({ "@test/memo": root });
+  const { kernel, session } = await withPlugins(
+    { "@test/memo": root },
+    { config: { plugins: { "offload-tingle": { enabled: false }, fusion: { enabled: false } } } },
+  );
   const recipe = kernel.catalog.recipe("writer");
   const turn = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
@@ -714,7 +718,10 @@ test.each(["finish", "timeout", "nested owner"] as const)(
       bots: ["./writer.prompt"],
       states: { project: "./project.scm" },
     });
-    const { kernel, session } = await withPlugins({ "@test/stalled": stalledPlugin("post"), "@test/memo": memo });
+    const { kernel, session } = await withPlugins(
+      { "@test/stalled": stalledPlugin("post"), "@test/memo": memo },
+      { config: { plugins: { "offload-tingle": { enabled: false }, fusion: { enabled: false } } } },
+    );
     if (ending === "timeout") await session.handleRequest("kv/set", { key: "plugin.hook-timeout-ms", value: "40" });
     const callback = suspendPluginMutation(kernel, "agent");
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`delegate` });
@@ -845,3 +852,35 @@ test.each(["settle", "rewind"] as const)(
   },
   15_000,
 );
+
+test("disabling and re-enabling offload-tingle updates fusion's cross-plugin state binding across turns", async () => {
+  const { kernel, session } = await withPlugins({});
+  const t1 = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`first` });
+  session.root.head = t1;
+  await when(() => completionsOf(t1).length === 1, { timeout: TIMEOUT });
+  modelOf(session).reply({ text: "ok" });
+  await when(() => t1.reducerExited, { timeout: TIMEOUT });
+  const problemTurn1 = session.root.pluginProblem;
+
+  await kernel.handleRequest("plugin/set", { name: "offload-tingle", enabled: false });
+  const t2 = new SessionTurn({ turnTail: t1, prompt: prompt.user`second` });
+  session.root.head = t2;
+  await when(() => completionsOf(t2).length === 1, { timeout: TIMEOUT });
+  modelOf(session).reply({ text: "ok" });
+  await when(() => t2.reducerExited, { timeout: TIMEOUT });
+  const problemTurn2 = session.root.pluginProblem;
+
+  await kernel.handleRequest("plugin/set", { name: "offload-tingle", enabled: true });
+  const t3 = new SessionTurn({ turnTail: t2, prompt: prompt.user`third` });
+  session.root.head = t3;
+  await when(() => completionsOf(t3).length === 1, { timeout: TIMEOUT });
+  modelOf(session).reply({ text: "ok" });
+  await when(() => t3.reducerExited, { timeout: TIMEOUT });
+  const problemTurn3 = session.root.pluginProblem;
+
+  expect({ problemTurn1, problemTurn2, problemTurn3 }).toEqual({
+    problemTurn1: null,
+    problemTurn2: expect.stringContaining("plugin offload-tingle is not enabled"),
+    problemTurn3: null,
+  });
+}, 15_000);

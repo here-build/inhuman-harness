@@ -6624,6 +6624,7 @@
     {
       "name": "plugin/install",
       "summary": "Install a plugin from an npm spec",
+      "description": "Without `spec` it parks on an input form; cancelling answers `{ok: false}`.",
       "tags": [
         {
           "name": "kernel.plugin"
@@ -6633,36 +6634,78 @@
       "params": [
         {
           "name": "spec",
-          "required": true,
+          "required": false,
           "schema": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           }
         }
       ],
       "result": {
         "name": "result",
         "schema": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "type": "string"
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "npmName": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "npmName"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              ]
             },
-            "npmName": {
-              "type": "string"
+            {
+              "type": "object",
+              "properties": {
+                "form": {
+                  "const": "ui"
+                },
+                "body": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "pending": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "form",
+                "body",
+                "pending"
+              ],
+              "additionalProperties": {}
             }
-          },
-          "required": [
-            "name",
-            "npmName"
           ]
         }
       },
-      "x-host": "kernel"
+      "x-host": "kernel",
+      "x-may-park": true
     },
     {
       "name": "plugin/remove",
       "summary": "Remove an installed plugin",
+      "description": "With `confirm: false` it parks on a confirmation form; cancelling answers `{ok: false}`.",
       "tags": [
         {
           "name": "kernel.plugin"
@@ -6677,23 +6720,57 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        {
+          "name": "confirm",
+          "required": false,
+          "schema": {
+            "type": "boolean"
+          }
         }
       ],
       "result": {
         "name": "result",
         "schema": {
-          "type": "object",
-          "properties": {
-            "ok": {
-              "const": true
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "ok"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "form": {
+                  "const": "ui"
+                },
+                "body": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "pending": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "form",
+                "body",
+                "pending"
+              ],
+              "additionalProperties": {}
             }
-          },
-          "required": [
-            "ok"
           ]
         }
       },
-      "x-host": "kernel"
+      "x-host": "kernel",
+      "x-may-park": true
     },
     {
       "name": "skill/list",

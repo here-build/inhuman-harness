@@ -104,9 +104,10 @@ type HeldTool = {
 };
 
 export class SessionBehavior implements Disposable {
-  #attached: { readonly json: string; readonly agent: AgentBehavior } | null = null;
+  #attached: { readonly json: string; readonly stamp: string; readonly agent: AgentBehavior } | null = null;
   #attaching: {
     readonly json: string;
+    readonly stamp: string;
     readonly promise: Promise<{ readonly agent: AgentBehavior; readonly errors: string[] }>;
   } | null = null;
   readonly #problems = { pin: "", load: "" };
@@ -168,16 +169,24 @@ export class SessionBehavior implements Disposable {
     return this.attach(signal);
   }
 
+  #stamp(json: string): string {
+    return `${json}\n${this.kernel
+      .packages()
+      .map((pkg) => `${pkg.name}\0${pkg.root}`)
+      .join("\n")}`;
+  }
+
   /** Attach whatever the session's spec pins now. */
   async attach(signal?: AbortSignal): Promise<AgentBehavior> {
     signal?.throwIfAborted();
     this.hooks.ownershipSignal?.throwIfAborted();
     this.#lifetime.signal.throwIfAborted();
     const json = this.session.agent.spec.behaviorPin;
-    if (this.#attached?.json === json) return this.#attached.agent;
+    const stamp = this.#stamp(json);
+    if (this.#attached?.stamp === stamp && this.#problems.load === "") return this.#attached.agent;
     let pending = this.#attaching;
-    if (pending?.json !== json) {
-      pending = { json, promise: this.#load(json) };
+    if (pending?.stamp !== stamp) {
+      pending = { json, stamp, promise: this.#load(json) };
       this.#attaching = pending;
     }
     const { agent, errors } = await pending.promise;
@@ -199,7 +208,7 @@ export class SessionBehavior implements Disposable {
         ),
       );
       this.#report("load", errors);
-      this.#attached = { json, agent };
+      this.#attached = { json, stamp, agent };
       this.#attaching = null;
     }
     return agent;

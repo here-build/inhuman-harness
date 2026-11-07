@@ -353,11 +353,13 @@ export class BehaviorKernel {
   }
 
   async #owner(plugin: string, scope: StateScope, scopeId: string): Promise<string> {
+    const pkg = this.#packages().find((row) => row.name === plugin);
+    PluginSurfaceError.invariant(pkg != null, `plugin ${plugin} is not enabled`);
     const id = this.directory.ownerId(plugin, scope, scopeId, "state");
     if (this.directory.has(id)) return id;
     let opening = this.#opening.get(id);
     if (opening == null) {
-      opening = this.#openOwner(id, plugin, scope).finally(() => {
+      opening = this.#openOwner(id, plugin, pkg.root, scope).finally(() => {
         this.#opening.delete(id);
       });
       this.#opening.set(id, opening);
@@ -366,22 +368,20 @@ export class BehaviorKernel {
     return id;
   }
 
-  async #openOwner(id: string, plugin: string, scope: StateScope): Promise<void> {
-    const pkg = this.#packages().find((row) => row.name === plugin);
-    PluginSurfaceError.invariant(pkg != null, `plugin ${plugin} is not enabled`);
-    const state = resolvePackageSurface(pkg.root).states.find((row) => row.scope === scope);
+  async #openOwner(id: string, plugin: string, root: string, scope: StateScope): Promise<void> {
+    const state = resolvePackageSurface(root).states.find((row) => row.scope === scope);
     PluginSurfaceError.invariant(state != null, `${plugin} has no ${scope} state`);
     const registry = await loadProgram({
       agentId: id,
       source: state.source,
       filename: state.path,
       revision: "",
-      root: pkg.root,
+      root,
       read: (path) => readFileSync(path, "utf8"),
       kind: "state",
     });
     PluginSurfaceError.invariant(registry.reducer != null, `${plugin} ${scope} state has no reducer`);
-    const abi = programDigest(new Map([...registry.loaded].map(([path, text]) => [relative(pkg.root, path), text])));
+    const abi = programDigest(new Map([...registry.loaded].map(([path, text]) => [relative(root, path), text])));
     this.directory.open(id, scope, abi, registry.reducer, registry.methods);
   }
 }

@@ -261,7 +261,7 @@ async function resolveWorker(
     });
   }
   host.kernel.internSession(id, worker.plexus, worker);
-  return { id, revision: pinned?.revision ?? "" };
+  return { id, revision: pinned?.revision ?? host.kernel.catalog.botRevisions.get(bot.name) ?? "" };
 }
 
 async function resolveOneShotWorker(

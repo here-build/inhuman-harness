@@ -34,19 +34,35 @@ function stage(): Staged {
   });
   made.root.plugins.tasks = new InstalledPlugin({
     pluginName: "tasks",
+    description: "Session notebook pages with a frozen exam, and project promotion of an accepted task.",
     sourceNpm: "@inhuman.tools/plugin-tasks",
     sourceVersion: "0.4.2",
     enabled: true,
   });
+  made.root.plugins.fusion = new InstalledPlugin({
+    pluginName: "fusion",
+    description: "Session planner. One round-end note fuses the plan with a granted memory read.",
+    sourceNpm: "@inhuman.tools/plugin-fusion",
+    sourceVersion: "0.1.0",
+    enabled: true,
+  });
   const goal = new InstalledPlugin({
-    pluginName: "goal",
+    pluginName: "inhuman-plugin-goal",
+    description: "Single-session goal. The foreground hook continues it. /goal is a command file.",
     sourceNpm: "@inhuman.tools/plugin-goal",
     sourceVersion: "0.2.0",
     enabled: false,
   });
   Object.assign(goal, { foreground: false });
   goal.problem = "Could not load ./plugin.scm";
-  made.root.plugins.goal = goal;
+  made.root.plugins["inhuman-plugin-goal"] = goal;
+  made.root.plugins["offload-tingle"] = new InstalledPlugin({
+    pluginName: "offload-tingle",
+    description: "Cited project memory. Writer commits; scout searches. SQLite is an optional adapter.",
+    sourceNpm: "@inhuman.tools/plugin-offload-tingle",
+    sourceVersion: "0.1.0",
+    enabled: true,
+  });
   made.root.bots.scribe = new BotSpec({
     name: "scribe",
     description: "Writes the notes",
@@ -126,13 +142,20 @@ export const Mcp: Story = {
   },
 };
 
-/** Installed packs: one enabled, one that failed to load. */
+/** Installed packs: default plugins, toggle enabled/foreground, remove and re-install. */
 export const Plugins: Story = {
   args: { stage },
   play: async ({ canvasElement }) => {
     const dialog = await open(canvasElement, "Plugins");
     await expect(dialog.getByText("tasks")).toBeVisible();
+    await expect(dialog.getByText("fusion")).toBeVisible();
+    await expect(dialog.getByText("inhuman-plugin-goal")).toBeVisible();
+    await expect(dialog.getByText("offload-tingle")).toBeVisible();
     await expect(dialog.getByText("Could not load ./plugin.scm")).toBeVisible();
+    await userEvent.click(dialog.getByRole("button", { name: "Remove fusion" }));
+    await expect(dialog.getByRole("button", { name: "Install fusion" })).toBeVisible();
+    await userEvent.click(dialog.getByRole("button", { name: "Install fusion" }));
+    await expect(dialog.getByRole("button", { name: "Remove fusion" })).toBeVisible();
   },
 };
 

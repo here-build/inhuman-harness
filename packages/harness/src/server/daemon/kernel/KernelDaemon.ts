@@ -1,23 +1,20 @@
-import {
-  existsSync,
-  mkdirSync,
-  readlinkSync,
-  realpathSync,
-  rmSync,
-  statSync,
-  symlinkSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { Writable } from "node:stream";
 import { isDeepStrictEqual } from "node:util";
 
 import { DefaultedMap } from "@here.build/collections";
 import { asUserPrompt } from "@inhuman.tools/harness-commons";
-import { contract, encodeUiDefinition } from "@inhuman.tools/harness-contract";
+import {
+  contract,
+  encodeUiDefinition,
+  pendingAsksTable,
+  sessionEffectsTable,
+  sessionsTable,
+  sessionTurnsTable,
+  sessionUpdatesTable,
+} from "@inhuman.tools/harness-contract";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import {
   AskAgentSpec,
@@ -42,17 +39,10 @@ import {
 } from "@inhuman.tools/harness-model";
 import { applyKv, type KvProposal, type PermissionMode } from "@inhuman.tools/harness-model/shared";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
-import { disposeKernelConnections, dropConnection } from "@inhuman.tools/plexus-expectations/executor";
-import { sessionSummary, observeSessionSummary, type SessionSummary } from "@inhuman.tools/turn/runtime";
-import {
-  pendingAsksTable,
-  sessionEffectsTable,
-  sessionsTable,
-  sessionTurnsTable,
-  sessionUpdatesTable,
-} from "@inhuman.tools/harness-contract";
 import { DocumentContainer, encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
+import { disposeKernelConnections, dropConnection } from "@inhuman.tools/plexus-expectations/executor";
 import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane/sqlite";
+import { sessionSummary, observeSessionSummary, type SessionSummary } from "@inhuman.tools/turn/runtime";
 import type { SessionCheckpoint, SessionReceipt } from "@inhuman.tools/turn/session-runtime";
 import { eq } from "drizzle-orm";
 import fs from "fs-extra";
@@ -76,7 +66,12 @@ import { DocumentService, AwarenessRoom, attachLens, type PlaneSocket } from "@/
 
 import { internLookedAt, probeCompletionCatalog, warmCompletionCatalog } from "./completion-catalog.js";
 import { loginConnection, requireConnection, settingsBag, toListRow } from "./connection-rpc.js";
-import { healKernelDependencies, KERNEL_SEED_PACKAGES } from "./kernel-package.js";
+import {
+  healKernelDependencies,
+  KERNEL_SEED_PACKAGES,
+  linkSeedPackage,
+  resolveSeedPackageRoot,
+} from "./kernel-package.js";
 import {
   disposeNativeDirectoryPicker,
   pickNativeDirectory,
@@ -493,24 +488,51 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       return { ok: true as const };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.plugin.install, async (args) => {
-      const npmName = installedNpmName(args.spec) ?? packageNameOf(args.spec);
+      let spec = args.spec?.trim() ?? "";
+      if (spec === "") {
+        try {
+          const answered = await this.ui(
+            encodeUiDefinition({
+              kind: "input",
+              name: "Plugin package or path",
+              description: "npm package, path, or file: URL",
+            }),
+          );
+          spec = answered.kind === "text" ? answered.input.trim() : "";
+        } catch (error) {
+          if (isUiCancelled(error) || isAbortError(error)) return { ok: false as const };
+          throw error;
+        }
+      }
+      if (spec === "") return { ok: false as const };
+      const npmName = installedNpmName(spec) ?? packageNameOf(spec);
       const captured = captureInstallStreams();
-      const code = await installPlugin(captured.streams, this.root, args.spec);
+      const code = await installPlugin(captured.streams, this.root, spec);
       if (code !== 0) {
         const detail = captured.stderr().trim();
-        RpcInvalidParams.invariant(false, detail === "" ? `plugin/install: ${args.spec} failed` : detail);
+        RpcInvalidParams.invariant(false, detail === "" ? `plugin/install: ${spec} failed` : detail);
       }
       // install writes package.json and config on its own. Reflect before the
       // caller reads the document, instead of waiting for the file watcher.
       this.adjustConfig(() => {});
       const plugin = Object.values(this.plexus.root.plugins).find((row) => row.sourceNpm === npmName);
-      RpcInvalidParams.invariant(plugin != null, `plugin/install: ${args.spec} did not appear`);
+      RpcInvalidParams.invariant(plugin != null, `plugin/install: ${spec} did not appear`);
       return { name: plugin.pluginName, npmName };
     }),
-    DaemonRpcMethod.fromContract(contract.kernel.plugin.remove, (args) => {
+    DaemonRpcMethod.fromContract(contract.kernel.plugin.remove, async (args) => {
       const plugin = this.plexus.root.plugins[args.name];
       RpcInvalidParams.invariant(plugin != null, `plugin/remove: unknown plugin ${args.name}`);
-      const npmName = plugin.sourceNpm;
+      if (args.confirm === false) {
+        try {
+          await this.ui(encodeUiDefinition({ kind: "confirm", title: `Remove ${args.name}?` }));
+        } catch (error) {
+          if (isUiCancelled(error) || isAbortError(error)) return { ok: false };
+          throw error;
+        }
+      }
+      const current = this.plexus.root.plugins[args.name];
+      RpcInvalidParams.invariant(current != null, `plugin/remove: unknown plugin ${args.name}`);
+      const npmName = current.sourceNpm;
       adjustJson(join(this.root, "package.json"), (raw) => withoutDependency(raw, npmName));
       if (npmName !== "") {
         rmSync(join(this.root, "node_modules", ...npmName.split("/")), { recursive: true, force: true });
@@ -518,7 +540,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       this.adjustConfig((config) => {
         delete config.plugins[args.name];
       });
-      return { ok: true as const };
+      return { ok: true };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.connect.update, (args) => {
       this.adjustConfig((config) => {
@@ -710,6 +732,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     if (healKernelDependencies(deps)) {
       fs.writeJsonSync(pkgPath, { ...pkg, dependencies: deps }, { spaces: 2 });
     }
+    for (const npm of KERNEL_SEED_PACKAGES) {
+      const packageRoot = resolveSeedPackageRoot(npm);
+      if (packageRoot !== null) linkSeedPackage(this.root, npm, packageRoot);
+    }
     await createOnly(() =>
       fs.writeJson(
         join(this.root, "config.json"),
@@ -734,25 +760,6 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       }),
     );
     if (this.#closed) return;
-    for (const npm of KERNEL_SEED_PACKAGES) {
-      let packageRoot: string | null = null;
-      try {
-        packageRoot = dirname(createRequire(import.meta.url).resolve(`${npm}/package.json`));
-      } catch {}
-      if (packageRoot === null) continue;
-      const dest = join(this.root, "node_modules", npm);
-      mkdirSync(dirname(dest), { recursive: true });
-      // existsSync follows links. A dangling symlink looks absent, and symlinkSync then throws EEXIST.
-      try {
-        if (readlinkSync(dest) === packageRoot) continue;
-        unlinkSync(dest);
-      } catch (error) {
-        const code = error instanceof Error && "code" in error ? error.code : undefined;
-        if (code === "EINVAL") continue;
-        if (code !== "ENOENT") throw error;
-      }
-      symlinkSync(packageRoot, dest);
-    }
     projectHostPluginSpecs(plexus.root);
     this.projections.install(HOST_PLUGINS);
     this.#packPluginHost = new PackPluginCatalogHost({
@@ -774,17 +781,19 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       void this.#packPluginHost?.sync(rows);
     });
     this.#disposeLookedAt = internLookedAt(this, this);
+    let initialAbi: Promise<void> = Promise.resolve();
     this.#disposePluginBots = autorun(() => {
       this.#syncPluginBots();
-      void this.#syncPluginAbi();
+      initialAbi = this.#syncPluginAbi();
     });
+    let initialRevisions: Promise<void> = Promise.resolve();
     this.#disposeBotRevisions = reaction(
       () => this.behavior.packages().map((plugin) => `${plugin.name}\0${plugin.root}`),
       (keys) => {
         const enabled = new Set(keys);
         const packages = this.behavior.packages().filter((plugin) => enabled.has(`${plugin.name}\0${plugin.root}`));
         const epoch = ++this.#botRevisionEpoch;
-        void botRevisions(packages)
+        initialRevisions = botRevisions(packages)
           .then((revisions) => {
             if (this.#closed || epoch !== this.#botRevisionEpoch) return;
             runInAction(() => {
@@ -797,7 +806,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       { fireImmediately: true },
     );
     this.#reflector = new KernelReflector(this.root, plexus.root, this.runtime.registry);
-    await this.#reflector.ready;
+    await Promise.all([this.#reflector.ready, initialAbi, initialRevisions]);
     if (this.#closed) return;
     warmCompletionCatalog(this, this);
     this.#homeWatcher = new BotsWatcher(defaultBotsHome(this.root), () => this.#syncHomeBots(true));
@@ -1362,27 +1371,23 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           })
           .run();
 
-        if (checkpoint.dirtyTurns.length > 0) {
-          for (const turn of checkpoint.dirtyTurns) {
-            tx.insert(sessionTurnsTable)
-              .values(turn)
-              .onConflictDoUpdate({
-                target: sessionTurnsTable.turnId,
-                set: {
-                  status: turn.status,
-                  cancelRequested: turn.cancelRequested,
-                  reducerExited: turn.reducerExited,
-                  snapshotJson: turn.snapshotJson,
-                  endedAtMs: turn.endedAtMs,
-                },
-              })
-              .run();
-          }
+        for (const turn of checkpoint.dirtyTurns) {
+          tx.insert(sessionTurnsTable)
+            .values(turn)
+            .onConflictDoUpdate({
+              target: sessionTurnsTable.turnId,
+              set: {
+                status: turn.status,
+                cancelRequested: turn.cancelRequested,
+                reducerExited: turn.reducerExited,
+                snapshotJson: turn.snapshotJson,
+                endedAtMs: turn.endedAtMs,
+              },
+            })
+            .run();
         }
 
-        tx.delete(pendingAsksTable)
-          .where(eq(pendingAsksTable.sessionId, checkpoint.sessionId))
-          .run();
+        tx.delete(pendingAsksTable).where(eq(pendingAsksTable.sessionId, checkpoint.sessionId)).run();
         for (const ask of checkpoint.pendingAsks) {
           tx.insert(pendingAsksTable).values(ask).run();
         }
@@ -1400,13 +1405,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
             .run();
         }
 
-        if (checkpoint.effectRecords.length > 0) {
-          for (const eff of checkpoint.effectRecords) {
-            tx.insert(sessionEffectsTable)
-              .values(eff)
-              .onConflictDoNothing()
-              .run();
-          }
+        for (const eff of checkpoint.effectRecords) {
+          tx.insert(sessionEffectsTable).values(eff).onConflictDoNothing().run();
         }
       },
     );
@@ -1473,7 +1473,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     return SessionPlexus.connect(created.ref.doc, { undo: "stub" });
   }
 
-  async loadProjectDoc(path: string): Promise<{ readonly doc: DocumentContainer<any, any>; readonly existing: boolean }> {
+  async loadProjectDoc(
+    path: string,
+  ): Promise<{ readonly doc: DocumentContainer<any, any>; readonly existing: boolean }> {
     const key = documentKey("projects", path);
     const documents = this.#requireDocuments();
     const opened = await documents.openExisting(key);

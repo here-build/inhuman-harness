@@ -1,11 +1,15 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { InstalledPlugin, KernelRoot } from "@inhuman.tools/harness-model";
 import { expect, test } from "vitest";
 
 import { evalUiSurface, UiNode } from "../uiCapability.js";
 
 const PLUGINS = fileURLToPath(new URL("../../../../../plugins/", import.meta.url));
+const DEFAULTS = fileURLToPath(
+  new URL("../../../../../packages/harness/src/server/defaults/commands/", import.meta.url),
+);
 
 async function surface(path: string, reply: unknown): Promise<{ node: UiNode; reads: unknown[] }> {
   const reads: unknown[] = [];
@@ -107,6 +111,117 @@ test("/plan opens from the composer text; a failed status read still renders", a
             params: { plugin: "fusion", method: "clear" },
           },
         ],
+      },
+    ],
+  });
+});
+
+test("/plugins lists installed plugins with toggle/foreground/remove actions and offers uninstalled default plugins", () => {
+  const kernel = new KernelRoot();
+  kernel.plugins.tasks = new InstalledPlugin({
+    pluginName: "tasks",
+    description: "Session notebook pages with a frozen exam, and project promotion of an accepted task.",
+    sourceNpm: "@inhuman.tools/plugin-tasks",
+    sourceVersion: "0.2.0",
+    enabled: true,
+    foreground: true,
+  });
+  const fusion = new InstalledPlugin({
+    pluginName: "fusion",
+    sourceNpm: "@inhuman.tools/plugin-fusion",
+    sourceVersion: "0.0.1",
+    enabled: false,
+    foreground: false,
+  });
+  kernel.plugins.fusion = fusion;
+  const node = evalUiSurface(readFileSync(`${DEFAULTS}plugins.scm`, "utf8"), { kernel });
+  expect(node).toBeInstanceOf(UiNode);
+  const root = node as UiNode;
+  expect({
+    action: root.action.map((leaf) => ({ op: leaf.op, params: leaf.params })),
+    choices: root.choices.map((row) => ({
+      name: row.name,
+      aliases: row.aliases,
+      annotation: row.annotation,
+      health: row.health,
+      action: row.action.map((leaf) => ({ op: leaf.op, name: leaf.name, params: leaf.params })),
+      alts: row.alternateActions.map((leaf) => ({
+        op: leaf.op,
+        name: leaf.name,
+        hotkey: leaf.hotkey,
+        params: leaf.params,
+      })),
+    })),
+  }).toEqual({
+    action: [{ op: "plugin/install", params: { spec: "" } }],
+    choices: [
+      {
+        name: "tasks",
+        aliases: ["todos"],
+        annotation: "0.2.0",
+        health: "ok",
+        action: [{ op: "plugin/set", name: "Disable plugin", params: { name: "tasks", enabled: false } }],
+        alts: [
+          {
+            op: "plugin/set",
+            name: "Disable foreground",
+            hotkey: "control-f",
+            params: { name: "tasks", foreground: false },
+          },
+          {
+            op: "plugin/remove",
+            name: "Remove plugin",
+            hotkey: "control-x",
+            params: { name: "tasks", confirm: false },
+          },
+        ],
+      },
+      {
+        name: "fusion",
+        aliases: ["plan"],
+        annotation: "0.0.1 · disabled",
+        health: "degraded",
+        action: [{ op: "plugin/set", name: "Enable plugin", params: { name: "fusion", enabled: true } }],
+        alts: [
+          {
+            op: "plugin/set",
+            name: "Enable foreground",
+            hotkey: "control-f",
+            params: { name: "fusion", foreground: true },
+          },
+          {
+            op: "plugin/remove",
+            name: "Remove plugin",
+            hotkey: "control-x",
+            params: { name: "fusion", confirm: false },
+          },
+        ],
+      },
+      {
+        name: "inhuman-plugin-goal",
+        aliases: ["goal", "goals"],
+        annotation: "not installed",
+        health: "degraded",
+        action: [{ op: "plugin/install", name: "Install plugin", params: { spec: "@inhuman.tools/plugin-goal" } }],
+        alts: [],
+      },
+      {
+        name: "offload-tingle",
+        aliases: ["memory"],
+        annotation: "not installed",
+        health: "degraded",
+        action: [
+          { op: "plugin/install", name: "Install plugin", params: { spec: "@inhuman.tools/plugin-offload-tingle" } },
+        ],
+        alts: [],
+      },
+      {
+        name: "Install plugin",
+        aliases: [],
+        annotation: "",
+        health: "ok",
+        action: [{ op: "plugin/install", name: "Install plugin", params: {} }],
+        alts: [],
       },
     ],
   });

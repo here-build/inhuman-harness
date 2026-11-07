@@ -72,6 +72,7 @@ const extensionsSchema = z
   })
   .prefault({});
 export const pluginManifestSchema = z.object({
+  description: z.string().default(""),
   extensions: extensionsSchema,
 });
 
@@ -91,6 +92,7 @@ export const pluginJsonNameSchema = z
 export const consentedPluginSchema = z
   .object({
     pluginName: z.string().min(1),
+    description: z.string().default(""),
     sourceNpm: z.string().default(""),
     sourceVersion: z.string().default(""),
     rootPath: z.string(),
@@ -99,6 +101,7 @@ export const consentedPluginSchema = z
   })
   .transform((row) => ({
     pluginName: row.pluginName,
+    description: row.description,
     sourceNpm: row.sourceNpm,
     sourceVersion: row.sourceVersion,
     rootPath: row.rootPath,

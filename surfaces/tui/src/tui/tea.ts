@@ -68,6 +68,21 @@ import {
 } from "@inhuman.tools/harness-sdk/text";
 import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { CLASSES } from "@inhuman.tools/policy/floor";
+import { action, comparer, computed, type IReactionDisposer, observable, reaction, runInAction, when } from "mobx";
+import invariant from "tiny-invariant";
+
+import {
+  ackAnnotation,
+  ackPromptModel,
+  ackVariant,
+  cycleAck,
+  type AckChoice,
+  type AckPromptModel,
+  type AckScope,
+} from "./ack-prompt.js";
+import { agentsPaintFace } from "./agents-drawer.js";
+import { HOTKEY_EVENT } from "./ask-shortcuts.js";
+import { HOST_VERBS, isHostVerb } from "./host-verbs.js";
 import {
   agentsRowKeyFromHit,
   applyDraftOp,
@@ -94,21 +109,6 @@ import {
   type SubmitCommand,
   type SubmitPart,
 } from "./input-primitives.js";
-import { action, comparer, computed, type IReactionDisposer, observable, reaction, runInAction, when } from "mobx";
-import invariant from "tiny-invariant";
-
-import {
-  ackAnnotation,
-  ackPromptModel,
-  ackVariant,
-  cycleAck,
-  type AckChoice,
-  type AckPromptModel,
-  type AckScope,
-} from "./ack-prompt.js";
-import { agentsPaintFace } from "./agents-drawer.js";
-import { HOTKEY_EVENT } from "./ask-shortcuts.js";
-import { HOST_VERBS, isHostVerb } from "./host-verbs.js";
 import {
   omniboxSeat,
   omniboxStackPanel,
@@ -2704,6 +2704,9 @@ function fillParams(params: Record<string, unknown>, remainder: string): Record<
   }
   if (Object.prototype.hasOwnProperty.call(params, "value") && params.value === "") {
     next = { ...next, value: remainder };
+  }
+  if (Object.prototype.hasOwnProperty.call(params, "spec") && (params.spec === undefined || params.spec === "")) {
+    next = { ...next, spec: remainder };
   }
   return next;
 }

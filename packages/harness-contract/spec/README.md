@@ -155,8 +155,8 @@ host's own auth. Not built yet; the JSON-RPC transport remains the only server t
 | `ack/add` | `kernel.ack.add` |  | Store an acknowledgement from settings |
 | `ack/revoke` | `kernel.ack.revoke` |  | Revoke a stored acknowledgement |
 | `plugin/set` | `kernel.plugin.set` |  | Enable, disable or foreground a plugin |
-| `plugin/install` | `kernel.plugin.install` |  | Install a plugin from an npm spec |
-| `plugin/remove` | `kernel.plugin.remove` |  | Remove an installed plugin |
+| `plugin/install` | `kernel.plugin.install` | yes | Install a plugin from an npm spec |
+| `plugin/remove` | `kernel.plugin.remove` | yes | Remove an installed plugin |
 | `skill/list` | `kernel.skill.list` |  | List skill files for a project and home |
 | `skill/write` | `kernel.skill.write` |  | Write a skill file |
 | `skill/remove` | `kernel.skill.remove` |  | Remove a skill file |

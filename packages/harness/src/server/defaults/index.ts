@@ -49,12 +49,13 @@ export function resolveCompactStrategyPath(spec: string, root: string): string {
   return createRequire(join(root, "package.json")).resolve(trimmed);
 }
 
-export type DefaultCommandVerb = "connect" | "model" | "mcp";
+export type DefaultCommandVerb = "connect" | "model" | "mcp" | "plugins";
 
 const DEFAULT_COMMANDS: Record<DefaultCommandVerb, { readonly description: string }> = {
   connect: { description: "Manage provider connections" },
   model: { description: "Session model" },
   mcp: { description: "MCP connections" },
+  plugins: { description: "Manage plugins" },
 };
 
 function defaultCommandPath(verb: DefaultCommandVerb): string {
@@ -67,7 +68,7 @@ export function defaultCommands(): readonly {
   readonly source: string;
   readonly body: string;
 }[] {
-  return (["connect", "model", "mcp"] as const).map((verb) => ({
+  return (["connect", "model", "mcp", "plugins"] as const).map((verb) => ({
     verb,
     description: DEFAULT_COMMANDS[verb].description,
     source: defaultCommandPath(verb),

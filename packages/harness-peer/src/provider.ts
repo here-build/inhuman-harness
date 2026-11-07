@@ -62,12 +62,7 @@ export class WebsocketProvider {
   readonly #docUnsub: () => void;
   readonly #awarenessUnsub: () => void;
 
-  constructor(
-    url: string,
-    roomname: string,
-    doc: DocumentContainer<any, any>,
-    options: WebsocketProviderOptions = {},
-  ) {
+  constructor(url: string, roomname: string, doc: DocumentContainer<any, any>, options: WebsocketProviderOptions = {}) {
     this.url = url;
     this.roomname = roomname;
     this.doc = doc;
@@ -111,11 +106,9 @@ export class WebsocketProvider {
       if (reply != null && this.ws != null && this.ws.readyState === WS_OPEN) {
         this.ws.send(reply);
       }
-      if (frameBytes.length >= 2 && frameBytes[1] === SYNC_STEP2) {
-        if (!this.synced) {
-          this.synced = true;
-          this.emit("sync", true);
-        }
+      if (frameBytes.length >= 2 && frameBytes[1] === SYNC_STEP2 && !this.synced) {
+        this.synced = true;
+        this.emit("sync", true);
       }
     };
 
@@ -147,6 +140,7 @@ export class WebsocketProvider {
   }
 
   connect(): void {
+    this.shouldConnect = true;
     if (this.ws != null) return;
 
     const WebSocketConstructor =
@@ -165,7 +159,7 @@ export class WebsocketProvider {
 
     this.emit("status", { status: "connecting" });
 
-    ws.onopen = (): void => {
+    ws.addEventListener("open", (): void => {
       if (this.ws !== ws) return;
       this.#unsuccessfulReconnects = 0;
       this.wsconnected = true;
@@ -176,7 +170,7 @@ export class WebsocketProvider {
       if (localAw != null) {
         ws.send(localAw);
       }
-    };
+    });
 
     ws.onmessage = (event: MessageEvent): void => {
       if (this.ws !== ws) return;
@@ -199,34 +193,47 @@ export class WebsocketProvider {
       const customHandler = this.messageHandlers[type];
       if (customHandler != null) {
         customHandler(null, { arr: bytes, pos: 1 }, this);
-      } else if (type === MESSAGE_SYNC) {
-        const reply = applyPeerSyncFrame(bytes, this.doc, this);
-        if (reply != null && ws.readyState === WS_OPEN) {
-          ws.send(reply);
-        }
-        if (bytes.length >= 2 && bytes[1] === SYNC_STEP2) {
-          if (!this.synced) {
-            this.synced = true;
-            this.emit("sync", true);
+      } else
+        switch (type) {
+          case MESSAGE_SYNC: {
+            const reply = applyPeerSyncFrame(bytes, this.doc, this);
+            if (reply != null && ws.readyState === WS_OPEN) {
+              ws.send(reply);
+            }
+            if (bytes.length >= 2 && bytes[1] === SYNC_STEP2 && !this.synced) {
+              this.synced = true;
+              this.emit("sync", true);
+            }
+
+            break;
           }
-        }
-      } else if (type === MESSAGE_AWARENESS) {
-        const payload = decodeAwarenessPayload(bytes);
-        if (payload != null) {
-          try {
-            applyAwarenessUpdate(this.awareness, payload, this);
-          } catch {
-            // malformed awareness frame
+          case MESSAGE_AWARENESS: {
+            const payload = decodeAwarenessPayload(bytes);
+            if (payload != null) {
+              try {
+                applyAwarenessUpdate(this.awareness, payload, this);
+              } catch {
+                // malformed awareness frame
+              }
+            }
+
+            break;
           }
+          case MESSAGE_QUERY_AWARENESS: {
+            const localAw = encodeLocalAwarenessFrame(this.awareness);
+            if (localAw != null && ws.readyState === WS_OPEN) {
+              ws.send(localAw);
+            }
+
+            break;
+          }
+          case MESSAGE_SHAPE: {
+            this.emit("shape", bytes);
+
+            break;
+          }
+          // No default
         }
-      } else if (type === MESSAGE_QUERY_AWARENESS) {
-        const localAw = encodeLocalAwarenessFrame(this.awareness);
-        if (localAw != null && ws.readyState === WS_OPEN) {
-          ws.send(localAw);
-        }
-      } else if (type === MESSAGE_SHAPE) {
-        this.emit("shape", bytes);
-      }
       this.emit("message", bytes);
     };
 
@@ -235,7 +242,7 @@ export class WebsocketProvider {
       this.emit("connection-error", error);
     };
 
-    ws.onclose = (event: CloseEvent): void => {
+    ws.addEventListener("close", (event: CloseEvent): void => {
       if (this.ws !== ws) return;
       this.ws = null;
       this.wsconnected = false;
@@ -262,7 +269,7 @@ export class WebsocketProvider {
         this.shouldConnect = false;
         this.emit("closed", event);
       }
-    };
+    });
 
     if (this.options.resyncInterval != null && this.options.resyncInterval > 0) {
       this.#resyncTimer = setInterval(() => {

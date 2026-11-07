@@ -8,10 +8,13 @@
     ".": {
       "types": "./dist/plugin.d.ts",
       "default": "./dist/plugin.js"
-    }
+    },
+    "./package.json": "./package.json",
+    "./plugin.json": "./plugin.json"
   },
   "files": [
     "plugin.json",
+    "behavior",
     "dist",
     "README.md"
   ],

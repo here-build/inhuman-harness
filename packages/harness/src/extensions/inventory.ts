@@ -82,16 +82,18 @@ export function readPluginInventory(
     }
   }
   return {
-    plugins: presence.map((node) =>
-      consentedPluginSchema.parse({
+    plugins: presence.map((node) => {
+      const manifest = readPluginManifest(node.root);
+      return consentedPluginSchema.parse({
         pluginName: node.pluginName,
+        description: manifest.description,
         sourceNpm: node.npmName,
         sourceVersion: node.version,
         rootPath: node.root,
         enabled: !disabled.has(node.pluginName),
-        extensions: { "tools.inhuman": readInhumanExtension(node.root) },
-      }),
-    ),
+        extensions: { "tools.inhuman": manifest.extensions["tools.inhuman"] },
+      });
+    }),
     commands: [...commandsByVerb.values()],
     drivers: [...driversByName.values()],
     publicMcpServers,

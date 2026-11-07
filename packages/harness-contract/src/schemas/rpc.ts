@@ -100,7 +100,7 @@ export type UiChoiceDef = {
   readonly alternateActions?: readonly UiDefinition[];
   readonly choices?: readonly UiDefinition[];
   readonly secret?: boolean;
-  readonly context?: "connect" | "model" | "mcp" | "goal" | "plan";
+  readonly context?: "connect" | "model" | "mcp" | "plugins" | "goal" | "plan";
 };
 
 export type UiActionDef = {
@@ -142,13 +142,7 @@ export type UiNoticeDef = {
   readonly description?: string;
 };
 
-export type UiDefinition =
-  | UiChoiceDef
-  | UiActionDef
-  | UiConfirmDef
-  | UiInputDef
-  | UiOpenUrlDef
-  | UiNoticeDef;
+export type UiDefinition = UiChoiceDef | UiActionDef | UiConfirmDef | UiInputDef | UiOpenUrlDef | UiNoticeDef;
 
 export const uiDefinitionSchema: z.ZodType<UiDefinition> = z.lazy(() =>
   z.discriminatedUnion("kind", [
@@ -165,7 +159,7 @@ export const uiDefinitionSchema: z.ZodType<UiDefinition> = z.lazy(() =>
       alternateActions: z.array(uiDefinitionSchema).optional(),
       choices: z.array(uiDefinitionSchema).optional(),
       secret: z.boolean().optional(),
-      context: z.enum(["connect", "model", "mcp", "goal", "plan"]).optional(),
+      context: z.enum(["connect", "model", "mcp", "plugins", "goal", "plan"]).optional(),
     }),
     z.object({
       kind: z.literal("action"),

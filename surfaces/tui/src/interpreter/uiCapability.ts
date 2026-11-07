@@ -159,13 +159,7 @@ export function uiOpenUrl(
     "ok",
     "",
     undefined,
-    [
-      resolveLeaf(
-        "Continue",
-        pending,
-        wantsInput ? { kind: "text", input: "" } : { kind: "opened", url: input.url },
-      ),
-    ],
+    [resolveLeaf("Continue", pending, wantsInput ? { kind: "text", input: "" } : { kind: "opened", url: input.url })],
     [resolveLeaf("Cancel", pending, { kind: "cancel" }, "escape")],
     [],
     null,
@@ -270,7 +264,7 @@ function versionNumbers(v: string): readonly number[] {
   return v
     .split(".")
     .filter((part) => part !== "")
-    .map((part) => Number(part));
+    .map(Number);
 }
 
 function versionGreater(a: readonly number[], b: readonly number[]): boolean {
@@ -458,7 +452,7 @@ function needsAuth(c: ConnectionSpec): boolean {
 }
 
 function authLine(s: string): boolean {
-  return /(?<![0-9])(?:401|403)(?![0-9])/.test(s);
+  return /(?<!\d)(?:401|403)(?!\d)/.test(s);
 }
 
 function lastUsedModel(c: ConnectionSpec, kernel: KernelRoot, session?: SessionRoot): string {
@@ -472,7 +466,7 @@ export function connectChoices(kernel: KernelRoot, session?: SessionRoot): reado
   const promptDrivers = Object.values(kernel.drivers).filter((d) => d.abilityClaim.includes("completion"));
   const connections = Object.values(kernel.connections);
   const usedConnections = connections.filter((c) => driverCan(c.driver).includes("completion"));
-  const usedDrivers = usedConnections.map((c) => c.driver).filter((d): d is DriverSpec => Boolean(d));
+  const usedDrivers = new Set(usedConnections.map((c) => c.driver).filter((d): d is DriverSpec => Boolean(d)));
 
   const connectionNode = (c: ConnectionSpec): UiNode => {
     const err = text(c.error);
@@ -493,11 +487,7 @@ export function connectChoices(kernel: KernelRoot, session?: SessionRoot): reado
                   ? planCaption(connectionTitle(c), asDict(live.identity))
                   : "";
     const annotation =
-      c.issue === "failed" || needsAuth(c)
-        ? ""
-        : live.account
-          ? paintAccountAnnotation(live.account)
-          : "";
+      c.issue === "failed" || needsAuth(c) ? "" : live.account ? paintAccountAnnotation(live.account) : "";
     const health: UiHealth = c.issue === "failed" ? "failed" : needsAuth(c) ? "degraded" : "ok";
     const last = lastUsedModel(c, kernel, session);
     const pick = last === "" ? bestModel(modelsOf(c)) : last;
@@ -522,8 +512,7 @@ export function connectChoices(kernel: KernelRoot, session?: SessionRoot): reado
     });
   };
 
-  const offerAdoptable = (o: Record<string, unknown>): boolean =>
-    o.adoptable === true || o.adoptable === "true";
+  const offerAdoptable = (o: Record<string, unknown>): boolean => o.adoptable === true || o.adoptable === "true";
 
   const offerUrl = (o: Record<string, unknown>): string => text(asDict(o.settings).baseUrl);
 
@@ -558,8 +547,7 @@ export function connectChoices(kernel: KernelRoot, session?: SessionRoot): reado
     return uiChoice({ name, description });
   };
 
-  const driverOffers = (d: DriverSpec): readonly Record<string, unknown>[] =>
-    [...d.offers].map((o) => asDict(o));
+  const driverOffers = (d: DriverSpec): readonly Record<string, unknown>[] => [...d.offers].map((o) => asDict(o));
 
   const offerRows = promptDrivers.flatMap((d) =>
     driverOffers(d)
@@ -567,7 +555,7 @@ export function connectChoices(kernel: KernelRoot, session?: SessionRoot): reado
       .map((o) => offerNode(d, o)),
   );
 
-  const unusedDrivers = promptDrivers.filter((d) => !usedDrivers.includes(d) && driverOffers(d).length === 0);
+  const unusedDrivers = promptDrivers.filter((d) => !usedDrivers.has(d) && driverOffers(d).length === 0);
 
   const unusedDriverNode = (d: DriverSpec): UiNode => {
     const name = d.name || "";
@@ -632,11 +620,7 @@ export function mcpConnectionChoices(kernel: KernelRoot, session?: SessionRoot):
     const kernelDisabled = asDict(c.configuration).enabled === false;
     const authNeeded = needsAuth(c);
     const health: UiHealth =
-      c.issue === "failed"
-        ? "failed"
-        : authNeeded || (text(c.readyState) === "ready" && n === 0)
-          ? "degraded"
-          : "ok";
+      c.issue === "failed" ? "failed" : authNeeded || (text(c.readyState) === "ready" && n === 0) ? "degraded" : "ok";
     const err = text(c.error);
     const description =
       c.issue === "failed" && err !== ""
@@ -692,10 +676,118 @@ export function buildMcpSurface(kernel: KernelRoot, session?: SessionRoot): UiNo
   });
   return uiChoice({
     action: [uiAction("mcp-server/adopt", { name: "Add MCP", params: { input: "" } })],
-    alternateActions: [
-      uiAction("mcp-server/adopt", { name: "Add MCP", hotkey: "control-n", params: { input: "" } }),
-    ],
+    alternateActions: [uiAction("mcp-server/adopt", { name: "Add MCP", hotkey: "control-n", params: { input: "" } })],
     choices: [...mcpConnectionChoices(kernel, session), addRow],
+  });
+}
+
+export const DEFAULT_PLUGIN_CATALOG = [
+  {
+    pluginName: "tasks",
+    npmName: "@inhuman.tools/plugin-tasks",
+    alias: ["todos"],
+    description: "Session notebook pages with a frozen exam, and project promotion of an accepted task.",
+  },
+  {
+    pluginName: "fusion",
+    npmName: "@inhuman.tools/plugin-fusion",
+    alias: ["plan"],
+    description: "Session planner. One round-end note fuses the plan with a granted memory read.",
+  },
+  {
+    pluginName: "inhuman-plugin-goal",
+    npmName: "@inhuman.tools/plugin-goal",
+    alias: ["goal", "goals"],
+    description: "Single-session goal. The foreground hook continues it. /goal is a command file.",
+  },
+  {
+    pluginName: "offload-tingle",
+    npmName: "@inhuman.tools/plugin-offload-tingle",
+    alias: ["memory"],
+    description: "Cited project memory. Writer commits; scout searches. SQLite is an optional adapter.",
+  },
+] as const;
+
+export function pluginChoices(kernel: KernelRoot): readonly UiNode[] {
+  const installed = Object.values(kernel.plugins ?? {});
+  const installedNames = new Set<string>();
+  const installedNpm = new Set<string>();
+  const rows: UiNode[] = installed.map((plugin) => {
+    const name = plugin.pluginName.trim() !== "" ? plugin.pluginName.trim() : plugin.id;
+    installedNames.add(name);
+    if (plugin.sourceNpm.trim() !== "") installedNpm.add(plugin.sourceNpm.trim());
+    const seed = DEFAULT_PLUGIN_CATALOG.find((item) => item.pluginName === name || item.npmName === plugin.sourceNpm);
+    const problem = text(plugin.problem).trim();
+    const health: UiHealth = problem !== "" ? "failed" : !plugin.enabled ? "degraded" : "ok";
+    const tags: string[] = [];
+    if (plugin.sourceVersion.trim() !== "") tags.push(plugin.sourceVersion.trim());
+    if (!plugin.enabled) tags.push("disabled");
+    else if (!plugin.foreground) tags.push("background only");
+    const annotation = tags.join(" · ");
+    const description =
+      problem !== ""
+        ? problem
+        : plugin.description.trim() !== ""
+          ? plugin.description.trim()
+          : (seed?.description ?? plugin.sourceNpm.trim());
+    const toggleEnabled = uiAction("plugin/set", {
+      name: plugin.enabled ? "Disable plugin" : "Enable plugin",
+      params: { name, enabled: !plugin.enabled },
+    });
+    const toggleForeground = uiAction("plugin/set", {
+      name: plugin.foreground ? "Disable foreground" : "Enable foreground",
+      hotkey: "control-f",
+      params: { name, foreground: !plugin.foreground },
+    });
+    const removePlugin = uiAction("plugin/remove", {
+      name: "Remove plugin",
+      hotkey: "control-x",
+      params: { name, confirm: false },
+    });
+    return uiChoice({
+      name,
+      alias: seed?.alias ?? [],
+      annotation,
+      description,
+      healthStatus: health,
+      healthAnnotation: problem,
+      action: [toggleEnabled],
+      alternateActions: [toggleForeground, removePlugin],
+    });
+  });
+  for (const seed of DEFAULT_PLUGIN_CATALOG) {
+    if (installedNames.has(seed.pluginName) || installedNpm.has(seed.npmName)) continue;
+    rows.push(
+      uiChoice({
+        name: seed.pluginName,
+        alias: seed.alias,
+        annotation: "not installed",
+        description: seed.description,
+        healthStatus: "degraded",
+        action: [
+          uiAction("plugin/install", {
+            name: "Install plugin",
+            params: { spec: seed.npmName },
+          }),
+        ],
+      }),
+    );
+  }
+  return rows;
+}
+
+export function buildPluginsSurface(kernel: KernelRoot): UiNode {
+  const installRow = uiChoice({
+    name: "Install plugin",
+    description: "Install an npm package, path, or file: URL",
+    action: [uiAction("plugin/install", { name: "Install plugin" })],
+  });
+  return uiChoice({
+    action: [uiAction("plugin/install", { name: "Install plugin", params: { spec: "" } })],
+    alternateActions: [
+      uiAction("plugin/install", { name: "Install plugin", hotkey: "control-n", params: { spec: "" } }),
+    ],
+    choices: [...pluginChoices(kernel), installRow],
   });
 }
 
@@ -723,10 +815,7 @@ function planStatusLine(reply: unknown): string {
   return `${text(plan.status)} · ${String(plan.steps ?? 0)} steps left · ${text(plan.text)}`;
 }
 
-function applyPluginStatusChoice(
-  choices: readonly UiNode[],
-  description: string,
-): readonly UiNode[] {
+function applyPluginStatusChoice(choices: readonly UiNode[], description: string): readonly UiNode[] {
   return choices.map((choice) =>
     choice.name === "status"
       ? new UiNode(
@@ -762,6 +851,8 @@ export function evalUiDef(def: UiDefinition, config: UiEvalConfig = {}): UiNode 
         choices = [...modelChoices(config.kernel, config.session), ...choices];
       } else if (def.context === "mcp" && config.kernel !== undefined) {
         choices = [...mcpConnectionChoices(config.kernel, config.session), ...choices];
+      } else if (def.context === "plugins" && config.kernel !== undefined) {
+        choices = [...pluginChoices(config.kernel), ...choices];
       } else if (def.context === "goal") {
         const reply = config.rpc?.("plugin/method", { plugin: "inhuman-plugin-goal", method: "get" });
         choices = applyPluginStatusChoice(choices, goalStatusLine(reply));

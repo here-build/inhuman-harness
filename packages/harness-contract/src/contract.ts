@@ -334,12 +334,20 @@ const kernel = {
     set: rpc("kernel", "plugin/set", { summary: "Enable, disable or foreground a plugin" })
       .input(shapes.pluginSetInput)
       .output(shapes.pluginSetOutput),
-    install: rpc("kernel", "plugin/install", { summary: "Install a plugin from an npm spec" })
+    install: rpc("kernel", "plugin/install", {
+      summary: "Install a plugin from an npm spec",
+      description: "Without `spec` it parks on an input form; cancelling answers `{ok: false}`.",
+      mayPark: true,
+    })
       .input(shapes.pluginInstallInput)
-      .output(shapes.pluginInstallOutput),
-    remove: rpc("kernel", "plugin/remove", { summary: "Remove an installed plugin" })
+      .output(parks(shapes.pluginInstallOutput)),
+    remove: rpc("kernel", "plugin/remove", {
+      summary: "Remove an installed plugin",
+      description: "With `confirm: false` it parks on a confirmation form; cancelling answers `{ok: false}`.",
+      mayPark: true,
+    })
       .input(shapes.pluginRemoveInput)
-      .output(shapes.pluginRemoveOutput),
+      .output(parks(shapes.pluginRemoveOutput)),
   },
   skill: {
     list: rpc("kernel", "skill/list", { summary: "List skill files for a project and home" })

@@ -9,6 +9,7 @@ export class InstalledPlugin extends Model<any, KernelRoot | null> {
   }
 
   @state accessor pluginName: string = "";
+  @state accessor description: string = "";
   @state accessor sourceNpm: string = "";
   @state accessor sourceVersion: string = "";
   @state accessor rootPath: string = "";
@@ -25,6 +26,7 @@ export class InstalledPlugin extends Model<any, KernelRoot | null> {
     opts?:
       | {
           pluginName?: string;
+          description?: string;
           sourceNpm?: string;
           sourceVersion?: string;
           sourcePath?: string;

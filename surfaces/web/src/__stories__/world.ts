@@ -15,6 +15,7 @@ import {
   CompletionJob,
   FailureOutcome,
   FileMutateToolJob,
+  InstalledPlugin,
   BotSpec,
   KernelPlexus,
   KernelRoot,
@@ -816,6 +817,48 @@ export class StoryDial {
             if (typeof args.enabled === "boolean") plugin.enabled = args.enabled;
             if (typeof args.foreground === "boolean") Object.assign(plugin, { foreground: args.foreground });
           }
+          return { ok: true as const };
+        }
+        case "plugin/install": {
+          const spec = typeof args.spec === "string" ? args.spec.trim() : "";
+          if (spec === "" || root == null) return { ok: false as const };
+          const known: Readonly<Record<string, { readonly name: string; readonly description: string } | undefined>> = {
+            "@inhuman.tools/plugin-tasks": {
+              name: "tasks",
+              description: "Session notebook pages with a frozen exam, and project promotion of an accepted task.",
+            },
+            "@inhuman.tools/plugin-fusion": {
+              name: "fusion",
+              description: "Session planner. One round-end note fuses the plan with a granted memory read.",
+            },
+            "@inhuman.tools/plugin-goal": {
+              name: "inhuman-plugin-goal",
+              description: "Single-session goal. The foreground hook continues it. /goal is a command file.",
+            },
+            "@inhuman.tools/plugin-offload-tingle": {
+              name: "offload-tingle",
+              description: "Cited project memory. Writer commits; scout searches. SQLite is an optional adapter.",
+            },
+          };
+          const seed = known[spec];
+          const tail = spec
+            .split("/")
+            .pop()
+            ?.replace(/^inhuman-plugin-|^plugin-/, "");
+          const pluginName = seed?.name ?? (tail !== undefined && tail !== "" ? tail : spec);
+          root.plugins[pluginName] = new InstalledPlugin({
+            pluginName,
+            description: seed?.description ?? "",
+            sourceNpm: spec,
+            sourceVersion: "0.1.0",
+            enabled: true,
+            foreground: true,
+          });
+          return { name: pluginName, npmName: spec };
+        }
+        case "plugin/remove": {
+          const name = typeof args.name === "string" ? args.name : "";
+          if (root != null && name !== "") delete root.plugins[name];
           return { ok: true as const };
         }
         case "config/set":

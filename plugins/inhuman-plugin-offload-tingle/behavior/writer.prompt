@@ -1,4 +1,5 @@
 ---
+description: Retain cited project facts and promote durable memory
 mode: instruct
 behavior:
   program: ./writer.scm

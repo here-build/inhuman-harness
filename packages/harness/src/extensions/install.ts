@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { adjustJson } from "./adjust-json.js";
+import { linkSeedPackage, resolveSeedPackageRoot, seedRange } from "../server/daemon/kernel/kernel-package.js";
 
 const KERNEL_PACKAGE = {
   name: "harness-kernel",
@@ -84,6 +85,27 @@ export function streamNpmInstall(options: {
   readonly stdout: NodeJS.WritableStream;
   readonly stderr: NodeJS.WritableStream;
 }): Promise<number> {
+  if (installedNpmName(options.pkg) === null) {
+    const npmName = packageNameOf(options.pkg);
+    const seedRoot = resolveSeedPackageRoot(npmName);
+    if (seedRoot !== null) {
+      adjustJson(join(options.kernel, "package.json"), (raw) => {
+        const pkg =
+          raw != null && typeof raw === "object" && !Array.isArray(raw)
+            ? { ...(raw as Record<string, unknown>) }
+            : { ...KERNEL_PACKAGE };
+        const deps =
+          pkg.dependencies != null && typeof pkg.dependencies === "object" && !Array.isArray(pkg.dependencies)
+            ? { ...(pkg.dependencies as Record<string, unknown>) }
+            : {};
+        deps[npmName] = seedRange(npmName);
+        pkg.dependencies = deps;
+        return pkg;
+      });
+      linkSeedPackage(options.kernel, npmName, seedRoot);
+      return Promise.resolve(0);
+    }
+  }
   return new Promise((resolve, reject) => {
     const child = spawn("npm", ["install", "--save", "--ignore-scripts", options.pkg], {
       cwd: options.kernel,

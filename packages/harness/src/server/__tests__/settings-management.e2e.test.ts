@@ -234,6 +234,8 @@ describe("settings management", () => {
         args: connection?.configuration.args,
       };
 
+      const seededPlugins = Object.keys(kernel.plexus.root.plugins).sort();
+      const seededCommands = ["goal", "plan", "plugins"].filter((verb) => kernel.plexus.root.commands[verb] != null);
       const installed = pluginInstallOutput.parse(
         await kernel.handleRequest("plugin/install", { spec: pathToFileURL(TASKS).href }),
       );
@@ -242,6 +244,10 @@ describe("settings management", () => {
       );
       const disabled = kernel.plexus.root.plugins.tasks;
       pluginRemoveOutput.parse(await kernel.handleRequest("plugin/remove", { name: "tasks" }));
+      const removed = kernel.plexus.root.plugins.tasks == null;
+      const reinstalled = pluginInstallOutput.parse(
+        await kernel.handleRequest("plugin/install", { spec: "@inhuman.tools/plugin-tasks" }),
+      );
 
       expect({
         keeper: kept,
@@ -250,9 +256,13 @@ describe("settings management", () => {
         noteGone: project.root.bots.note == null,
         glanceGone: kernel.plexus.root.bots.glance == null,
         connection: connectionFace,
+        seededPlugins,
+        seededCommands,
         installed,
         disabled: { enabled: disabled?.enabled, foreground: disabled?.foreground },
-        removed: kernel.plexus.root.plugins.tasks == null,
+        removed,
+        reinstalled,
+        restoredEnabled: kernel.plexus.root.plugins.tasks?.enabled,
       }).toEqual({
         keeper: { program: "./keep.scm" },
         glance: {
@@ -272,9 +282,13 @@ describe("settings management", () => {
           command: "printf",
           args: ["hi"],
         },
+        seededPlugins: ["fusion", "inhuman-plugin-goal", "offload-tingle", "tasks"],
+        seededCommands: ["goal", "plan", "plugins"],
         installed: { name: "tasks", npmName: "@inhuman.tools/plugin-tasks" },
         disabled: { enabled: false, foreground: false },
         removed: true,
+        reinstalled: { name: "tasks", npmName: "@inhuman.tools/plugin-tasks" },
+        restoredEnabled: true,
       });
     } finally {
       if (opened) kernel[Symbol.dispose]();

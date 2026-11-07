@@ -92,8 +92,8 @@ export class KernelToolCatalog extends DisposableClass {
     } else {
       for (const entry of this.packEntries) map.set(entry.wireName, entry);
       for (const entry of this.connectionEntries) map.set(entry.wireName, entry);
-      for (const entry of this.privateWorkerEntries) map.set(entry.wireName, entry);
     }
+    for (const entry of this.privateWorkerEntries) map.set(entry.wireName, entry);
     for (const entry of this.behaviorEntries) {
       if (!map.has(entry.wireName)) map.set(entry.wireName, entry);
     }
