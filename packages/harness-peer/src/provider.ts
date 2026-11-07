@@ -19,7 +19,6 @@ import {
   MESSAGE_SYNC,
   peekMessageType,
   SYNC_STEP2,
-  SYNC_UPDATE,
 } from "./frames.js";
 
 export type WebsocketProviderOptions = {
@@ -112,7 +111,7 @@ export class WebsocketProvider {
       if (reply != null && this.ws != null && this.ws.readyState === WS_OPEN) {
         this.ws.send(reply);
       }
-      if (frameBytes.length >= 2 && (frameBytes[1] === SYNC_STEP2 || frameBytes[1] === SYNC_UPDATE)) {
+      if (frameBytes.length >= 2 && frameBytes[1] === SYNC_STEP2) {
         if (!this.synced) {
           this.synced = true;
           this.emit("sync", true);
@@ -205,7 +204,7 @@ export class WebsocketProvider {
         if (reply != null && ws.readyState === WS_OPEN) {
           ws.send(reply);
         }
-        if (bytes.length >= 2 && (bytes[1] === SYNC_STEP2 || bytes[1] === SYNC_UPDATE)) {
+        if (bytes.length >= 2 && bytes[1] === SYNC_STEP2) {
           if (!this.synced) {
             this.synced = true;
             this.emit("sync", true);
