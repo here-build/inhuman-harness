@@ -116,8 +116,14 @@ export function guardProvider<Args extends [unknown, unknown, ...unknown[]]>(
     const { arr, pos } = args[1] as { arr: Uint8Array; pos: number };
     const [kind, afterKind] = readVarUint(arr, pos);
     if (kind === STEP1) {
-      const [length, start] = readVarUint(arr, afterKind);
-      if (holdsBeyond(doc, arr.subarray(start, start + length))) {
+      const vector =
+        arr[afterKind] === 0x7b && arr[afterKind + 1] !== 0x7b
+          ? arr.subarray(afterKind)
+          : (() => {
+              const [length, start] = readVarUint(arr, afterKind);
+              return arr.subarray(start, start + length);
+            })();
+      if (holdsBeyond(doc, vector)) {
         refused = true;
         onStale(isSynced());
         return;
