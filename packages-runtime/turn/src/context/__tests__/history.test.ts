@@ -35,18 +35,23 @@ function nativeCalls(...rows: Array<[id: string, name: string, args?: string]>) 
 function completion(
   promptText: string,
   extra?: {
+    readonly connectionId?: string;
+    readonly model?: string;
     readonly responseText?: string;
     readonly calls?: ReturnType<typeof nativeCalls>;
     readonly thought?: string;
+    readonly thoughtEncrypted?: string;
   },
 ): CompletionExpectation {
   const node = new CompletionExpectation({
-    connectionId: "c1",
+    connectionId: extra?.connectionId ?? "c1",
+    ...(extra?.model === undefined ? {} : { model: extra.model }),
     promptText: prompt.user`${promptText}`,
   });
   if (extra?.responseText !== undefined) node.responseText = extra.responseText;
   if (extra?.calls !== undefined) node.setResponseCalls(extra.calls);
   if (extra?.thought !== undefined) node.responseThought = extra.thought;
+  if (extra?.thoughtEncrypted !== undefined) node.responseReasoningEncrypted = extra.thoughtEncrypted;
   return node;
 }
 
@@ -395,6 +400,43 @@ it("isolated assistant examples carry empty thought for the actor to encode", ()
   });
   round.responseThought = "not authored reasoning";
   expect([...projectHistory(round)]).toEqual([messages[0], { ...messages[1], thought: "" }, messages[2]]);
+});
+
+it("echoes encrypted reasoning only when connectionId and model match the tip while keeping plain thought", () => {
+  const project = (id: string, tipExtra: { connectionId?: string; model?: string }) =>
+    history(id, [
+      completion("q", {
+        connectionId: "c1",
+        model: "gpt-5.4",
+        responseText: "done",
+        thought: "plain reasoning",
+        thoughtEncrypted: "enc_blob_1",
+      }),
+      completion("next", tipExtra),
+    ]).find((row) => row.role === "assistant");
+
+  expect({
+    sameEndpoint: project("enc-same", { connectionId: "c1", model: "gpt-5.4" }),
+    differentModel: project("enc-diff-model", { connectionId: "c1", model: "gpt-5.3-codex" }),
+    differentConnection: project("enc-diff-conn", { connectionId: "c2", model: "gpt-5.4" }),
+  }).toEqual({
+    sameEndpoint: {
+      role: "assistant",
+      content: "done",
+      thought: "plain reasoning",
+      thoughtEncrypted: "enc_blob_1",
+    },
+    differentModel: {
+      role: "assistant",
+      content: "done",
+      thought: "plain reasoning",
+    },
+    differentConnection: {
+      role: "assistant",
+      content: "done",
+      thought: "plain reasoning",
+    },
+  });
 });
 
 describe("bodies stored beside the document", () => {

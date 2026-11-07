@@ -619,8 +619,9 @@ function* emitCompletionOnTape(completion: CompletionExpectation, ctx: Projectio
   const calls = stored.filter((call) => !round.suppressed.has(call.id));
   const allSuppressed = stored.length > 0 && calls.length === 0;
   const dropThinking = thinkingExpired(completion, ctx);
+  const sameEndpoint = completion.connectionId === ctx.view.tip.connectionId && completion.model === ctx.view.tip.model;
   const thought = dropThinking ? "" : completion.responseThought;
-  const encrypted = dropThinking ? "" : (completion.responseReasoningEncrypted?.trim() ?? "");
+  const encrypted = dropThinking || !sameEndpoint ? "" : (completion.responseReasoningEncrypted?.trim() ?? "");
   if (
     completion.responseText !== "" ||
     calls.length > 0 ||
