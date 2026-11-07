@@ -289,6 +289,10 @@ export type WireSpec = {
   /** Its endpoint, as `/connect` reads it to tell which offers are taken. */
   readonly baseUrl?: string;
   readonly models: readonly string[];
+  readonly modelNames?: Readonly<Record<string, string>>;
+  readonly modelPricing?: Readonly<
+    Record<string, { readonly prompt: number; readonly completion: number; readonly cacheRead?: number }>
+  >;
   readonly can?: readonly string[];
   readonly failed?: string;
   readonly identity?: Record<string, unknown>;
@@ -323,7 +327,24 @@ export const WIRES: readonly WireSpec[] = [
   {
     id: "openrouter",
     name: "OpenRouter",
-    models: ["anthropic/claude-opus-5.5", "x-ai/grok-4.7", "qwen/qwen4-coder"],
+    models: [
+      "nvidia/nemotron-3.5-super",
+      "nvidia/nemotron-3.5-super:free",
+      "anthropic/claude-opus-5.5",
+      "x-ai/grok-4.7",
+      "qwen/qwen4-coder",
+    ],
+    modelNames: {
+      "nvidia/nemotron-3.5-super": "NVIDIA: Nemotron 3.5 Super",
+      "nvidia/nemotron-3.5-super:free": "NVIDIA: Nemotron 3.5 Super (free)",
+    },
+    modelPricing: {
+      "nvidia/nemotron-3.5-super": { cacheRead: 0.1, prompt: 1, completion: 10 },
+      "nvidia/nemotron-3.5-super:free": { prompt: 0, completion: 0 },
+      "anthropic/claude-opus-5.5": { cacheRead: 1.5, prompt: 15, completion: 75 },
+      "x-ai/grok-4.7": { cacheRead: 0.2, prompt: 2, completion: 10 },
+      "qwen/qwen4-coder": { prompt: 0.15, completion: 0.6 },
+    },
     keyMask: "sk-or-...8768",
     account: { balance: { balance: "74.75", currency: { code: "USD", symbol: "$" } } },
   },
@@ -442,6 +463,8 @@ function stampWire(plexus: KernelPlexus, wire: WireSpec): void {
     error: wire.failed ?? "",
     live: {
       models: [...wire.models],
+      ...(wire.modelNames == null ? {} : { modelNames: wire.modelNames }),
+      ...(wire.modelPricing == null ? {} : { modelPricing: wire.modelPricing }),
       ...(wire.identity == null ? {} : { identity: wire.identity }),
       ...(wire.keyMask == null ? {} : { keyMask: wire.keyMask }),
       ...(wire.account == null ? {} : { account: wire.account }),

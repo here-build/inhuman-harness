@@ -127,7 +127,7 @@ const selected = (): string[] =>
   options().filter((_, index) => optionNodes()[index]?.getAttribute("aria-selected") === "true");
 
 async function searchFor(text: string): Promise<void> {
-  const field = element<HTMLInputElement>('input[aria-label="Search models"]');
+  const field = element<HTMLInputElement>('input[aria-label="Search by model name"]');
   await act(async () => {
     // Bypass React's value tracker, just as a browser edit would.
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, text);
@@ -197,14 +197,14 @@ describe("composer model choice", () => {
     );
     expect(order).toEqual(["draft", "model"]);
     expect(trigger().disabled).toBe(false);
-    expect(trigger().getAttribute("aria-label")).toBe("Model: Gpt 6.1 Sol");
+    expect(trigger().getAttribute("aria-label")).toBe("Model: GPT 6.1 Sol");
     expect(trigger().querySelector("svg")).toBeNull();
     expect(trigger().textContent).toContain("chatgpt");
     expect(wireRows()).toEqual(["chatgpt", "grok"]);
     // Every fixture model has a "g": one query lists them all, across providers.
     await searchFor("g");
-    expect(options()).toEqual(["chatgpt · Gpt 6.1 Sol", "chatgpt · Gpt 6 Sol", "grok · Grok 4.7"]);
-    expect(selected()).toEqual(["chatgpt · Gpt 6.1 Sol"]);
+    expect(options()).toEqual(["chatgpt · GPT 6.1 Sol", "chatgpt · GPT 6 Sol", "grok · Grok 4.7"]);
+    expect(selected()).toEqual(["chatgpt · GPT 6.1 Sol"]);
     await searchFor("4.7");
     expect(options()).toEqual(["grok · Grok 4.7"]);
   });
@@ -236,7 +236,7 @@ describe("composer model choice", () => {
       ["kv/set", { key: "connection", value: "grok", remember: true }],
       ["kv/set", { key: "model", value: "grok-4.7", remember: true }],
     ]);
-    expect(shownModel()).toBe("Model: Gpt 6.1 Sol");
+    expect(shownModel()).toBe("Model: GPT 6.1 Sol");
 
     const session = dial().session;
     if (session == null) throw new Error("session missing");
@@ -255,7 +255,7 @@ describe("composer model choice", () => {
     await pick({ connection: "grok", model: "grok-4.7" });
     expect(state.request.mock.calls).toEqual([["kv/set", { key: "connection", value: "grok", remember: true }]]);
     expect(container.textContent).toContain("Model was not changed.");
-    expect(shownModel()).toBe("Model: Gpt 6.1 Sol");
+    expect(shownModel()).toBe("Model: GPT 6.1 Sol");
   });
 
   it("shows the current model as text when no completion catalog is listed", async () => {
@@ -267,7 +267,7 @@ describe("composer model choice", () => {
       });
     });
     expect(container.querySelector(".model-trigger")).toBeNull();
-    expect(container.textContent).toContain("Gpt 6.1 Sol");
+    expect(container.textContent).toContain("GPT 6.1 Sol");
 
     await act(async () => {
       runInAction(() => {

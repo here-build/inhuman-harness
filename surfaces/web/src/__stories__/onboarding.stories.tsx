@@ -2,7 +2,7 @@ import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { userEvent, waitFor, within } from "storybook/test";
 
-import { conversation, fresh } from "./scenes.js";
+import { fresh } from "./scenes.js";
 import { sessionStage, StoryApp } from "./story-app.js";
 import { type ConnectScripts, PROJECT, WIRES, worldOf } from "./world.js";
 import { connectError } from "../shell/connect-error.js";
@@ -303,22 +303,6 @@ export const WorkspaceRoute: Story = {
   },
 };
 
-/** With a provider connected, another is one row away in the model picker. */
-export const AddProvider: Story = {
-  args: { stage: sessionStage(conversation, { connect: scripts }) },
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Model:/ }));
-    const add = await waitFor(() => {
-      const found = [...canvasElement.ownerDocument.querySelectorAll<HTMLElement>('[role="option"]')].find(
-        (option) => option.textContent === "Add a provider",
-      );
-      if (found == null) throw new Error("no row");
-      return found;
-    });
-    await userEvent.click(add);
-  },
-};
-
 /** The first call is out and the daemon has not answered yet. */
 export const Connecting: Story = {
   args: { stage: world() },
@@ -354,22 +338,5 @@ export const NoPort: Story = {
   play: async ({ canvasElement }) => {
     const groq = await tile(canvasElement, "Groq");
     if (!(groq as HTMLButtonElement).disabled) throw new Error("tiles should wait for a port");
-  },
-};
-
-/** "Add a provider" runs the same step inside the picker, in place of its list. */
-export const AddProviderStep: Story = {
-  args: { stage: sessionStage(conversation, { connect: scripts }) },
-  play: async (context) => {
-    await AddProvider.play?.(context);
-    const groq = await waitFor(() => {
-      const found = [...context.canvasElement.ownerDocument.querySelectorAll<HTMLElement>('[role="option"]')].find(
-        (option) => option.textContent.startsWith("Groq"),
-      );
-      if (found == null) throw new Error("no Groq row");
-      return found;
-    });
-    await userEvent.click(groq);
-    await root(context.canvasElement).findByLabelText("API key");
   },
 };

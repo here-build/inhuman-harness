@@ -6,27 +6,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { completionWires, type ModelWire } from "../model-choice.js";
 import { ModelPicker } from "../model-picker.js";
-import type { ProviderRow } from "../provider-list.js";
 
 type Props = ComponentProps<typeof ModelPicker>;
-const wire = (connection: string, name: string, models = ["same-model"], needsAuth = false): ModelWire =>
+const wire = (
+  connection: string,
+  name: string,
+  models = ["same-model"],
+  needsAuth = false,
+  extraLive: Record<string, unknown> = {},
+): ModelWire =>
   completionWires({
     [connection]: {
       id: connection,
       name,
       driver: { abilityClaim: ["completion"] },
-      live: { models, ...(needsAuth ? { auth: "needs-auth", identity: { displayName: "Ada" } } : {}) },
+      live: {
+        models,
+        ...(needsAuth ? { auth: "needs-auth", identity: { displayName: "Ada" } } : {}),
+        ...extraLive,
+      },
     },
   })[0]!;
-const provider = (name: string, driver = "compat", start = true): ProviderRow => ({
-  key: name,
-  driver,
-  name,
-  description: `${name} provider`,
-  group: "key",
-  hint: "API key",
-  start: start ? { driver, name, settings: { baseUrl: "https://example.test/v1" } } : null,
-});
 
 let container: HTMLDivElement;
 let root: Root;
@@ -39,11 +39,14 @@ const find = <T extends HTMLElement = HTMLElement>(selector: string): T => {
   return node;
 };
 const menu = () => find<HTMLDivElement>(".model-picker");
+const list = () => find<HTMLDivElement>(".model-list");
 const search = () => find<HTMLInputElement>('input[role="combobox"]');
 const submenu = (name: string) => find<HTMLDivElement>(`.model-submenu[aria-label="${name}"]`);
 const option = (name: string) => {
   const node = [...container.querySelectorAll<HTMLElement>('[role="option"]')].find(
-    (row) => row.firstElementChild?.textContent === name,
+    (row) =>
+      row.firstElementChild?.textContent === name ||
+      row.querySelector(".model-option-title > span")?.textContent === name,
   );
   if (node == null) throw new Error(`Missing option ${name}`);
   return node;
@@ -54,7 +57,11 @@ const action = (name: string) => {
   return node;
 };
 const byId = (id: string) => container.querySelector<HTMLElement>(`[id="${id}"]`);
-const active = () => byId(search().getAttribute("aria-activedescendant") ?? "");
+const active = () => {
+  const combobox = container.querySelector<HTMLInputElement>('input[role="combobox"]');
+  const id = (combobox ?? list()).getAttribute("aria-activedescendant") ?? "";
+  return byId(id);
+};
 async function render(patch: Partial<Props> = {}) {
   props = { ...props, ...patch };
   await act(async () => root.render(createElement(ModelPicker, props)));
@@ -138,7 +145,6 @@ beforeEach(() => {
   root = createRoot(container);
   props = {
     wires: [wire("a", "ChatGPT", ["same-model", "fast-model"]), wire("b", "Grok")],
-    providers: [provider("Groq"), provider("Mistral"), provider("Unavailable", "other", false)],
     current: { connection: "a", model: "same-model" },
     disabled: false,
     request: vi.fn(async () => ({ ok: true })),
@@ -156,8 +162,22 @@ afterEach(() => {
 });
 
 describe("model picker shared-control migration parity", () => {
-  it("keeps a native target and persistent label/help, with commands distinct from names", async () => {
-    await render();
+  it("renders single-line provider rows without usernames or first-level active model name and uses a placeholder-only search", async () => {
+    const chatgpt = wire("a", "ChatGPT", ["same-model", "fast-model"], false, {
+      identity: { displayName: "Ada Lovelace", plan: "pro" },
+      account: {
+        balanceDetail: {
+          windows: [{ label: "5h", remainingPercent: 62 }],
+        },
+      },
+    });
+    const openrouter = wire("b", "OpenRouter", ["nvidia/nemotron-3.5-super"], false, {
+      identity: { displayName: "ada_or" },
+      account: {
+        balance: { balance: "74.75", currency: { code: "USD", symbol: "$" } },
+      },
+    });
+    await render({ wires: [chatgpt, openrouter] });
     const trigger = find<HTMLButtonElement>(".model-trigger");
     expect(trigger.getAttribute("popovertarget")).toBe(menu().id);
     expect(trigger.getAttribute("aria-label")).toBe("Model: Same Model");
@@ -165,18 +185,101 @@ describe("model picker shared-control migration parity", () => {
     expect(trigger.firstElementChild?.classList.contains("[font-variant-caps:normal]")).toBe(true);
     await open();
     expect(document.activeElement).toBe(search());
-    expect(search().classList.contains("rounded-none")).toBe(true);
-    expect(find<HTMLLabelElement>("label").htmlFor).toBe(search().id);
-    expect(find("label").textContent).toBe("Search models");
-    expect(byId(search().getAttribute("aria-describedby")!)?.textContent).toContain("Right");
-    expect(option("Add a provider").firstElementChild?.classList.contains("label")).toBe(true);
+    expect(search().placeholder).toBe("Search by model name");
+    expect(search().getAttribute("aria-label")).toBe("Search by model name");
+    expect(container.querySelector("label")).toBeNull();
+    expect(search().getAttribute("aria-describedby")).toBeNull();
+    expect(container.textContent).not.toContain("Add a provider");
+    expect(container.textContent).not.toContain("Ada Lovelace");
+    expect(container.textContent).not.toContain("ada_or");
+    expect(option("ChatGPT").getAttribute("aria-selected")).toBe("true");
+    expect(option("OpenRouter").getAttribute("aria-selected")).toBe("false");
+    expect(option("ChatGPT").textContent).toContain("62% left · 5h");
+    expect(option("ChatGPT").textContent).not.toContain("Same Model");
+    expect(option("OpenRouter").textContent).toContain("$74.75");
     await type("same");
-    expect(find("label").textContent).toBe("Search models");
     expect(
       [...container.querySelectorAll(".model-group-label")].every((node) => !node.classList.contains("label")),
     ).toBe(true);
     await render({ disabled: true });
     expect(trigger.disabled).toBe(true);
+  });
+
+  it("instantly shows models for a single provider and only renders search when there are more than 20 models", async () => {
+    const smallModels = ["gpt-6.1-sol", "gpt-6-mini"];
+    await render({
+      wires: [wire("a", "ChatGPT", smallModels)],
+      current: { connection: "a", model: "gpt-6-mini" },
+    });
+    await open();
+    expect(container.querySelectorAll(".model-wire")).toHaveLength(0);
+    expect(container.querySelector('input[role="combobox"]')).toBeNull();
+    expect(document.activeElement).toBe(list());
+    expect(active()?.textContent).toContain("GPT 6 Mini");
+    await key("ArrowUp", list());
+    expect(active()?.textContent).toContain("GPT 6.1 Sol");
+    await key("Enter", list());
+    expect(props.onChoose).toHaveBeenCalledExactlyOnceWith({ connection: "a", model: "gpt-6.1-sol" });
+
+    const largeModels = Array.from({ length: 21 }, (_, idx) => `gpt-model-${idx + 1}`);
+    await render({
+      wires: [wire("a", "ChatGPT", largeModels)],
+      current: { connection: "a", model: "gpt-model-1" },
+    });
+    await open();
+    expect(container.querySelectorAll(".model-wire")).toHaveLength(0);
+    expect(search().placeholder).toBe("Search by model name");
+    expect(document.activeElement).toBe(search());
+    await type("21");
+    expect([...container.querySelectorAll('[role="option"]')].map((node) => node.textContent)).toEqual([
+      "GPT Model 21",
+    ]);
+    await key("Enter");
+    expect(props.onChoose).toHaveBeenLastCalledWith({ connection: "a", model: "gpt-model-21" });
+  });
+
+  it("renders OpenRouter models grouped by company with icons, dimmed pricing, and badges in both list and active trigger", async () => {
+    const openrouter = wire(
+      "openrouter",
+      "OpenRouter",
+      ["nvidia/nemotron-3.5-super", "nvidia/nemotron-3.5-super:free", "cohere/command-a:batch"],
+      false,
+      {
+        modelNames: {
+          "nvidia/nemotron-3.5-super": "Nvidia: Nemotron 3.5 Super",
+          "nvidia/nemotron-3.5-super:free": "Nvidia: Nemotron 3.5 Super (free)",
+        },
+        modelPricing: {
+          "nvidia/nemotron-3.5-super": { cacheRead: 0.1, prompt: 1, completion: 10 },
+          "nvidia/nemotron-3.5-super:free": { prompt: 0, completion: 0 },
+          "cohere/command-a:batch": { prompt: 2.5, completion: 10 },
+        },
+      },
+    );
+    await render({
+      wires: [openrouter],
+      current: { connection: "openrouter", model: "nvidia/nemotron-3.5-super:free" },
+    });
+    const trigger = find<HTMLButtonElement>(".model-trigger");
+    expect(trigger.getAttribute("aria-label")).toBe("Model: Nemotron 3.5 Super");
+    expect(trigger.querySelector(".model-badge")?.textContent).toBe("free");
+
+    await open();
+    const groups = [...container.querySelectorAll<HTMLElement>(".model-group")];
+    expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual(["NVIDIA", "Cohere"]);
+    expect(groups[0]?.querySelector('[data-provider-icon="nvidia"]')).not.toBeNull();
+    expect(groups[1]?.querySelector('[data-provider-icon="cohere"]')).not.toBeNull();
+
+    const rows = [...container.querySelectorAll<HTMLElement>('[role="option"]')].map((row) => ({
+      title: row.querySelector(".model-option-title > span")?.textContent,
+      badges: [...row.querySelectorAll(".model-badge")].map((b) => b.textContent),
+      pricing: row.querySelector(".model-pricing")?.textContent ?? "",
+    }));
+    expect(rows).toEqual([
+      { title: "Nemotron 3.5 Super", badges: [], pricing: "$0.1/$1/$10" },
+      { title: "Nemotron 3.5 Super", badges: ["free"], pricing: "free" },
+      { title: "Command-A", badges: ["batch"], pricing: "$2.5/$10" },
+    ]);
   });
 
   it.each(["Enter", " "])("activates shared buttons once with %j and respects disabled actions", async (name) => {
@@ -193,7 +296,6 @@ describe("model picker shared-control migration parity", () => {
     await key(name, trigger);
     await key(name, trigger, "keyup");
     expect(activation).toHaveBeenCalledTimes(1);
-    // happy-dom does not execute the browser's popoverTarget default action.
     await open();
     await key("ArrowRight");
     const signin = action("Sign in again");
@@ -254,7 +356,7 @@ describe("model picker shared-control migration parity", () => {
     expect(props.onChoose).toHaveBeenCalledExactlyOnceWith({ connection: "b", model: "same-model" });
   });
 
-  it("preserves nested close handling, provider back/Escape, and native model Escape", async () => {
+  it("preserves nested close handling and native model Escape", async () => {
     await render();
     await open();
     await key("ArrowRight");
@@ -262,13 +364,7 @@ describe("model picker shared-control migration parity", () => {
     expect(opened.has(menu())).toBe(true);
     expect(active()).toBe(option("ChatGPT"));
     expect(document.activeElement).toBe(search());
-    await click(option("Add a provider"));
-    await type("gro");
-    expect(find("label").textContent).toBe("Search providers");
-    const escape = await key("Escape");
-    expect(escape.defaultPrevented).toBe(true);
-    expect(search().value).toBe("");
-    expect(find("label").textContent).toBe("Search models");
+    await type("same");
     const nativeEscape = await key("Escape");
     expect(nativeEscape.defaultPrevented).toBe(false);
     await act(async () => menu().hidePopover());
@@ -278,8 +374,7 @@ describe("model picker shared-control migration parity", () => {
     expect(document.activeElement).toBe(search());
   });
 
-  it("retains delayed provider hover, cancellation, and sibling submenu switching", async () => {
-    vi.useFakeTimers();
+  it("opens provider submenus immediately on hover and switches sibling submenus", async () => {
     await render();
     await open();
     const point = async (name: string, event: string) =>
@@ -287,38 +382,24 @@ describe("model picker shared-control migration parity", () => {
         option(name).dispatchEvent(new PointerEvent(event, { bubbles: true }));
       });
     await point("ChatGPT", "pointerover");
-    await act(async () => vi.advanceTimersByTime(119));
-    expect(opened.has(submenu("ChatGPT"))).toBe(false);
-    await point("ChatGPT", "pointerout");
-    await act(async () => vi.advanceTimersByTime(1));
-    expect(opened.has(submenu("ChatGPT"))).toBe(false);
-    await point("ChatGPT", "pointerover");
-    await act(async () => vi.advanceTimersByTime(120));
     expect(opened.has(submenu("ChatGPT"))).toBe(true);
     await point("Grok", "pointerover");
-    await act(async () => vi.advanceTimersByTime(120));
     expect(opened.has(submenu("ChatGPT"))).toBe(false);
     expect(opened.has(submenu("Grok"))).toBe(true);
     expect(opened.has(menu())).toBe(true);
-    await point("ChatGPT", "pointerover");
     await act(async () => menu().hidePopover());
-    await act(async () => vi.advanceTimersByTime(120));
     expect(opened.size).toBe(0);
   });
 
-  it("subscribes to wires and listed offer drivers only, refreshing and releasing the look", async () => {
+  it("subscribes to wires only, refreshing and releasing the look", async () => {
     await render();
     expect(props.onLook).not.toHaveBeenCalled();
     await open();
     expect(props.onLook).toHaveBeenLastCalledWith(["a", "b"], []);
-    await click(option("Add a provider"));
-    expect(props.onLook).toHaveBeenLastCalledWith(["a", "b"], ["compat", "other"]);
     const calls = vi.mocked(props.onLook).mock.calls.length;
     await type("gro");
     expect(vi.mocked(props.onLook).mock.calls).toHaveLength(calls);
     await render({ wires: [...props.wires, wire("c", "Local")] });
-    expect(props.onLook).toHaveBeenLastCalledWith(["a", "b", "c"], ["compat", "other"]);
-    await key("Escape");
     expect(props.onLook).toHaveBeenLastCalledWith(["a", "b", "c"], []);
     await act(async () => menu().hidePopover());
     expect(props.onLook).toHaveBeenLastCalledWith([], []);
@@ -328,29 +409,11 @@ describe("model picker shared-control migration parity", () => {
     root = createRoot(container);
   });
 
-  it("keeps non-adoptable providers inert and hides connect offers without a request port", async () => {
-    await render();
-    await open();
-    await click(option("Add a provider"));
-    expect(option("Unavailable").getAttribute("aria-disabled")).toBe("true");
-    await click(option("Unavailable"));
-    expect(props.request).not.toHaveBeenCalled();
-    await key("End");
-    await key("Enter");
-    expect(props.request).not.toHaveBeenCalled();
-    await key("Escape");
-    await render({ request: null });
-    expect(container.textContent).not.toContain("Add a provider");
-    await type("missing");
-    expect(find('[role="status"]').textContent).toBe("No models match");
-    expect(props.onChoose).not.toHaveBeenCalled();
-  });
-
-  it("keeps auth recovery searchable, cached models hidden, and disables actions offline", async () => {
+  it("keeps auth recovery searchable by provider name, cached models hidden, and disables actions offline", async () => {
     await render({ wires: [wire("expired", "ChatGPT", ["stale-model"], true)], request: null });
     await open();
-    expect(option("ChatGPT").textContent).toContain("Ada");
-    await type("ada");
+    expect(option("ChatGPT").textContent).not.toContain("Ada");
+    await type("chatgpt");
     expect(option("ChatGPT").textContent).toContain("Please sign in again.");
     await key("Enter");
     expect(search().value).toBe("");
@@ -384,7 +447,7 @@ describe("model picker shared-control migration parity", () => {
     const error = find('[role="alert"]');
     expect(error.textContent).toBe("Could not delete the provider. Try again.");
     expect(search().getAttribute("aria-describedby")?.split(" ")).toContain(error.id);
-    expect(search().getAttribute("aria-invalid")).toBeNull(); // RPC failure, not invalid search text.
+    expect(search().getAttribute("aria-invalid")).toBeNull();
     expect(action("Delete").disabled).toBe(false);
     request.mockResolvedValueOnce({ ok: true });
     await click(action("Delete"));
@@ -416,7 +479,7 @@ describe("model picker shared-control migration parity", () => {
       expect({
         grokOpen: opened.has(submenu("Grok")),
         active: search().getAttribute("aria-activedescendant"),
-        hasChoice: submenu("Grok").textContent?.includes("Same Model"),
+        hasChoice: submenu("Grok").textContent.includes("Same Model"),
         notice: container.querySelector('[role="alert"]'),
       }).toEqual({ grokOpen: true, active: current, hasChoice: true, notice: null });
     },
@@ -467,41 +530,5 @@ describe("model picker shared-control migration parity", () => {
       flow: null,
       active: expect.stringContaining("ChatGPT"),
     });
-  });
-
-  it("starts a searched offer, cancels to providers, then opens the newly loaded catalog", async () => {
-    const request = vi.fn<NonNullable<Props["request"]>>(async () => ({
-      form: "ui",
-      pending: "connect",
-      body: JSON.stringify({ kind: "input", name: "API key", description: "Enter key" }),
-    }));
-    await render({ request });
-    await open();
-    await type("groq");
-    await key("Enter");
-    expect(request).toHaveBeenCalledWith("connect/adopt", {
-      driver: "compat",
-      name: "Groq",
-      settings: { baseUrl: "https://example.test/v1" },
-    });
-    expect(container.querySelector(".connect-step")).not.toBeNull();
-    expect(container.querySelector(".model-search")).toBeNull();
-    expect(props.onLook).toHaveBeenLastCalledWith(["a", "b"], []);
-    await click(action("Cancel"));
-    expect(find("label").textContent).toBe("Search providers");
-    expect(document.activeElement).toBe(search());
-    request.mockResolvedValueOnce({ id: "new" });
-    await click(option("Groq"));
-    expect(find('[role="status"]').textContent).toBe("Connected. Loading its models…");
-    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      callback(0);
-      return 1;
-    });
-    await render({ wires: [...props.wires, wire("new", "New provider", ["new-model"])] });
-    expect(container.textContent).not.toContain("Connected. Loading its models");
-    expect(opened.has(submenu("New provider"))).toBe(true);
-    expect(active()?.textContent).toBe("New Model");
-    await key("Enter");
-    expect(props.onChoose).toHaveBeenCalledExactlyOnceWith({ connection: "new", model: "new-model" });
   });
 });

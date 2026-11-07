@@ -8,31 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Composer } from "../composer.js";
 import type { AccountSource } from "../wire-account.js";
 
-const offer = (name: string, baseUrl: string | null, live: boolean, description = name) => ({
-  name,
-  description,
-  live,
-  adoptable: true,
-  settings: baseUrl == null ? {} : { baseUrl },
-});
-const driver = (name: string, offers: readonly object[]) => ({
-  name,
-  description: name,
-  abilityClaim: ["completion"],
-  offers,
-});
-
-const DRIVERS = {
-  "openai-compat": driver("openai-compat", [
-    offer("Ollama", "http://127.0.0.1:11434/v1", true),
-    offer("OpenAI-compatible", null, false),
-    offer("Groq", "https://api.groq.com/openai/v1", false),
-    offer("Mistral", "https://api.mistral.ai/v1", false),
-  ]),
-  chatgpt: driver("chatgpt", [offer("ChatGPT", "https://chatgpt.com/backend-api/codex", true, "ChatGPT subscription")]),
-  grok: driver("grok", [offer("Grok", "https://cli-chat-proxy.grok.com/v1", true, "Grok subscription")]),
-};
-
 type Face = AccountSource & {
   id: string;
   name: string;
@@ -56,7 +31,7 @@ class ConnectedDial {
   kernel = {
     root: {
       approvalAskThrottleMs: 0,
-      drivers: DRIVERS as Record<string, unknown>,
+      drivers: {} as Record<string, unknown>,
       connections: { chatgpt: face("chatgpt", "ChatGPT", ["gpt-6.1-sol"]) } as Record<string, Face>,
     },
   };
@@ -99,9 +74,6 @@ const dial = () => state.dial as ConnectedDial;
 let container: HTMLDivElement;
 let root: Root;
 
-const rows = () =>
-  [...container.querySelectorAll('[role="option"].provider-option')].map((node) => node.firstElementChild?.textContent);
-const trigger = () => container.querySelector<HTMLButtonElement>(".model-trigger");
 const option = (name: string) => {
   const found = [...container.querySelectorAll<HTMLElement>('[role="option"]')].find(
     (node) => node.firstElementChild?.textContent === name,
@@ -130,11 +102,6 @@ async function type(value: string) {
     field.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
-async function key(node: Element, name: string) {
-  await act(async () => {
-    node.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
-  });
-}
 async function render() {
   await act(async () => {
     root.render(createElement(Composer));
@@ -160,8 +127,8 @@ afterEach(() => {
   container.remove();
 });
 
-describe("adding a provider from the model picker", () => {
-  it("keeps a 401 account visible, hides cached models and offers sign-in and delete", async () => {
+describe("unauthorized provider recovery in the model picker", () => {
+  it("keeps a 401 account visible without username, hides cached models, and offers sign-in and delete", async () => {
     runInAction(() => {
       dial().kernel.root.connections.chatgpt = {
         ...face("chatgpt", "ChatGPT", ["stale-model"]),
@@ -170,9 +137,10 @@ describe("adding a provider from the model picker", () => {
     });
     await render();
     await toggle("open");
-    expect(option("ChatGPT").textContent).toContain("Ada");
+    expect(option("ChatGPT").textContent).not.toContain("Ada");
     expect(option("ChatGPT").textContent).toContain("Please sign in again.");
     expect(option("ChatGPT").getAttribute("aria-haspopup")).toBe("menu");
+    expect(container.textContent).not.toContain("Add a provider");
     await click(option("ChatGPT"));
     const submenu = container.querySelector('.model-submenu[aria-label="ChatGPT"]');
     if (submenu == null) throw new Error("no account menu");
@@ -195,11 +163,11 @@ describe("adding a provider from the model picker", () => {
     const cancel = [...container.querySelectorAll("button")].find((node) => node.textContent === "Cancel");
     if (cancel == null) throw new Error("no cancel");
     await click(cancel);
-    expect(option("ChatGPT").textContent).toContain("Ada");
+    expect(option("ChatGPT").textContent).toContain("Please sign in again.");
     expect(dial().sessionRpc?.request).toHaveBeenCalledWith("ui/resolve", { pending: "reauth", kind: "cancel" });
   });
 
-  it("can find an unauthorized account by name and delete it, with retry on failure", async () => {
+  it("can find an unauthorized provider by provider name and delete it, with retry on failure", async () => {
     runInAction(() => {
       dial().kernel.root.connections.grok = face("grok", "Grok", ["grok-4.7"]);
       dial().kernel.root.connections.chatgpt = {
@@ -211,8 +179,9 @@ describe("adding a provider from the model picker", () => {
     });
     await render();
     await toggle("open");
-    await type("ada@example.com");
-    expect(option("ChatGPT").textContent).toContain("ada@example.com");
+    await type("chatgpt");
+    expect(option("ChatGPT").textContent).not.toContain("ada@example.com");
+    expect(option("ChatGPT").textContent).toContain("Please sign in again.");
     await click(option("ChatGPT"));
     const submenu = container.querySelector('.model-submenu[aria-label="ChatGPT"]');
     if (submenu == null) throw new Error("no account menu");
@@ -234,11 +203,9 @@ describe("adding a provider from the model picker", () => {
     });
     await click(remove);
     expect(dial().sessionRpc?.request).toHaveBeenCalledWith("connect/drop", { id: "chatgpt", confirm: true });
-    expect([...container.querySelectorAll(".model-wire")].map((node) => node.firstElementChild?.textContent)).toEqual([
-      "Grok",
-    ]);
-    await click(option("Add a provider"));
-    expect(rows()).toContain("ChatGPT");
+    // Only Grok remains, so the picker switches to single-provider direct models view.
+    expect(container.querySelectorAll(".model-wire")).toHaveLength(0);
+    expect([...container.querySelectorAll('[role="option"]')].map((node) => node.textContent)).toEqual(["Grok 4.7"]);
   });
 
   it("keeps recovery available if sign-in finishes before the refreshed catalog arrives", async () => {
@@ -259,7 +226,6 @@ describe("adding a provider from the model picker", () => {
     const signin = submenu.querySelector("button");
     if (signin == null) throw new Error("no sign-in");
     await click(signin);
-    // A server that still refuses the new credentials returns to the recovery row.
     expect(option("ChatGPT").textContent).toContain("Please sign in again.");
     await act(async () => {
       runInAction(() => {
@@ -267,108 +233,7 @@ describe("adding a provider from the model picker", () => {
       });
     });
     expect(container.textContent).not.toContain("Loading its models");
-    expect(option("ChatGPT").textContent).not.toContain("Please sign in again.");
-  });
-
-  it("keeps the list one row away, minus what is adopted", async () => {
-    await render();
-    expect(trigger()?.textContent).toContain("Choose a model");
-    await toggle("open");
-    expect(search()?.getAttribute("aria-label")).toBe("Search models");
-    // Providers only show behind the row.
-    expect(rows()).toEqual([]);
-    const add = [...container.querySelectorAll('[role="option"]')].at(-1);
-    expect(add?.textContent).toBe("Add a provider");
-    await click(option("Add a provider"));
-    expect(rows()).toEqual(["Grok", "Ollama", "Groq", "Mistral", "OpenAI-compatible"]);
-    const groups = [...container.querySelectorAll(".model-group-label")].map((node) => node.textContent);
-    expect(groups).toEqual(["Subscriptions", "On this machine", "With an API key", "Custom endpoint"]);
-    expect(search()?.getAttribute("aria-label")).toBe("Search providers");
-    // Wires stay in view, and the drivers whose offers are listed join them.
-    expect(dial().look.mock.lastCall).toEqual([["chatgpt"], ["grok", "openai-compat"]]);
-
-    // Esc steps back to the models before it closes the menu.
-    const field = search();
-    if (field == null) throw new Error("no search");
-    await key(field, "Escape");
-    expect(rows()).toEqual([]);
-    expect(search()?.getAttribute("aria-label")).toBe("Search models");
-    expect(dial().look.mock.lastCall).toEqual([["chatgpt"], []]);
-  });
-
-  it("filters the providers as you type", async () => {
-    await render();
-    await toggle("open");
-    await click(option("Add a provider"));
-    await type("m");
-    expect(rows()).toEqual(["Ollama", "Mistral", "OpenAI-compatible"]);
-    await type("zzz");
-    expect(rows()).toEqual([]);
-    expect(container.textContent).toContain("No providers match");
-  });
-
-  it("reaches providers from a search among models", async () => {
-    await render();
-    await toggle("open");
-    await type("gro");
-    expect(rows()).toEqual(["Grok", "Groq"]);
-    expect(container.textContent).toContain("Add a provider");
-    await click(option("Groq"));
-    expect(dial().sessionRpc?.request).toHaveBeenCalledWith("connect/adopt", expect.objectContaining({ name: "Groq" }));
-  });
-
-  it("starts the flow on the session's own port and shows nothing else beside it", async () => {
-    await render();
-    await toggle("open");
-    await click(option("Add a provider"));
-    await click(option("Groq"));
-    expect(dial().sessionRpc?.request).toHaveBeenCalledWith("connect/adopt", {
-      driver: "openai-compat",
-      name: "Groq",
-      settings: { baseUrl: "https://api.groq.com/openai/v1" },
-    });
-    expect(dial().kernelRpc?.request).not.toHaveBeenCalled();
-    expect(container.querySelector(".connect-step")).not.toBeNull();
-    expect(container.querySelector(".model-search")).toBeNull();
-    // Out of the list, the drivers are no longer in view.
-    expect(dial().look.mock.lastCall).toEqual([["chatgpt"], []]);
-  });
-
-  it("returns to the list when the flow is cancelled", async () => {
-    await render();
-    await toggle("open");
-    await click(option("Add a provider"));
-    await click(option("Groq"));
-    const cancel = [...container.querySelectorAll("button")].find((node) => node.textContent === "Cancel");
-    if (cancel == null) throw new Error("no cancel");
-    await click(cancel);
-    expect(rows()).toContain("Groq");
-    expect(container.querySelector(".connect-step")).toBeNull();
-  });
-
-  it("waits for a new connection's models, then goes back to the models", async () => {
-    dial().sessionRpc?.request.mockImplementation(async () => ({ id: "grok" }));
-    await render();
-    await toggle("open");
-    await click(option("Add a provider"));
-    await click(option("Grok"));
-    expect(container.querySelector('.model-picker [role="status"]')?.textContent).toContain(
-      "Connected. Loading its models",
-    );
-    expect(container.querySelector(".connect-step")).toBeNull();
-
-    await act(async () => {
-      runInAction(() => {
-        dial().kernel.root.connections = {
-          ...dial().kernel.root.connections,
-          grok: face("grok", "Grok", ["grok-4.7"]),
-        };
-      });
-    });
-    expect([...container.querySelectorAll(".model-wire")].map((node) => node.firstElementChild?.textContent)).toEqual([
-      "ChatGPT",
-      "Grok",
-    ]);
-    expect(container.textContent).not.toContain("Loading its models");
+    expect(container.textContent).not.toContain("Please sign in again.");
+    expect([...container.querySelectorAll('[role="option"]')].map((node) => node.textContent)).toEqual(["New Model"]);
   });
 });

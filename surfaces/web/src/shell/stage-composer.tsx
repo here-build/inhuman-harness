@@ -25,7 +25,6 @@ import { PictureChips } from "./picture-chips.js";
 import { adoptPictureFiles, clipboardImageFiles } from "./picture-draft.js";
 import { PictureDrop } from "./picture-drop.js";
 import { useProjectSkills } from "./project-skills.js";
-import { providerRows } from "./provider-list.js";
 import { SkillSlashMenu } from "./skill-slash-menu.js";
 import { useSkillSlash } from "./use-skill-slash.js";
 import { useDial } from "../client/context.js";
@@ -64,7 +63,6 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
   const seeded = mintedModel(dial.kernel?.root.kvs, held?.kvs);
   const shown = stage.model ?? seeded;
   const wires = completionWires(dial.kernel?.root.connections);
-  const providers = providerRows(dial.kernel?.root.drivers, dial.kernel?.root.connections);
   const agents = stagedAgents(dial.kernel?.root.bots, held?.bots);
   const agentOptions =
     stage.agent !== "" && !agents.some((row) => row.name === stage.agent) ? [{ name: stage.agent }, ...agents] : agents;
@@ -233,7 +231,6 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
           ) : (
             <ModelPicker
               wires={wires}
-              providers={providers}
               current={shown}
               request={connectPort(dial)}
               disabled={blocked}

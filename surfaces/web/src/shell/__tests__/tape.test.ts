@@ -432,7 +432,7 @@ describe("Tape", () => {
       ].map((match) => [match[1], match[2]]),
     ).toEqual([
       ["Grok 4.7", "grok"],
-      ["Gpt 6.1 Sol", "chatgpt"],
+      ["GPT 6.1 Sol", "chatgpt"],
     ]);
     expect(html).toContain("--annotation-end:anchor(--beat-2 bottom)");
     expect(html).toContain("--annotation-end:anchor(--beat-3 bottom)");

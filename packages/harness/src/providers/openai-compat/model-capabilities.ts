@@ -4,6 +4,13 @@ export type ModelCapabilities = {
   supportsVision?: boolean;
 };
 
+/** Per-million-token USD rates declared on a `/models` catalog row. */
+export type ModelPricing = {
+  prompt: number;
+  completion: number;
+  cacheRead?: number;
+};
+
 export function modelCapabilitiesOf(row: object): ModelCapabilities | undefined {
   const rec = row as Record<string, unknown>;
   const architecture = rec.architecture;
@@ -18,6 +25,171 @@ export function modelCapabilitiesOf(row: object): ModelCapabilities | undefined 
     ...(inputModalities === undefined ? {} : { inputModalities }),
     ...(supportsVision === undefined ? {} : { supportsVision }),
   };
+}
+
+const NON_CHAT_TYPES = new Set([
+  "image",
+  "images",
+  "image-generation",
+  "text-to-image",
+  "image-to-image",
+  "audio",
+  "tts",
+  "text-to-speech",
+  "stt",
+  "asr",
+  "speech",
+  "speech-to-text",
+  "automatic-speech-recognition",
+  "voice",
+  "voice-to-voice",
+  "speech-to-speech",
+  "audio-to-audio",
+  "realtime",
+  "video",
+  "text-to-video",
+  "image-to-video",
+  "embedding",
+  "embeddings",
+  "feature-extraction",
+  "rerank",
+  "reranker",
+  "moderation",
+  "classification",
+  "transcribe",
+  "transcription",
+]);
+
+const NON_CHAT_TOKENS = new Set([
+  "batch",
+  "realtime",
+  "whisper",
+  "tts",
+  "embedding",
+  "embeddings",
+  "rerank",
+  "reranker",
+  "moderation",
+  "imagen",
+  "sdxl",
+  "midjourney",
+  "ideogram",
+  "recraft",
+  "seedream",
+]);
+
+const NON_CHAT_PHRASES = [
+  "nano-banana",
+  "nano banana",
+  "dall-e",
+  "gpt-image",
+  "grok-2-image",
+  "flash-image",
+  "image-preview",
+  "audio-preview",
+  "voice-to-voice",
+  "speech-to-speech",
+  "text-to-speech",
+  "speech-to-text",
+  "stable-diffusion",
+];
+
+/**
+ * Returns true when a `/models` catalog row represents a text-chat completion model
+ * (excluding image generators like Nano Banana, voice-to-voice/audio models, embeddings,
+ * rerankers, moderation models, and batch-only models).
+ */
+export function isChatModel(row: object, id: string): boolean {
+  const rec = row as Record<string, unknown>;
+  if (rec.batch === true) return false;
+  const rawName =
+    typeof rec.name === "string" ? rec.name : typeof rec.display_name === "string" ? rec.display_name : "";
+  if (isNonChatIdentifier(id) || (rawName !== "" && isNonChatIdentifier(rawName))) return false;
+
+  const arch =
+    typeof rec.architecture === "object" && rec.architecture !== null
+      ? (rec.architecture as Record<string, unknown>)
+      : undefined;
+
+  const inputModalities = modalitiesOf(rec.input_modalities) ?? modalitiesOf(arch?.input_modalities);
+  if (inputModalities !== undefined && !inputModalities.includes("text")) return false;
+
+  const outputModalities = modalitiesOf(rec.output_modalities) ?? modalitiesOf(arch?.output_modalities);
+  if (outputModalities !== undefined && !outputModalities.every((modality) => modality === "text")) {
+    return false;
+  }
+
+  const modality =
+    typeof rec.modality === "string" ? rec.modality : typeof arch?.modality === "string" ? arch.modality : undefined;
+  if (modality?.includes("->")) {
+    const [inSide = "", outSide = ""] = modality.toLowerCase().split("->", 2);
+    const inTokens = inSide.split(/[+,\s/]+/).filter((token) => token !== "");
+    const outTokens = outSide.split(/[+,\s/]+/).filter((token) => token !== "");
+    if (inTokens.length > 0 && !inTokens.includes("text")) return false;
+    if (outTokens.length > 0 && !outTokens.every((token) => token === "text")) return false;
+  }
+
+  for (const field of [rec.type, rec.model_type, rec.task, rec.pipeline_tag]) {
+    if (typeof field === "string") {
+      const normalized = field.trim().toLowerCase();
+      if (NON_CHAT_TYPES.has(normalized)) return false;
+    }
+  }
+
+  const pricing =
+    typeof rec.pricing === "object" && rec.pricing !== null ? (rec.pricing as Record<string, unknown>) : undefined;
+  if (pricing !== undefined) {
+    const prompt = rawRate(pricing.prompt);
+    const completion = rawRate(pricing.completion);
+    if ((prompt !== undefined && prompt < 0) || (completion !== undefined && completion < 0)) return false;
+  }
+
+  return true;
+}
+
+function isNonChatIdentifier(text: string): boolean {
+  const lower = text.toLowerCase().replaceAll("_", "-");
+  for (const phrase of NON_CHAT_PHRASES) {
+    if (lower.includes(phrase)) return true;
+  }
+  for (const token of lower.split(/[\s:/.()-]+/)) {
+    if (token !== "" && NON_CHAT_TOKENS.has(token)) return true;
+  }
+  return false;
+}
+
+export function modelNameOf(row: object, id: string): string | undefined {
+  const raw = (row as { name?: unknown }).name;
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  return trimmed !== "" && trimmed !== id ? trimmed : undefined;
+}
+
+export function modelPricingOf(row: object): ModelPricing | undefined {
+  const raw = (row as { pricing?: unknown }).pricing;
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const pricing = raw as Record<string, unknown>;
+  const prompt = perMillionRate(pricing.prompt);
+  const completion = perMillionRate(pricing.completion);
+  if (prompt === undefined || completion === undefined) return undefined;
+  const cacheRead = perMillionRate(pricing.input_cache_read);
+  return {
+    prompt,
+    completion,
+    ...(cacheRead !== undefined && cacheRead > 0 ? { cacheRead } : {}),
+  };
+}
+
+function perMillionRate(value: unknown): number | undefined {
+  const n = rawRate(value);
+  if (n === undefined || n < 0) return undefined;
+  return Number((n * 1_000_000).toPrecision(12));
+}
+
+function rawRate(value: unknown): number | undefined {
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  return Number.isFinite(n) ? n : undefined;
 }
 
 function modalitiesOf(value: unknown): string[] | undefined {

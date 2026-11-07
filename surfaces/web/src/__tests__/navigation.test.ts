@@ -538,7 +538,7 @@ describe("live application navigation", () => {
     expect(dial.prepareMint).not.toHaveBeenCalled();
     expect(dial.requestedTarget).toEqual({ kind: "project", path: projectPath });
     expect(document.activeElement).toBe(draft());
-    expect(element<HTMLButtonElement>(".model-trigger").getAttribute("aria-label")).toBe("Model: Gpt 6.1 Sol");
+    expect(element<HTMLButtonElement>(".model-trigger").getAttribute("aria-label")).toBe("Model: GPT 6.1 Sol");
 
     await pickListed("grok-4.7", "Grok 4.7");
     expect(element<HTMLButtonElement>(".model-trigger").getAttribute("aria-label")).toBe("Model: Grok 4.7");
@@ -599,13 +599,15 @@ describe("live application navigation", () => {
   });
 });
 
-/** Search reaches every provider, the same way the model menu is used. */
+/** Picks a model from the single-provider list or via search when present. */
 async function pickListed(model: string, label: string) {
-  const field = element<HTMLInputElement>('input[aria-label="Search models"]');
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, model);
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-  });
+  const field = container.querySelector<HTMLInputElement>('input[aria-label="Search by model name"]');
+  if (field != null) {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, model);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
   const option = [...container.querySelectorAll('[role="option"]')].find((node) => node.textContent.includes(label));
   expect(option, label).toBeDefined();
   await act(async () => {

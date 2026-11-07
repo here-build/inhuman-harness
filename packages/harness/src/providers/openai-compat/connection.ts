@@ -49,7 +49,14 @@ import {
 import { describeFetchLine, describeHttpFailure, REQUEST_TIMEOUT_MS, wrapFetchFailure } from "./fetch-failure.js";
 import { headersRecord, type FetchInput, type HeaderInit } from "./fetch-types.js";
 import { detectedLocalOffers } from "./local-offers.js";
-import { modelCapabilitiesOf, type ModelCapabilities } from "./model-capabilities.js";
+import {
+  isChatModel,
+  modelCapabilitiesOf,
+  modelNameOf,
+  modelPricingOf,
+  type ModelCapabilities,
+  type ModelPricing,
+} from "./model-capabilities.js";
 import { CUSTOM_OFFER, isLoopbackBaseUrl, nameFromBaseUrl, REMOTE_OFFERS } from "./presence.js";
 import { reasoningFlavorFromBaseUrl, type ReasoningFlavor } from "./reasoning-flavor.js";
 import {
@@ -107,6 +114,8 @@ export function openaiCompatLiveState(): {
   models: string[];
   windows: Record<string, number>;
   modelCapabilities: Record<string, ModelCapabilities>;
+  modelNames: Record<string, string>;
+  modelPricing: Record<string, ModelPricing>;
 } {
   return {
     catalogName: "",
@@ -116,6 +125,8 @@ export function openaiCompatLiveState(): {
     models: [],
     windows: {},
     modelCapabilities: {},
+    modelNames: {},
+    modelPricing: {},
   };
 }
 
@@ -375,14 +386,20 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
     const ids: string[] = [];
     const windows: Record<string, number> = {};
     const modelCapabilities = Object.create(null) as Record<string, ModelCapabilities>;
+    const modelNames = Object.create(null) as Record<string, string>;
+    const modelPricing = Object.create(null) as Record<string, ModelPricing>;
     for (const row of modelRows(await response.json())) {
       const id = modelId(row);
-      if (id === null) continue;
+      if (id === null || !isChatModel(row, id)) continue;
       ids.push(id);
       const window = contextWindowOf(row);
       if (window != null) windows[id] = window;
       const capabilities = modelCapabilitiesOf(row);
       if (capabilities !== undefined) modelCapabilities[id] = capabilities;
+      const name = modelNameOf(row, id);
+      if (name !== undefined) modelNames[id] = name;
+      const pricing = modelPricingOf(row);
+      if (pricing !== undefined) modelPricing[id] = pricing;
     }
     const manual = this.settings.contextWindow;
     for (const id of ids) {
@@ -396,6 +413,8 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
       this.state.models = ids;
       this.state.windows = windows;
       this.state.modelCapabilities = modelCapabilities;
+      this.state.modelNames = modelNames;
+      this.state.modelPricing = modelPricing;
       this.#healthy = true;
     });
     this.#noteOk();

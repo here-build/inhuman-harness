@@ -20,7 +20,6 @@ import { PermissionMode } from "./permission-mode.js";
 import { PictureChips } from "./picture-chips.js";
 import { adoptPictureFiles, clipboardImageFiles, turnVisualPayload } from "./picture-draft.js";
 import { PictureDrop } from "./picture-drop.js";
-import { providerRows } from "./provider-list.js";
 import { SkillSlashMenu } from "./skill-slash-menu.js";
 import { StageComposer } from "./stage-composer.js";
 import { toolSummary } from "./tape-read.js";
@@ -392,7 +391,6 @@ const SessionComposer = observer(function SessionComposerView({
 
   const shown = sessionModel(session?.root);
   const wires = completionWires(dial.kernel?.root.connections);
-  const providers = providerRows(dial.kernel?.root.drivers, dial.kernel?.root.connections);
   const projectPath = session?.root.path ?? "";
   const act = ask instanceof ToolCallJob ? toAct(ask, projectPath) : null;
   const risk = act == null ? { destructive: false, phrase: "" } : askRisk(act);
@@ -596,7 +594,6 @@ const SessionComposer = observer(function SessionComposerView({
             ) : (
               <ModelPicker
                 wires={wires}
-                providers={providers}
                 current={shown}
                 request={connectPort(dial)}
                 disabled={unavailable || state.choosing}

@@ -334,33 +334,24 @@ export const Components: Story = {
         <Schemes>
           <div className="model-menu static flex flex-col">
             <div className="model-list">
-              <div className="model-option model-wire" data-active="">
+              <div className="model-option model-wire" aria-selected="true" data-active="">
                 <span>Grok</span>
-                <span className="model-wire-value">grok-4.7</span>
-                <span className="model-wire-chevron">›</span>
                 <span className="model-wire-account">
-                  <span>merkle_bonsai</span>
-                  <span className="model-wire-funds">84% weekly left</span>
+                  <span className="model-wire-funds">84% left · weekly</span>
                 </span>
+                <span className="model-wire-chevron">›</span>
               </div>
               <div className="model-option model-wire">
                 <span>ChatGPT</span>
-                <span className="model-wire-value" />
-                <span className="model-wire-chevron">›</span>
                 <span className="model-wire-account">
-                  <span>Vsevolod</span>
                   <span className="model-wire-funds" data-low="">
-                    10% 5h left
+                    10% left · 5h
                   </span>
                 </span>
-              </div>
-              <div className="model-group">
-                <div className="model-option">
-                  Add a provider <span className="text-muted">+</span>
-                </div>
+                <span className="model-wire-chevron">›</span>
               </div>
             </div>
-            <input className="model-search" placeholder="Search models" aria-label="Search models" />
+            <input className="model-search" placeholder="Search by model name" aria-label="Search by model name" />
           </div>
         </Schemes>
       </Section>
