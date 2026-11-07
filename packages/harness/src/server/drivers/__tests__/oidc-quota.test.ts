@@ -102,6 +102,29 @@ describe("OIDC subscription quota", () => {
       ],
       wantExtra: {},
     },
+    {
+      name: "Grok 0% usage when proto3 omits creditUsagePercent",
+      snap: () => {
+        const end = new Date(Date.now() + 3_600_000).toISOString();
+        return accountFromGrokBilling({
+          config: {
+            currentPeriod: { type: "USAGE_PERIOD_TYPE_WEEKLY", start: "2026-09-01T00:00:00Z", end },
+            isUnifiedBillingUser: true,
+          },
+        });
+      },
+      extra: () => ({}),
+      wantWindows: [
+        {
+          label: "weekly",
+          remainingPercent: 100,
+          resetInSec: expect.any(Number),
+          resetAt: expect.any(Number),
+          status: "ok",
+        },
+      ],
+      wantExtra: {},
+    },
   ])("$name", ({ snap, extra, wantWindows, wantExtra }) => {
     const account = snap();
     expect({
