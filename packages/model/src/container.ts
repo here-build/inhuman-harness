@@ -34,7 +34,7 @@ export class DocumentContainer<
   TRoot extends Model = Model,
   TAwareness extends AwarenessShape = AwarenessShape,
 > {
-  root: TRoot;
+  @observable.ref accessor root: TRoot;
   guid: string;
   readonly awareness: ReactiveAwareness<TAwareness>;
   @observable.ref accessor revision: number;
@@ -294,6 +294,9 @@ export class DocumentContainer<
   }
 
   applyPatchBatch(batch: ModelPatchBatch): void {
+    if (batch.patches.length > 0 && !batch.patches.some((patch) => this.#registry.has(patch.nodeId))) {
+      return;
+    }
     this.#isApplyingPatches = true;
     try {
       runInAction(() => {
@@ -484,13 +487,14 @@ export class DocumentContainer<
   }
 
   hydrateFromSnapshot(snapshot: SerializedDocument, origin?: unknown): void {
-    if (this.revision > snapshot.revision) {
+    const currentTag = this.root ? getModelMetadata(this.root.constructor).tag : undefined;
+    if (this.revision > snapshot.revision && currentTag === snapshot.root.tag) {
       return;
     }
     this.#isApplyingPatches = true;
     try {
       runInAction(() => {
-        const nextRoot = hydrateModel<TRoot>(snapshot, this.#registry);
+        const nextRoot = hydrateModel<TRoot>(snapshot);
         if (this.root && this.root.constructor === nextRoot.constructor) {
           const meta = getModelMetadata(this.root.constructor);
           (this.root as any).uuid = nextRoot.uuid;
