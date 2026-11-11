@@ -1332,7 +1332,16 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   commitCheckpoint(checkpoint: SessionCheckpoint): SessionReceipt {
     this.db.writeTransaction(
-      ["sessions", "session_turns", "pending_asks", "session_updates", "session_effects"],
+      [
+        "sessions",
+        "session_turns",
+        "pending_asks",
+        "session_updates",
+        "session_effects",
+        "session_nodes",
+        "session_documents",
+        "shared_payloads",
+      ],
       (tx) => {
         const row = checkpoint.sessionRow;
         tx.insert(sessionsTable)
@@ -1371,6 +1380,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           })
           .run();
 
+        this.db.storeSessionDocument(checkpoint.sessionId, checkpoint.snapshot, checkpoint.dirtyNodes);
+
         for (const turn of checkpoint.dirtyTurns) {
           tx.insert(sessionTurnsTable)
             .values(turn)
@@ -1398,7 +1409,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
               sessionId: checkpoint.sessionId,
               revision: checkpoint.revision,
               incarnation: checkpoint.incarnation,
-              patchJson: JSON.stringify(checkpoint.patchBatch.patches),
+              patchJson: this.db.storeContent(JSON.stringify(checkpoint.patchBatch.patches)),
               createdAtMs: Date.now(),
             })
             .onConflictDoNothing()
@@ -1406,7 +1417,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         }
 
         for (const eff of checkpoint.effectRecords) {
-          tx.insert(sessionEffectsTable).values(eff).onConflictDoNothing().run();
+          tx.insert(sessionEffectsTable)
+            .values({ ...eff, outcomeJson: this.db.storeContent(eff.outcomeJson) })
+            .onConflictDoNothing()
+            .run();
         }
       },
     );

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import "@inhuman.tools/harness-model/session/register";
 import { RegisteredToolsSet, SessionTurn } from "@inhuman.tools/harness-model/session";
 import { onTestFinished, describe, expect, it } from "vitest";
@@ -711,6 +712,10 @@ describe("portable session lifecycle and durable effects", () => {
     });
     expect(cp2.dirtyTurns).toHaveLength(1);
     expect(cp2.dirtyTurns[0].turnId).toBe(runtime.root.head?.uuid);
+    expect(JSON.parse(cp2.dirtyTurns[0].snapshotJson)).toEqual({
+      format: "entity-ref-v1",
+      nodeId: runtime.root.head?.uuid,
+    });
 
     // Mutation 3: effect
     const port = {
@@ -730,7 +735,7 @@ describe("portable session lifecycle and durable effects", () => {
       sessionId: "conversation",
       effectKey: "eff-delta",
       kind: "effect",
-      inputHash: 'write:{"test":1}',
+      inputHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
       outcomeJson: JSON.stringify({ kind: "success", payload: "effect-result" }),
     });
 
@@ -743,5 +748,19 @@ describe("portable session lifecycle and durable effects", () => {
     expect(restored.root.kvs.foo).toBe("bar");
     expect(restored.root.head?.prompt).toBe("first turn");
     expect(restored.root.kvs.effectOut).toBe("effect-result");
+  });
+});
+
+it("distinguishes retry fingerprints from literal input and preserves Unicode inputs", async () => {
+  const runtime = open();
+  const text = "x".repeat(64) + "\ud800";
+  await runtime.commitMutation("digest-test", text, () => {});
+  const digest = `sha256:${createHash("sha256").update(JSON.stringify(text)).digest("hex")}`;
+  await expect(runtime.commitMutation("digest-test", digest, () => {})).rejects.toThrow("different input");
+  await expect(runtime.commitMutation("digest-test", "x".repeat(64) + "\ud801", () => {})).rejects.toThrow(
+    "different input",
+  );
+  await expect(runtime.commitMutation("digest-test", text, () => {})).resolves.toMatchObject({
+    sessionId: "conversation",
   });
 });
