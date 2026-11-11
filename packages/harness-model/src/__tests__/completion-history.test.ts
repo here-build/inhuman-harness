@@ -51,11 +51,17 @@ describe("completion history tails", () => {
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [] });
     root.head = turn;
     const source = new DocumentContainer(root);
-    const replica = DocumentContainer.fromSnapshot(source.toSnapshot());
+    const initial = source.takeNodeDelta();
+    const replica = DocumentContainer.fromNodeRows<SessionRoot>(initial.upserts, {
+      rootId: initial.rootId,
+      revision: initial.revision,
+    });
     const sizes: number[] = [];
-    source.on("update", (update) => {
-      sizes.push(update.length);
-      replica.applyUpdate(update);
+    source.onPatch(() => {
+      const delta = source.takeNodeDelta();
+      const encodedDelta = JSON.stringify(delta);
+      sizes.push(Buffer.byteLength(encodedDelta, "utf8"));
+      replica.applyNodeRows(delta);
     });
     let previous: CompletionExpectation | null = null;
     for (let index = 0; index < 100; index++) {
@@ -66,8 +72,8 @@ describe("completion history tails", () => {
       source.transact(() => turn.enqueue(new CompletionJob({ expectation: round })));
       previous = round;
     }
-    const encoded = source.encodeStateAsUpdate();
-    expect(encoded.length).toBeLessThan(1_000_000);
+    const encodedSnapshotBytes = Buffer.byteLength(JSON.stringify(source.toNodeRows()), "utf8");
+    expect(encodedSnapshotBytes).toBeLessThan(1_000_000);
     expect(Math.max(...sizes)).toBeLessThan(20_000);
     const restored = hydrateModel<SessionRoot>(replica.toSnapshot());
     const last = restored.head?.queue.at(-1);

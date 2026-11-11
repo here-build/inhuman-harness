@@ -20,7 +20,7 @@ describe("plugin log tails", () => {
     root.head = turns.at(-1) ?? null;
     const doc = new DocumentContainer(root);
     expect(doc.getAllOfType(PluginAction)).toHaveLength(30);
-    expect(doc.encodeStateAsUpdate().length).toBeLessThan(100_000);
+    expect(Buffer.byteLength(JSON.stringify(doc.toNodeRows()), "utf8")).toBeLessThan(100_000);
     const restored = hydrateModel<SessionRoot>(serializeModel(root));
     expect(restored.pluginState).toEqual(root.pluginState);
     const first = turns[0];
@@ -36,8 +36,15 @@ describe("plugin log tails", () => {
   it("replays appended actions into a replica and records an empty log", () => {
     const root = new SessionRoot({ sessionId: "plugin-replica" });
     const source = new DocumentContainer(root);
-    const replica = DocumentContainer.fromSnapshot(source.toSnapshot());
-    source.on("update", (update) => replica.applyUpdate(update));
+    const initial = source.takeNodeDelta();
+    const replica = DocumentContainer.fromNodeRows<SessionRoot>(initial.upserts, {
+      rootId: initial.rootId,
+      revision: initial.revision,
+    });
+    source.onPatch(() => {
+      const delta = source.takeNodeDelta();
+      replica.applyNodeRows(delta);
+    });
     root.writePluginLog("test:state", '[{"n":1}]');
     root.writePluginLog("test:state", '[{"n":1},{"n":2}]');
     expect(replica.root.pluginState).toEqual(root.pluginState);

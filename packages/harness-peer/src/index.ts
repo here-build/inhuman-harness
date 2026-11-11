@@ -1,6 +1,6 @@
 /**
  * Browser dial. No `node:`, no `ws`, no `Client`.
- * Side-effect import keeps every `@syncing` class the documents can name.
+ * Side-effect import keeps every `@model` class the documents can name.
  */
 import "@inhuman.tools/harness-model/register";
 
@@ -26,14 +26,15 @@ export {
   type BlobCacheOptions,
   type BlobRequest,
 } from "./blobs.js";
-export { awarenessBytes, bindProviderAwareness } from "./plane.js";
+export { bindRoomAwareness } from "./plane.js";
 export {
   bindJsonRpc,
   bindTextFrames,
-  destroyProvider,
-  detachProtocolAwareness,
+  destroyRoomConnection,
+  detachLocalPresence,
+  RoomConnection,
   waitForSync,
-  WebsocketProvider,
   type JsonRpcPort,
-  type WebsocketProviderOptions,
+  type RoomConnectionOptions,
+  type TextFrameSource,
 } from "./rpc.js";

@@ -62,13 +62,11 @@
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
     "@here.build/arrival-provenance": "^0.10.0",
-    "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/harness-commons": "workspace:^",
     "@types/node": "^24.19.2",
     "eslint": "10.13.0",
     "typescript": "6.0.3",
-    "vitest": "5.0.5",
-    "yjs": "13.6.33"
+    "vitest": "5.0.5"
   },
   "license": "MIT",
   "repository": {

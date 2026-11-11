@@ -1,12 +1,14 @@
+import type {
+  KernelStateRow,
+  PendingAskRow,
+  SessionRow,
+  SessionTurnRow,
+} from "@inhuman.tools/harness-contract";
 import {
   kernelStateTable,
-  sessionsTable,
   pendingAsksTable,
+  sessionsTable,
   sessionTurnsTable,
-  type KernelStateRow,
-  type SessionRow,
-  type PendingAskRow,
-  type SessionTurnRow,
 } from "@inhuman.tools/harness-contract/schema";
 import { column, model, Model } from "@inhuman.tools/model";
 
@@ -69,7 +71,6 @@ export class SessionTurnRecord extends Model<SessionTurnRow> {
   @column(sessionTurnsTable.status) accessor status!: "running" | "completed" | "cancelled" | "failed" | "interrupted";
   @column(sessionTurnsTable.cancelRequested) accessor cancelRequested!: boolean;
   @column(sessionTurnsTable.reducerExited) accessor reducerExited!: boolean;
-  @column(sessionTurnsTable.snapshotJson) accessor snapshotJson!: string;
   @column(sessionTurnsTable.startedAtMs) accessor startedAtMs!: number;
   @column(sessionTurnsTable.endedAtMs) accessor endedAtMs!: number | null;
 

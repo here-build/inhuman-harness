@@ -1,6 +1,11 @@
 import { IncomingMessage } from "node:http";
 
-import { detachProtocolAwareness, destroyProvider, waitForSync, WebsocketProvider } from "@inhuman.tools/harness-peer";
+import {
+  destroyRoomConnection,
+  detachLocalPresence,
+  RoomConnection,
+  waitForSync,
+} from "@inhuman.tools/harness-peer";
 import type { DocumentContainer } from "@inhuman.tools/model";
 import { WebSocket } from "ws";
 
@@ -29,12 +34,11 @@ function unixSocket(onHttpStatus: (status: number) => void) {
 export type OpenUnixRoomOptions = {
   /** Default true. Restore / probe must be false so a 404 does not retry. */
   readonly reconnect?: boolean;
-  /** Caps `waitForSync`. Unset + reconnect follows y-websocket (no cap). Unset + no reconnect is 8s. */
+  /** Caps `waitForSync`. Unset + reconnect has no cap; unset + no reconnect is 60s. */
   readonly syncTimeoutMs?: number;
 };
 
-/** One y-websocket room over `ws+unix://`. Caller owns the doc.
- * Transient close reconnects (y-websocket default: 4400-4499 is permanent).
+/** One reactive room over `ws+unix://`. Caller owns the doc.
  * Spawning the daemon is the caller's `ensure`, not this dial. */
 export async function openUnixRoom(
   socketPath: string,
@@ -42,42 +46,34 @@ export async function openUnixRoom(
   params: Record<string, string>,
   doc: DocumentContainer<any, any>,
   options?: OpenUnixRoomOptions,
-): Promise<WebsocketProvider> {
+): Promise<RoomConnection> {
   let httpStatus = 0;
   const reconnect = options?.reconnect !== false;
   let rejectNotFound: (error: Error) => void = () => undefined;
   const notFound = new Promise<never>((_resolve, reject) => {
     rejectNotFound = reject;
   });
-  const provider = new WebsocketProvider(`ws+unix://${socketPath}:`, room, doc, {
-    // @ts-expect-error Node `ws` is the unix dial; y-websocket types a DOM WebSocket
+  const connection = new RoomConnection(`ws+unix://${socketPath}:`, room, doc, {
     WebSocketPolyfill: unixSocket((status) => {
       httpStatus = status;
       if (status === 404) rejectNotFound(new RoomNotFound(room, status));
-    }),
+    }) as unknown as typeof globalThis.WebSocket,
     params,
-    disableBc: true,
     shouldReconnect: reconnect ? undefined : () => false,
   });
-  // disableBc skips broadcast-channel subscribe; disconnect() still runs
-  // disconnectBc, which encodes awareness against an empty Map and throws
-  // `Cannot read properties of undefined (reading 'clock')`.
-  provider.disconnectBc = () => undefined;
-  detachProtocolAwareness(provider);
-  if (provider.synced) return provider;
+  detachLocalPresence(connection);
+  if (connection.synced) return connection;
   try {
-    // A cold open replays a long append log once (then the image is compacted).
-    // 8s expired while that replay still held the daemon, before the socket opened.
     const syncTimeoutMs = options?.syncTimeoutMs ?? (reconnect ? undefined : 60_000);
-    await Promise.race([waitForSync(provider, room, syncTimeoutMs), notFound]);
+    await Promise.race([waitForSync(connection, room, syncTimeoutMs), notFound]);
   } catch (error) {
-    destroyProvider(provider);
+    destroyRoomConnection(connection);
     if (httpStatus === 404 || error instanceof RoomNotFound) {
       throw error instanceof RoomNotFound ? error : new RoomNotFound(room, httpStatus);
     }
     throw error;
   }
-  return provider;
+  return connection;
 }
 
-export { detachProtocolAwareness } from "@inhuman.tools/harness-peer";
+export { detachLocalPresence } from "@inhuman.tools/harness-peer";

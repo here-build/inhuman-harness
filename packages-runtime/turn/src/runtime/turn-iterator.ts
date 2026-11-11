@@ -45,8 +45,7 @@ import {
   SIDE_CHANNEL_REMINDER_EVERY,
   sideChannelReminderNote,
 } from "../session/side-channel-reminder.js";
-import { catalogOf } from "../tool-catalog/bindings.js";
-import { behaviorEntriesOf } from "../tool-catalog/catalog.js";
+import { behaviorEntriesOf, catalogOf } from "../tool-catalog/bindings.js";
 
 /** Sequence rules depend on document data and explicit ports, never a daemon. */
 export interface TurnIteratorHost {

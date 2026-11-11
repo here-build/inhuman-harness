@@ -16,7 +16,7 @@ import { releaseCatalogRoots } from "./bindings.js";
 import { type CatalogRecipe, dedupeRecipes, findRecipe, invokeCyclePath } from "./recipes.js";
 import { type CatalogEntry, PLAIN_WORKER_HOST, type WorkerToolHost } from "./types.js";
 
-export { bindSessionCatalog, catalogOf } from "./bindings.js";
+export { behaviorEntriesOf, bindBehaviorEntries, bindSessionCatalog, catalogOf } from "./bindings.js";
 
 export type CompiledPluginContribution = {
   readonly compiledRecipes: readonly CatalogRecipe[];
@@ -242,16 +242,4 @@ export function catalogTriggersReactLoop(catalog: KernelToolCatalog, wire: strin
 export function requireCatalog<T extends KernelToolCatalog>(catalog: T | undefined, what: string): T {
   if (catalog === undefined) throw new Error(`${what}: kernel tool catalog is missing`);
   return catalog;
-}
-
-const behaviorEntriesByRoot = observable.map<object, readonly CatalogEntry[]>(new Map(), { deep: false });
-
-/** Tools the session's pinned behavior declares. Replaced whenever the pin reattaches. */
-export const bindBehaviorEntries = action((root: object, entries: readonly CatalogEntry[]): void => {
-  if (entries.length === 0) behaviorEntriesByRoot.delete(root);
-  else behaviorEntriesByRoot.set(root, entries);
-});
-
-export function behaviorEntriesOf(root: object | undefined | null): readonly CatalogEntry[] {
-  return root == null ? [] : (behaviorEntriesByRoot.get(root) ?? []);
 }

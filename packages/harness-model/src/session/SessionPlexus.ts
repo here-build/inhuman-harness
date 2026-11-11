@@ -1,4 +1,9 @@
-import { DocumentContainer, serializeDocument, type SerializedDocument } from "@inhuman.tools/model";
+import {
+  DocumentContainer,
+  serializeDocument,
+  type SerializedDocument,
+  type SerializedModelRow,
+} from "@inhuman.tools/model";
 import type { SessionAwareness } from "@inhuman.tools/plexus-expectations";
 
 import { hydrateSessionRoot, SessionRoot } from "./SessionRoot.js";
@@ -8,7 +13,7 @@ export type SessionPlexusCreateOptions = {
   readonly path?: string;
   readonly revision?: number;
   readonly clientId?: number;
-  readonly meta?: Record<string, Record<string, string>>;
+  readonly meta?: Record<string, Record<string, unknown>>;
 };
 
 export type SessionPlexusBootstrapOptions = SessionPlexusCreateOptions;
@@ -31,6 +36,34 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
       sessionDoc.root.sessionId = sessionId;
     }
     hydrateSessionRoot(sessionDoc.root);
+    sessionDoc.markAllNodesCommitted();
+    return sessionDoc;
+  }
+
+  static override fromNodeRows(
+    rows: readonly SerializedModelRow[],
+    options?: {
+      readonly rootId?: string;
+      readonly sessionId?: string;
+      readonly revision?: number;
+      readonly clientId?: number;
+      readonly guid?: string;
+      readonly meta?: Record<string, Record<string, unknown>>;
+    },
+  ): SessionDocument {
+    const doc = DocumentContainer.fromNodeRows<SessionRoot>(rows, options);
+    const resolvedSessionId = options?.sessionId ?? doc.root.sessionId;
+    const sessionDoc = new SessionDocument(doc.root, {
+      guid: options?.guid ?? sessionDocumentGuid(resolvedSessionId),
+      revision: options?.revision ?? 0,
+      clientId: options?.clientId,
+      meta: options?.meta,
+    });
+    if (options?.sessionId && !sessionDoc.root.sessionId) {
+      sessionDoc.root.sessionId = options.sessionId;
+    }
+    hydrateSessionRoot(sessionDoc.root);
+    sessionDoc.markAllNodesCommitted();
     return sessionDoc;
   }
 

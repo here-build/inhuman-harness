@@ -1,5 +1,5 @@
 /**
- * JSON-RPC over a y-websocket provider. No `node:`, no `ws`.
+ * JSON-RPC over a {@link RoomConnection}. No `node:`, no `ws`.
  * Unix dial stays in `unix.ts`.
  *
  * Unsent calls wait for the next open. A call already on the wire dies with
@@ -8,37 +8,36 @@
  */
 import { encodeJsonRpcRequest, jsonRpcResponse, RpcClientError } from "@inhuman.tools/harness-contract";
 
-import { WebsocketProvider } from "./provider.js";
+import { RoomConnection, type RoomConnectionOptions } from "./provider.js";
 
-export { WebsocketProvider, type WebsocketProviderOptions } from "./provider.js";
+export { RoomConnection, type RoomConnectionOptions };
 
-export function detachProtocolAwareness(provider: WebsocketProvider): void {
-  provider.awareness.setLocalState(null);
+export function detachLocalPresence(connection: RoomConnection): void {
+  connection.awareness.setLocalState(null);
 }
 
-export function destroyProvider(provider: WebsocketProvider): void {
-  provider.disconnectBc();
-  provider.destroy();
+export function destroyRoomConnection(connection: RoomConnection): void {
+  connection.destroy();
 }
 
-export function waitForSync(provider: WebsocketProvider, room: string, timeoutMs?: number): Promise<void> {
-  if (provider.synced) return Promise.resolve();
+export function waitForSync(connection: RoomConnection, room: string, timeoutMs?: number): Promise<void> {
+  if (connection.synced) return Promise.resolve();
   return new Promise((resolve, reject) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (error?: Error): void => {
       if (timer !== undefined) clearTimeout(timer);
-      provider.off("sync", onSync);
-      provider.off("closed", onClosed);
-      provider.off("connection-error", onError);
+      connection.off("sync", onSync);
+      connection.off("closed", onClosed);
+      connection.off("connection-error", onError);
       if (error === undefined) resolve();
       else reject(error);
     };
     if (timeoutMs != null && timeoutMs > 0) {
       timer = setTimeout(() => {
-        const ws = provider.ws;
+        const ws = connection.ws;
         finish(
           new Error(
-            `${room}: sync timeout connected=${String(provider.wsconnected)} state=${String(ws?.readyState ?? "none")}`,
+            `${room}: sync timeout connected=${String(connection.wsconnected)} state=${String(ws?.readyState ?? "none")}`,
           ),
         );
       }, timeoutMs);
@@ -48,39 +47,52 @@ export function waitForSync(provider: WebsocketProvider, room: string, timeoutMs
     };
     const onClosed = (): void => finish(new Error(`${room}: closed before sync`));
     const onError = (): void => finish(new Error(`${room}: websocket error`));
-    provider.on("sync", onSync);
-    provider.on("closed", onClosed);
-    provider.on("connection-error", onError);
+    connection.on("sync", onSync);
+    connection.on("closed", onClosed);
+    connection.on("connection-error", onError);
   });
 }
 
-export function bindTextFrames(provider: WebsocketProvider, onText: (text: string) => void): void {
+export type TextFrameSource = {
+  ws: {
+    readonly readyState: number;
+    send(text: string): void;
+    addEventListener(type: "message", fn: (event: { data: unknown }) => void): void;
+  } | null;
+  wsLastMessageReceived: number;
+  on(event: string, fn: (...args: any[]) => void): void;
+  off?(event: string, fn: (...args: any[]) => void): void;
+};
+
+export function bindTextFrames(connection: RoomConnection | TextFrameSource, onText: (text: string) => void): () => void {
+  if (connection instanceof RoomConnection) {
+    const handler = (text: string): void => {
+      onText(text);
+    };
+    connection.on("text", handler);
+    return () => connection.off("text", handler);
+  }
+
   let bound: unknown = null;
   const listen = (): void => {
-    const ws = provider.ws;
+    const ws = connection.ws;
     if (ws == null || ws === bound) return;
     bound = ws;
     ws.addEventListener("message", (event) => {
       if (typeof event.data !== "string") return;
-      provider.wsLastMessageReceived = Date.now();
-      // The relay's keepalive answer: traffic for the watchdog, nothing for the caller.
+      connection.wsLastMessageReceived = Date.now();
       if (event.data === " pong") return;
       onText(event.data);
     });
-    // y-websocket still owns onmessage; a string payload is `new Uint8Array(string)` → empty buffer.
-    const yjs = ws.onmessage;
-    if (yjs != null) {
-      // eslint-disable-next-line unicorn/prefer-add-event-listener -- must wrap y-websocket's onmessage, not add a second listener
-      ws.onmessage = (event) => {
-        if (typeof event.data === "string") return;
-        yjs.call(ws, event);
-      };
-    }
   };
   listen();
-  provider.on("status", (event: { status: string }) => {
+  const onStatus = (event: { status: string }): void => {
     if (event.status === "connected") listen();
-  });
+  };
+  connection.on("status", onStatus);
+  return () => {
+    connection.off?.("status", onStatus);
+  };
 }
 
 export type JsonRpcPort = {
@@ -97,7 +109,7 @@ type RpcCall = {
   reject: (error: Error) => void;
 };
 
-export function bindJsonRpc(provider: WebsocketProvider): JsonRpcPort {
+export function bindJsonRpc(connection: RoomConnection | TextFrameSource): JsonRpcPort {
   let rpcId = 0;
   const inbound = new Map<number, RpcCall>();
   const outbound: RpcCall[] = [];
@@ -120,7 +132,7 @@ export function bindJsonRpc(provider: WebsocketProvider): JsonRpcPort {
 
   const flush = (): void => {
     if (lost != null) return;
-    const ws = provider.ws;
+    const ws = connection.ws;
     if (ws?.readyState !== 1) return;
     for (const call of outbound.splice(0)) {
       const id = (rpcId += 1);
@@ -129,8 +141,8 @@ export function bindJsonRpc(provider: WebsocketProvider): JsonRpcPort {
     }
   };
 
-  provider.on("closed", () => rejectAll(new Error("rpc: socket closed")));
-  bindTextFrames(provider, (text) => {
+  connection.on("closed", () => rejectAll(new Error("rpc: socket closed")));
+  bindTextFrames(connection, (text) => {
     let raw: unknown;
     try {
       raw = JSON.parse(text);
@@ -148,8 +160,7 @@ export function bindJsonRpc(provider: WebsocketProvider): JsonRpcPort {
     }
     call.resolve(parsed.data.result);
   });
-  // After bindTextFrames so a new socket is wrapped before we write.
-  provider.on("status", (event: { status: string }) => {
+  connection.on("status", (event: { status: string }) => {
     if (event.status === "disconnected") {
       rejectCalls(inbound.values(), new Error("rpc: socket closed"));
       inbound.clear();

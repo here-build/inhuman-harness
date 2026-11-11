@@ -1,68 +1,110 @@
 import {
-  applyAwarenessUpdate,
-  DocumentContainer,
-  encodeAwarenessUpdate,
-  type ReactiveAwareness,
-} from "@inhuman.tools/model";
+  KERNEL_SCOPE_ID,
+  projectScopeId,
+  shapeSubscribeFrameSchema,
+  type ShapeDeltaFrame,
+  type ShapeSubscribeFrame,
+  type StreamDeltaFrame,
+} from "@inhuman.tools/harness-contract/schema";
+import { DocumentContainer, type PresenceEntry, type ReactiveAwareness } from "@inhuman.tools/model";
 
-import { encodeLocalAwarenessFrame } from "./awareness.js";
+import { encodeLocalAwarenessFrame, REMOTE_AWARENESS_ORIGIN } from "./awareness.js";
 import {
-  applyPeerSyncFrame,
-  decodeAwarenessPayload,
-  encodeAwarenessFrame,
-  encodeDocUpdate,
-  encodeQueryAwareness,
-  encodeSyncStep1,
-  MESSAGE_AWARENESS,
-  MESSAGE_QUERY_AWARENESS,
-  MESSAGE_SHAPE,
-  MESSAGE_SYNC,
-  peekMessageType,
-  SYNC_STEP2,
+  applyNodeShapeDelta,
+  decodePlaneFrame,
+  encodePlaneFrame,
+  encodePresenceQuery,
+  encodePresenceUpdate,
+  encodeShapeSubscribe,
+  encodeShapeUnsubscribe,
 } from "./frames.js";
 
-export type WebsocketProviderOptions = {
+export type RoomConnectionOptions = {
   readonly connect?: boolean;
   readonly WebSocketPolyfill?: typeof WebSocket;
   readonly params?: Record<string, string>;
-  readonly resyncInterval?: number;
   readonly awareness?: ReactiveAwareness<any>;
   readonly shouldReconnect?: (event: CloseEvent) => boolean;
   readonly maxBackoffTime?: number;
-  readonly disableBc?: boolean;
 };
 
 const WS_OPEN = 1;
+const ROOM_NODES_SUBSCRIPTION_ID = "room:nodes";
+const textDecoder = new TextDecoder();
 
-export class WebsocketProvider {
+type ActiveClientLaneSub = {
+  frame: ShapeSubscribeFrame;
+  offset: number;
+  listeners: Set<(delta: ShapeDeltaFrame) => void>;
+};
+
+function defaultNodeLaneFrame(roomname: string, params: Record<string, string>, offset?: number): ShapeSubscribeFrame | null {
+  if (roomname === "kernel") {
+    return {
+      kind: "shape/subscribe",
+      subscriptionId: ROOM_NODES_SUBSCRIPTION_ID,
+      lane: "scope_nodes",
+      params: { scopeId: KERNEL_SCOPE_ID },
+      ...(offset !== undefined && offset > 0 ? { offset } : {}),
+    };
+  }
+  if (roomname === "project" && typeof params.path === "string" && params.path.length > 0) {
+    return {
+      kind: "shape/subscribe",
+      subscriptionId: ROOM_NODES_SUBSCRIPTION_ID,
+      lane: "scope_nodes",
+      params: { scopeId: projectScopeId(params.path) },
+      ...(offset !== undefined && offset > 0 ? { offset } : {}),
+    };
+  }
+  if (roomname === "session" && typeof params.sessionId === "string" && params.sessionId.length > 0) {
+    return {
+      kind: "shape/subscribe",
+      subscriptionId: ROOM_NODES_SUBSCRIPTION_ID,
+      lane: "session_nodes",
+      params: { sessionId: params.sessionId },
+      ...(offset !== undefined && offset > 0 ? { offset } : {}),
+    };
+  }
+  return null;
+}
+
+function decodeIncomingText(data: unknown): string | null {
+  if (typeof data === "string") return data;
+  if (data instanceof Uint8Array) return textDecoder.decode(data);
+  if (data instanceof ArrayBuffer) return textDecoder.decode(new Uint8Array(data));
+  if (ArrayBuffer.isView(data)) {
+    return textDecoder.decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+  }
+  return null;
+}
+
+export class RoomConnection {
   readonly url: string;
   readonly roomname: string;
   readonly doc: DocumentContainer<any, any>;
   readonly awareness: ReactiveAwareness<any>;
-  readonly options: WebsocketProviderOptions;
+  readonly options: RoomConnectionOptions;
 
   get params(): Record<string, string> {
     return this.options.params ?? {};
   }
 
   shouldConnect = true;
-
   ws: WebSocket | null = null;
   wsconnected = false;
   synced = false;
   wsLastMessageReceived = 0;
 
-  readonly messageHandlers: Record<number, (...args: any[]) => void> = {};
-
   readonly #listeners = new Map<string, Set<(...args: any[]) => void>>();
-  #resyncTimer?: ReturnType<typeof setInterval>;
+  readonly #laneSubscriptions = new Map<string, ActiveClientLaneSub>();
+  #nodeLaneOffset = 0;
   #reconnectTimer?: ReturnType<typeof setTimeout>;
   #unsuccessfulReconnects = 0;
   #destroyed = false;
-  readonly #docUnsub: () => void;
   readonly #awarenessUnsub: () => void;
 
-  constructor(url: string, roomname: string, doc: DocumentContainer<any, any>, options: WebsocketProviderOptions = {}) {
+  constructor(url: string, roomname: string, doc: DocumentContainer<any, any>, options: RoomConnectionOptions = {}) {
     this.url = url;
     this.roomname = roomname;
     this.doc = doc;
@@ -70,47 +112,19 @@ export class WebsocketProvider {
     this.shouldConnect = options.connect ?? true;
     this.awareness = options.awareness ?? doc.awareness;
 
-    const onDocUpdate = (update: Uint8Array, origin?: unknown): void => {
-      if (origin === this) return;
-      const ws = this.ws;
-      if (ws != null && ws.readyState === WS_OPEN) {
-        ws.send(encodeDocUpdate(update));
-      }
-    };
-    this.doc.on("update", onDocUpdate);
-    this.#docUnsub = () => this.doc.off("update", onDocUpdate);
-
     const onAwarenessUpdate = (
       changed: { added: number[]; updated: number[]; removed: number[] },
       origin?: unknown,
     ): void => {
-      if (origin === this) return;
+      if (origin === this || origin === REMOTE_AWARENESS_ORIGIN) return;
       const clients = [...changed.added, ...changed.updated, ...changed.removed];
       if (clients.length === 0) return;
-      try {
-        const update = encodeAwarenessUpdate(this.awareness, clients);
-        const ws = this.ws;
-        if (ws != null && ws.readyState === WS_OPEN) {
-          ws.send(encodeAwarenessFrame(update));
-        }
-      } catch {
-        // awareness not ready
-      }
+      const entries = this.awareness.toPresenceEntries(clients);
+      if (entries.length === 0) return;
+      this.sendText(encodePresenceUpdate(entries));
     };
     this.awareness.on("update", onAwarenessUpdate);
     this.#awarenessUnsub = () => this.awareness.off("update", onAwarenessUpdate);
-
-    this.messageHandlers[MESSAGE_SYNC] = (_encoder: unknown, decoder: { arr: Uint8Array; pos: number }) => {
-      const frameBytes = decoder.arr;
-      const reply = applyPeerSyncFrame(frameBytes, this.doc, this);
-      if (reply != null && this.ws != null && this.ws.readyState === WS_OPEN) {
-        this.ws.send(reply);
-      }
-      if (frameBytes.length >= 2 && frameBytes[1] === SYNC_STEP2 && !this.synced) {
-        this.synced = true;
-        this.emit("sync", true);
-      }
-    };
 
     if (options.connect !== false) {
       this.connect();
@@ -139,6 +153,49 @@ export class WebsocketProvider {
     }
   }
 
+  sendText(text: string): boolean {
+    const ws = this.ws;
+    if (ws != null && ws.readyState === WS_OPEN) {
+      ws.send(text);
+      return true;
+    }
+    return false;
+  }
+
+  subscribeLane(
+    rawFrame: Omit<ShapeSubscribeFrame, "kind"> & { readonly kind?: "shape/subscribe" },
+    onDelta?: (delta: ShapeDeltaFrame) => void,
+  ): () => void {
+    const frame = shapeSubscribeFrameSchema.parse({
+      ...rawFrame,
+      kind: "shape/subscribe",
+    });
+    let sub = this.#laneSubscriptions.get(frame.subscriptionId);
+    if (!sub) {
+      sub = {
+        frame,
+        offset: frame.offset ?? 0,
+        listeners: new Set(),
+      };
+      this.#laneSubscriptions.set(frame.subscriptionId, sub);
+      this.sendText(encodeShapeSubscribe(frame));
+    }
+    if (onDelta) {
+      sub.listeners.add(onDelta);
+    }
+    return () => {
+      const current = this.#laneSubscriptions.get(frame.subscriptionId);
+      if (!current) return;
+      if (onDelta) {
+        current.listeners.delete(onDelta);
+      }
+      if (current.listeners.size === 0) {
+        this.#laneSubscriptions.delete(frame.subscriptionId);
+        this.sendText(encodeShapeUnsubscribe(frame.subscriptionId));
+      }
+    };
+  }
+
   connect(): void {
     this.shouldConnect = true;
     if (this.ws != null) return;
@@ -154,7 +211,6 @@ export class WebsocketProvider {
     }
 
     const ws = new WebSocketConstructor(fullUrl);
-    ws.binaryType = "arraybuffer";
     this.ws = ws;
 
     this.emit("status", { status: "connecting" });
@@ -164,78 +220,89 @@ export class WebsocketProvider {
       this.#unsuccessfulReconnects = 0;
       this.wsconnected = true;
       this.emit("status", { status: "connected" });
-      ws.send(encodeSyncStep1(this.doc));
-      ws.send(encodeQueryAwareness());
-      const localAw = encodeLocalAwarenessFrame(this.awareness);
-      if (localAw != null) {
-        ws.send(localAw);
+
+      const nodeFrame = defaultNodeLaneFrame(this.roomname, this.params, this.#nodeLaneOffset);
+      if (nodeFrame != null) {
+        ws.send(encodeShapeSubscribe(nodeFrame));
+      }
+      for (const sub of this.#laneSubscriptions.values()) {
+        const resumeFrame: ShapeSubscribeFrame =
+          sub.offset > 0 ? { ...sub.frame, offset: sub.offset } : sub.frame;
+        ws.send(encodeShapeSubscribe(resumeFrame));
+      }
+
+      ws.send(encodePresenceQuery());
+      const localPresence = encodeLocalAwarenessFrame(this.awareness);
+      if (localPresence != null) {
+        ws.send(localPresence);
       }
     });
 
-    ws.onmessage = (event: MessageEvent): void => {
+    ws.addEventListener("message", (event: MessageEvent): void => {
       if (this.ws !== ws) return;
       this.wsLastMessageReceived = Date.now();
-      const data: unknown = event.data;
-      if (typeof data === "string") return;
+      const text = decodeIncomingText(event.data);
+      if (text === null) return;
+      if (text === " pong") return;
 
-      let bytes: Uint8Array;
-      if (data instanceof Uint8Array) {
-        bytes = data;
-      } else if (data instanceof ArrayBuffer) {
-        bytes = new Uint8Array(data);
-      } else if (ArrayBuffer.isView(data)) {
-        bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-      } else {
-        return;
-      }
+      this.emit("text", text);
 
-      const type = peekMessageType(bytes);
-      const customHandler = this.messageHandlers[type];
-      if (customHandler != null) {
-        customHandler(null, { arr: bytes, pos: 1 }, this);
-      } else
-        switch (type) {
-          case MESSAGE_SYNC: {
-            const reply = applyPeerSyncFrame(bytes, this.doc, this);
-            if (reply != null && ws.readyState === WS_OPEN) {
-              ws.send(reply);
-            }
-            if (bytes.length >= 2 && bytes[1] === SYNC_STEP2 && !this.synced) {
+      const frame = decodePlaneFrame(text);
+      if (frame === null) return;
+
+      switch (frame.kind) {
+        case "shape/delta": {
+          if (frame.subscriptionId === ROOM_NODES_SUBSCRIPTION_ID) {
+            this.#nodeLaneOffset = frame.offset;
+            applyNodeShapeDelta(this.doc, frame);
+            if (!this.synced) {
               this.synced = true;
               this.emit("sync", true);
             }
-
-            break;
-          }
-          case MESSAGE_AWARENESS: {
-            const payload = decodeAwarenessPayload(bytes);
-            if (payload != null) {
-              try {
-                applyAwarenessUpdate(this.awareness, payload, this);
-              } catch {
-                // malformed awareness frame
+          } else {
+            const sub = this.#laneSubscriptions.get(frame.subscriptionId);
+            if (sub) {
+              sub.offset = frame.offset;
+              for (const listener of sub.listeners) {
+                listener(frame);
               }
             }
-
-            break;
           }
-          case MESSAGE_QUERY_AWARENESS: {
-            const localAw = encodeLocalAwarenessFrame(this.awareness);
-            if (localAw != null && ws.readyState === WS_OPEN) {
-              ws.send(localAw);
-            }
-
-            break;
-          }
-          case MESSAGE_SHAPE: {
-            this.emit("shape", bytes);
-
-            break;
-          }
-          // No default
+          this.emit("shape", frame);
+          break;
         }
-      this.emit("message", bytes);
-    };
+        case "presence/state":
+        case "presence/update": {
+          this.awareness.applyPresenceEntries(frame.entries as readonly PresenceEntry[], REMOTE_AWARENESS_ORIGIN);
+          this.emit("presence", frame);
+          break;
+        }
+        case "presence/query": {
+          const localPresence = encodeLocalAwarenessFrame(this.awareness);
+          if (localPresence != null && ws.readyState === WS_OPEN) {
+            ws.send(localPresence);
+          }
+          this.emit("presence", frame);
+          break;
+        }
+        case "stream/delta": {
+          this.emit("stream", frame satisfies StreamDeltaFrame);
+          break;
+        }
+        case "ping": {
+          if (ws.readyState === WS_OPEN) {
+            ws.send(encodePlaneFrame({ kind: "pong", ts: frame.ts }));
+          }
+          break;
+        }
+        case "pong":
+        case "shape/subscribe":
+        case "shape/unsubscribe": {
+          break;
+        }
+      }
+      this.emit("message", frame);
+    });
 
     ws.onerror = (error: Event): void => {
       if (this.ws !== ws) return;
@@ -270,14 +337,6 @@ export class WebsocketProvider {
         this.emit("closed", event);
       }
     });
-
-    if (this.options.resyncInterval != null && this.options.resyncInterval > 0) {
-      this.#resyncTimer = setInterval(() => {
-        if (this.ws != null && this.ws.readyState === WS_OPEN) {
-          this.ws.send(encodeSyncStep1(this.doc));
-        }
-      }, this.options.resyncInterval);
-    }
   }
 
   disconnect(): void {
@@ -285,10 +344,6 @@ export class WebsocketProvider {
     if (this.#reconnectTimer !== undefined) {
       clearTimeout(this.#reconnectTimer);
       this.#reconnectTimer = undefined;
-    }
-    if (this.#resyncTimer !== undefined) {
-      clearInterval(this.#resyncTimer);
-      this.#resyncTimer = undefined;
     }
     if (this.ws != null) {
       this.ws.close();
@@ -299,15 +354,13 @@ export class WebsocketProvider {
     }
   }
 
-  disconnectBc(): void {}
-
   destroy(): void {
     if (this.#destroyed) return;
     this.#destroyed = true;
     this.disconnect();
     this.emit("closed", { reason: "destroyed" });
-    this.#docUnsub();
     this.#awarenessUnsub();
+    this.#laneSubscriptions.clear();
     this.#listeners.clear();
   }
 }

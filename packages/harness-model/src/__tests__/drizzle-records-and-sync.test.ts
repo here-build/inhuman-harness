@@ -96,7 +96,6 @@ describe("Drizzle row models & live DocumentContainer synchronization", () => {
         status: "running",
         cancelRequested: false,
         reducerExited: false,
-        snapshotJson: JSON.stringify({ state: "in-progress" }),
         startedAtMs: 1700000000000,
         endedAtMs: null,
       };
@@ -117,15 +116,26 @@ describe("Drizzle row models & live DocumentContainer synchronization", () => {
   });
 
   describe("SessionDocument Mutation, Patch Emission & Replica Convergence", () => {
-    it("mutating SessionRoot, SessionTurn, and AgentCallJob inside an action emits patch batches that converge a replica", () => {
+    it("mutating SessionRoot, SessionTurn, and AgentCallJob inside an action emits node deltas that converge an independent replica", () => {
       const server = SessionDocument.create("session-sync-test", "/tmp/sync-test");
-      const replica = SessionDocument.connect(server);
+      const initialDelta = server.takeNodeDelta();
+      const replica = SessionDocument.fromNodeRows(initialDelta.upserts, {
+        rootId: initialDelta.rootId,
+        sessionId: server.root.sessionId,
+        revision: initialDelta.revision,
+      });
 
+      expect(replica).not.toBe(server);
+      expect(replica.root).not.toBe(server.root);
       expect(replica.root.sessionId).toBe(server.root.sessionId);
       expect(replica.root.path).toBe(server.root.path);
 
       const batches: ModelPatchBatch[] = [];
-      server.onPatch((batch) => batches.push(batch));
+      server.onPatch((batch) => {
+        batches.push(batch);
+        const delta = server.takeNodeDelta();
+        replica.applyNodeRows(delta);
+      });
 
       server.transact(() => {
         server.root.permissionMode = "yolo";

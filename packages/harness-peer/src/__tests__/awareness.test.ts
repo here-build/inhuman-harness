@@ -18,8 +18,8 @@ function hubs(): { author: PlexusAwareness; replica: PlexusAwareness } {
 describe("plexus awareness plane", () => {
   it("forwards a local write onto a replica; remote ingest does not echo; bind sends local writes", () => {
     const forward = hubs();
-    const outbound: Uint8Array[] = [];
-    const echoed: Uint8Array[] = [];
+    const outbound: string[] = [];
+    const echoed: string[] = [];
     const stopAuthor = forwardPlexusAwareness(forward.author, (frame) => outbound.push(frame));
     const stopReplica = forwardPlexusAwareness(forward.replica, (frame) => echoed.push(frame));
     forward.author.setLocalStateField("role:expectation:live", {
@@ -29,14 +29,14 @@ describe("plexus awareness plane", () => {
     for (const frame of outbound) ingestPlexusAwareness(forward.replica, frame);
 
     const bind = hubs();
-    const fromAuthor: Uint8Array[] = [];
+    const fromAuthor: string[] = [];
     const stopBindAuthor = forwardPlexusAwareness(bind.author, (frame) => fromAuthor.push(frame));
     bind.author.setLocalStateField("role:expectation:live", {
       text: "hi",
       thought: "hmm",
     });
-    const fromReplica: Uint8Array[] = [];
-    let deliver: (frame: Uint8Array) => void = () => undefined;
+    const fromReplica: string[] = [];
+    let deliver: (frame: string) => void = () => undefined;
     const stopBind = bindPlexusAwareness(bind.replica, {
       send(frame) {
         fromReplica.push(frame);

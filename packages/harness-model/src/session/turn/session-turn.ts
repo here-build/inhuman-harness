@@ -541,6 +541,14 @@ export class SessionTurn extends SequenceJob {
   @computed
   get openWork(): boolean {
     for (const chunk of reactChunks(this)) {
+      if (
+        chunk instanceof CompletionJob &&
+        chunk.managesResponse &&
+        !chunk.responseExpanded &&
+        chunk.expectation.outcome === "successful"
+      ) {
+        return true;
+      }
       const completion = tapeCompletion(chunk);
       if (completion != null && completion.outcome == null) return true;
       if (chunk instanceof ToolCallJob && !chunk.completed && chunk.receiptJson == null) return true;

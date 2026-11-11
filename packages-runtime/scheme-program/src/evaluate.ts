@@ -86,8 +86,14 @@ export type EvaluateOpts = {
   | { readonly kind: "source-body"; readonly shared: SharedEval }
 );
 
+function isBareCancelReason(reason: unknown): boolean {
+  if (reason == null || reason === "cancel" || reason === "cancelled") return true;
+  if (isAbortError(reason) && !isTimeoutAbortReason(reason)) return true;
+  return reason instanceof Error && /^cancelled$/i.test(reason.message.trim());
+}
+
 export function errorText(error: unknown): string {
-  if (isAbortError(error) && !isTimeoutAbortReason(error)) return "Error: Scheme REPL call cancelled";
+  if (isBareCancelReason(error)) return "Error: Scheme REPL call cancelled";
   if (isTimeoutAbortReason(error)) {
     const text = cancelOutcomeText(error);
     return text.startsWith("Error:") ? text : `Error: ${text}`;

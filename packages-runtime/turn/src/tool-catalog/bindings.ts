@@ -1,6 +1,8 @@
+import { action, observable } from "mobx";
 import invariant from "tiny-invariant";
 
 import type { KernelToolCatalog } from "./catalog.js";
+import type { CatalogEntry } from "./types.js";
 
 const catalogsByRoot = new WeakMap<object, KernelToolCatalog>();
 const rootsByCatalog = new WeakMap<KernelToolCatalog, Set<object>>();
@@ -34,4 +36,16 @@ export function releaseCatalogRoots(catalog: KernelToolCatalog): void {
   }
   roots.clear();
   rootsByCatalog.delete(catalog);
+}
+
+const behaviorEntriesByRoot = observable.map<object, readonly CatalogEntry[]>(new Map(), { deep: false });
+
+/** Tools the session's pinned behavior declares. Replaced whenever the pin reattaches. */
+export const bindBehaviorEntries = action((root: object, entries: readonly CatalogEntry[]): void => {
+  if (entries.length === 0) behaviorEntriesByRoot.delete(root);
+  else behaviorEntriesByRoot.set(root, entries);
+});
+
+export function behaviorEntriesOf(root: object | undefined | null): readonly CatalogEntry[] {
+  return root == null ? [] : (behaviorEntriesByRoot.get(root) ?? []);
 }

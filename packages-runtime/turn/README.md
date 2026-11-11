@@ -13,9 +13,9 @@ runtime.recover({ kind: "interrupt", message: "Interrupted by the host" });
 runtime.activate();
 ```
 
-A restored runtime begins hydrated. The host chooses whether to resume supported jobs or interrupt execution, then activates it. `checkpoint()` returns a Yjs update that `SessionRuntime.restore` accepts. The host owns the session document and destroys it after disposing its runtime. A replacement runtime bound to the same document revokes the old runtime’s signal and effect ownership.
+A restored runtime begins hydrated. The host chooses whether to resume supported jobs or interrupt execution, then activates it. `checkpoint()` returns incremental `upsertedNodes`, `deletedNodeIds`, `sessionRow`, `dirtyTurns`, `pendingAsks`, and `effectRecords` rows that `SessionRuntime.restore` rehydrates from SQL tables. The host owns the session document and destroys it after disposing its runtime. A replacement runtime bound to the same document revokes the old runtime’s signal and effect ownership.
 
-Use memory durability for an explicitly transient session. For durable sessions, supply `commit(checkpoint)`, persist `checkpoint.state`, and acknowledge its session, incarnation, and revision only after that write is durable. The runtime holds admission until the checkpoint is acknowledged. Storage may commit and lose its acknowledgement; retrying the same command or effect identity must preserve the existing result.
+Use memory durability for an explicitly transient session. For durable sessions, supply `commit(checkpoint)`, persist its relational table rows atomically, and acknowledge its session, incarnation, and revision only after that write is durable. The runtime holds admission until the checkpoint is acknowledged. Storage may commit and lose its acknowledgement; retrying the same command or effect identity must preserve the existing result.
 
 After recovering unfinished state, acknowledge its checkpoint before activating dependent work. A failed checkpoint remains held; the host retries `flush()` when storage recovers. The local daemon exposes that retry through `turn/retry`, while Kley also retries persistence in the background and durably interrupts abandoned execution.
 

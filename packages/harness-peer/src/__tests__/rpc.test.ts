@@ -1,8 +1,7 @@
 import { isRpcContractError, RpcClientError } from "@inhuman.tools/harness-contract";
 import { describe, expect, it } from "vitest";
-import type { WebsocketProvider } from "../provider.js";
 
-import { bindJsonRpc, bindTextFrames } from "../rpc.js";
+import { bindJsonRpc, bindTextFrames, type TextFrameSource } from "../rpc.js";
 
 type FakeWs = {
   readyState: number;
@@ -14,7 +13,7 @@ type FakeWs = {
 };
 
 function fakeProvider(): {
-  readonly provider: WebsocketProvider;
+  readonly provider: TextFrameSource;
   emit(event: string, payload?: unknown): void;
   deliver(text: string): void;
   drop(): void;
@@ -34,8 +33,8 @@ function fakeProvider(): {
       onmessage: null,
     };
   };
-  const provider = {
-    ws: makeWs() as unknown as WebsocketProvider["ws"],
+  const provider: TextFrameSource & { emit(event: string, payload?: unknown): void } = {
+    ws: makeWs(),
     wsLastMessageReceived: 0,
     on(event: string, fn: (payload?: unknown) => void) {
       let set = handlers.get(event);
@@ -54,7 +53,7 @@ function fakeProvider(): {
   };
   const current = (): FakeWs => provider.ws as unknown as FakeWs;
   return {
-    provider: provider as unknown as WebsocketProvider,
+    provider,
     emit: provider.emit,
     deliver(text: string) {
       for (const fn of current().listeners) fn({ data: text });
@@ -64,7 +63,7 @@ function fakeProvider(): {
       provider.emit("status", { status: "disconnected" });
     },
     reconnect() {
-      provider.ws = makeWs() as unknown as WebsocketProvider["ws"];
+      provider.ws = makeWs();
       provider.emit("status", { status: "connected" });
     },
   };

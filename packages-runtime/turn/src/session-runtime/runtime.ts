@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { SessionPatchBatch } from "@inhuman.tools/harness-contract/schema";
+import { rowPairId, type SessionPatchBatch } from "@inhuman.tools/harness-contract";
 import { resolvedTip, SessionPlexus, SessionTurn, type SessionRoot } from "@inhuman.tools/harness-model/session";
 import { type ModelPatch } from "@inhuman.tools/model";
 import { computed, observable, runInAction, when } from "mobx";
@@ -18,11 +18,13 @@ import {
   type SerializedSessionDocument,
   type SessionCheckpoint,
   type SessionDurability,
+  type SessionNodeRestoreState,
   type SessionReceipt,
 } from "./durability.js";
 import {
   effectRecordSchema,
   sessionEffectOutcomeSchema,
+  sessionEffectRequestSchema,
   type SessionEffectOutcome,
   type SessionEffectPort,
   type SessionEffectRequest,
@@ -66,6 +68,18 @@ const commandRecordSchema = z.union([
 ]);
 const commitRecordSchema = z.object({ format: z.literal("input-digest-v1"), hash: z.string() });
 
+function computeTurnOrdinal(turn: SessionTurn): number {
+  let depth = 0;
+  const seen = new Set<SessionTurn>([turn]);
+  let tail = turn.turnTail;
+  while (tail instanceof SessionTurn && !seen.has(tail)) {
+    seen.add(tail);
+    depth += 1;
+    tail = tail.turnTail;
+  }
+  return depth;
+}
+
 function serializeTurnRow(sessionId: string, turn: SessionTurn, ordinal: number): NewSessionTurnRow {
   let status: "running" | "completed" | "cancelled" | "failed" | "interrupted" = "running";
   if (turn.cancelRequested) {
@@ -85,10 +99,42 @@ function serializeTurnRow(sessionId: string, turn: SessionTurn, ordinal: number)
     status,
     cancelRequested: Boolean(turn.cancelRequested),
     reducerExited: Boolean(turn.reducerExited),
-    snapshotJson: JSON.stringify({ format: "entity-ref-v1", nodeId: turn.uuid }),
     startedAtMs: Date.now(),
     endedAtMs: turn.reducerExited ? Date.now() : null,
   };
+}
+
+function hydrateSessionEffectsMeta(session: SessionPlexus, effectRecords: readonly NewSessionEffectRow[]): void {
+  if (effectRecords.length === 0) return;
+  session.getMetaMap("harness:session-runtime").set("version", "2");
+  const commits = session.getMetaMap("harness:session-commits");
+  const commands = session.getMetaMap("harness:session-commands");
+  const effects = session.getMetaMap("harness:session-effects");
+  for (const row of effectRecords) {
+    if (row.kind === "commit") {
+      commits.set(row.effectKey, { format: "input-digest-v1", hash: row.inputHash });
+    } else if (row.kind === "command") {
+      const parsed = JSON.parse(row.outcomeJson) as unknown;
+      const result = commandResultSchema.safeParse(parsed);
+      if (result.success) {
+        commands.set(row.effectKey, {
+          format: "command-digest-v1",
+          inputHash: row.inputHash,
+          result: result.data,
+        });
+      } else {
+        commits.set(row.effectKey, { format: "input-digest-v1", hash: row.inputHash });
+      }
+    } else if (row.kind === "effect") {
+      if (row.phase === "intent") {
+        const request = sessionEffectRequestSchema.parse(JSON.parse(row.outcomeJson));
+        effects.set(row.effectKey, { phase: "intent", request, inputHash: row.inputHash });
+      } else {
+        const outcome = sessionEffectOutcomeSchema.parse(JSON.parse(row.outcomeJson));
+        effects.set(row.effectKey, { phase: "result", inputHash: row.inputHash, outcome });
+      }
+    }
+  }
 }
 
 export class SessionRuntime implements AsyncDisposable {
@@ -102,7 +148,6 @@ export class SessionRuntime implements AsyncDisposable {
   readonly #stops: Array<() => void> = [];
   readonly #accumulatedPatches: Array<{ patch: ModelPatch; revision: number }> = [];
   readonly #dirtyNodeIds = new Set<string>();
-  readonly #persistedNodeIds = new Set<string>();
   #pendingEffectRecords: NewSessionEffectRow[] = [];
   #revision = 0;
   #lastCommittedRevision = 0;
@@ -144,29 +189,37 @@ export class SessionRuntime implements AsyncDisposable {
 
   static restore(
     sessionId: string,
-    stateOrSnapshot: Uint8Array | SerializedSessionDocument | SessionCheckpoint,
+    source: SessionNodeRestoreState | SerializedSessionDocument,
     durability: SessionDurability,
   ): SessionRuntime {
-    let snapshot: SerializedSessionDocument;
-    if (stateOrSnapshot instanceof Uint8Array) {
-      const text = new TextDecoder().decode(stateOrSnapshot);
-      const parsed = JSON.parse(text) as unknown;
-      if (parsed && typeof parsed === "object" && "snapshot" in parsed) {
-        snapshot = (parsed as { snapshot: SerializedSessionDocument }).snapshot;
-      } else {
-        snapshot = parsed as SerializedSessionDocument;
+    let session: SessionPlexus;
+    if ("rows" in source) {
+      session = SessionPlexus.fromNodeRows(source.rows, {
+        rootId: source.rootId,
+        sessionId,
+        revision: source.revision,
+        meta: source.meta,
+      });
+      if (source.effectRecords && source.effectRecords.length > 0) {
+        hydrateSessionEffectsMeta(session, source.effectRecords);
       }
-    } else if (stateOrSnapshot && typeof stateOrSnapshot === "object" && "snapshot" in stateOrSnapshot) {
-      snapshot = (stateOrSnapshot as SessionCheckpoint).snapshot;
     } else {
-      snapshot = stateOrSnapshot as SerializedSessionDocument;
+      session = SessionPlexus.fromSnapshot(source, sessionId);
     }
-    const session = SessionPlexus.fromSnapshot(snapshot, sessionId);
     if (session.root.sessionId !== sessionId) {
       session.destroy();
       throw new Error("session checkpoint identity does not match its document");
     }
     return new SessionRuntime(session, durability);
+  }
+
+  exportRestoreState(): SessionNodeRestoreState {
+    return {
+      rootId: this.root.uuid,
+      rows: this.session.toNodeRows(),
+      revision: this.#revision,
+      meta: this.session.exportMeta(),
+    };
   }
 
   get root(): SessionRoot {
@@ -213,8 +266,7 @@ export class SessionRuntime implements AsyncDisposable {
 
   checkpoint(): SessionCheckpoint {
     this.#assertOwned();
-    const snapshot = this.session.toSnapshot();
-    const state = new TextEncoder().encode(JSON.stringify(snapshot));
+    const nodeDelta = this.session.peekNodeDelta();
 
     const turnsToInclude = new Map<string, SessionTurn>();
     if (this.root.head instanceof SessionTurn) {
@@ -237,10 +289,9 @@ export class SessionRuntime implements AsyncDisposable {
     }
 
     const dirtyTurns: NewSessionTurnRow[] = [];
-    let ordinal = 0;
     for (const turn of turnsToInclude.values()) {
-      if (!("nodes" in snapshot.root) || !Object.hasOwn(snapshot.root.nodes, turn.uuid)) continue;
-      dirtyTurns.push(serializeTurnRow(this.root.sessionId, turn, ordinal++));
+      if (this.session.getNode(turn.uuid) === undefined) continue;
+      dirtyTurns.push(serializeTurnRow(this.root.sessionId, turn, computeTurnOrdinal(turn)));
     }
 
     const pendingAsks: NewPendingAskRow[] = [];
@@ -293,19 +344,16 @@ export class SessionRuntime implements AsyncDisposable {
       incarnation: this.incarnation,
       fromRevision: this.#lastCommittedRevision,
       revision: this.#revision,
-      snapshot,
-      state,
+      rootNodeId: nodeDelta.rootId,
+      upsertedNodes: nodeDelta.upserts,
+      deletedNodeIds: nodeDelta.deletes,
       sessionRow,
       dirtyTurns,
-      dirtyNodes:
-        "nodes" in snapshot.root
-          ? Object.values(snapshot.root.nodes).filter(
-              (row) => this.#dirtyNodeIds.has(row.uuid) || !this.#persistedNodeIds.has(row.uuid),
-            )
-          : [],
       pendingAsks,
       patchBatch,
-      effectRecords: [...this.#pendingEffectRecords],
+      effectRecords: this.#pendingEffectRecords.map((record) =>
+        record.revision <= this.#lastCommittedRevision ? { ...record, revision: this.#revision } : record,
+      ),
     };
   }
 
@@ -334,9 +382,11 @@ export class SessionRuntime implements AsyncDisposable {
       if (!receiptCovers(receipt, checkpoint))
         throw new SessionPersistenceError("receipt does not cover session checkpoint");
       this.#lastCommittedRevision = checkpoint.revision;
-      this.#persistedNodeIds.clear();
-      if ("nodes" in checkpoint.snapshot.root)
-        for (const id of Object.keys(checkpoint.snapshot.root.nodes)) this.#persistedNodeIds.add(id);
+      this.session.commitNodeDelta({
+        revision: checkpoint.revision,
+        upserts: checkpoint.upsertedNodes,
+        deletes: checkpoint.deletedNodeIds,
+      });
       this.#accumulatedPatches.splice(
         0,
         !this.#accumulatedPatches.some((item) => item.revision > receipt.revision)
@@ -358,8 +408,11 @@ export class SessionRuntime implements AsyncDisposable {
     }
   }
 
-  #recordEffect(record: NewSessionEffectRow): void {
-    this.#pendingEffectRecords.push(record);
+  #recordEffect(record: Omit<NewSessionEffectRow, "id"> & { readonly id?: string }): void {
+    this.#pendingEffectRecords.push({
+      ...record,
+      id: record.id ?? rowPairId(record.sessionId, `${record.kind}:${record.effectKey}`),
+    });
   }
 
   commitMutation(
@@ -405,7 +458,8 @@ export class SessionRuntime implements AsyncDisposable {
       this.#recordEffect({
         sessionId: this.root.sessionId,
         effectKey: operationId,
-        kind: "command",
+        kind: "commit",
+        phase: "committed",
         inputHash: digest,
         outcomeJson: JSON.stringify({ inputHash: digest }),
         revision: this.#revision,
@@ -451,6 +505,7 @@ export class SessionRuntime implements AsyncDisposable {
             sessionId: this.root.sessionId,
             effectKey: commandId,
             kind: "command",
+            phase: "committed",
             inputHash: digest,
             outcomeJson: JSON.stringify(result),
             revision: this.#revision,
@@ -634,8 +689,15 @@ export class SessionRuntime implements AsyncDisposable {
     const records = this.session.getMetaMap("harness:session-effects");
     const raw = records.get(request.operationId);
     const saved = raw === undefined ? null : effectRecordSchema.parse(typeof raw === "string" ? JSON.parse(raw) : raw);
-    if (saved != null && (saved.request.method !== request.method || saved.request.payload !== request.payload)) {
-      throw new Error("effect operation id was already used for different input");
+    const effectInputHash = inputDigest(JSON.stringify({ method: request.method, payload: request.payload }));
+    if (saved != null) {
+      const matches =
+        saved.request != null
+          ? saved.request.method === request.method && saved.request.payload === request.payload
+          : saved.inputHash === effectInputHash;
+      if (!matches) {
+        throw new Error("effect operation id was already used for different input");
+      }
     }
     if (saved?.phase === "result") {
       await this.flush();
@@ -649,7 +711,17 @@ export class SessionRuntime implements AsyncDisposable {
           : await port.reconcile(saved.request, abort);
     } else {
       await this.commitMutation(`effect-intent:${request.operationId}`, `${request.method}\n${request.payload}`, () => {
-        records.set(request.operationId, { phase: "intent", request });
+        records.set(request.operationId, { phase: "intent", request, inputHash: effectInputHash });
+        this.#recordEffect({
+          sessionId: this.root.sessionId,
+          effectKey: request.operationId,
+          kind: "effect",
+          phase: "intent",
+          inputHash: effectInputHash,
+          outcomeJson: JSON.stringify(request),
+          revision: this.#revision,
+          createdAtMs: Date.now(),
+        });
       });
       this.#assertOwned();
       abort.throwIfAborted();
@@ -663,12 +735,13 @@ export class SessionRuntime implements AsyncDisposable {
       JSON.stringify(checked),
       () => {
         apply(checked);
-        records.set(request.operationId, { phase: "result", request, outcome: checked });
+        records.set(request.operationId, { phase: "result", request, inputHash: effectInputHash, outcome: checked });
         this.#recordEffect({
           sessionId: this.root.sessionId,
           effectKey: request.operationId,
           kind: "effect",
-          inputHash: inputDigest(JSON.stringify({ method: request.method, payload: request.payload })),
+          phase: "result",
+          inputHash: effectInputHash,
           outcomeJson: JSON.stringify(checked),
           revision: this.#revision,
           createdAtMs: Date.now(),

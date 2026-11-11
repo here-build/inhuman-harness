@@ -1,4 +1,9 @@
-import { DocumentContainer, serializeDocument, type SerializedDocument } from "@inhuman.tools/model";
+import {
+  DocumentContainer,
+  serializeDocument,
+  type SerializedDocument,
+  type SerializedModelRow,
+} from "@inhuman.tools/model";
 
 import { hydrateKernelRoot, KernelRoot } from "./KernelRoot.js";
 import type { KernelAwareness } from "./seat.js";
@@ -15,6 +20,29 @@ export class KernelDocument extends DocumentContainer<KernelRoot, KernelAwarenes
     const doc = DocumentContainer.fromSnapshot<KernelRoot>(snapshot);
     const kernelDoc = new KernelDocument(doc.root, { guid: KERNEL_DOC_GUID, revision: snapshot.revision });
     hydrateKernelRoot(kernelDoc.root);
+    kernelDoc.markAllNodesCommitted();
+    return kernelDoc;
+  }
+
+  static override fromNodeRows(
+    rows: readonly SerializedModelRow[],
+    options?: {
+      readonly rootId?: string;
+      readonly revision?: number;
+      readonly clientId?: number;
+      readonly guid?: string;
+      readonly meta?: Record<string, Record<string, unknown>>;
+    },
+  ): KernelDocument {
+    const doc = DocumentContainer.fromNodeRows<KernelRoot>(rows, options);
+    const kernelDoc = new KernelDocument(doc.root, {
+      guid: options?.guid ?? KERNEL_DOC_GUID,
+      revision: options?.revision ?? 0,
+      clientId: options?.clientId,
+      meta: options?.meta,
+    });
+    hydrateKernelRoot(kernelDoc.root);
+    kernelDoc.markAllNodesCommitted();
     return kernelDoc;
   }
 

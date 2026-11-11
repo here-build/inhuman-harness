@@ -1,4 +1,4 @@
-import { jsonValueSchema } from "@inhuman.tools/harness-contract/schema";
+import { jsonValueSchema } from "@inhuman.tools/harness-contract";
 import { Model, model, state } from "@inhuman.tools/model";
 import { z } from "zod";
 

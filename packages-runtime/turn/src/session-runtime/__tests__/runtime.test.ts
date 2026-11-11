@@ -3,8 +3,16 @@ import "@inhuman.tools/harness-model/session/register";
 import { RegisteredToolsSet, SessionTurn } from "@inhuman.tools/harness-model/session";
 import { onTestFinished, describe, expect, it } from "vitest";
 
+import type { NewSessionEffectRow } from "../durability.js";
 import type { SessionCommandHost } from "../../session/types.js";
-import { SessionRuntime, SessionOwnershipError, type SessionCheckpoint, type SessionReceipt } from "../index.js";
+import {
+  SessionRuntime,
+  SessionOwnershipError,
+  type SessionCheckpoint,
+  type SessionNodeRestoreState,
+  type SessionReceipt,
+} from "../index.js";
+import type { SerializedModelRow } from "@inhuman.tools/model";
 
 function commands(runtime: SessionRuntime): SessionCommandHost {
   return {
@@ -19,11 +27,44 @@ function commands(runtime: SessionRuntime): SessionCommandHost {
   };
 }
 
+function applyCheckpointToTables(
+  tables: {
+    rootId: string;
+    revision: number;
+    nodes: Map<string, SerializedModelRow>;
+    effects: Map<string, NewSessionEffectRow>;
+  },
+  checkpoint: SessionCheckpoint,
+): void {
+  tables.rootId = checkpoint.rootNodeId;
+  tables.revision = checkpoint.revision;
+  for (const nodeId of checkpoint.deletedNodeIds) {
+    tables.nodes.delete(nodeId);
+  }
+  for (const row of checkpoint.upsertedNodes) {
+    tables.nodes.set(row.uuid, structuredClone(row));
+  }
+  for (const eff of checkpoint.effectRecords) {
+    tables.effects.set(eff.effectKey, structuredClone(eff));
+  }
+}
+
 function stored() {
-  let bytes = new Uint8Array();
+  const tables = {
+    rootId: "",
+    revision: 0,
+    nodes: new Map<string, SerializedModelRow>(),
+    effects: new Map<string, NewSessionEffectRow>(),
+  };
   let next: "ok" | "before-commit" | "lost-ack" = "ok";
   return {
-    bytes: () => bytes,
+    state: (): SessionNodeRestoreState => ({
+      rootId: tables.rootId,
+      revision: tables.revision,
+      rows: [...tables.nodes.values()],
+      effectRecords: [...tables.effects.values()],
+    }),
+    apply: (checkpoint: SessionCheckpoint) => applyCheckpointToTables(tables, checkpoint),
     fail: (kind: "before-commit" | "lost-ack") => {
       next = kind;
     },
@@ -33,7 +74,7 @@ function stored() {
         const failure = next;
         next = "ok";
         if (failure === "before-commit") throw new Error("storage refused commit");
-        bytes = new Uint8Array(checkpoint.state);
+        applyCheckpointToTables(tables, checkpoint);
         if (failure === "lost-ack") throw new Error("storage acknowledgement lost");
         return { sessionId: checkpoint.sessionId, incarnation: checkpoint.incarnation, revision: checkpoint.revision };
       },
@@ -170,7 +211,7 @@ describe("portable session lifecycle and durable effects", () => {
     await background;
     await done;
     expect(dispatches.sort()).toEqual(["describe_tool", "list_saved_agents"]);
-    const restored = SessionRuntime.restore("conversation", store.bytes(), { kind: "memory" });
+    const restored = SessionRuntime.restore("conversation", store.state(), { kind: "memory" });
     onTestFinished(async () => {
       await restored[Symbol.asyncDispose]();
       restored.session.destroy();
@@ -197,7 +238,7 @@ describe("portable session lifecycle and durable effects", () => {
     await runtime.commitMutation("next", "{}", mutate);
     await runtime.commitMutation("next", "{}", mutate);
     expect({ mutations, held: runtime.admissionHeld }).toEqual({ mutations: 1, held: false });
-    const restored = SessionRuntime.restore("conversation", store.bytes(), { kind: "memory" });
+    const restored = SessionRuntime.restore("conversation", store.state(), { kind: "memory" });
     onTestFinished(async () => {
       await restored[Symbol.asyncDispose]();
       restored.session.destroy();
@@ -363,7 +404,7 @@ describe("portable session lifecycle and durable effects", () => {
     const second = Promise.withResolvers<void>();
     const enteredSecond = Promise.withResolvers<void>();
     let commits = 0;
-    let saved = new Uint8Array();
+    const savedStore = stored();
     const isolated = new SessionRuntime(runtime.session, {
       kind: "durable",
       async commit(checkpoint) {
@@ -376,7 +417,7 @@ describe("portable session lifecycle and durable effects", () => {
           enteredSecond.resolve();
           await second.promise;
         }
-        saved = new Uint8Array(checkpoint.state);
+        savedStore.apply(checkpoint);
         return { sessionId: checkpoint.sessionId, incarnation: checkpoint.incarnation, revision: checkpoint.revision };
       },
     });
@@ -393,7 +434,7 @@ describe("portable session lifecycle and durable effects", () => {
     expect(isolated.admissionHeld).toBe(true);
     second.resolve();
     await pending;
-    const restored = SessionRuntime.restore("conversation", saved, { kind: "memory" });
+    const restored = SessionRuntime.restore("conversation", savedStore.state(), { kind: "memory" });
     onTestFinished(async () => {
       await restored[Symbol.asyncDispose]();
       restored.session.destroy();
@@ -442,14 +483,14 @@ describe("portable session lifecycle and durable effects", () => {
     await expect(runtime.admit(commands(runtime), { prompt: "must wait for cancellation" })).rejects.toThrow(
       "storage refused commit",
     );
-    const unacknowledged = SessionRuntime.restore("conversation", store.bytes(), { kind: "memory" });
+    const unacknowledged = SessionRuntime.restore("conversation", store.state(), { kind: "memory" });
     onTestFinished(async () => {
       await unacknowledged[Symbol.asyncDispose]();
       unacknowledged.session.destroy();
     });
     expect(unacknowledged.root.head?.cancelRequested).toBe(false);
     await runtime.cancel(commands(runtime), { turnId: turn.uuid });
-    const restored = SessionRuntime.restore("conversation", store.bytes(), { kind: "memory" });
+    const restored = SessionRuntime.restore("conversation", store.state(), { kind: "memory" });
     onTestFinished(async () => {
       await restored[Symbol.asyncDispose]();
       restored.session.destroy();
@@ -470,7 +511,7 @@ describe("portable session lifecycle and durable effects", () => {
     const id = runtime.root.head?.uuid;
     expect({ held: runtime.admissionHeld, turns: runtime.root.liveTurns.size }).toEqual({ held: true, turns: 1 });
     await runtime[Symbol.asyncDispose]();
-    const restored = SessionRuntime.restore("conversation", store.bytes(), store.durability);
+    const restored = SessionRuntime.restore("conversation", store.state(), store.durability);
     onTestFinished(async () => {
       await restored[Symbol.asyncDispose]();
       restored.session.destroy();
@@ -494,12 +535,12 @@ describe("portable session lifecycle and durable effects", () => {
     const commit = Promise.withResolvers<void>();
     let commits = 0;
     let dispatches = 0;
-    let saved = new Uint8Array();
+    const savedStore = stored();
     const isolated = new SessionRuntime(runtime.session, {
       kind: "durable",
       async commit(checkpoint) {
         if (++commits === 1) await commit.promise;
-        saved = new Uint8Array(checkpoint.state);
+        savedStore.apply(checkpoint);
         if (commits === 2) throw new Error("result committed; acknowledgement lost");
         return { sessionId: checkpoint.sessionId, incarnation: checkpoint.incarnation, revision: checkpoint.revision };
       },
@@ -530,7 +571,7 @@ describe("portable session lifecycle and durable effects", () => {
     await expect(result).rejects.toThrow("acknowledgement lost");
     expect({ dispatches, held: isolated.admissionHeld }).toEqual({ dispatches: 1, held: true });
     await isolated[Symbol.asyncDispose]();
-    const restored = SessionRuntime.restore("conversation", saved, store.durability);
+    const restored = SessionRuntime.restore("conversation", savedStore.state(), store.durability);
     onTestFinished(async () => {
       await restored[Symbol.asyncDispose]();
       restored.session.destroy();
@@ -571,7 +612,7 @@ describe("portable session lifecycle and durable effects", () => {
     };
     await expect(runtime.effect("write-2", "write", "{}", port, () => {})).rejects.toThrow("lost");
     await runtime[Symbol.asyncDispose]();
-    const restored = SessionRuntime.restore("conversation", store.bytes(), store.durability);
+    const restored = SessionRuntime.restore("conversation", store.state(), store.durability);
     onTestFinished(async () => {
       await restored[Symbol.asyncDispose]();
       restored.session.destroy();
@@ -627,7 +668,7 @@ describe("portable session lifecycle and durable effects", () => {
     const turn = runtime.root.head;
     if (!(turn instanceof SessionTurn)) throw new TypeError("expected admitted turn");
     runtime.root.ensureAgentCallback("request", "parent");
-    const state = runtime.checkpoint().state;
+    const state = runtime.exportRestoreState();
     const restored = SessionRuntime.restore("conversation", state, { kind: "memory" });
     onTestFinished(async () => {
       await restored[Symbol.asyncDispose]();
@@ -640,17 +681,14 @@ describe("portable session lifecycle and durable effects", () => {
     });
   });
 
-  it("emits structured sessionRow, dirtyTurns, patchBatch, and effectRecords with O(delta) patches across sequential mutations", async () => {
+  it("emits structured sessionRow, dirtyTurns, upsertedNodes, patchBatch, and effectRecords with O(delta) patches across sequential mutations", async () => {
     const committedCheckpoints: SessionCheckpoint[] = [];
+    const tableStore = stored();
     const runtime = SessionRuntime.create("conversation", {
       kind: "durable",
       async commit(checkpoint) {
         committedCheckpoints.push(checkpoint);
-        return {
-          sessionId: checkpoint.sessionId,
-          incarnation: checkpoint.incarnation,
-          revision: checkpoint.revision,
-        };
+        return tableStore.durability.commit(checkpoint);
       },
     });
     runtime.recover();
@@ -672,6 +710,7 @@ describe("portable session lifecycle and durable effects", () => {
     expect(cp0.patchBatch.toRevision).toBe(cp0.revision);
     const initialPatchCount = cp0.patchBatch.patches.length;
     expect(initialPatchCount).toBeGreaterThan(0);
+    expect(cp0.upsertedNodes.length).toBeGreaterThan(0);
     expect(cp0.sessionRow).toMatchObject({
       sessionId: "conversation",
       running: false,
@@ -691,7 +730,9 @@ describe("portable session lifecycle and durable effects", () => {
     expect(cp1.revision).toBeGreaterThan(cp0.revision);
     expect(cp1.patchBatch.fromRevision).toBe(cp0.revision);
     expect(cp1.patchBatch.toRevision).toBe(cp1.revision);
-    // O(delta): only the patches from mutation-1, not previous patches
+    // O(delta): only the dirty root node and patches from mutation-1, not initial subtree nodes
+    expect(cp1.upsertedNodes).toHaveLength(1);
+    expect(cp1.upsertedNodes[0]?.uuid).toBe(runtime.root.uuid);
     expect(cp1.patchBatch.patches.length).toBeGreaterThan(0);
     expect(cp1.patchBatch.patches.some((p) => p.nodeId === runtime.root.uuid && p.field === "kvs")).toBe(true);
 
@@ -712,10 +753,8 @@ describe("portable session lifecycle and durable effects", () => {
     });
     expect(cp2.dirtyTurns).toHaveLength(1);
     expect(cp2.dirtyTurns[0].turnId).toBe(runtime.root.head?.uuid);
-    expect(JSON.parse(cp2.dirtyTurns[0].snapshotJson)).toEqual({
-      format: "entity-ref-v1",
-      nodeId: runtime.root.head?.uuid,
-    });
+    expect(cp2.dirtyTurns[0].ordinal).toBe(0);
+    expect("snapshotJson" in cp2.dirtyTurns[0]).toBe(false);
 
     // Mutation 3: effect
     const port = {
@@ -735,12 +774,13 @@ describe("portable session lifecycle and durable effects", () => {
       sessionId: "conversation",
       effectKey: "eff-delta",
       kind: "effect",
+      phase: "result",
       inputHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
       outcomeJson: JSON.stringify({ kind: "success", payload: "effect-result" }),
     });
 
-    // Verification of restoration from structured checkpoint
-    const restored = SessionRuntime.restore("conversation", cp3, { kind: "memory" });
+    // Verification of restoration from accumulated relational rows
+    const restored = SessionRuntime.restore("conversation", tableStore.state(), { kind: "memory" });
     onTestFinished(async () => {
       await restored[Symbol.asyncDispose]();
       restored.session.destroy();

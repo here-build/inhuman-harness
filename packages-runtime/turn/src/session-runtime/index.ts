@@ -5,6 +5,7 @@ export {
   SessionPersistenceError,
   type SessionCheckpoint,
   type SessionDurability,
+  type SessionNodeRestoreState,
   type SessionReceipt,
 } from "./durability.js";
 export {

@@ -21,7 +21,7 @@ export type SessionEffectPort = {
   reconcile?(request: SessionEffectRequest, signal: AbortSignal): Promise<SessionEffectOutcome>;
 };
 
-const requestSchema = z.object({
+export const sessionEffectRequestSchema = z.object({
   sessionId: z.string(),
   operationId: z.string(),
   incarnation: z.string(),
@@ -30,6 +30,11 @@ const requestSchema = z.object({
 });
 
 export const effectRecordSchema = z.discriminatedUnion("phase", [
-  z.object({ phase: z.literal("intent"), request: requestSchema }),
-  z.object({ phase: z.literal("result"), request: requestSchema, outcome: sessionEffectOutcomeSchema }),
+  z.object({ phase: z.literal("intent"), request: sessionEffectRequestSchema, inputHash: z.string().optional() }),
+  z.object({
+    phase: z.literal("result"),
+    request: sessionEffectRequestSchema.optional(),
+    inputHash: z.string().optional(),
+    outcome: sessionEffectOutcomeSchema,
+  }),
 ]);

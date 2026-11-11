@@ -1,7 +1,13 @@
 /**
  * Path is the project identity.
  */
-import { DocumentContainer, serializeDocument, type AwarenessShape, type SerializedDocument } from "@inhuman.tools/model";
+import {
+  DocumentContainer,
+  serializeDocument,
+  type AwarenessShape,
+  type SerializedDocument,
+  type SerializedModelRow,
+} from "@inhuman.tools/model";
 import { nanoid } from "nanoid";
 
 import { ProjectRoot } from "./ProjectRoot.js";
@@ -20,7 +26,30 @@ export type ProjectPlexusCreateOptions = {
 export class ProjectDocument extends DocumentContainer<ProjectRoot, AwarenessShape> {
   static override fromSnapshot(snapshot: SerializedDocument): ProjectDocument {
     const doc = DocumentContainer.fromSnapshot<ProjectRoot>(snapshot);
-    return new ProjectDocument(doc.root, { revision: snapshot.revision });
+    const projectDoc = new ProjectDocument(doc.root, { revision: snapshot.revision });
+    projectDoc.markAllNodesCommitted();
+    return projectDoc;
+  }
+
+  static override fromNodeRows(
+    rows: readonly SerializedModelRow[],
+    options?: {
+      readonly rootId?: string;
+      readonly revision?: number;
+      readonly clientId?: number;
+      readonly guid?: string;
+      readonly meta?: Record<string, Record<string, unknown>>;
+    },
+  ): ProjectDocument {
+    const doc = DocumentContainer.fromNodeRows<ProjectRoot>(rows, options);
+    const projectDoc = new ProjectDocument(doc.root, {
+      guid: options?.guid,
+      revision: options?.revision ?? 0,
+      clientId: options?.clientId,
+      meta: options?.meta,
+    });
+    projectDoc.markAllNodesCommitted();
+    return projectDoc;
   }
 
   static create(path: string, docOrOptions?: DocumentContainer<any, any> | ProjectPlexusCreateOptions | unknown): ProjectDocument {

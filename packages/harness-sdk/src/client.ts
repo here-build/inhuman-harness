@@ -25,16 +25,13 @@ import {
   type SessionTurn,
 } from "@inhuman.tools/harness-model/session";
 import {
-  awarenessBytes,
   bindJsonRpc,
-  bindProviderAwareness,
-  destroyProvider,
-  encodeQueryAwareness,
-  MESSAGE_AWARENESS,
-  MESSAGE_QUERY_AWARENESS,
-  peekMessageType,
-  WebsocketProvider,
+  bindRoomAwareness,
+  destroyRoomConnection,
+  encodePresenceQuery,
+  RoomConnection,
   type JsonRpcPort,
+  type PlaneWireFrame,
 } from "@inhuman.tools/harness-peer";
 import type { DocumentContainer, PlexusAwareness } from "@inhuman.tools/model";
 import {
@@ -112,7 +109,7 @@ export class Client implements AsyncDisposable {
     step(`client kernel ${kernelPath}`);
     const kernel = await realpath(kernelPath);
     const socketPath = daemonSocketPath(kernel);
-    const providers: WebsocketProvider[] = [];
+    const providers: RoomConnection[] = [];
     const awarenessStops: Array<() => void> = [];
     try {
       const plexus = await Client.#open(
@@ -140,13 +137,13 @@ export class Client implements AsyncDisposable {
         async [Symbol.asyncDispose](): Promise<void> {
           rpc.rejectAll(new Error("kernel rpc disposed"));
           for (const stop of awarenessStops.splice(0)) stop();
-          for (const item of providers.splice(0)) destroyProvider(item);
+          for (const item of providers.splice(0)) destroyRoomConnection(item);
           plexus.destroy();
         },
       };
     } catch (error) {
       for (const stop of awarenessStops) stop();
-      for (const provider of providers) destroyProvider(provider);
+      for (const provider of providers) destroyRoomConnection(provider);
       throw error;
     }
   }
@@ -160,7 +157,7 @@ export class Client implements AsyncDisposable {
       const provider = await openUnixRoom(socketPath, "session", { sessionId }, doc, {
         reconnect: false,
       });
-      destroyProvider(provider);
+      destroyRoomConnection(provider);
       doc.destroy();
       return true;
     } catch (error) {
@@ -182,7 +179,7 @@ export class Client implements AsyncDisposable {
     const kernel = await realpath(opts.kernelPath);
     const socketPath = daemonSocketPath(kernel);
     step(`client sock ${socketPath}`);
-    const providers: WebsocketProvider[] = [];
+    const providers: RoomConnection[] = [];
     const awarenessStops: Array<() => void> = [];
 
     try {
@@ -258,7 +255,7 @@ export class Client implements AsyncDisposable {
       return client;
     } catch (error) {
       for (const stop of awarenessStops) stop();
-      for (const provider of providers) destroyProvider(provider);
+      for (const provider of providers) destroyRoomConnection(provider);
       if (restore && error instanceof RoomNotFound) {
         throw new RestoreNotFound(opts.sessionId ?? "");
       }
@@ -266,14 +263,14 @@ export class Client implements AsyncDisposable {
     }
   }
 
-  // HTTPServer upgrades only after the host is ready. WebsocketProvider starts the handshake.
+  // HTTPServer upgrades only after the host is ready. RoomConnection starts the handshake.
   static async #open<T, D extends DocumentContainer<any, any>>(
     socketPath: string,
     room: string,
     params: Record<string, string>,
     doc: D,
     attach: (doc: D) => T,
-    providers: WebsocketProvider[],
+    providers: RoomConnection[],
     awarenessStops: Array<() => void>,
     unixOptions?: OpenUnixRoomOptions,
     awarenessWaitMs?: number,
@@ -286,7 +283,7 @@ export class Client implements AsyncDisposable {
     const instance = attach(doc);
     const hub = (instance as { awareness?: PlexusAwareness }).awareness;
     if (hub !== undefined) {
-      awarenessStops.push(bindProviderAwareness(hub, provider));
+      awarenessStops.push(bindRoomAwareness(hub, provider));
       if (room === "kernel") {
         onAwareness?.();
         await awaitAwarenessDump(provider, awarenessWaitMs ?? 2000);
@@ -295,7 +292,7 @@ export class Client implements AsyncDisposable {
     return instance;
   }
 
-  readonly #providers: WebsocketProvider[] = [];
+  readonly #providers: RoomConnection[] = [];
   readonly #awarenessStops: Array<() => void> = [];
   readonly #rpc: JsonRpcPort | null;
   readonly #kernelRpc: JsonRpcPort | null;
@@ -317,8 +314,8 @@ export class Client implements AsyncDisposable {
     readonly kernelPlexus: KernelPlexus,
     readonly projectPlexus: ProjectPlexus,
     readonly sessionPlexus: SessionPlexus,
-    readonly sessionProvider: WebsocketProvider | null = null,
-    kernelProvider: WebsocketProvider | null = null,
+    readonly sessionProvider: RoomConnection | null = null,
+    kernelProvider: RoomConnection | null = null,
   ) {
     this.#rpc = sessionProvider === null ? null : bindJsonRpc(sessionProvider);
     this.#kernelRpc = kernelProvider === null ? null : bindJsonRpc(kernelProvider);
@@ -429,11 +426,11 @@ export class Client implements AsyncDisposable {
     if (this.sessionProvider == null) return;
     const gen = this.#viewGen[slot];
     const kernel = await realpath(this.kernelPath);
-    const providers: WebsocketProvider[] = [];
+    const providers: RoomConnection[] = [];
     const awarenessStops: Array<() => void> = [];
     const drop = (): void => {
       for (const stop of awarenessStops.splice(0)) stop();
-      for (const provider of providers.splice(0)) destroyProvider(provider);
+      for (const provider of providers.splice(0)) destroyRoomConnection(provider);
     };
     try {
       const plexus = await Client.#open(
@@ -610,7 +607,7 @@ export class Client implements AsyncDisposable {
     this.#rpc?.rejectAll(new Error("client disposed"));
     this.#kernelRpc?.rejectAll(new Error("client disposed"));
     for (const provider of this.#providers.splice(0)) {
-      destroyProvider(provider);
+      destroyRoomConnection(provider);
     }
     this.#agents.clear();
     this.kernelPlexus.destroy();
@@ -662,26 +659,22 @@ function rosterRows(scope: AgentRosterScope, record: Record<string, string>): Ag
 }
 
 /** Join snapshot can arrive before bind; QUERY fetches occupancy for `--continue`. */
-async function awaitAwarenessDump(provider: WebsocketProvider, ms = 2000): Promise<void> {
-  const socket = provider.ws;
-  if (socket == null || socket.readyState !== socket.OPEN) return;
+async function awaitAwarenessDump(connection: RoomConnection, ms = 2000): Promise<void> {
+  if (!connection.wsconnected) return;
   await new Promise<void>((resolve) => {
     let done = false;
     const finish = (): void => {
       if (done) return;
       done = true;
       clearTimeout(timer);
-      socket.removeEventListener("message", onMessage);
+      connection.off("presence", onPresence);
       resolve();
     };
     const timer = setTimeout(finish, ms);
-    const onMessage = (event: { data: unknown }): void => {
-      const bytes = awarenessBytes(event.data);
-      if (bytes == null) return;
-      const type = peekMessageType(bytes);
-      if (type === MESSAGE_AWARENESS || type === MESSAGE_QUERY_AWARENESS) finish();
+    const onPresence = (frame: PlaneWireFrame): void => {
+      if (frame.kind === "presence/state" || frame.kind === "presence/update") finish();
     };
-    socket.addEventListener("message", onMessage);
-    socket.send(encodeQueryAwareness());
+    connection.on("presence", onPresence);
+    connection.sendText(encodePresenceQuery());
   });
 }

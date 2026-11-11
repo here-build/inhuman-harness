@@ -1,99 +1,118 @@
-import type { DocumentContainer } from "@inhuman.tools/model";
+import {
+  planeWireFrameSchema,
+  storedModelRowSchema,
+  type PlaneWireFrame,
+  type PresenceEntryTuple,
+  type PresenceQueryFrame,
+  type PresenceStateFrame,
+  type PresenceUpdateFrame,
+  type ShapeDeltaFrame,
+  type ShapeSubscribeFrame,
+  type ShapeUnsubscribeFrame,
+  type StreamDeltaFrame,
+} from "@inhuman.tools/harness-contract/schema";
+import type { DocumentContainer, Model, PresenceEntry, SerializedModelRow } from "@inhuman.tools/model";
 
-export const MESSAGE_SYNC = 0;
-export const MESSAGE_AWARENESS = 1;
-export const MESSAGE_QUERY_AWARENESS = 3;
-export const MESSAGE_SHAPE = 4;
+export type {
+  PlaneWireFrame,
+  PresenceEntryTuple,
+  PresenceQueryFrame,
+  PresenceStateFrame,
+  PresenceUpdateFrame,
+  ShapeDeltaFrame,
+  ShapeSubscribeFrame,
+  ShapeUnsubscribeFrame,
+  StreamDeltaFrame,
+};
 
-export const SYNC_STEP1 = 0;
-export const SYNC_STEP2 = 1;
-export const SYNC_UPDATE = 2;
-
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
-
-export function encodeDocUpdate(update: Uint8Array): Uint8Array {
-  const frame = new Uint8Array(2 + update.byteLength);
-  frame[0] = MESSAGE_SYNC;
-  frame[1] = SYNC_UPDATE;
-  frame.set(update, 2);
-  return frame;
+export function encodePlaneFrame(frame: PlaneWireFrame): string {
+  return JSON.stringify(frame);
 }
 
-export function encodeSyncStep1(doc: DocumentContainer<any, any>): Uint8Array {
-  const vector = doc.encodeStateVector();
-  const frame = new Uint8Array(2 + vector.byteLength);
-  frame[0] = MESSAGE_SYNC;
-  frame[1] = SYNC_STEP1;
-  frame.set(vector, 2);
-  return frame;
-}
-
-export function replyLensSyncFrame(frame: Uint8Array, live: DocumentContainer<any, any>): Uint8Array | null {
-  if (frame.byteLength < 2 || frame[0] !== MESSAGE_SYNC || frame[1] !== SYNC_STEP1) return null;
-  const update = live.encodeStateAsUpdate();
-  const reply = new Uint8Array(2 + update.byteLength);
-  reply[0] = MESSAGE_SYNC;
-  reply[1] = SYNC_STEP2;
-  reply.set(update, 2);
-  return reply;
-}
-
-export function applyPeerSyncFrame(
-  frame: Uint8Array,
-  live: DocumentContainer<any, any>,
-  origin: unknown,
-): Uint8Array | null {
-  if (frame.byteLength < 2 || frame[0] !== MESSAGE_SYNC) return null;
-  const subType = frame[1];
-  if (subType === SYNC_STEP1) {
-    const update = live.encodeStateAsUpdate();
-    const reply = new Uint8Array(2 + update.byteLength);
-    reply[0] = MESSAGE_SYNC;
-    reply[1] = SYNC_STEP2;
-    reply.set(update, 2);
-    return reply;
+export function decodePlaneFrame(raw: unknown): PlaneWireFrame | null {
+  let value = raw;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed === "" || trimmed === "ping" || trimmed === "pong") return null;
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return null;
+    }
   }
-  if (subType === SYNC_STEP2 || subType === SYNC_UPDATE) {
-    live.applyUpdate(frame.subarray(2), origin);
-    return null;
+  const parsed = planeWireFrameSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+export function encodePresenceQuery(room?: string): string {
+  const frame: PresenceQueryFrame = room ? { kind: "presence/query", room } : { kind: "presence/query" };
+  return JSON.stringify(frame);
+}
+
+function toPresenceTuples(entries: readonly PresenceEntry[]): PresenceEntryTuple[] {
+  return entries.map(([clientId, state, clock]) =>
+    clock === undefined ? [clientId, state] : [clientId, state, clock],
+  );
+}
+
+export function encodePresenceUpdate(entries: readonly PresenceEntry[], room?: string): string {
+  const normalized = toPresenceTuples(entries);
+  const frame: PresenceUpdateFrame = room
+    ? { kind: "presence/update", room, entries: normalized }
+    : { kind: "presence/update", entries: normalized };
+  return JSON.stringify(frame);
+}
+
+export function encodePresenceState(entries: readonly PresenceEntry[], room?: string): string {
+  const normalized = toPresenceTuples(entries);
+  const frame: PresenceStateFrame = room
+    ? { kind: "presence/state", room, entries: normalized }
+    : { kind: "presence/state", entries: normalized };
+  return JSON.stringify(frame);
+}
+
+export function encodeShapeSubscribe(frame: ShapeSubscribeFrame): string {
+  return JSON.stringify(frame);
+}
+
+export function encodeShapeUnsubscribe(subscriptionId: string): string {
+  const frame: ShapeUnsubscribeFrame = { kind: "shape/unsubscribe", subscriptionId };
+  return JSON.stringify(frame);
+}
+
+export function encodeShapeDelta(frame: ShapeDeltaFrame): string {
+  return JSON.stringify(frame);
+}
+
+export function applyNodeShapeDelta<TRoot extends Model>(
+  container: DocumentContainer<TRoot, any>,
+  delta: Pick<ShapeDeltaFrame, "upserts" | "deletes" | "reset">,
+): void {
+  let rootId: string | undefined;
+  let maxRevision: number | undefined;
+  const modelUpserts: SerializedModelRow[] = [];
+
+  for (const raw of delta.upserts) {
+    const rawRowJson = raw.rowJson ?? raw.row_json;
+    if (typeof rawRowJson !== "string") continue;
+    const parsedRow = storedModelRowSchema.parse(JSON.parse(rawRowJson));
+    modelUpserts.push(parsedRow);
+
+    const isRoot = raw.isRoot === true || raw.isRoot === 1 || raw.is_root === true || raw.is_root === 1;
+    if (isRoot) {
+      rootId = parsedRow.uuid;
+    }
+    const rev = typeof raw.revision === "number" ? raw.revision : Number(raw.revision);
+    if (Number.isFinite(rev)) {
+      maxRevision = maxRevision === undefined ? rev : Math.max(maxRevision, rev);
+    }
   }
-  return null;
-}
 
-export function peekMessageType(frame: Uint8Array): number {
-  return frame[0] ?? -1;
-}
-
-export function encodeQueryAwareness(): Uint8Array {
-  return new Uint8Array([MESSAGE_QUERY_AWARENESS]);
-}
-
-export function encodeAwarenessFrame(payload: Uint8Array): Uint8Array {
-  const frame = new Uint8Array(1 + payload.byteLength);
-  frame[0] = MESSAGE_AWARENESS;
-  frame.set(payload, 1);
-  return frame;
-}
-
-export function decodeAwarenessPayload(frame: Uint8Array): Uint8Array | null {
-  if (frame.byteLength < 1 || frame[0] !== MESSAGE_AWARENESS) return null;
-  return frame.subarray(1);
-}
-
-export function encodeShapeFrame(payload: unknown): Uint8Array {
-  const jsonBytes = textEncoder.encode(JSON.stringify(payload));
-  const frame = new Uint8Array(1 + jsonBytes.byteLength);
-  frame[0] = MESSAGE_SHAPE;
-  frame.set(jsonBytes, 1);
-  return frame;
-}
-
-export function decodeShapeFrame(frame: Uint8Array): unknown | null {
-  if (frame.byteLength < 1 || frame[0] !== MESSAGE_SHAPE) return null;
-  try {
-    return JSON.parse(textDecoder.decode(frame.subarray(1)));
-  } catch {
-    return null;
-  }
+  container.applyNodeRows({
+    rootId,
+    revision: maxRevision,
+    upserts: modelUpserts,
+    deletes: delta.deletes,
+    reset: delta.reset,
+  });
 }

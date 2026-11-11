@@ -4,7 +4,7 @@ import type {
   SessionRowInsert,
   SessionTurnRowInsert,
   SessionPatchBatch,
-} from "@inhuman.tools/harness-contract/schema";
+} from "@inhuman.tools/harness-contract";
 import type { SerializedDocument, SerializedModelRow } from "@inhuman.tools/model";
 
 export type SerializedSessionDocument = SerializedDocument;
@@ -18,14 +18,22 @@ export type SessionCheckpoint = {
   readonly incarnation: string;
   readonly fromRevision: number;
   readonly revision: number;
-  readonly snapshot: SerializedSessionDocument;
-  readonly state: Uint8Array;
+  readonly rootNodeId: string;
+  readonly upsertedNodes: readonly SerializedModelRow[];
+  readonly deletedNodeIds: readonly string[];
   readonly sessionRow: Partial<NewSessionRow>;
   readonly dirtyTurns: readonly NewSessionTurnRow[];
-  readonly dirtyNodes: readonly SerializedModelRow[];
   readonly pendingAsks: readonly NewPendingAskRow[];
   readonly patchBatch: SessionPatchBatch;
   readonly effectRecords: readonly NewSessionEffectRow[];
+};
+
+export type SessionNodeRestoreState = {
+  readonly rootId?: string;
+  readonly rows: readonly SerializedModelRow[];
+  readonly revision?: number;
+  readonly effectRecords?: readonly NewSessionEffectRow[];
+  readonly meta?: Record<string, Record<string, unknown>>;
 };
 
 export type SessionReceipt = {
