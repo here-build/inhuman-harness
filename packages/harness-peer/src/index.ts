@@ -10,6 +10,7 @@ export {
   mintProjectDocGuid,
   PROJECT_DOC_KIND,
   ProjectPlexus,
+  publishKernelSeat,
   SessionPlexus,
 } from "@inhuman.tools/harness-model";
 export { publishRevalidationDemand } from "@inhuman.tools/plexus-expectations";

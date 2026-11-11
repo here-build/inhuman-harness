@@ -874,6 +874,10 @@ export class SessionDaemon extends RequestHost implements Disposable {
     return this.#activated && !this.#closed && (!this.#parked || this.orchestrator.holdingEval);
   }
 
+  get closed(): boolean {
+    return this.#closed;
+  }
+
   protected override get parent() {
     return this.project;
   }
@@ -882,7 +886,25 @@ export class SessionDaemon extends RequestHost implements Disposable {
     return this.#serialize(run);
   }
 
+  override onPlaneClose(connectionId: string): void {
+    super.onPlaneClose(connectionId);
+    const live = this.kernel.liveSession(this.sessionId);
+    if (live != null && live !== this) {
+      live.onPlaneClose(connectionId);
+    }
+  }
+
   override async handleRequest(method: string, args: unknown, identity?: RpcRequestIdentity): Promise<unknown> {
+    if (!this.interpreting) {
+      const live =
+        this.kernel.liveSession(this.sessionId) ??
+        (this.root.agent.spec.recipeScope === "global"
+          ? await this.kernel.globalSession(this.sessionId)
+          : await this.project.session(this.sessionId));
+      if (live !== this) {
+        return live.handleRequest(method, args, identity);
+      }
+    }
     const result = await super.handleRequest(method, args, identity);
     if (!this.#closed && method !== "blob/vacuum" && method !== "blob/get") {
       const delta = this.plexus.doc.peekNodeDelta();
@@ -966,6 +988,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     if (this.#closed) return;
     this.#stopSeenTurns();
     this.#seenTurns.clear();
+    this.project.dropReadySession(this.sessionId, this);
     runInAction(() => {
       delete this.project.sessions[this.sessionId];
     });

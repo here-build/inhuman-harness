@@ -11,6 +11,7 @@ import {
   KERNEL_DOC_GUID,
   KernelPlexus,
   ProjectPlexus,
+  publishKernelSeat,
   publishRevalidationDemand,
   RoomConnection,
   SessionPlexus,
@@ -279,6 +280,10 @@ export class Dial {
         this.project = project;
         this.session = session?.plexus ?? null;
         this.sessionRpc = session?.rpc ?? null;
+        publishKernelSeat(
+          kernel.awareness,
+          target.kind === "session" || target.kind === "project-session" ? target.sessionId : null,
+        );
         this.link = null;
         this.attaching = false;
       });
@@ -313,9 +318,8 @@ export class Dial {
     );
 
     const stopLanes = [
-      room.connection.subscribeLane(
-        { subscriptionId: "dial:kernel_meta", lane: "kernel_meta", params: {} },
-        (delta) => this.kernelMeta.applyDelta(delta),
+      room.connection.subscribeLane({ subscriptionId: "dial:kernel_meta", lane: "kernel_meta", params: {} }, (delta) =>
+        this.kernelMeta.applyDelta(delta),
       ),
       room.connection.subscribeLane(
         { subscriptionId: "dial:active_sessions", lane: "active_sessions", params: {} },
@@ -505,7 +509,9 @@ export class Dial {
 
   /** Any held room that wants its socket and lacks it: the line is down and redialing. */
   #relink(): void {
-    const down = [...this.#rooms.values()].filter((room) => room.connection.shouldConnect && !room.connection.wsconnected);
+    const down = [...this.#rooms.values()].filter(
+      (room) => room.connection.shouldConnect && !room.connection.wsconnected,
+    );
     const offline = down.some((room) => this.#closeCodes.get(room.connection) === 4503);
     const here = this.link?.kind;
     runInAction(() => {

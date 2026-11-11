@@ -81,6 +81,7 @@ const peer = vi.hoisted(() => {
     /** The kernel's glance rows. By default it lists every session a test opens. */
     kernelSessions: new Proxy({}, { get: () => ({}) }) as Record<string, unknown>,
     publish: vi.fn(),
+    publishSeat: vi.fn(),
     bindJsonRpc: vi.fn(() => ({
       request: vi.fn(async () => undefined),
       rejectAll: vi.fn(),
@@ -105,6 +106,7 @@ vi.mock("@inhuman.tools/harness-peer", () => ({
     connect: vi.fn(() => ({ awareness: {}, root: peer.sessionRoot() })),
   },
   bindJsonRpc: peer.bindJsonRpc,
+  publishKernelSeat: peer.publishSeat,
   publishRevalidationDemand: peer.publish,
   bindRoomAwareness: vi.fn(() => vi.fn()),
   detachLocalPresence: vi.fn(),
@@ -231,6 +233,24 @@ describe("Dial kernel port and demand", () => {
     ]);
     dial.look(["a"]);
     expect(peer.publish.mock.lastCall?.[1]).toEqual([{ kind: "connection", id: "a" }]);
+  });
+
+  it("publishes a kernel seat for the attached session and clears it on non-session routes", async () => {
+    const dial = new Dial("ws://localhost");
+    await dial.follow({ kind: "kernel" });
+    expect(peer.publishSeat).toHaveBeenLastCalledWith(dial.kernel?.awareness, null);
+
+    await dial.follow(target("s1"));
+    expect(peer.publishSeat).toHaveBeenLastCalledWith(dial.kernel?.awareness, "s1");
+
+    // Failed route transition keeps the existing session and does not clear its seat.
+    peer.waitForSync.mockRejectedValueOnce(new Error("session: sync timeout"));
+    await dial.follow(target("broken"));
+    expect(dial.session).not.toBeNull();
+    expect(peer.publishSeat).toHaveBeenLastCalledWith(dial.kernel?.awareness, "s1");
+
+    await dial.follow({ kind: "project", path: "/workspace" });
+    expect(peer.publishSeat).toHaveBeenLastCalledWith(dial.kernel?.awareness, null);
   });
 });
 

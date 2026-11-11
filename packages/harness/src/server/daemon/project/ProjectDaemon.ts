@@ -34,6 +34,8 @@ export class ProjectDaemon extends RequestHost implements Disposable {
   readonly #privateMcpHost: PrivatePluginMcpHost;
   readonly #reattaching = new Set<string>();
   readonly #attaching = new Map<string, Promise<SessionDaemon>>();
+  /** Recovered (`phase === "ready"`) daemons waiting for seat/grant/command activation. */
+  readonly #readySessions = new Map<string, SessionDaemon>();
   #presence: PresenceRoom | null = null;
   #botsWatcher: BotsWatcher | null = null;
   #botsSnapshot = new Map<string, string>();
@@ -129,9 +131,18 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     }
   }
 
+  dropReadySession(id: string, daemon: SessionDaemon): void {
+    if (this.#readySessions.get(id) === daemon) {
+      this.#readySessions.delete(id);
+    }
+  }
+
   async #attach(id: string, forceHonor = false): Promise<SessionDaemon> {
     const pending = this.#attaching.get(id);
-    if (pending != null) return pending;
+    if (pending != null) {
+      const attached = await pending;
+      if (!forceHonor || attached.interpreting) return attached;
+    }
     const run = this.#attachNow(id, forceHonor);
     this.#attaching.set(id, run);
     try {
@@ -168,6 +179,36 @@ export class ProjectDaemon extends RequestHost implements Disposable {
       step(`session intern ${id}`);
       return live;
     }
+    const ready = this.#readySessions.get(id);
+    if (ready !== undefined) {
+      if (ready.closed) {
+        this.#readySessions.delete(id);
+      } else if (!forceHonor && !this.kernel.graphEligibleSessionIds().has(id)) {
+        await this.#reattachNamed(ready);
+        return ready;
+      } else {
+        this.#readySessions.delete(id);
+        try {
+          if (forceHonor && isConversationSession(ready.root)) {
+            this.kernel.reserveAttachment(id);
+          }
+          await this.#reattachNamed(ready);
+          ready.activate();
+          runInAction(() => {
+            this.sessions[id] = ready;
+          });
+          this.kernel.internSession(id, ready.plexus, ready);
+          await ready.ready;
+          return ready;
+        } catch (error) {
+          runInAction(() => {
+            delete this.sessions[id];
+          });
+          void ready.park().catch((parkError: unknown) => fail(`session ${id} park`, parkError));
+          throw error;
+        }
+      }
+    }
     const interned = this.kernel.sessionPlexus(id) ?? (await this.kernel.acquireSession(id));
     if (interned?.root.agent.spec.recipeScope === "global" && !this.globalHost) return this.kernel.globalSession(id);
     if (interned != null && interned.root.path !== this.path) {
@@ -193,11 +234,13 @@ export class ProjectDaemon extends RequestHost implements Disposable {
         });
         this.kernel.internSession(id, created.plexus, created);
       } else {
+        this.#readySessions.set(id, created);
         created.releaseReady();
       }
       await created.ready;
       return created;
     } catch (error) {
+      this.#readySessions.delete(id);
       runInAction(() => {
         delete this.sessions[id];
       });
@@ -274,6 +317,10 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     this.#botsWatcher?.[Symbol.dispose]();
     this.#botsWatcher = null;
     this.#privateMcpHost[Symbol.dispose]();
+    for (const ready of this.#readySessions.values()) {
+      void ready.park().catch((error: unknown) => fail(`session ${ready.sessionId} park`, error));
+    }
+    this.#readySessions.clear();
     for (const session of Object.values(this.sessions)) {
       void session.park().catch((error: unknown) => fail(`session ${session.sessionId} park`, error));
     }

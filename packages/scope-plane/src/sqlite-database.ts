@@ -95,11 +95,19 @@ function getOrInitDelta<TRow extends Record<string, unknown>>(
   return entry;
 }
 
+let lastInitialCommitOffset = 0;
+
+function mintInitialCommitOffset(): number {
+  const candidate = Date.now() * 1000;
+  lastInitialCommitOffset = candidate > lastInitialCommitOffset ? candidate : lastInitialCommitOffset + 1;
+  return lastInitialCommitOffset;
+}
+
 export class HarnessDatabase implements Disposable {
   readonly #sqlite: BetterSqliteDatabase;
   readonly #drizzle: BetterSQLite3Database<HarnessSchema>;
   readonly #commitListeners = new Set<DatabaseCommitListener>();
-  #commitOffset = 0;
+  #commitOffset = mintInitialCommitOffset();
   #txDepth = 0;
   #nestedTouchedTables: HarnessTableName[] = [];
   readonly #txScopeNodeChanges = new Map<string, MutableRowDelta<ScopeNodeRow>>();
