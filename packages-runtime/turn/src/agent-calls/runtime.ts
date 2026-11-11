@@ -146,8 +146,9 @@ export type CloseTurnOptions = {
 
 /**
  * THE turn close. The executor's `finally`, a cancel that finds no executor
- * inside the turn, recovery of a cancelled turn, a forced stop and a rewound
- * away turn all end a turn here, so the same obligations close in every case:
+ * inside the turn, recovery of a cancelled turn, a forced stop, a rewound
+ * away turn, and recovery of a tape that owes no round all end a turn here,
+ * so the same obligations close in every case:
  *
  * 1. the failure, if any, is recorded on the turn (`broke`);
  * 2. every open Job and expectation under the turn ends (a finish leaves

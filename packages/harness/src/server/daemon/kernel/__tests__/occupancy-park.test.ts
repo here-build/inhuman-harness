@@ -17,6 +17,7 @@ import {
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
+  TurnPromptChunk,
 } from "@inhuman.tools/harness-model";
 import { sessionMintKvs } from "@inhuman.tools/harness-model/shared";
 import { Client } from "@inhuman.tools/harness-sdk";
@@ -160,7 +161,11 @@ describe("kernel seat machine", () => {
     worker.root.agent.spec.keepAlive = true;
     worker.root.agent.spec.resident = false;
     worker.root.applyKvs([{ form: "kv-set", key: "model", value: "haiku" }]);
-    worker.root.head = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`check`, queue: [] });
+    worker.root.head = new SessionTurn({
+      turnTail: new SessionSystemPrompt(),
+      prompt: prompt.user`check`,
+      queue: [new TurnPromptChunk()],
+    });
     const glance = kernel.plexus.root.sessions.worker;
     expect({
       specName: glance?.specName,

@@ -35,6 +35,29 @@ export type SessionSummary = {
   readonly calls: ReturnType<typeof outgoingAgentRelations>;
 };
 
+/**
+ * The `sessions` columns that restate the document. `running` is `openTurn`.
+ * The table's mode enum is older than the document: `act` is the agentic loop.
+ */
+export function sessionColumns(root: SessionRoot): {
+  readonly title: string;
+  readonly workspacePath: string;
+  readonly mode: "assistant" | "agentic";
+  readonly permissionMode: SessionRoot["standingPermissionMode"];
+  readonly running: boolean;
+  readonly headTurnId: string | null;
+} {
+  const mode = root.mode;
+  return {
+    title: root.title,
+    workspacePath: root.path ?? "",
+    mode: mode === "act" || mode === "agentic" ? "agentic" : "assistant",
+    permissionMode: root.standingPermissionMode,
+    running: root.openTurn,
+    headTurnId: root.head?.uuid ?? null,
+  };
+}
+
 export function sessionSummary(root: SessionRoot): SessionSummary {
   const spec = root.agent.spec;
   const unfinished = root.unfinished;

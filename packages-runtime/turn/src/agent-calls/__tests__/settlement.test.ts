@@ -9,6 +9,7 @@ import {
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
+  TurnPromptChunk,
 } from "@inhuman.tools/harness-model";
 import { describe, expect, it } from "vitest";
 
@@ -59,8 +60,12 @@ describe("settlement and reclaim", () => {
     const call = makeCall(worker.root.sessionId);
     caller.root.head = closedTurn(call);
     const pending = new SystemToolJob({ name: "echo", humanApprove: true });
-    const running = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], reducerExited: false });
-    running.pushChild(pending);
+    const running = new SessionTurn({
+      turnTail: new SessionSystemPrompt(),
+      queue: [],
+      doneWork: [pending],
+      reducerExited: false,
+    });
     worker.root.head = running;
     worker.root.ensureAgentCallback(call.uuid, caller.root.sessionId);
     completeCallExceptionally(call, hostOf(caller, callsCatalog(), [worker]), "cancelled");
@@ -92,9 +97,9 @@ describe("settlement and reclaim", () => {
     const leftoverTurn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       queue: [],
+      doneWork: [leftover],
       reducerExited: false,
     });
-    leftoverTurn.pushChild(leftover);
     leftoverRoot.head = leftoverTurn;
     forceStopLoop(leftoverRoot);
     expect({
@@ -183,9 +188,12 @@ describe("settlement and reclaim", () => {
       orchestrationResult: true,
       outcomeJson: ack("job-s"),
     });
-    const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], reducerExited: false });
-    turn.pushChild(program);
-    turn.pushChild(shell);
+    const turn = new SessionTurn({
+      turnTail: new SessionSystemPrompt(),
+      queue: [new TurnPromptChunk()],
+      doneWork: [program, shell],
+      reducerExited: false,
+    });
     sessionOf(`stop-${_name}`).root.head = turn;
     stop(turn);
     expect({

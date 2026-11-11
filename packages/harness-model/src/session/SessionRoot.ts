@@ -433,7 +433,7 @@ export class SessionRoot extends WorkContainer {
     return chain;
   }
 
-  /** The turn the executor is in: the oldest open turn on `liveChain`. */
+  /** The oldest turn on `liveChain` whose tape still owes a round. */
   findRunningTurn(): SessionTurn | null {
     return this.liveChain.findLast((turn) => turn.inLoop) ?? null;
   }

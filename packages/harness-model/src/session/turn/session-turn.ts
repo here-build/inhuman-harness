@@ -568,10 +568,10 @@ export class SessionTurn extends SequenceJob {
     return pending;
   }
 
-  /** Executor is still inside this turn. A queued prompt waits here. */
+  /** The reducer has not left, and the tape still owes a round. */
   @computed
   get inLoop(): boolean {
-    return !this.reducerExited;
+    return !this.reducerExited && (this.openWork || this.queuedContinuation);
   }
 
   /** Cancel request, cancel ack, or reducer exit — live chrome must drop. */

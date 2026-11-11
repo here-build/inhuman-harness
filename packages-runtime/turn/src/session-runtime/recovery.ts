@@ -17,7 +17,7 @@ import { getModelTag } from "@inhuman.tools/model";
 import { Job, WorkExpectation } from "@inhuman.tools/plexus-expectations";
 import { runInAction } from "mobx";
 
-import { restorePendingRound, settleCancelledTurn, type CallsCatalog } from "../agent-calls/index.js";
+import { closeTurn, restorePendingRound, settleCancelledTurn, type CallsCatalog } from "../agent-calls/index.js";
 
 const UNKNOWN_TEXT = "interrupted by restart; execution outcome unknown";
 
@@ -121,7 +121,13 @@ function applyJobRecovery(
       else settleCancelled(job);
       return;
     case "resume-inner":
-      if (job instanceof SessionTurn) restorePendingRound(job);
+      if (job instanceof SessionTurn) {
+        restorePendingRound(job);
+        // A tape that owes no round has nothing to resume.
+        if (!job.reducerExited && !job.openWork && !job.queuedContinuation) {
+          closeTurn(job, { kind: "finish" }, { catalog, releaseCall, session });
+        }
+      }
       return;
   }
 }

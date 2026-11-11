@@ -1313,9 +1313,9 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     const leftoverTurn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       queue: [],
+      doneWork: [leftover],
       reducerExited: false,
     });
-    leftoverTurn.pushChild(leftover);
     leftoverRoot.head = leftoverTurn;
     forceStopLoop(leftoverRoot);
     expect({

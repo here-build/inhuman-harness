@@ -29,6 +29,7 @@ import {
   SystemToolJob,
   type ToolCallJob,
   TurnNotificationChunk,
+  TurnPromptChunk,
   type SessionUnfinished,
   type TurnChunk,
 } from "@inhuman.tools/harness-model";
@@ -255,6 +256,9 @@ export function turn(spec: TurnSpec, tail: SessionTurn | SessionSystemPrompt = n
     questionLine: spec.question ?? "",
   });
   for (const chunk of made.doneWork) made.pushChild(chunk);
+  if (spec.live === true && !made.openWork && !made.queuedContinuation) {
+    made.queue.push(new TurnPromptChunk());
+  }
   return made;
 }
 

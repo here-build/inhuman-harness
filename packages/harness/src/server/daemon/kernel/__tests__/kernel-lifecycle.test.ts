@@ -8,6 +8,8 @@ import { mkdir, mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { publishKernelSeat, sessionIsOccupied } from "@inhuman.tools/harness-model";
+import { runInAction, when } from "mobx";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { HarnessDaemon } from "../../server/HarnessDaemon.js";
@@ -128,5 +130,40 @@ describe("kernel lifetime", () => {
     expect(Object.keys(restored.plexus.root.projects)).toContain(workspace);
     expect(restored.project(workspace).root.path).toBe(workspace);
     expect(restored.project(workspace).root.sessions).toEqual({});
+  });
+
+  it("flush writes the document face onto the sessions row", async () => {
+    const system = await scratch("k");
+    const workspace = await scratch("p");
+    const kernel = new KernelDaemon(system);
+    onTestFinished(() => kernel[Symbol.dispose]());
+    await kernel.ready;
+    const project = kernel.project(workspace);
+    await project.ready;
+    const session = await project.session("s");
+    runInAction(() => {
+      session.root.mode = "act";
+      session.root.standingPermissionMode = "yolo";
+      session.root.manualTitle = "Kept";
+    });
+    publishKernelSeat(kernel.plexus.awareness, "s");
+    await when(() => sessionIsOccupied(kernel.plexus.awareness, "s"), { timeout: 2_000 });
+
+    // `running` is openTurn. A seat leaves it false.
+    await kernel.flushSession(session.plexus);
+    expect({
+      occupied: sessionIsOccupied(kernel.plexus.awareness, "s"),
+      row: kernel.db.getSession("s"),
+    }).toMatchObject({
+      occupied: true,
+      row: {
+        title: "Kept",
+        workspacePath: workspace,
+        mode: "agentic",
+        permissionMode: "yolo",
+        running: false,
+        headTurnId: null,
+      },
+    });
   });
 });

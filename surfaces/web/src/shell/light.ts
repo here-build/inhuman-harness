@@ -8,7 +8,7 @@ import {
 
 export type RowLight = "running" | "waiting-for-you" | "idle";
 
-/** Live chrome. `inLoop` stays true until the reducer leaves; `cutOff` is the cancel. */
+/** Live chrome. `inLoop` is a tape that still owes a round; `cutOff` is the cancel. */
 export function turnIsLive<T extends { readonly cutOff: boolean }>(turn: T | null): turn is T {
   return turn != null && !turn.cutOff;
 }
@@ -26,8 +26,8 @@ export function sessionLight(root: SessionRoot | null): RowLight {
 
 /**
  * Admit or steer older than this is not an executor. The glance has no
- * heartbeat; `lastMessageAt` is that stamp, and a frozen `openTurn` is only
- * `reducerExited` still false.
+ * heartbeat; `lastMessageAt` is that stamp, and a frozen `openTurn` is a
+ * published liveness bit that was not refreshed.
  */
 export const RUNNING_GLANCE_MS = 48 * 60 * 60 * 1000;
 

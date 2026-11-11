@@ -15,5 +15,5 @@ export {
 } from "./effects.js";
 export { recoverSessionJobs, type JobRecoveryOptions, type RecoveredJob } from "./recovery.js";
 export { interruptSession } from "./interrupt.js";
-export { sessionSummary, observeSessionSummary, type SessionSummary } from "./summary.js";
+export { sessionColumns, sessionSummary, observeSessionSummary, type SessionSummary } from "./summary.js";
 export { glanceAskLine } from "./ask-line.js";

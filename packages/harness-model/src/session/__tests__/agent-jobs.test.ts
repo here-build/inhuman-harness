@@ -17,6 +17,7 @@ import { SessionPlexus } from "../SessionPlexus.js";
 import { isNoteClaimed } from "../SessionRoot.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { TurnNotificationChunk } from "../turn/notification-chunk.js";
+import { TurnPromptChunk } from "../turn/prompt-chunk.js";
 import { SessionTurn } from "../turn/session-turn.js";
 import { attached } from "./_helpers/fixtures.js";
 
@@ -226,6 +227,18 @@ describe("named-agent models", () => {
       queue: [],
       reducerExited: false,
     });
+    const settledTape = {
+      mid: session.isMidMotion(),
+      turn: session.openTurn,
+      tools: session.openToolCount,
+      period: session.periodArmed,
+      unfinished: session.unfinished,
+    };
+    session.head = new SessionTurn({
+      turnTail: new SessionSystemPrompt(),
+      queue: [new TurnPromptChunk()],
+      reducerExited: false,
+    });
     const openTurn = {
       mid: session.isMidMotion(),
       turn: session.openTurn,
@@ -249,6 +262,7 @@ describe("named-agent models", () => {
       sealed,
       questioned,
       nestedOpen,
+      settledTape,
       openTurn,
       watch: {
         mid: session.isMidMotion(),
@@ -261,6 +275,7 @@ describe("named-agent models", () => {
       sealed: { mid: false, turn: false, tools: 0, unfinished: "" },
       questioned: "question",
       nestedOpen: { mid: true, turn: false, tools: 1, unfinished: "tools" },
+      settledTape: { mid: false, turn: false, tools: 0, period: false, unfinished: "" },
       openTurn: { mid: true, turn: true, tools: 0, period: false, unfinished: "turn" },
       watch: { mid: true, period: true, unfinished: "" },
     });

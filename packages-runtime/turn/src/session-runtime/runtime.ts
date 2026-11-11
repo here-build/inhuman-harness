@@ -5,6 +5,7 @@ import { computed, observable, runInAction, when } from "mobx";
 import { z } from "zod";
 
 import { glanceAskLine } from "./ask-line.js";
+import { sessionColumns } from "./summary.js";
 import {
   receiptCovers,
   SessionOwnershipError,
@@ -254,12 +255,7 @@ export class SessionRuntime implements AsyncDisposable {
 
     const sessionRow: Partial<NewSessionRow> = {
       sessionId: this.root.sessionId,
-      title: this.root.title,
-      workspacePath: this.root.path,
-      mode: this.root.mode === "agentic" ? "agentic" : "assistant",
-      permissionMode: this.root.standingPermissionMode,
-      running: Boolean(this.root.openTurn),
-      headTurnId: this.root.head?.uuid ?? null,
+      ...sessionColumns(this.root),
       revision: this.#revision,
       lastActiveAtMs: Date.now(),
     };

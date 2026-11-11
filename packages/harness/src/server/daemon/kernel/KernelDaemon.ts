@@ -42,7 +42,7 @@ import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import { DocumentContainer, encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
 import { disposeKernelConnections, dropConnection } from "@inhuman.tools/plexus-expectations/executor";
 import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane/sqlite";
-import { sessionSummary, observeSessionSummary, type SessionSummary } from "@inhuman.tools/turn/runtime";
+import { sessionColumns, sessionSummary, observeSessionSummary, type SessionSummary } from "@inhuman.tools/turn/runtime";
 import type { SessionCheckpoint, SessionReceipt } from "@inhuman.tools/turn/session-runtime";
 import { eq } from "drizzle-orm";
 import fs from "fs-extra";
@@ -1420,18 +1420,13 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   #syncSessionToDb(plexus: SessionPlexus): void {
     const root = plexus.root;
-    const sessionId = root.sessionId;
     const now = Date.now();
+    const face = sessionColumns(root);
     this.db.writeTransaction(["sessions"], (tx) => {
       tx.insert(sessionsTable)
         .values({
-          sessionId,
-          title: root.manualTitle ?? "",
-          workspacePath: root.path ?? "",
-          mode: root.mode === "act" ? "agentic" : "assistant",
-          permissionMode: root.standingPermissionMode === "manual" ? "ask" : "auto",
-          running: sessionIsOccupied(this.plexus.awareness, sessionId),
-          headTurnId: root.head?.uuid ?? null,
+          sessionId: root.sessionId,
+          ...face,
           revision: plexus.doc.revision ?? 0,
           createdAtMs: now,
           lastActiveAtMs: now,
@@ -1439,11 +1434,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         .onConflictDoUpdate({
           target: sessionsTable.sessionId,
           set: {
-            title: root.manualTitle ?? "",
-            workspacePath: root.path ?? "",
-            mode: root.mode === "act" ? "agentic" : "assistant",
-            running: sessionIsOccupied(this.plexus.awareness, sessionId),
-            headTurnId: root.head?.uuid ?? null,
+            ...face,
             revision: plexus.doc.revision ?? 0,
             lastActiveAtMs: now,
           },

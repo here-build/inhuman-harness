@@ -268,10 +268,10 @@ describe("liveness", () => {
           },
         };
       },
-      live: "running" as const,
+      live: "idle" as const,
       extra: {
         open: false,
-        wait: connecting(),
+        wait: null,
         tools: ["t"],
       },
     },

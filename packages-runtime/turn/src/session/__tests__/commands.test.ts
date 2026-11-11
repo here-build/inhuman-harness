@@ -12,6 +12,7 @@ import {
   SessionTurn,
   SessionTurnEvalSpec,
   SkillSpec,
+  TurnPromptChunk,
 } from "@inhuman.tools/harness-model";
 import { describe, expect, it } from "vitest";
 
@@ -225,7 +226,7 @@ describe("session commands", () => {
         requestId: "eval-1",
         permissionMode: "auto",
       }),
-      queue: [],
+      queue: [new TurnPromptChunk()],
     });
     plexus.root.head = evalTurn;
     plexus.root.tip = evalTurn;
@@ -262,7 +263,7 @@ describe("session commands", () => {
     const pin = closedWork();
     plexus.root.head = pin;
     plexus.root.tip = pin;
-    const running = new SessionTurn({ turnTail: pin, prompt: user("work"), queue: [] });
+    const running = new SessionTurn({ turnTail: pin, prompt: user("work"), queue: [new TurnPromptChunk()] });
     plexus.root.head = running;
     plexus.root.tip = running;
     plexus.root.enqueueAgentRequest("req", "caller", user("from a peer"));

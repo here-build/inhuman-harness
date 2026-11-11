@@ -3,7 +3,13 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { SessionPlexus, SessionSystemPrompt, SessionTurn, type UserVisualIdentity } from "@inhuman.tools/harness-model";
+import {
+  SessionPlexus,
+  SessionSystemPrompt,
+  SessionTurn,
+  TurnPromptChunk,
+  type UserVisualIdentity,
+} from "@inhuman.tools/harness-model";
 import { Tape } from "@inhuman.tools/harness-transcript";
 import { runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,7 +43,7 @@ function pin(tail: SessionTurn | SessionSystemPrompt, text: string, live = false
   return new SessionTurn({
     turnTail: tail,
     prompt: prompt.user`${text}`,
-    queue: [],
+    queue: live ? [new TurnPromptChunk()] : [],
     doneWork: [],
     reducerExited: !live,
   });

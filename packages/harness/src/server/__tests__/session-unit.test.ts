@@ -218,7 +218,6 @@ describe("SessionUnit", () => {
   it("closed vs running; background does not close the turn", () => {
     const session = new SessionRoot({ sessionId: "s-closed", path: "/tmp/demo" });
     const round = new CompletionExpectation({ connectionId: "c1" });
-    round.outcome = "successful";
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`hi`,

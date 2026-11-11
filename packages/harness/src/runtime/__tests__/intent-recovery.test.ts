@@ -501,7 +501,31 @@ describe("job recovery on a live replica", () => {
     });
     plexus.root.head = turn;
     recoverSessionJobs(plexus.root);
-    expect({ queue: turn.queue[0] === token, done: [...turn.doneWork] }).toEqual({ queue: true, done: [steer] });
+    expect({ queue: turn.queue[0] === token, done: [...turn.doneWork], exited: turn.reducerExited }).toEqual({
+      queue: true,
+      done: [steer],
+      exited: false,
+    });
+  });
+
+  it("closes a turn whose tape owes no round", () => {
+    const plexus = SessionPlexus.create("owed-none", "/tmp/owed-none");
+    onTestFinished(() => plexus.destroy());
+    const program = new ProgrammaticJob({ toolCallId: "p", orchestrationResult: true, completed: true });
+    const turn = new SessionTurn({
+      turnTail: new SessionSystemPrompt(),
+      queue: [],
+      doneWork: [program],
+      reducerExited: false,
+      orchestrationResult: true,
+    });
+    plexus.root.head = turn;
+    recoverSessionJobs(plexus.root);
+    expect({ exited: turn.reducerExited, completed: turn.completed, open: plexus.root.openTurn }).toEqual({
+      exited: true,
+      completed: true,
+      open: false,
+    });
   });
 
   it("leaves a round token whose completion is already queued", () => {
@@ -518,6 +542,10 @@ describe("job recovery on a live replica", () => {
     });
     plexus.root.head = turn;
     recoverSessionJobs(plexus.root);
-    expect({ queue: [...turn.queue], done: [...turn.doneWork] }).toEqual({ queue: [completion], done: [token] });
+    expect({ queue: [...turn.queue], done: [...turn.doneWork], exited: turn.reducerExited }).toEqual({
+      queue: [completion],
+      done: [token],
+      exited: false,
+    });
   });
 });
