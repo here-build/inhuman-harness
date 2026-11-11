@@ -2986,14 +2986,11 @@ html:has(.composer-pill[data-drop]) {
   margin: 0;
   color: var(--muted);
   font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
 
 .look-target {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 0.5ch;
-  max-width: 100%;
+  display: inline;
 }
 
 .look-target > .mono {
@@ -3001,14 +2998,14 @@ html:has(.composer-pill[data-drop]) {
 }
 
 .look-target .tool-outcome {
-  margin-left: 0;
-  align-self: center;
+  margin-left: 0.5ch;
+  vertical-align: middle;
 }
 
 /* In a sentence the glyph sits tight to its word; the 24px target overlaps the gap, which WCAG's spacing rule allows. */
 .look-target .fail-info {
   margin-inline: calc(-1 * --spacing(1));
-  align-self: center;
+  vertical-align: middle;
 }
 
 /* A failed look keeps its name and drops the link; the info glyph carries the why. */

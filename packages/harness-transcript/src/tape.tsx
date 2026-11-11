@@ -39,7 +39,7 @@ import { Markdown } from "../../../surfaces/web/src/shell/markdown.js";
 import { naturalName, wireName } from "../../../surfaces/web/src/shell/model-choice.js";
 import { projectNames } from "../../../surfaces/web/src/shell/path.js";
 import { readStoredVisual } from "../../../surfaces/web/src/shell/picture-draft.js";
-import { fileFace, readListParts } from "../../../surfaces/web/src/shell/read-line.js";
+import { fileFace, readListParts, searchLabels } from "../../../surfaces/web/src/shell/read-line.js";
 import { ShellTerm } from "../../../surfaces/web/src/shell/shell-term.js";
 import {
   type AgentSpan,
@@ -361,49 +361,58 @@ function LookTarget({ item, onOpen }: { readonly item: LookItem; readonly onOpen
         <span className="mono">{item.scope}</span>
       </>
     );
-  if (item.outcome === "failed") {
-    return (
-      <span className="look-target">
-        <span className="read-path" data-failed="">
-          {item.label}
-        </span>
-        {scope}
-        <FailInfo label={`Why this failed: ${item.label}`} detail={item.text ?? "The call failed."} />
-      </span>
-    );
-  }
+  const locales = typeof navigator === "undefined" ? undefined : navigator.languages;
+  const labels = item.verb === "search" ? searchLabels(item.label) : [item.label];
+  const parts = readListParts(labels, locales, "disjunction");
   const binary = item.verb === "read" && fileFace(item.path) === "binary";
   // A file opens from disk without the bytes; a listing or matches exist only as the result.
   const missing = item.text == null && (item.verb !== "read" || item.label.endsWith("/"));
-  if (missing && item.outcome === "ok" && item.verb !== "read") {
-    return (
-      <span className="look-target">
-        <span className="mono">{item.label}</span>
-        {scope}
-        <span className="text-subtle"> (no matches)</span>
-      </span>
-    );
-  }
+  const noMatches = missing && item.outcome === "ok" && item.verb !== "read";
   return (
     <span className="look-target">
-      <Button
-        variant="content"
-        className="read-path"
-        disabled={binary || missing}
-        type="button"
-        title={binary ? `${item.path} (binary)` : item.verb === "read" ? item.path : undefined}
-        onPress={() =>
-          onOpen({
-            path: item.path,
-            label: item.verb === "read" ? item.label : `${LOOK_VERB[item.verb]} ${item.label}`,
-            ...(item.text == null ? {} : { text: item.text }),
-          })
+      {parts.map((part, index) => {
+        if (part.kind === "text") return <span key={index}>{part.text}</span>;
+        if (item.outcome === "failed") {
+          return (
+            <span key={index} className="read-path" data-failed="">
+              {part.label}
+            </span>
+          );
         }
-      >
-        {item.label}
-      </Button>
+        if (noMatches)
+          return (
+            <span key={index} className="mono">
+              {part.label}
+            </span>
+          );
+        return (
+          <Button
+            key={index}
+            variant="content"
+            className="read-path"
+            disabled={binary || missing}
+            type="button"
+            title={binary ? `${item.path} (binary)` : item.verb === "read" ? item.path : undefined}
+            onPress={() =>
+              onOpen({
+                path: item.path,
+                label: item.verb === "read" ? item.label : `${LOOK_VERB[item.verb]} ${item.label}`,
+                ...(item.text == null ? {} : { text: item.text }),
+              })
+            }
+          >
+            {part.label}
+          </Button>
+        );
+      })}
       {scope}
-      {item.outcome === "live" ? <Outcome outcome="live" /> : null}
+      {item.outcome === "failed" ? (
+        <FailInfo label={`Why this failed: ${item.label}`} detail={item.text ?? "The call failed."} />
+      ) : noMatches ? (
+        <span className="text-subtle"> (no matches)</span>
+      ) : item.outcome === "live" ? (
+        <Outcome outcome="live" />
+      ) : null}
     </span>
   );
 }

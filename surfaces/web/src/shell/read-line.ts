@@ -14,13 +14,43 @@ export type ReadPart =
   { readonly kind: "path"; readonly label: string } | { readonly kind: "text"; readonly text: string };
 
 /** Locale list parts. One path is just that path; conjunctions stay literal text. */
-export function readListParts(labels: readonly string[], locales: readonly string[] | undefined): readonly ReadPart[] {
+export function readListParts(
+  labels: readonly string[],
+  locales: readonly string[] | undefined,
+  type: "conjunction" | "disjunction" = "conjunction",
+): readonly ReadPart[] {
   if (labels.length === 0) return [];
-  const format = new Intl.ListFormat(locales, { type: "conjunction", style: "long" });
+  const format = new Intl.ListFormat(locales, { type, style: "long" });
   const parts = format.formatToParts(labels.map((label) => label));
   return parts.map((part) =>
     part.type === "element" ? { kind: "path", label: part.value } : { kind: "text", text: part.value },
   );
+}
+
+export function searchLabels(pattern: string): string[] {
+  const labels: string[] = [];
+  let start = 0;
+  let grouped = 0;
+  let inClass = false;
+  for (let index = 0; index < pattern.length; index++) {
+    const char = pattern[index];
+    if (char === "\\") {
+      index++;
+      continue;
+    }
+    if (char === "[") inClass = true;
+    else if (char === "]") inClass = false;
+    else if (!inClass) {
+      if (char === "(") grouped++;
+      else if (char === ")") grouped = Math.max(0, grouped - 1);
+      else if (char === "|" && grouped === 0) {
+        labels.push(pattern.slice(start, index));
+        start = index + 1;
+      }
+    }
+  }
+  labels.push(pattern.slice(start));
+  return labels.map((label) => label.replaceAll(/\\([\\^$.*+?()[\]{}|/])/g, "$1"));
 }
 
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp", "ico"]);
