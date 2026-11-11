@@ -209,6 +209,7 @@ export class DocumentService {
       return { ok: false, reason: "overload" };
     }
     applyDocumentUpdate(replica.doc, update, origin);
+    replica.doc.guid = documentGuid(key);
     return { ok: true };
   }
 
@@ -269,6 +270,7 @@ export class DocumentService {
     if (initial != null && initial.byteLength > 0) {
       try {
         applyDocumentUpdate(doc, initial);
+        doc.guid = documentGuid(key);
       } catch {
         doc.destroy();
         return { ok: false, reason: "storage-failed" };
@@ -303,6 +305,7 @@ export class DocumentService {
     const doc = new DocumentContainer(new GenericRoot(), { guid: documentGuid(key) });
     try {
       applyDocumentUpdate(doc, image);
+      doc.guid = documentGuid(key);
     } catch {
       doc.destroy();
       return { ok: false, reason: "corrupt" };

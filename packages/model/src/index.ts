@@ -38,6 +38,9 @@ export type {
   ModelPatchBatch,
   SerializedDocument,
   SerializedDocumentNode,
+  SerializedModel,
+  SerializedModelGraph,
+  SerializedModelRow,
   StateFieldKind,
   StateFieldMetadata,
 } from "./types.js";

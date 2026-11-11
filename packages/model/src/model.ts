@@ -4,7 +4,7 @@ import { auditModelClassOnce } from "./audit.js";
 import type { ReactiveAwareness } from "./awareness.js";
 import { getModelMetadata } from "./metadata.js";
 import { CONTAINER_LINK, HYDRATION_DATA } from "./symbols.js";
-import type { ModelPatch } from "./types.js";
+import type { ModelPatch, SerializedModelGraph } from "./types.js";
 
 export interface ModelContainerLink {
   readonly container?: any;
@@ -12,6 +12,7 @@ export interface ModelContainerLink {
   readonly awareness?: ReactiveAwareness<any>;
   recordPatch(patch: ModelPatch): void;
   registerNode(node: Model): void;
+  serializeNode(node: Model): SerializedModelGraph;
   transact<T>(fn: () => T): T;
 }
 

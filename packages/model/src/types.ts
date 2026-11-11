@@ -59,7 +59,7 @@ export type AssertModelMatchesTable<
       };
 };
 
-export type ModelPatch =
+export type ModelPatch = (
   | {
       readonly op: "set";
       readonly nodeId: string;
@@ -80,7 +80,8 @@ export type ModelPatch =
       readonly nodeId: string;
       readonly field: string;
       readonly key: string;
-    };
+    }
+) & { readonly encoding?: "rows-v1" };
 
 export interface ModelPatchBatch {
   readonly revision: number;
@@ -99,10 +100,32 @@ export interface SerializedDocumentNode {
   readonly childRecords?: Record<string, Record<string, SerializedDocumentNode>>;
 }
 
+/** One entity row. All relationships contain identities, never embedded entities. */
+export interface SerializedModelRow {
+  readonly uuid: string;
+  readonly tag: string;
+  readonly columns: Record<string, unknown>;
+  readonly state: Record<string, unknown>;
+  readonly refs: Record<string, string | null>;
+  readonly refLists: Record<string, readonly string[]>;
+  readonly children: Record<string, string | null>;
+  readonly childLists: Record<string, readonly string[]>;
+  readonly childRecords: Record<string, Record<string, string>>;
+}
+
+export interface SerializedModelGraph {
+  readonly format: "rows-v1";
+  readonly uuid: string;
+  readonly tag: string;
+  readonly nodes: Record<string, SerializedModelRow>;
+}
+
+export type SerializedModel = SerializedDocumentNode | SerializedModelGraph;
+
 export interface SerializedDocument {
   readonly guid?: string;
   readonly revision: number;
-  readonly root: SerializedDocumentNode;
+  readonly root: SerializedModel;
   readonly meta?: Record<string, Record<string, unknown>>;
 }
 

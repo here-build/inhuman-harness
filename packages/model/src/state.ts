@@ -2,9 +2,8 @@ import { action, observable, observe, runInAction } from "mobx";
 
 import { getModelMetadata, registerStateMetadata } from "./metadata.js";
 import { Model } from "./model.js";
-import { serializeModel } from "./serialize.js";
 import { CONTAINER_LINK, HYDRATION_DATA } from "./symbols.js";
-import type { ModelPatch } from "./types.js";
+import type { ModelPatch, SerializedModelGraph } from "./types.js";
 
 interface Linkable {
   readonly uuid: string;
@@ -13,6 +12,7 @@ interface Linkable {
     readonly isApplyingPatches?: boolean;
     recordPatch(patch: ModelPatch): void;
     registerNode(node: Model): void;
+    serializeNode(node: Model): SerializedModelGraph;
     transact<T>(fn: () => T): T;
   };
 }
@@ -85,7 +85,7 @@ state.ref = function stateRef<This, TValue extends Model | null>(
             op: "set",
             nodeId: self.uuid,
             field: propertyKey,
-            value: value ? (value as Model).uuid : null,
+            value: value ? link.serializeNode(value as Model) : null,
           });
         }
       }
@@ -161,7 +161,7 @@ function stateChildImpl<This, TValue extends Model | null>(
             op: "set",
             nodeId: self.uuid,
             field: propertyKey,
-            value: value ? serializeModel(value as Model) : null,
+            value: value ? link.serializeNode(value as Model) : null,
           });
         }
       }
@@ -213,20 +213,21 @@ function bindArrayObserver<T>(
 
     let items: unknown[];
     if (kind === "childList") {
-      items = change.added.map((child) => serializeModel(child as unknown as Model));
+      items = change.added.map((child) => link.serializeNode(child as unknown as Model));
     } else if (kind === "refList") {
-      items = change.added.map((m) => (m as unknown as Model | null)?.uuid);
+      items = change.added.map((m) => link.serializeNode(m as unknown as Model));
     } else {
       items = change.added.map((item) => {
         if (item && item instanceof Model) {
-          return serializeModel(item);
+          return { $model: link.serializeNode(item) };
         }
-        return item;
+        return { $value: item };
       });
     }
 
     link.recordPatch({
       op: "splice",
+      ...(kind === "list" ? { encoding: "rows-v1" as const } : {}),
       nodeId: self.uuid,
       field: propertyKey,
       index: change.index,
@@ -301,7 +302,10 @@ export function stateList<This, TItem>(
           op: "set",
           nodeId: self.uuid,
           field: propertyKey,
-          value: [...obsArr],
+          value: obsArr.map((item) =>
+            item instanceof Model ? { $model: link.serializeNode(item) } : { $value: item },
+          ),
+          encoding: "rows-v1",
         });
       }
     },
@@ -360,7 +364,7 @@ export function stateRefList<This, TItem extends Model>(
           op: "set",
           nodeId: self.uuid,
           field: propertyKey,
-          value: obsArr.map((m) => (m as unknown as Model | null)?.uuid),
+          value: obsArr.map((m) => link.serializeNode(m as unknown as Model)),
         });
       }
     },
@@ -432,7 +436,7 @@ export function stateChildList<This, TItem extends Model>(
           op: "set",
           nodeId: self.uuid,
           field: propertyKey,
-          value: obsArr.map((child) => serializeModel(child as unknown as Model)),
+          value: obsArr.map((child) => link.serializeNode(child as unknown as Model)),
         });
       }
     },
@@ -479,7 +483,7 @@ function bindChildRecordObserver(self: Linkable, propertyKey: string, obj: Recor
         nodeId: self.uuid,
         field: propertyKey,
         key: String(change.name),
-        value: change.newValue ? serializeModel(change.newValue as Model) : null,
+        value: change.newValue ? link.serializeNode(change.newValue as Model) : null,
       });
     }
   });
@@ -524,7 +528,7 @@ export function stateChildRecord<This, TValue extends Model>(
         for (const [k, v] of Object.entries(obsObj)) {
           if (v) {
             link.registerNode(v as unknown as Model);
-            serialized[k] = serializeModel(v as unknown as Model);
+            serialized[k] = link.serializeNode(v as unknown as Model);
           }
         }
         link.recordPatch({

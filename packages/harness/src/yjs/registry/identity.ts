@@ -23,7 +23,6 @@ export const SESSION_ROOT_TYPE = "harness:session:root";
 /** Matches ProjectRoot @syncing tag. */
 export const PROJECT_ROOT_TYPE = "harness:project:root";
 
-
 export type IdentityDecode =
   { readonly ok: true; readonly id: string } | { readonly ok: false; readonly reason: InventoryErrorReason };
 
@@ -61,14 +60,20 @@ export function decodeImageIdentity(kind: DocumentKind, bytes: Uint8Array): Iden
     } catch {
       continue;
     }
-    const root = parsed?.root;
+    const rootGraph = parsed?.root;
+    const root = rootGraph?.format === "rows-v1" ? rootGraph.nodes?.[rootGraph.uuid] : rootGraph;
     const val = root?.columns?.[field] ?? root?.state?.[field] ?? parsed?.meta?.root?.[field];
     if (typeof val === "string" && val.trim().length > 0) {
       return { ok: true, id: val.trim() };
     }
     if (Array.isArray(parsed?.patches)) {
       for (const patch of parsed.patches) {
-        if (patch?.op === "set" && patch?.field === field && typeof patch?.value === "string" && patch.value.trim().length > 0) {
+        if (
+          patch?.op === "set" &&
+          patch?.field === field &&
+          typeof patch?.value === "string" &&
+          patch.value.trim().length > 0
+        ) {
           return { ok: true, id: patch.value.trim() };
         }
       }

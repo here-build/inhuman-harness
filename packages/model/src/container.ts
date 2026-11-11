@@ -5,7 +5,7 @@ import { getModelMetadata } from "./metadata.js";
 import { Model, type ModelContainerLink } from "./model.js";
 import { hydrateModel, isSerializedDocumentNode, serializeModel } from "./serialize.js";
 import { CONTAINER_LINK } from "./symbols.js";
-import type { ModelPatch, ModelPatchBatch, SerializedDocument, SerializedDocumentNode } from "./types.js";
+import type { ModelPatch, ModelPatchBatch, SerializedDocument, SerializedModel } from "./types.js";
 
 function isSerializedDocument(val: unknown): val is SerializedDocument {
   return (
@@ -30,10 +30,7 @@ const textDecoder = new TextDecoder();
 
 export type DocumentUpdateListener = (update: Uint8Array, origin?: unknown) => void;
 
-export class DocumentContainer<
-  TRoot extends Model = Model,
-  TAwareness extends AwarenessShape = AwarenessShape,
-> {
+export class DocumentContainer<TRoot extends Model = Model, TAwareness extends AwarenessShape = AwarenessShape> {
   @observable.ref accessor root: TRoot;
   guid: string;
   readonly awareness: ReactiveAwareness<TAwareness>;
@@ -41,6 +38,7 @@ export class DocumentContainer<
   #destroyed = false;
 
   readonly #registry = new Map<string, Model>();
+  readonly #knownNodes = new Set<string>();
   readonly #listeners = new Set<(batch: ModelPatchBatch) => void>();
   readonly #updateListeners = new Set<DocumentUpdateListener>();
   readonly #destroyListeners = new Set<() => void>();
@@ -71,6 +69,7 @@ export class DocumentContainer<
       }
     }
     this.registerNode(root);
+    for (const id of this.#registry.keys()) this.#knownNodes.add(id);
   }
 
   get doc(): this {
@@ -173,6 +172,7 @@ export class DocumentContainer<
     }
 
     this.#registry.set(node.uuid, node);
+    if (this.#isApplyingPatches) this.#knownNodes.add(node.uuid);
 
     const container = this;
     const link: ModelContainerLink = {
@@ -183,6 +183,12 @@ export class DocumentContainer<
       awareness: this.awareness,
       recordPatch: (patch: ModelPatch) => this.recordPatch(patch),
       registerNode: (child: Model) => this.registerNode(child),
+      serializeNode: (child: Model) => {
+        this.registerNode(child);
+        const graph = serializeModel(child, this.#knownNodes);
+        for (const id of Object.keys(graph.nodes)) this.#knownNodes.add(id);
+        return graph;
+      },
       transact: <T>(fn: () => T) => this.transact(fn),
     };
 
@@ -190,12 +196,12 @@ export class DocumentContainer<
 
     const meta = getModelMetadata(node.constructor);
     for (const field of meta.stateFields.values()) {
-      if (field.kind === "child") {
+      if (field.kind === "child" || field.kind === "ref") {
         const child = (node as any)[field.propertyKey] as Model | null;
         if (child) {
           this.registerNode(child);
         }
-      } else if (field.kind === "childList") {
+      } else if (field.kind === "childList" || field.kind === "refList") {
         const list = (node as any)[field.propertyKey] as (Model | null | undefined)[] | undefined;
         if (Array.isArray(list)) {
           for (const child of list) {
@@ -310,6 +316,18 @@ export class DocumentContainer<
     }
   }
 
+  #listItem(value: unknown, normalized: boolean): unknown {
+    if (normalized) {
+      if (value !== null && typeof value === "object" && "$value" in value) return value.$value;
+      if (value !== null && typeof value === "object" && "$model" in value) value = value.$model;
+      else throw new TypeError("Invalid normalized list item");
+    }
+    if (!isSerializedDocumentNode(value)) return value;
+    const child = hydrateModel<Model>(value, this.#registry);
+    this.registerNode(child);
+    return child;
+  }
+
   #applySinglePatch(patch: ModelPatch): void {
     const node = this.#registry.get(patch.nodeId);
     if (!node) {
@@ -329,7 +347,7 @@ export class DocumentContainer<
             if (patch.value == null) {
               delete recObj[patch.key];
             } else {
-              const child = hydrateModel<Model>(patch.value as SerializedDocumentNode, this.#registry);
+              const child = hydrateModel<Model>(patch.value as SerializedModel, this.#registry);
               this.registerNode(child);
               recObj[patch.key] = child;
             }
@@ -340,28 +358,69 @@ export class DocumentContainer<
         return;
       }
 
-      if (stateMeta?.kind === "ref") {
-        const target =
-          typeof patch.value === "string" ? (this.#registry.get(patch.value) ?? null) : null;
-        (node as unknown as Record<string, unknown>)[patch.field] = target;
-      } else if (stateMeta?.kind === "child") {
-        if (patch.value == null) {
-          (node as unknown as Record<string, unknown>)[patch.field] = null;
-        } else {
-          const child = hydrateModel<Model>(patch.value as SerializedDocumentNode, this.#registry);
-          this.registerNode(child);
-          (node as unknown as Record<string, unknown>)[patch.field] = child;
+      switch (stateMeta?.kind) {
+        case "ref": {
+          const target = isSerializedDocumentNode(patch.value)
+            ? hydrateModel<Model>(patch.value, this.#registry)
+            : typeof patch.value === "string"
+              ? (this.#registry.get(patch.value) ?? null)
+              : null;
+          if (target !== null) this.registerNode(target);
+          (node as unknown as Record<string, unknown>)[patch.field] = target;
+          break;
         }
-      } else if (colMeta) {
-        const modelVal = colMeta.codec ? colMeta.codec.toModel(patch.value) : patch.value;
-        (node as unknown as Record<string, unknown>)[patch.field] = modelVal;
-      } else {
-        if (isSerializedDocumentNode(patch.value)) {
-          const child = hydrateModel<Model>(patch.value, this.#registry);
-          this.registerNode(child);
-          (node as unknown as Record<string, unknown>)[patch.field] = child;
-        } else {
-          (node as unknown as Record<string, unknown>)[patch.field] = patch.value;
+        case "child": {
+          if (patch.value == null) {
+            (node as unknown as Record<string, unknown>)[patch.field] = null;
+          } else {
+            const child = hydrateModel<Model>(patch.value as SerializedModel, this.#registry);
+            this.registerNode(child);
+            (node as unknown as Record<string, unknown>)[patch.field] = child;
+          }
+          break;
+        }
+        case "childRecord": {
+          if (patch.value === null || typeof patch.value !== "object")
+            throw new TypeError("Child record requires an object");
+          const children: Record<string, Model> = {};
+          for (const [key, value] of Object.entries(patch.value)) {
+            if (!isSerializedDocumentNode(value)) throw new TypeError("Child record requires model rows");
+            const child = hydrateModel<Model>(value, this.#registry);
+            this.registerNode(child);
+            children[key] = child;
+          }
+          (node as unknown as Record<string, unknown>)[patch.field] = children;
+          break;
+        }
+        case "list":
+        case "childList":
+        case "refList": {
+          if (!Array.isArray(patch.value)) throw new TypeError(`Field "${patch.field}" requires an array`);
+          const values: unknown[] = patch.value;
+          const items = values.map((value) => {
+            if (stateMeta.kind === "list") return this.#listItem(value, patch.encoding === "rows-v1");
+            if (stateMeta.kind === "refList" && typeof value === "string") return this.#registry.get(value);
+            if (!isSerializedDocumentNode(value)) return value;
+            const child = hydrateModel<Model>(value, this.#registry);
+            this.registerNode(child);
+            return child;
+          });
+          (node as unknown as Record<string, unknown>)[patch.field] = items;
+          break;
+        }
+        default: {
+          if (colMeta) {
+            const modelVal = colMeta.codec ? colMeta.codec.toModel(patch.value) : patch.value;
+            (node as unknown as Record<string, unknown>)[patch.field] = modelVal;
+          } else {
+            if (isSerializedDocumentNode(patch.value)) {
+              const child = hydrateModel<Model>(patch.value, this.#registry);
+              this.registerNode(child);
+              (node as unknown as Record<string, unknown>)[patch.field] = child;
+            } else {
+              (node as unknown as Record<string, unknown>)[patch.field] = patch.value;
+            }
+          }
         }
       }
       return;
@@ -375,24 +434,24 @@ export class DocumentContainer<
 
       let items: unknown[];
       if (stateMeta?.kind === "refList") {
-        items = (patch.items as (string | null)[])
-          .map((id) => (id ? (this.#registry.get(id) ?? null) : null))
-          .filter((target): target is Model => target !== null);
+        items = patch.items
+          .map((value) => {
+            if (isSerializedDocumentNode(value)) {
+              const target = hydrateModel<Model>(value, this.#registry);
+              this.registerNode(target);
+              return target;
+            }
+            return typeof value === "string" ? this.#registry.get(value) : undefined;
+          })
+          .filter((target): target is Model => target !== undefined);
       } else if (stateMeta?.kind === "childList") {
-        items = (patch.items as SerializedDocumentNode[]).map((snap) => {
+        items = (patch.items as SerializedModel[]).map((snap) => {
           const child = hydrateModel<Model>(snap, this.#registry);
           this.registerNode(child);
           return child;
         });
       } else {
-        items = (patch.items as unknown[]).map((item) => {
-          if (isSerializedDocumentNode(item)) {
-            const child = hydrateModel<Model>(item, this.#registry);
-            this.registerNode(child);
-            return child;
-          }
-          return item;
-        });
+        items = patch.items.map((item) => this.#listItem(item, patch.encoding === "rows-v1"));
       }
 
       arr.splice(patch.index, patch.deleteCount, ...items);
@@ -494,8 +553,19 @@ export class DocumentContainer<
     this.#isApplyingPatches = true;
     try {
       runInAction(() => {
-        const nextRoot = hydrateModel<TRoot>(snapshot);
+        const nextRegistry = new Map<string, Model>();
+        const nextRoot = hydrateModel<TRoot>(snapshot, nextRegistry);
         if (this.root && this.root.constructor === nextRoot.constructor) {
+          for (const node of nextRegistry.values()) {
+            const fields = node as unknown as Record<string, unknown>;
+            for (const field of getModelMetadata(node.constructor).stateFields.values()) {
+              const value = fields[field.propertyKey];
+              if (field.kind === "ref" && value === nextRoot) fields[field.propertyKey] = this.root;
+              if ((field.kind === "refList" || field.kind === "list") && Array.isArray(value)) {
+                fields[field.propertyKey] = value.map((item: unknown) => (item === nextRoot ? this.root : item));
+              }
+            }
+          }
           const meta = getModelMetadata(this.root.constructor);
           (this.root as any).uuid = nextRoot.uuid;
           for (const col of meta.columns.keys()) {
@@ -527,10 +597,12 @@ export class DocumentContainer<
             }
           }
           this.#registry.clear();
+          this.#knownNodes.clear();
           this.registerNode(this.root);
         } else {
           this.root = nextRoot;
           this.#registry.clear();
+          this.#knownNodes.clear();
           this.registerNode(nextRoot);
         }
         this.guid = (snapshot as { guid?: string }).guid ?? nextRoot.uuid;
@@ -594,10 +666,14 @@ export class DocumentContainer<
         meta[ns] = Object.fromEntries(map.entries());
       }
     }
+    const graph = serializeModel(this.root);
+    // Reconnect snapshots omit detached rows; a later attachment must introduce them again.
+    this.#knownNodes.clear();
+    for (const id of Object.keys(graph.nodes)) this.#knownNodes.add(id);
     return {
       guid: this.guid,
       revision: this.revision,
-      root: serializeModel(this.root),
+      root: graph,
       ...(Object.keys(meta).length > 0 ? { meta } : {}),
     };
   }
@@ -616,9 +692,7 @@ export function applyDocumentUpdate(doc: DocumentContainer<any, any>, update: Ui
 }
 
 export function mergeDocumentUpdates(updates: readonly Uint8Array[]): Uint8Array {
-  const nonEmpty = updates.filter(
-    (u) => u.byteLength > 0 && !(u.byteLength === 2 && u[0] === 0 && u[1] === 0),
-  );
+  const nonEmpty = updates.filter((u) => u.byteLength > 0 && !(u.byteLength === 2 && u[0] === 0 && u[1] === 0));
   if (nonEmpty.length === 0) return new Uint8Array([0, 0]);
   if (nonEmpty.length === 1) return nonEmpty[0]!;
 
