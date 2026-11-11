@@ -100,7 +100,7 @@ it.each([
     const { session, round, job, pending, answer, finished } = await pendingCompletion(
       caller === "scope" ? "scope" : undefined,
     );
-    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate());
+    const before = JSON.stringify(session.plexus.doc.toNodeRows());
     let replacement: SessionRuntime;
     if (loss === "replaced") replacement = new SessionRuntime(session.plexus, { kind: "memory" });
     else {
@@ -111,7 +111,7 @@ it.each([
     expect({
       done: round.isDone,
       outcome: round.outcome,
-      unchanged: before.equals(Buffer.from(session.plexus.doc.encodeStateAsUpdate())),
+      unchanged: before === JSON.stringify(session.plexus.doc.toNodeRows()),
     }).toEqual({
       done: false,
       outcome: null,
@@ -123,7 +123,7 @@ it.each([
     expect({
       done: round.isDone,
       text: round.responseText,
-      unchanged: before.equals(Buffer.from(session.plexus.doc.encodeStateAsUpdate())),
+      unchanged: before === JSON.stringify(session.plexus.doc.toNodeRows()),
     }).toEqual({
       done: false,
       text: "",

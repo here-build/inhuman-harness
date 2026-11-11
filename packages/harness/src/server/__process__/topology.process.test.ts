@@ -1,17 +1,14 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- temp dirs */
 /* eslint-disable no-secrets/no-secrets -- generated parent script env names */
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { BotCallJob, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
-import { joinReleased } from "@inhuman.tools/turn/agent-calls";
+import { Client } from "@inhuman.tools/harness-sdk";
 import { afterEach, describe, expect, it } from "vitest";
-import { WebSocket } from "ws";
 
-import { openDriverRegistry } from "@/connections";
 import {
   Hypervisor,
   isLifetimeLockHeld,
@@ -20,35 +17,21 @@ import {
   lockPathFor,
   ReplacementRefusedError,
 } from "@/hypervisor";
-import { documentKey, receiptCoversCheckpoint } from "@/protocol/document";
-import type { SupervisionIdentity } from "@/protocol/schemas";
 import { isExecutionReady, isSyncReady, shutdownFlushFailed, shutdownIsComplete } from "@/protocol/supervision";
-import { RuntimeServer } from "@/runtime-server";
-import { KernelToolCatalog, type CatalogEntry } from "@/tool-catalog";
-import { connectRemoteDocument, wrapWebSocket } from "@/yjs";
 
-import { PRODUCT_PROVIDERS, productBins, productRoster } from "../composition.js";
+import { productBins, productRoster } from "../composition.js";
 
 const srcRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = join(srcRoot, "../../..");
 const scratches: string[] = [];
 const running: Hypervisor[] = [];
 const orphans: number[] = [];
-const sockets: WebSocket[] = [];
 
 const never = { mode: "never" as const, maxAttempts: 0, backoffMs: 0 };
-const PEER_CAPABILITY = "product";
 
 afterEach(async () => {
   for (const hv of running.splice(0)) {
     await hv.shutdown({ deadlineMs: 3_000 }).catch(() => undefined);
-  }
-  for (const ws of sockets.splice(0)) {
-    try {
-      ws.close();
-    } catch {
-      /* gone */
-    }
   }
   const leftover = orphans.splice(0);
   for (const pid of leftover) {
@@ -81,8 +64,7 @@ function ensureDist(pkg: string, file: string): string {
 
 function binsReady() {
   ensureDist("harness", "hypervisor/index.js");
-  ensureDist("harness", "yjs/bin.js");
-  ensureDist("harness", "server/runtime-bin.js");
+  ensureDist("harness", "server/bin.js");
   return productBins();
 }
 
@@ -106,7 +88,7 @@ async function waitUntil(label: string, pred: () => boolean | Promise<boolean>, 
 }
 
 function scratch(): string {
-  const root = mkdtempSync("/tmp/harness-product-");
+  const root = realpathSync(mkdtempSync("/tmp/harness-product-"));
   scratches.push(root);
   return root;
 }
@@ -135,43 +117,6 @@ function childOf(hv: Hypervisor, id: string) {
   const row = hv.snapshot().find((entry) => entry.id === id);
   if (row === undefined) throw new Error(`missing child ${id}`);
   return row;
-}
-
-async function connectPeer(
-  root: string,
-  identity: SupervisionIdentity,
-): Promise<Awaited<ReturnType<typeof connectRemoteDocument>>> {
-  const sock = join(root, "private-peer.sock");
-  await waitUntil("private peer sock", () => existsSync(sock), 5_000);
-  const ws = new WebSocket(`ws+unix://${sock}:/`);
-  sockets.push(ws);
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      ws.off("open", onOpen);
-      ws.off("error", onError);
-      ws.close();
-      reject(new Error("timeout waiting for peer socket"));
-    }, 5_000);
-    const onOpen = (): void => {
-      clearTimeout(timer);
-      ws.off("error", onError);
-      resolve();
-    };
-    const onError = (error: Error): void => {
-      clearTimeout(timer);
-      ws.off("open", onOpen);
-      reject(error);
-    };
-    ws.once("open", onOpen);
-    ws.once("error", onError);
-  });
-  ws.on("error", () => undefined);
-  const connected = await connectRemoteDocument(wrapWebSocket(ws), {
-    capability: PEER_CAPABILITY,
-    identity,
-  });
-  if (!connected.ok) ws.close();
-  return connected;
 }
 
 function trackPid(pid: number | undefined): void {
@@ -225,51 +170,14 @@ function killTree(parentPid: number): void {
   killPid(parentPid);
 }
 
-/** Lock release is not hub detach; busy means the dead runtime socket is still the owner. */
-async function waitForPeerVacancy(root: string, identity: SupervisionIdentity): Promise<void> {
-  await waitUntil(
-    "peer hub vacant",
-    async () => {
-      const probe = await connectPeer(root, {
-        ...identity,
-        process: { kind: "runtime", id: "probe-wait" },
-      });
-      if (!probe.ok) return probe.reason !== "busy";
-      probe.adapter[Symbol.dispose]();
-      const ws = sockets.at(-1);
-      if (ws != null) {
-        await waitUntil("throwaway peer closed", () => ws.readyState === WebSocket.CLOSED, 5_000);
-      }
-      await delay(20);
-      return true;
-    },
-    8_000,
-  );
-}
-
 describe("product topology", () => {
-  it("boots hypervisor with yjs + runtime bins; health distinguishes sync vs execution", async () => {
-    ensureDist("harness", "hypervisor/index.js");
-    ensureDist("harness", "yjs/bin.js");
-    ensureDist("harness", "server/runtime-bin.js");
-    const bins = productBins();
-    expect(bins.yjs.args.at(-1)).toMatch(/harness[/\\]dist[/\\]yjs[/\\]bin\.js$/);
-    expect(bins.runtime.args.at(-1)).toMatch(/harness[/\\]dist[/\\]server[/\\]runtime-bin\.js$/);
+  it("boots hypervisor with SQLite-backed runtime bin; health tracks sync and execution", async () => {
+    const bins = binsReady();
+    expect(bins.runtime.args[0]).toMatch(/harness[/\\]dist[/\\]server[/\\]bin\.js$/);
+    expect(bins.runtime.args.at(-1)).toBe("--supervised");
 
-    const root = mkdtempSync("/tmp/harness-product-");
-    scratches.push(root);
-    const hv = await Hypervisor.start({
-      root,
-      serverRoster: {
-        servers: productRoster(bins).servers.map((server) => ({
-          ...server,
-          restart: never,
-        })),
-      },
-      hypervisorId: "hv-product",
-      readyTimeoutMs: 10_000,
-    });
-    running.push(hv);
+    const root = scratch();
+    const hv = await startProduct(root);
 
     expect(isSyncReady(hv.health())).toBe(true);
     expect(isExecutionReady(hv.health())).toBe(true);
@@ -277,22 +185,15 @@ describe("product topology", () => {
     const child = hv.snapshot().find((row) => row.id === "runtime");
     expect(child?.pid).toBeDefined();
     process.kill(child?.pid ?? 0, "SIGKILL");
-    const deadline = Date.now() + 5_000;
-    while (Date.now() < deadline) {
-      if (!isExecutionReady(hv.health())) break;
-      await delay(20);
-    }
-    expect(isSyncReady(hv.health())).toBe(true);
+    await waitUntil("runtime exit", () => !isExecutionReady(hv.health()), 5_000);
+    expect(isSyncReady(hv.health())).toBe(false);
     expect(isExecutionReady(hv.health())).toBe(false);
   }, 30_000);
 
-  it("reconnects a restarted runtime to the live yjs hub", async () => {
-    ensureDist("harness", "hypervisor/index.js");
-    ensureDist("harness", "yjs/bin.js");
-    ensureDist("harness", "server/runtime-bin.js");
-    const bins = productBins();
-    const root = mkdtempSync("/tmp/harness-product-");
-    scratches.push(root);
+  it("restarts a crashed runtime and preserves committed SQLite state", async () => {
+    const bins = binsReady();
+    const root = scratch();
+    const projectDir = scratch();
     const onFailure = {
       mode: "on-failure" as const,
       maxAttempts: 3,
@@ -303,48 +204,59 @@ describe("product topology", () => {
       serverRoster: {
         servers: productRoster(bins).servers.map((server) => ({
           ...server,
-          restart: server.role === "runtime" ? onFailure : never,
+          restart: onFailure,
         })),
       },
       hypervisorId: "hv-product-restart",
       readyTimeoutMs: 10_000,
     });
     running.push(hv);
+
+    let sessionId = "";
+    {
+      await using client = await Client.start(root, projectDir);
+      sessionId = client.sessionId;
+      await client.request("kv/set", { key: "persisted", value: "across-sigkill" });
+    }
+
     const before = hv.snapshot().find((row) => row.id === "runtime");
     expect(before?.pid).toBeDefined();
     const generation = before?.identity.runtimeGeneration ?? 0;
     process.kill(before?.pid ?? 0, "SIGKILL");
-    const deadline = Date.now() + 8_000;
-    while (Date.now() < deadline) {
-      const now = hv.snapshot().find((row) => row.id === "runtime");
-      if (
-        now?.exit === undefined &&
-        now?.pid !== undefined &&
-        now.pid !== before?.pid &&
-        now.identity.runtimeGeneration === generation + 1 &&
-        isExecutionReady(hv.health())
-      ) {
-        break;
-      }
-      await delay(20);
-    }
+    await waitUntil(
+      "runtime restarted",
+      () => {
+        const now = hv.snapshot().find((row) => row.id === "runtime");
+        return (
+          now?.exit === undefined &&
+          now?.pid !== undefined &&
+          now.pid !== before?.pid &&
+          now.identity.runtimeGeneration === generation + 1 &&
+          isExecutionReady(hv.health())
+        );
+      },
+      8_000,
+    );
     const after = hv.snapshot().find((row) => row.id === "runtime");
+    await using restored = await Client.restore(root, sessionId);
     expect({
       sync: isSyncReady(hv.health()),
       execution: isExecutionReady(hv.health()),
       generation: after?.identity.runtimeGeneration,
       replaced: after?.pid !== before?.pid,
+      persisted: restored.sessionRoot.kvs.persisted,
     }).toEqual({
       sync: true,
       execution: true,
       generation: generation + 1,
       replaced: true,
+      persisted: "across-sigkill",
     });
   }, 30_000);
 });
 
 describe("process failure matrix", () => {
-  it("runtime death keeps sync; replace only after exit and lock release; no two owners", async () => {
+  it("runtime replacement succeeds only after exit and lock release; no two owners", async () => {
     const root = scratch();
     const hv = await startProduct(root);
     const runtimeLock = lockPathFor(root, "runtime");
@@ -357,7 +269,7 @@ describe("process failure matrix", () => {
     process.kill(before.pid ?? 0, "SIGKILL");
     await waitUntil("runtime exit", () => childOf(hv, "runtime").exit !== undefined, 5_000);
     await waitUntil("runtime lock free", async () => !(await isLifetimeLockHeld(runtimeLock)), 5_000);
-    expect(isSyncReady(hv.health())).toBe(true);
+    expect(isSyncReady(hv.health())).toBe(false);
     expect(isExecutionReady(hv.health())).toBe(false);
 
     const results = await Promise.allSettled([hv.replace("runtime"), hv.replace("runtime")]);
@@ -372,6 +284,7 @@ describe("process failure matrix", () => {
       sync: isSyncReady(hv.health()),
       execution: isExecutionReady(hv.health()),
       replaced: after.pid !== before.pid,
+      generation: after.identity.runtimeGeneration,
       live: hv
         .snapshot()
         .filter((row) => row.id === "runtime" && row.exit === undefined)
@@ -381,68 +294,18 @@ describe("process failure matrix", () => {
       sync: true,
       execution: true,
       replaced: true,
+      generation: before.identity.runtimeGeneration + 1,
       live: [after.pid],
       lock: true,
     });
   }, 30_000);
 
-  it("yjs death does not leave the old runtime as a second writer; replacement is explicit", async () => {
-    const root = scratch();
-    const hv = await startProduct(root, "hv-product-yjs");
-    const yjs = childOf(hv, "yjs");
-    const runtime = childOf(hv, "runtime");
-    const epoch = yjs.identity.serverEpoch;
-    const generation = runtime.identity.runtimeGeneration;
-    process.kill(yjs.pid ?? 0, "SIGKILL");
-    await waitUntil("yjs exit", () => childOf(hv, "yjs").exit !== undefined, 5_000);
-    await waitUntil("runtime exit after yjs loss", () => childOf(hv, "runtime").exit !== undefined, 8_000);
-    await waitUntil(
-      "runtime lock free after yjs loss",
-      async () => !(await isLifetimeLockHeld(lockPathFor(root, "runtime"))),
-      5_000,
-    );
-    expect(pidAlive(runtime.pid ?? 0)).toBe(false);
-    expect(isSyncReady(hv.health())).toBe(false);
-    expect(isExecutionReady(hv.health())).toBe(false);
-    await delay(300);
-    expect(childOf(hv, "yjs").exit).toBeDefined();
-    expect(childOf(hv, "runtime").exit).toBeDefined();
-
-    await hv.replace("yjs");
-    expect(isSyncReady(hv.health())).toBe(true);
-    const yjs2 = childOf(hv, "yjs");
-    expect(yjs2.pid).not.toBe(yjs.pid);
-    expect(yjs2.identity.serverEpoch).toBe(epoch + 1);
-
-    const staleEpoch = await connectPeer(root, {
-      ...runtime.identity,
-      serverEpoch: epoch,
-      process: { kind: "runtime", id: "probe-stale-epoch" },
-    });
-    expect(staleEpoch).toEqual({ ok: false, reason: "stale" });
-
-    await hv.replace("runtime");
-    expect(isExecutionReady(hv.health())).toBe(true);
-    const runtime2 = childOf(hv, "runtime");
-    expect(runtime2.identity.runtimeGeneration).toBe(generation + 1);
-    expect(runtime2.pid).not.toBe(runtime.pid);
-    expect(hv.snapshot().filter((row) => row.id === "runtime" && row.exit === undefined)).toHaveLength(1);
-
-    const staleGen = await connectPeer(root, {
-      ...runtime2.identity,
-      runtimeGeneration: generation,
-      process: { kind: "runtime", id: "probe-stale-gen" },
-    });
-    expect(staleGen).toEqual({ ok: false, reason: "stale" });
-  }, 45_000);
-
   it("hypervisor death does not free a live child's lock", async () => {
     const root = scratch();
     const bins = binsReady();
-    const yjsBin = bins.yjs.args.at(-1);
-    const runtimeBin = bins.runtime.args.at(-1);
-    if (yjsBin == null || runtimeBin == null) {
-      throw new Error("product bins missing");
+    const runtimeBin = bins.runtime.args[0];
+    if (runtimeBin == null) {
+      throw new Error("product runtime bin missing");
     }
     const pidFile = join(root, "hv.json");
     const script = join(root, "hv-parent.mjs");
@@ -456,17 +319,15 @@ import { productRoster } from ${JSON.stringify(pathToFileURL(ensureDist("harness
 
 const root = process.env.HARNESS_ROOT;
 const pidFile = process.env.HARNESS_PID_FILE;
-const yjsBin = process.env.HARNESS_YJS_BIN;
 const runtimeBin = process.env.HARNESS_RUNTIME_BIN;
-if (root == null || pidFile == null || yjsBin == null || runtimeBin == null) {
+if (root == null || pidFile == null || runtimeBin == null) {
   throw new Error("hypervisor parent env missing");
 }
 const never = { mode: "never", maxAttempts: 0, backoffMs: 0 };
 const bins = {
-  yjs: { executable: process.execPath, args: [yjsBin, "--ignore-parent-loss"] },
   runtime: {
     executable: process.execPath,
-    args: [runtimeBin, "--ignore-parent-loss"],
+    args: [runtimeBin, "--supervised", "--ignore-parent-loss"],
   },
 };
 const hv = await Hypervisor.start({
@@ -495,7 +356,6 @@ await new Promise(() => {});
         ...process.env,
         HARNESS_ROOT: root,
         HARNESS_PID_FILE: pidFile,
-        HARNESS_YJS_BIN: yjsBin,
         HARNESS_RUNTIME_BIN: runtimeBin,
       },
       stdio: ["ignore", "ignore", "inherit"],
@@ -522,7 +382,6 @@ await new Promise(() => {});
     trackPid(snap.pid);
     for (const child of snap.children) trackPid(child.pid);
     const runtimePid = snap.children.find((child) => child.id === "runtime")?.pid ?? 0;
-    const yjsPid = snap.children.find((child) => child.id === "yjs")?.pid ?? 0;
     const runtimeLock = lockPathFor(root, "runtime");
     expect(pidAlive(snap.pid)).toBe(true);
     expect(runtimePid).toBeGreaterThan(0);
@@ -536,134 +395,10 @@ await new Promise(() => {});
     expect(await LifetimeLock.tryAcquire(runtimeLock, "runtime")).toBeNull();
 
     killPid(runtimePid);
-    killPid(yjsPid);
     await waitUntil("orphan runtime lock release", async () => !(await isLifetimeLockHeld(runtimeLock)), 5_000);
     const taken = await LifetimeLock.tryAcquire(runtimeLock, "runtime");
     expect(taken).not.toBeNull();
     await taken?.release();
-  }, 45_000);
-
-  it("stale epoch/receipt is not dispatch; concurrent reconnect does not double-own", async () => {
-    const root = scratch();
-    const hv = await startProduct(root, "hv-product-peer");
-    const runtime = childOf(hv, "runtime");
-    process.kill(runtime.pid ?? 0, "SIGKILL");
-    await waitUntil("runtime exit for peer", () => childOf(hv, "runtime").exit !== undefined, 5_000);
-    await waitUntil(
-      "runtime lock free for peer",
-      async () => !(await isLifetimeLockHeld(lockPathFor(root, "runtime"))),
-      5_000,
-    );
-    expect(isSyncReady(hv.health())).toBe(true);
-
-    const base = runtime.identity;
-    await waitForPeerVacancy(root, base);
-    const raced = await Promise.all([
-      connectPeer(root, {
-        ...base,
-        process: { kind: "runtime", id: "probe-a" },
-      }),
-      connectPeer(root, {
-        ...base,
-        process: { kind: "runtime", id: "probe-b" },
-      }),
-    ]);
-    const owners = raced.filter((row) => row.ok);
-    const refused = raced.filter((row) => !row.ok);
-    expect(owners).toHaveLength(1);
-    expect(refused).toEqual([{ ok: false, reason: "busy" }]);
-    for (const row of owners) {
-      row.adapter[Symbol.dispose]();
-    }
-    await waitForPeerVacancy(root, base);
-
-    const staleHello = await connectPeer(root, {
-      ...base,
-      runtimeGeneration: Math.max(0, base.runtimeGeneration - 1),
-    });
-    expect(staleHello).toEqual({ ok: false, reason: "stale" });
-
-    const first = await connectPeer(root, base);
-    expect(first.ok).toBe(true);
-    if (!first.ok) return;
-
-    const catalog = new KernelToolCatalog();
-    catalog.replacePack([
-      {
-        wireName: "offload",
-        description: "offload",
-        parameters: { type: "object", properties: {} },
-        class: "effect",
-        source: { kind: "pack", pluginName: "pack" },
-        packMeta: {
-          kind: "bot-call",
-          pluginName: "pack",
-          target: "worker",
-          background: true,
-          lifetime: "call",
-          show: "result",
-          supportsNotify: false,
-        },
-      } satisfies CatalogEntry,
-    ]);
-    const server = new RuntimeServer({
-      adapter: first.adapter,
-      registry: openDriverRegistry(PRODUCT_PROVIDERS),
-      catalog,
-    });
-    server.bind({ connections: {}, drivers: {} });
-    const session = await server.acquireSession("s1");
-    const call = new BotCallJob({
-      name: "offload",
-      background: true,
-      orchestrationResult: true,
-      acceptedAt: 1,
-      preparedInputJson: JSON.stringify({ prepared: true }),
-      workerSessionId: "worker",
-    });
-    const turn = new SessionTurn({
-      turnTail: new SessionSystemPrompt(),
-      queue: [],
-      reducerExited: true,
-    });
-    turn.pushChild(call);
-    session.root.head = turn;
-    for (let i = 0; i < 8; i += 1) await Promise.resolve();
-    await delay(50);
-    const key = documentKey("sessions", "s1");
-    const checkpoint = server.documents.checkpoint(key);
-    if (checkpoint == null) throw new Error("missing checkpoint");
-    const gated = await server.documents.flush(key, checkpoint);
-    expect(gated.ok).toBe(true);
-    if (!gated.ok) return;
-    const staleReceipt = {
-      ...gated.receipt,
-      serverEpoch: gated.receipt.serverEpoch - 1,
-    };
-    expect(receiptCoversCheckpoint(staleReceipt, checkpoint)).toBe(false);
-    server.recover();
-
-    const second = await connectPeer(root, base);
-    expect(second.ok).toBe(true);
-    if (!second.ok) return;
-    const staleFlush = await first.adapter.flush(key, checkpoint);
-    const recovered = await server.reconnect(second.adapter);
-    const row = recovered.find((item) => item.kind === "harness:job:bot-call");
-    const adopted = row?.job instanceof BotCallJob ? row.job : undefined;
-    expect(second.adapter.connectionEpoch).toBeGreaterThan(first.adapter.connectionEpoch);
-    expect({
-      staleFlush,
-      action: row?.action,
-      join: adopted != null && joinReleased(adopted, catalog),
-      activated: server.runtime.activated,
-    }).toEqual({
-      staleFlush: { ok: false, reason: "disconnected" },
-      action: "resume-inner",
-      join: false,
-      activated: false,
-    });
-    server[Symbol.dispose]();
-    catalog[Symbol.dispose]();
   }, 45_000);
 
   it("shutdown cutoff refuses admission and keeps flush pending/failed/ok visible", async () => {

@@ -6,7 +6,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { applyAwarenessUpdate, encodeAwarenessUpdate, ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
+import { ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
 import { publishRevalidationDemand, publishRevalidationDemandFocus } from "@inhuman.tools/plexus-expectations";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
@@ -63,9 +63,9 @@ function remoteAuthor(hub: PlexusAwareness): {
 } {
   const author = new PlexusAwareness();
   const sync = (): void => {
-    const clients = [...author.meta.keys()];
-    if (clients.length === 0) return;
-    applyAwarenessUpdate(hub, encodeAwarenessUpdate(author, clients), "remote");
+    const entries = author.toPresenceEntries();
+    if (entries.length === 0) return;
+    hub.applyPresenceEntries(entries, "remote");
   };
   return {
     author,

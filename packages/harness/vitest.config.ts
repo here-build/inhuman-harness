@@ -9,7 +9,7 @@ const alias = vitestAliases();
 function packageResolve() {
   return {
     alias,
-    // SessionTurn extends Job (jobs dist → plexus). One Y.Doc constructor.
+    // SessionTurn extends Job (jobs dist → model). One Model registry.
     dedupe,
   };
 }
@@ -53,9 +53,7 @@ export default defineConfig({
             "src/protocol/**/__tests__/**/*.test.ts",
             "src/providers/**/__tests__/**/*.test.ts",
             "src/runtime/**/__tests__/**/*.test.ts",
-            "src/runtime-server/**/__tests__/**/*.test.ts",
             "src/tool-runtime/**/__tests__/**/*.test.ts",
-            "src/yjs/**/__tests__/**/*.test.ts",
           ],
         },
       },

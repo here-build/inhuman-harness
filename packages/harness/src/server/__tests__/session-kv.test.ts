@@ -311,18 +311,16 @@ async function configPolicy(root: string): Promise<unknown> {
 function liveSessionReplica(owner: SessionPlexus): { root: SessionPlexus["root"]; [Symbol.dispose](): void } {
   const root = new SessionRoot({ sessionId: owner.root.sessionId, path: owner.root.path });
   const replica = new DocumentContainer(root);
-  replica.applyUpdate(owner.doc.encodeStateAsUpdate());
-  const listener = (update: Uint8Array, origin: unknown) => {
-    if (origin === replica) return;
-    replica.applyUpdate(update, owner.doc);
-  };
-  owner.doc.on("update", listener);
+  replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.doc.toNodeRows(), reset: true });
+  const stop = owner.doc.onPatch(() => {
+    replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.doc.toNodeRows(), reset: true });
+  });
   return {
     get root() {
       return replica.root;
     },
     [Symbol.dispose](): void {
-      owner.doc.off("update", listener);
+      stop();
       replica.destroy();
     },
   };
@@ -331,18 +329,16 @@ function liveSessionReplica(owner: SessionPlexus): { root: SessionPlexus["root"]
 function liveKernelReplica(owner: KernelPlexus): { root: KernelPlexus["root"]; [Symbol.dispose](): void } {
   const root = new KernelRoot();
   const replica = new DocumentContainer(root);
-  replica.applyUpdate(owner.doc.encodeStateAsUpdate());
-  const listener = (update: Uint8Array, origin: unknown) => {
-    if (origin === replica) return;
-    replica.applyUpdate(update, owner.doc);
-  };
-  owner.doc.on("update", listener);
+  replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.doc.toNodeRows(), reset: true });
+  const stop = owner.doc.onPatch(() => {
+    replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.doc.toNodeRows(), reset: true });
+  });
   return {
     get root() {
       return replica.root;
     },
     [Symbol.dispose](): void {
-      owner.doc.off("update", listener);
+      stop();
       replica.destroy();
     },
   };

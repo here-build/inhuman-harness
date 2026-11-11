@@ -8,10 +8,9 @@ import {
   JSON_RPC_METHOD_NOT_FOUND,
   JSON_RPC_PARSE_ERROR,
 } from "@/protocol/rpc";
-import type { PlaneSocket } from "@/yjs";
-
 import { RpcMethodNotFound } from "../../contract.js";
 import { serveJsonRpc, type RpcApplication, type RpcRequestIdentity } from "../jsonrpc.js";
+import type { PlaneSocket } from "../plane.js";
 
 function fakePlane(): {
   socket: PlaneSocket;
@@ -19,12 +18,10 @@ function fakePlane(): {
 } {
   const texts: string[] = [];
   const socket: PlaneSocket = {
-    send: () => undefined,
     sendText: (text) => {
       texts.push(text);
     },
     close: () => undefined,
-    onBinary: () => undefined,
     onText: () => undefined,
     onClose: () => undefined,
   };
@@ -53,7 +50,7 @@ describe("JSON-RPC transport delivery", () => {
         {
           method: "ping",
           args: { n: 1 },
-          identity: { requestId: "req-7", connectionId: "conn-9" },
+          identity: { requestId: "req-7", connectionId: "conn-9", remote: false },
         },
       ],
       texts: [

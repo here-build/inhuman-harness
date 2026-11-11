@@ -12,7 +12,12 @@ it("persists actual checkpoint deltas across delayed acknowledgements and detach
   const runtime = SessionRuntime.create("sql-delta", {
     kind: "durable",
     async commit(checkpoint) {
-      db.storeSessionDocument(checkpoint.sessionId, checkpoint.snapshot, checkpoint.dirtyNodes);
+      db.commitSessionNodes(checkpoint.sessionId, {
+        rootId: checkpoint.rootNodeId,
+        revision: checkpoint.revision,
+        upserts: checkpoint.upsertedNodes,
+        deletes: checkpoint.deletedNodeIds,
+      });
       if (first) {
         first = false;
         entered.resolve();
@@ -32,9 +37,18 @@ it("persists actual checkpoint deltas across delayed acknowledgements and detach
     runtime.root.kvs.during = "second";
     release.resolve();
     await pending;
-    const snapshot = db.loadSessionDocument("sql-delta");
-    if (snapshot === undefined) throw new Error("missing checkpoint");
-    const restored = SessionRuntime.restore("sql-delta", snapshot, { kind: "memory" });
+    const loaded = db.loadSessionNodes("sql-delta");
+    if (loaded === undefined) throw new Error("missing checkpoint");
+    const restored = SessionRuntime.restore(
+      "sql-delta",
+      {
+        rootId: loaded.rootId,
+        revision: loaded.revision,
+        rows: loaded.rows,
+        meta: db.loadSessionRuntimeMeta("sql-delta"),
+      },
+      { kind: "memory" },
+    );
     expect(restored.root.kvs.during).toBe("second");
     await restored[Symbol.asyncDispose]();
     restored.session.destroy();
@@ -42,9 +56,9 @@ it("persists actual checkpoint deltas across delayed acknowledgements and detach
     await runtime.flush();
     runtime.root.skills.push(skill);
     await runtime.flush();
-    const reattached = db.loadSessionDocument("sql-delta");
-    if (reattached === undefined || !("nodes" in reattached.root)) throw new Error("missing graph");
-    expect(reattached.root.nodes[skill.uuid]?.state.name).toBe("remembered");
+    const reattached = db.loadSessionNodes("sql-delta");
+    const skillRow = reattached?.rows.find((row) => row.uuid === skill.uuid);
+    expect(skillRow?.state.name).toBe("remembered");
   } finally {
     release.resolve();
     await runtime[Symbol.asyncDispose]();

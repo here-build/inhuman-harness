@@ -11,7 +11,6 @@ import invariant from "tiny-invariant";
 
 import { isConversationSession, PrivatePluginMcpHost } from "@/runtime";
 import { ToolCallHandler } from "@/tool-runtime";
-import { attachLens, type PlaneSocket } from "@/yjs";
 
 import { RequestHost } from "../../contract.js";
 import { writeConnectionSecrets } from "../../secrets.js";
@@ -21,6 +20,7 @@ import {
   unbindProjectPrivateMcpHost,
   unbindProjectRecipes,
 } from "../../toolkit/tool-table.js";
+import { attachPlane, PresenceRoom, type PlaneSocket } from "../../transport/plane.js";
 import { botChangeNotice, BotsWatcher, overlayBotDir, projectBotsDir, queueBotNotice } from "../bots/index.js";
 import type { KernelDaemon } from "../kernel/KernelDaemon.js";
 import { SessionDaemon } from "../session/SessionDaemon.js";
@@ -34,6 +34,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
   readonly #privateMcpHost: PrivatePluginMcpHost;
   readonly #reattaching = new Set<string>();
   readonly #attaching = new Map<string, Promise<SessionDaemon>>();
+  #presence: PresenceRoom | null = null;
   #botsWatcher: BotsWatcher | null = null;
   #botsSnapshot = new Map<string, string>();
 
@@ -72,6 +73,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
           this.plexus.root.path = path;
         });
       }
+      this.#presence = new PresenceRoom(this.plexus.awareness);
       this.#syncProjectBots(false);
       this.#botsWatcher = new BotsWatcher(projectBotsDir(path), () => this.#syncProjectBots(true));
       if (kernel.disposed) return;
@@ -241,8 +243,13 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     return this.kernel;
   }
 
-  protected override attach(socket: PlaneSocket): void {
-    attachLens(this.plexus.doc, socket);
+  protected override attach(socket: PlaneSocket, connectionId: string): ((text: string) => boolean) | void {
+    return attachPlane({
+      socket,
+      connectionId,
+      laneHub: this.kernel.laneHub,
+      room: this.#presence ?? undefined,
+    });
   }
 
   #syncProjectBots(notice: boolean): void {
@@ -273,6 +280,8 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     runInAction(() => {
       this.sessions = {};
     });
+    this.#presence?.close(1001, "project disposed");
+    this.#presence = null;
     if (this.kernel.disposed) this.plexus?.awareness.destroy();
   }
 }

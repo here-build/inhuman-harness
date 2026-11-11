@@ -5,6 +5,8 @@ import { pathToFileURL } from "node:url";
 import { installProcessLog, note } from "@inhuman.tools/harness-diagnostics";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 
+import { runSupervisedProcess } from "@/hypervisor/child-runtime";
+
 import { HarnessDaemon } from "./daemon/server/HarnessDaemon.js";
 import { openLog } from "./step.js";
 
@@ -49,6 +51,28 @@ export async function startDaemon(): Promise<void> {
   process.on("SIGTERM", () => shutdownDaemon("signal"));
 }
 
+export async function startSupervisedDaemon(argv = process.argv.slice(2)): Promise<number> {
+  const log = openLog(process.cwd());
+  installProcessLog("daemon");
+  note(`log ${log} pid=${process.pid} supervised=true`);
+  return runSupervisedProcess({
+    argv,
+    start: async () => {
+      const daemon = new HarnessDaemon(process.cwd());
+      await daemon.listen();
+      return async () => {
+        await daemon[Symbol.asyncDispose]();
+        return "ok" as const;
+      };
+    },
+  });
+}
+
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
-  await startDaemon();
+  if (process.argv.slice(2).includes("--supervised")) {
+    const code = await startSupervisedDaemon();
+    if (code !== 0) process.exit(code);
+  } else {
+    await startDaemon();
+  }
 }

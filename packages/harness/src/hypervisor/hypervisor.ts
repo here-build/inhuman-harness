@@ -22,7 +22,6 @@ import {
   isPlaneReady,
   isStaleSupervisionIdentity,
   mayReplaceExecutionOwner,
-  mayStartExecutionOwnerAfterYjsLoss,
   replacementDecision,
 } from "@/protocol/supervision";
 
@@ -120,11 +119,10 @@ export class Hypervisor implements AsyncDisposable {
   }
 
   health(): TopologyHealth {
-    const yjs = this.roleChild("yjs");
     const runtime = this.roleChild("runtime");
     return {
-      sync: planeOf(yjs, "sync"),
-      storage: planeOf(yjs, "storage"),
+      sync: planeOf(runtime, "sync"),
+      storage: planeOf(runtime, "storage"),
       execution: planeOf(runtime, "execution"),
     };
   }
@@ -153,8 +151,10 @@ export class Hypervisor implements AsyncDisposable {
     if (decision.action !== "replace") {
       throw new ReplacementRefusedError(decision.reason);
     }
-    if (child.descriptor.role === "runtime") this.runtimeGeneration += 1;
-    if (child.descriptor.role === "yjs") this.serverEpoch += 1;
+    if (child.descriptor.role === "runtime") {
+      this.runtimeGeneration += 1;
+      this.serverEpoch += 1;
+    }
     await this.spawnAndWaitReady(child.descriptor);
   }
 
@@ -476,43 +476,17 @@ export class Hypervisor implements AsyncDisposable {
     }
     if (this.admission === "refused") return;
 
-    if (child.descriptor.role === "yjs") {
-      await this.stopRuntimeBeforeYjsReplace(child);
-    }
-
     if (!(await this.shouldRestart(child))) return;
     child.restartAttempts += 1;
-    if (child.descriptor.role === "runtime") this.runtimeGeneration += 1;
-    if (child.descriptor.role === "yjs") this.serverEpoch += 1;
+    if (child.descriptor.role === "runtime") {
+      this.runtimeGeneration += 1;
+      this.serverEpoch += 1;
+    }
     await sleep(child.descriptor.restart.backoffMs);
     try {
       await this.spawnAndWaitReady(child.descriptor);
     } catch (error) {
       note(`hypervisor restart ${id} failed ${String(error)}`);
-    }
-  }
-
-  private async stopRuntimeBeforeYjsReplace(yjs: ChildRecord): Promise<void> {
-    const runtime = this.roleChild("runtime");
-    if (runtime === undefined || runtime.exit !== undefined) return;
-    await this.send(runtime, {
-      v: SUPERVISION_PROTOCOL_VERSION,
-      op: "shutdown",
-      identity: runtime.identity,
-      deadlineMs: 5_000,
-    });
-    try {
-      await waitUntil("runtime exit after yjs loss", () => runtime.exit !== undefined, 5_000);
-    } catch {
-      try {
-        runtime.process?.kill("SIGKILL");
-      } catch {
-        /* gone */
-      }
-    }
-    const evidence = await this.ownerEvidence(runtime);
-    if (!mayStartExecutionOwnerAfterYjsLoss(evidence)) {
-      note(`hypervisor yjs ${yjs.descriptor.id} loss still holds runtime lock`);
     }
   }
 

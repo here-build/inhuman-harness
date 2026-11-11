@@ -27,6 +27,8 @@ import { promptMessageOf } from "../prompt-message-of.js";
 import { assessTextOnlyContinueIntern } from "../re-act-loop-intent-detected-trigger.js";
 
 const sha256Of = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
+const serializedBytes = (plexus: SessionPlexus): number =>
+  Buffer.byteLength(JSON.stringify(plexus.doc.toNodeRows()), "utf8");
 
 /** An in-memory bucket behind both ports, as the kernel binds them to the directory bucket. */
 function seatMemoryBucket(): Map<string, { readonly bytes: Uint8Array; readonly mime: string }> {
@@ -126,7 +128,7 @@ describe("the summarizer's prefix", () => {
     const objects = seatMemoryBucket();
     const { plexus, turn, cutoff, sliced } = homedRounds();
     try {
-      const before = plexus.doc.encodeStateAsUpdate().byteLength;
+      const before = serializedBytes(plexus);
       const storedText = (): string => {
         const first = [...objects.values()].at(0);
         return Buffer.from(first?.bytes ?? []).toString("utf8");
@@ -145,7 +147,7 @@ describe("the summarizer's prefix", () => {
           const user = req.round.promptMessages[1]!;
           const wire = [...projectHistory(req.round, { readBlob: (sha256) => objects.get(sha256)?.bytes ?? null })];
           live.push({
-            grew: plexus.doc.encodeStateAsUpdate().byteLength - before,
+            grew: serializedBytes(plexus) - before,
             user: user.body.kind,
             head: user.content,
             // The projection hands the model the whole prefix, not the head the document keeps.
@@ -179,7 +181,7 @@ describe("the summarizer's prefix", () => {
       // The document grew by a head and a reference, not by 300 000 characters.
       expect(live[0]?.grew).toBeLessThan(10_000);
       // The settled run keeps its result and a one-line reference; the replaced message holds a head only.
-      const after = plexus.doc.encodeStateAsUpdate().byteLength;
+      const after = serializedBytes(plexus);
       expect(after - before).toBeLessThan(10_000);
     } finally {
       plexus.destroy();
@@ -189,7 +191,7 @@ describe("the summarizer's prefix", () => {
   it("stays inline when no bucket is seated: the document holds the text as it did", async () => {
     const { plexus, turn, cutoff, sliced } = homedRounds();
     try {
-      const before = plexus.doc.encodeStateAsUpdate().byteLength;
+      const before = serializedBytes(plexus);
       let grew = 0;
       await startAmbientCompact({
         home: turn,
@@ -200,7 +202,7 @@ describe("the summarizer's prefix", () => {
         model: "summarizer",
         inflight: new Map(),
         complete: (req) => {
-          grew = plexus.doc.encodeStateAsUpdate().byteLength - before;
+          grew = serializedBytes(plexus) - before;
           req.round.succeed("settled", "S", "null", { result: { text: "S" } });
           return Promise.resolve({ text: "S" });
         },

@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { prompt } from "@inhuman.tools/harness-commons";
-import { sessionBlobsTable, sessionsTable } from "@inhuman.tools/harness-contract";
+import { rowPairId, sessionBlobsTable, sessionsTable } from "@inhuman.tools/harness-contract/schema";
 import {
   AgentCallJob,
   BLOB_HEAD_CHARS,
@@ -26,7 +26,6 @@ import {
   SessionTurn,
   storedBlobJson,
 } from "@inhuman.tools/harness-model";
-import { encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
 import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
 import { describe, expect, it } from "vitest";
 
@@ -35,6 +34,8 @@ import { projectHistory } from "@/context";
 import { vacuumDatabaseBlobs, vacuumSession, type BlobPut } from "../vacuum.js";
 
 const sha256Of = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
+const serializedBytes = (plexus: SessionPlexus): number =>
+  Buffer.byteLength(JSON.stringify(plexus.doc.toNodeRows()), "utf8");
 
 /** An in-memory bucket: `put` as the daemon's writer, `read` as its reader. */
 function memoryBucket() {
@@ -165,15 +166,18 @@ describe("vacuumSession", () => {
     const { plexus, bigPrior, summarizer, pasted, orphanBefore } = stored();
     try {
       const bucket = memoryBucket();
-      const updates: number[] = [];
-      plexus.doc.on("update", (update: Uint8Array) => updates.push(update.byteLength));
-      const before = encodeDocumentStateAsUpdate(plexus.doc).byteLength;
+      let updates = 0;
+      const stop = plexus.doc.onPatch(() => {
+        updates += 1;
+      });
+      const before = serializedBytes(plexus);
       const counts = vacuumSession(plexus.root, bucket.put, { dryRun: true, read: bucket.read });
+      stop();
       expect({
         counts,
         puts: bucket.puts.length,
-        updates: updates.length,
-        grew: encodeDocumentStateAsUpdate(plexus.doc).byteLength - before,
+        updates,
+        grew: serializedBytes(plexus) - before,
         prior: bigPrior.priorContent === PRIOR,
         promptText: summarizer.promptText === TRANSCRIPT,
         message: summarizer.promptMessages[1]?.content === TRANSCRIPT,
@@ -204,9 +208,12 @@ describe("vacuumSession", () => {
     const { plexus, bigPrior, smallPrior, alreadyBlob, summarizer, pasted, orphanBefore, moved } = stored();
     try {
       const bucket = memoryBucket();
-      const updates: number[] = [];
-      plexus.doc.on("update", (update: Uint8Array) => updates.push(update.byteLength));
+      let updates = 0;
+      const stop = plexus.doc.onPatch(() => {
+        updates += 1;
+      });
       const counts = vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
+      stop();
       const sha = (text: string) => sha256Of(Buffer.from(text, "utf8"));
       const referenceOf = (json: string | null) => {
         const blob = parseStoredBlob(json);
@@ -216,7 +223,7 @@ describe("vacuumSession", () => {
       };
       expect({
         counts,
-        updates: updates.length,
+        updates,
         priorContent: bigPrior.priorContent,
         prior: referenceOf(bigPrior.priorBlobJson),
         small: [smallPrior.priorContent, smallPrior.priorBlobJson],
@@ -288,9 +295,9 @@ describe("vacuumSession", () => {
     const { plexus } = stored();
     try {
       const bucket = memoryBucket();
-      const before = encodeDocumentStateAsUpdate(plexus.doc).byteLength;
+      const before = serializedBytes(plexus);
       const first = vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
-      const after = encodeDocumentStateAsUpdate(plexus.doc).byteLength;
+      const after = serializedBytes(plexus);
       const second = vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
       // The running round, the agent call and the pasted line keep 300 000 characters.
       // The tree from root shrinks by priorContent (9 000) and 2x TRANSCRIPT (240 000).
@@ -449,11 +456,13 @@ describe("vacuumSession", () => {
           }).run();
           tx.insert(sessionBlobsTable).values([
             {
+              id: rowPairId("s1", "referenced-hash-1"),
               sessionId: "s1",
               blobId: "referenced-hash-1",
               createdAtMs: Date.now(),
             },
             {
+              id: rowPairId("s1", "referenced-hash-2"),
               sessionId: "s1",
               blobId: "referenced-hash-2",
               createdAtMs: Date.now(),

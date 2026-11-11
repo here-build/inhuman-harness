@@ -9,7 +9,7 @@ import {
   JSON_RPC_INVALID_PARAMS,
   type UiForm,
 } from "@/protocol/rpc";
-import type { PlaneSocket } from "@/yjs";
+import type { PlaneSocket } from "../transport/plane.js";
 
 import { DaemonRpcMethod, RequestHost, RpcInternalError, UiCancelled } from "../contract.js";
 import { serveJsonRpc, type RpcRequestIdentity } from "../transport/jsonrpc.js";
@@ -159,10 +159,8 @@ describe("RequestHost", () => {
 
     const texts: string[] = [];
     const socket: PlaneSocket = {
-      send: () => undefined,
       sendText: (text) => void texts.push(text),
       close: () => undefined,
-      onBinary: () => undefined,
       onText: () => undefined,
       onClose: () => undefined,
     };

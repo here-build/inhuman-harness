@@ -90,7 +90,7 @@ test("local nested imports replay from the durable captured closure after the so
   const turn = new SessionTurn({ turnTail: tail, prompt: prompt.user`keep`, queue: [], doneWork: [job] });
   turn.pushChild(job);
   session.root.head = turn;
-  let committed: Uint8Array | undefined;
+  let committed: { readonly rootId: string; readonly rows: ReturnType<typeof session.doc.toNodeRows> } | undefined;
   await runCompactJob(job, {
     turn,
     session: session.root,
@@ -99,7 +99,7 @@ test("local nested imports replay from the durable captured closure after the so
     model: "summarizer",
     program: loadCompactProgram("./compact.scm", root),
     async checkpoint() {
-      committed = session.doc.encodeStateAsUpdate();
+      committed = { rootId: session.root.uuid, rows: session.doc.toNodeRows() };
     },
   });
   expect(job.standIn).toBe("local captured card");
@@ -107,8 +107,10 @@ test("local nested imports replay from the durable captured closure after the so
   expect(job.resourceSnapshotJson).toContain('"card.txt":');
   if (committed === undefined) throw new Error("missing resource checkpoint");
   await rm(root, { recursive: true, force: true });
-  const restored = SessionPlexus.create(session.doc.guid);
-  restored.applyUpdate(committed);
+  const restored = SessionPlexus.fromNodeRows(committed.rows, {
+    rootId: committed.rootId,
+    sessionId: session.root.sessionId,
+  });
   onTestFinished(() => restored.destroy());
   const restoredTurn = restored.root.head;
   if (!(restoredTurn instanceof SessionTurn)) throw new TypeError("missing restored turn");

@@ -70,7 +70,6 @@ import { admitPrivateMcpTool, type NoteLog } from "@/extensions";
 import { pluginHookTimeoutMs } from "@/extensions/hook-deadline";
 import { license, noteDenied } from "@/policy-processor/license";
 import { scopes } from "@/policy-processor/scope";
-import { documentKey } from "@/protocol/document";
 import {
   hydrateMcpAlwaysAllows,
   MCP_HTTP_DRIVER,
@@ -819,12 +818,9 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     signal: AbortSignal,
   ): Promise<{ readonly dispatch: true } | { readonly dispatch: false; readonly persistFailed: boolean }> {
     if (!this.canApplyResults) return { dispatch: false, persistFailed: false };
-    const documents = this.sessionDaemon.kernel.runtime.documents;
-    if (documents != null) {
-      const gate = await persistJobIntent(documents, documentKey("sessions", this.session.root.sessionId), job);
-      if (!this.canApplyResults) return { dispatch: false, persistFailed: false };
-      if (!gate.ok) return { dispatch: false, persistFailed: true };
-    }
+    const gate = await persistJobIntent(() => this.sessionDaemon.kernel.flushSession(this.session), job);
+    if (!this.canApplyResults) return { dispatch: false, persistFailed: false };
+    if (!gate.ok) return { dispatch: false, persistFailed: true };
     if (
       job.cancelled ||
       job.completed ||

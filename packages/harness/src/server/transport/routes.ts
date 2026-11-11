@@ -1,17 +1,21 @@
 /**
- * Public document-route contract. Opening an existing identity is not
+ * Public room-route contract. Opening an existing identity is not
  * creation; composition decides how to serve each action.
  */
-import { documentKey, KERNEL_DOCUMENT_KEY, type DocumentKey, type PublicRoomName } from "@/protocol/document";
 
 export const UPGRADE_NOT_FOUND = 404;
 export const UPGRADE_ROUTE_FAILED = 500;
 
+export type PublicRoomTarget =
+  | { readonly kind: "kernel" }
+  | { readonly kind: "projects"; readonly id: string }
+  | { readonly kind: "sessions"; readonly id: string };
+
 export type PublicUpgrade =
-  | { readonly action: "open"; readonly key: DocumentKey }
+  | { readonly action: "open"; readonly key: PublicRoomTarget }
   | {
       readonly action: "create";
-      readonly room: PublicRoomName;
+      readonly room: "session";
       readonly path?: string;
       readonly sessionId?: string;
     }
@@ -28,17 +32,17 @@ export function classifyPublicUpgrade(url: string): PublicUpgrade {
   const sessionId = query.get("sessionId");
   switch (pathname) {
     case "/kernel":
-      return { action: "open", key: KERNEL_DOCUMENT_KEY };
+      return { action: "open", key: { kind: "kernel" } };
     case "/project": {
       if (path == null || path === "") {
         return { action: "refuse", status: 400, reason: "missing path" };
       }
-      return { action: "open", key: documentKey("projects", path) };
+      return { action: "open", key: { kind: "projects", id: path } };
     }
     case "/session": {
       if (path == null || path === "") {
         if (sessionId != null && sessionId !== "") {
-          return { action: "open", key: documentKey("sessions", sessionId) };
+          return { action: "open", key: { kind: "sessions", id: sessionId } };
         }
         return { action: "refuse", status: 400, reason: "missing path" };
       }

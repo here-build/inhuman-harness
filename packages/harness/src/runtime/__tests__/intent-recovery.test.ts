@@ -1,10 +1,10 @@
 /**
- * Intent gate and K1 recovery against a real on-disk DocumentService.
- * getLoaded stays memory-only. Failed write is not dispatch.
+ * Intent gate and K1 recovery against real on-disk HarnessDatabase SQLite storage.
+ * Cold opens read only committed SQLite rows. Failed write is not dispatch.
  */
-import { chmodSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import {
   AgentCallJob,
@@ -25,29 +25,21 @@ import {
   TurnPromptChunk,
   TurnSteerChunk,
 } from "@inhuman.tools/harness-model";
+import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
 import { joinReleased, type CallsCatalog } from "@inhuman.tools/turn/agent-calls";
 import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
-import { documentKey, receiptCoversCheckpoint, type DocumentKey } from "@/protocol/document";
 import { KernelToolCatalog, type CatalogEntry } from "@/tool-catalog";
-import { documentImagePath, DocumentService } from "@/yjs";
 
 import { persistJobIntent, recoverSessionJobs } from "../intent-recovery.js";
 
 const temps: string[] = [];
-const modes: Array<{ path: string; mode: number }> = [];
 
 afterEach(() => {
-  for (const entry of modes.splice(0)) {
-    try {
-      chmodSync(entry.path, entry.mode);
-    } catch {}
-  }
   for (const dir of temps.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
   }
 });
-
 
 function tempRoot(label: string): string {
   const root = mkdtempSync(join(tmpdir(), `k2-${label}-`));
@@ -104,31 +96,60 @@ function closedTurn(
   return turn;
 }
 
-async function bindSession(label: string) {
+function bindSession(label: string) {
   const root = tempRoot(label);
-  const service = new DocumentService({ root });
-  const key = documentKey("sessions", label);
-  const created = await service.create(key);
-  expect(created.ok).toBe(true);
-  if (!created.ok) throw new Error("create failed");
-  const plexus = SessionPlexus.create(label, `/tmp/${label}`, created.ref.doc);
+  const dbPath = join(root, "harness.db");
+  const db = new HarnessDatabase(dbPath);
+  const plexus = SessionPlexus.create(label, `/tmp/${label}`);
+  let closed = false;
+  onTestFinished(() => {
+    if (!plexus.doc.isDestroyed) plexus.destroy();
+    if (!closed) {
+      closed = true;
+      db.close();
+    }
+  });
+  db.insertSession({
+    sessionId: label,
+    workspacePath: plexus.root.path,
+    createdAtMs: Date.now(),
+    lastActiveAtMs: Date.now(),
+  });
+  const flush = (): void => {
+    const delta = plexus.doc.peekNodeDelta();
+    db.commitSessionNodes(label, {
+      rootId: plexus.root.uuid,
+      revision: delta.revision,
+      upserts: delta.upserts,
+      deletes: delta.deletes,
+    });
+    plexus.doc.commitNodeDelta(delta);
+  };
+  flush();
+  return { root, dbPath, db, sessionId: label, plexus, flush };
+}
+
+/** Cold open from SQLite on disk, then recover: the rows a restart reads are the coverage. */
+function restore(dbPath: string, sessionId: string, catalog?: CallsCatalog) {
+  const cold = new HarnessDatabase(dbPath);
+  onTestFinished(() => cold.close());
+  const loaded = cold.loadSessionNodes(sessionId);
+  if (loaded === undefined) throw new Error(`open failed: not-found (${sessionId})`);
+  const plexus = SessionPlexus.fromNodeRows(loaded.rows, {
+    rootId: loaded.rootId,
+    sessionId,
+    revision: loaded.revision,
+    meta: cold.loadSessionRuntimeMeta(sessionId),
+  });
   onTestFinished(() => {
     if (!plexus.doc.isDestroyed) plexus.destroy();
   });
-  return { root, service, key, plexus };
-}
-
-/** Cold open from disk, then recover: the image the restart reads is the coverage. */
-async function restore(service: DocumentService, key: DocumentKey, catalog?: CallsCatalog) {
-  const opened = await service.openExisting(key);
-  if (!opened.ok) throw new Error(`open failed: ${opened.reason}`);
-  const plexus = SessionPlexus.connect(opened.ref.doc);
   return recoverSessionJobs(plexus.root, { catalog });
 }
 
-describe("intent gate on real document storage", () => {
+describe("intent gate on real SQLite storage", () => {
   it("intent/checkpoint roundtrip covers the flushed prefix", async () => {
-    const { service, key, plexus } = await bindSession("roundtrip");
+    const { db, sessionId, plexus, flush } = bindSession("roundtrip");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -136,12 +157,14 @@ describe("intent gate on real document storage", () => {
       orchestrationResult: true,
     });
     plexus.root.head = closedTurn(job);
-    const checkpoint = service.checkpoint(key)!;
-    const gate = await persistJobIntent(service, key, job);
+    const beforeRows = db.loadSessionNodes(sessionId)?.rows ?? [];
+    expect(beforeRows.some((row) => row.uuid === job.uuid)).toBe(false);
+    const gate = await persistJobIntent(flush, job);
+    const afterRows = db.loadSessionNodes(sessionId)?.rows ?? [];
     expect({
       ok: gate.ok,
       required: gate.ok ? gate.required : false,
-      covers: gate.ok && gate.required && receiptCoversCheckpoint(gate.receipt, checkpoint),
+      covers: afterRows.some((row) => row.uuid === job.uuid),
       dispatch: gate.ok,
     }).toEqual({
       ok: true,
@@ -152,7 +175,7 @@ describe("intent gate on real document storage", () => {
   });
 
   it("failed write is not success and does not admit dispatch", async () => {
-    const { root, service, key, plexus } = await bindSession("fail-write");
+    const { db, sessionId, plexus, flush } = bindSession("fail-write");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -160,29 +183,27 @@ describe("intent gate on real document storage", () => {
       orchestrationResult: true,
     });
     plexus.root.head = closedTurn(job);
-    const image = documentImagePath(root, key.kind, key.id);
-    const dir = dirname(image);
-    modes.push({ path: dir, mode: 0o755 }, { path: image, mode: 0o600 });
-    chmodSync(dir, 0o555);
-    chmodSync(image, 0o444);
-    const gate = await persistJobIntent(service, key, job);
-    chmodSync(image, 0o600);
-    chmodSync(dir, 0o755);
+    db.sqlite.pragma("query_only = ON");
+    const gate = await persistJobIntent(flush, job);
+    db.sqlite.pragma("query_only = OFF");
+    const stored = db.loadSessionNodes(sessionId)?.rows ?? [];
     expect({
       gate,
       dispatch: gate.ok,
+      persisted: stored.some((row) => row.uuid === job.uuid),
       outcome: job.receiptJson,
       completed: job.completed,
     }).toEqual({
       gate: { ok: false, reason: "storage-failed" },
       dispatch: false,
+      persisted: false,
       outcome: null,
       completed: false,
     });
   });
 
-  it("getLoaded stays memory-only after a durable intent flush", async () => {
-    const { root, service, key, plexus } = await bindSession("loaded");
+  it("a cold database handle sees the durable intent flush", async () => {
+    const { dbPath, sessionId, plexus, flush } = bindSession("loaded");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -190,22 +211,24 @@ describe("intent gate on real document storage", () => {
       orchestrationResult: true,
     });
     plexus.root.head = closedTurn(job);
-    const gate = await persistJobIntent(service, key, job);
+    const gate = await persistJobIntent(flush, job);
     expect(gate.ok).toBe(true);
-    const cold = new DocumentService({ root });
-    expect(cold.getLoaded(key)).toBeUndefined();
-    const opened = await cold.openExisting(key);
-    expect({
-      opened: opened.ok,
-      loaded: cold.getLoaded(key) != null,
-    }).toEqual({ opened: true, loaded: true });
-    if (opened.ok) cold.release(key);
+    const cold = new HarnessDatabase(dbPath);
+    try {
+      const loaded = cold.loadSessionNodes(sessionId);
+      expect({
+        opened: loaded !== undefined,
+        hasJob: loaded?.rows.some((row) => row.uuid === job.uuid) ?? false,
+      }).toEqual({ opened: true, hasJob: true });
+    } finally {
+      cold.close();
+    }
   });
 });
 
-describe("job recovery from a real on-disk image", () => {
+describe("job recovery from real on-disk SQLite rows", () => {
   it("recovers an unsettled system tool as unknown-no-replay", async () => {
-    const { root, service, key, plexus } = await bindSession("unknown-sys");
+    const { dbPath, sessionId, plexus, flush } = bindSession("unknown-sys");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -213,12 +236,10 @@ describe("job recovery from a real on-disk image", () => {
       orchestrationResult: true,
     });
     plexus.root.head = closedTurn(job);
-    const gate = await persistJobIntent(service, key, job);
+    const gate = await persistJobIntent(flush, job);
     expect(gate.ok).toBe(true);
 
-    const restored = new DocumentService({ root });
-    expect(restored.getLoaded(key)).toBeUndefined();
-    const recovered = await restore(restored, key);
+    const recovered = restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:system-tool");
     expect({
       action: row?.action,
@@ -232,11 +253,10 @@ describe("job recovery from a real on-disk image", () => {
         text: "interrupted by restart; execution outcome unknown",
       },
     });
-    restored.release(key);
   });
 
   it("does not replay an unsettled file mutate from disk", async () => {
-    const { root, service, key, plexus } = await bindSession("unknown-write");
+    const { dbPath, sessionId, plexus, flush } = bindSession("unknown-write");
     const job = new FileMutateToolJob({
       toolCallId: "w1",
       name: "write_file",
@@ -244,11 +264,10 @@ describe("job recovery from a real on-disk image", () => {
       orchestrationResult: true,
     });
     plexus.root.head = closedTurn(job);
-    const gated = await persistJobIntent(service, key, job);
+    const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
-    const restored = new DocumentService({ root });
-    const recovered = await restore(restored, key);
+    const recovered = restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:file-mutate");
     expect({
       action: row?.action,
@@ -259,11 +278,10 @@ describe("job recovery from a real on-disk image", () => {
       completed: true,
       kind: "harness:job:file-mutate",
     });
-    restored.release(key);
   });
 
   it("treats dispatched MCP without a result as unknown", async () => {
-    const { root, service, key, plexus } = await bindSession("unknown-mcp");
+    const { dbPath, sessionId, plexus, flush } = bindSession("unknown-mcp");
     const job = new MCPToolJob({
       toolCallId: "m1",
       name: "mcp__x__t",
@@ -276,11 +294,10 @@ describe("job recovery from a real on-disk image", () => {
     });
     job.dispatched = true;
     plexus.root.head = closedTurn(job);
-    const gated = await persistJobIntent(service, key, job);
+    const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
-    const restored = new DocumentService({ root });
-    const recovered = await restore(restored, key);
+    const recovered = restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:mcp-tool");
     const mcp = row?.job instanceof MCPToolJob ? row.job : undefined;
     expect({
@@ -288,11 +305,10 @@ describe("job recovery from a real on-disk image", () => {
       completed: row?.job.completed,
       pew: mcp?.expectation.isDone,
     }).toEqual({ action: "unknown", completed: true, pew: true });
-    restored.release(key);
   });
 
   it("settles cancelRequested on a restored turn", async () => {
-    const { root, service, key, plexus } = await bindSession("cancel");
+    const { dbPath, sessionId, plexus, flush } = bindSession("cancel");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -306,13 +322,10 @@ describe("job recovery from a real on-disk image", () => {
     });
     turn.pushChild(job);
     plexus.root.head = turn;
-    const checkpoint = service.checkpoint(key);
-    expect(checkpoint).not.toBeUndefined();
-    const gated = await persistJobIntent(service, key, job);
+    const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
-    const restored = new DocumentService({ root });
-    const recovered = await restore(restored, key);
+    const recovered = restore(dbPath, sessionId);
     const turnRow = recovered.find((item) => item.kind === "harness:session:turn");
     const leaf = recovered.find((item) => item.kind === "harness:job:system-tool");
     expect({
@@ -326,11 +339,10 @@ describe("job recovery from a real on-disk image", () => {
       leafCompleted: true,
       leafCancelled: true,
     });
-    restored.release(key);
   });
 
   it("resume-queued context-need is not completed as unknown", async () => {
-    const { root, service, key, plexus } = await bindSession("need");
+    const { dbPath, sessionId, plexus, flush } = bindSession("need");
     const job = new ContextNeedToolJob({
       triggersReactLoop: false,
       tapeHidden: true,
@@ -339,13 +351,11 @@ describe("job recovery from a real on-disk image", () => {
       argsJson: "{}",
     });
     plexus.root.head = closedTurn(job);
-    const gated = await persistJobIntent(service, key, job);
+    const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
-    const flushed = await service.flush(key, service.checkpoint(key)!);
-    expect(flushed.ok).toBe(true);
+    flush();
 
-    const restored = new DocumentService({ root });
-    const recovered = await restore(restored, key);
+    const recovered = restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:context-need");
     expect({
       action: row?.action,
@@ -356,26 +366,23 @@ describe("job recovery from a real on-disk image", () => {
       completed: false,
       outcome: null,
     });
-    restored.release(key);
   });
 
   it.each([{ name: "child", CallType: AgentCallJob }])(
     "rejoins an owned $name invocation without adopting bot acceptance",
     async ({ name, CallType }) => {
-      const { root, service, key, plexus } = await bindSession(`${name}-rejoin`);
+      const { dbPath, sessionId, plexus, flush } = bindSession(`${name}-rejoin`);
       const call = new CallType({
         name: "agent__ask",
         orchestrationResult: true,
         workerSessionId: "existing-child",
       });
       plexus.root.head = closedTurn(call);
-      const gate = await persistJobIntent(service, key, call);
+      const gate = await persistJobIntent(flush, call);
       expect(gate.ok).toBe(true);
-      const flushed = await service.flush(key, service.checkpoint(key)!);
-      expect(flushed.ok).toBe(true);
+      flush();
 
-      const restored = new DocumentService({ root });
-      const recovered = await restore(restored, key);
+      const recovered = restore(dbPath, sessionId);
       const row = recovered.find((item) => item.kind === "harness:job:child-agent-call");
       const child = row?.job instanceof AgentCallJob ? row.job : undefined;
       expect({ action: row?.action, worker: child?.workerSessionId, completed: child?.completed }).toEqual({
@@ -383,13 +390,12 @@ describe("job recovery from a real on-disk image", () => {
         worker: "existing-child",
         completed: false,
       });
-      restored.release(key);
     },
   );
 
   it("a recovered BotCall resumes; its join waits on the re-run delivery, not on caller fields", async () => {
     const catalog = catalogOf([botCall("offload")]);
-    const { root, service, key, plexus } = await bindSession("accept");
+    const { dbPath, sessionId, plexus, flush } = bindSession("accept");
     const call = new BotCallJob({
       name: "offload",
       background: true,
@@ -399,22 +405,20 @@ describe("job recovery from a real on-disk image", () => {
       workerSessionId: "worker",
     });
     plexus.root.head = closedTurn(call);
-    const gated = await persistJobIntent(service, key, call);
+    const gated = await persistJobIntent(flush, call);
     expect(gated.ok).toBe(true);
 
-    const restored = new DocumentService({ root });
-    const recovered = await restore(restored, key, catalog);
+    const recovered = restore(dbPath, sessionId, catalog);
     const row = recovered.find((item) => item.kind === "harness:job:bot-call");
     const resumed = row?.job instanceof BotCallJob ? row.job : undefined;
     expect({
       action: row?.action,
       join: resumed != null && joinReleased(resumed, catalog),
     }).toEqual({ action: "resume-inner", join: false });
-    restored.release(key);
   });
 
-  it("cancelRequested without catalog skips call-lifetime Calls", async () => {
-    const { root, service, key, plexus } = await bindSession("cancel-work");
+  it("cancelRequested without catalog skips call-lifetime Calls", () => {
+    const { dbPath, sessionId, plexus, flush } = bindSession("cancel-work");
     const call = new BotCallJob({
       name: "offload",
       background: true,
@@ -429,31 +433,27 @@ describe("job recovery from a real on-disk image", () => {
     });
     turn.pushChild(call);
     plexus.root.head = turn;
-    const flushed = await service.flush(key, service.checkpoint(key)!);
-    expect(flushed.ok).toBe(true);
+    flush();
 
-    const restored = new DocumentService({ root });
-    const recovered = await restore(restored, key);
+    const recovered = restore(dbPath, sessionId);
     const callRow = recovered.find((item) => item.kind === "harness:job:bot-call");
     expect({
       completed: callRow?.job.completed,
       cancelled: callRow?.job.cancelled,
     }).toEqual({ completed: false, cancelled: false });
-    restored.release(key);
   });
 
   it("queued completion without intent is not auto-replayed after owner death once intended", async () => {
-    const { root, service, key, plexus } = await bindSession("completion");
+    const { dbPath, sessionId, plexus, flush } = bindSession("completion");
     const job = new CompletionJob({
       expectation: new CompletionExpectation({ connectionId: "c" }),
       orchestrationResult: true,
     });
     plexus.root.head = closedTurn(job);
-    const gated = await persistJobIntent(service, key, job);
+    const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
-    const restored = new DocumentService({ root });
-    const recovered = await restore(restored, key);
+    const recovered = restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:completion");
     const completion = row?.job instanceof CompletionJob ? row.job : undefined;
     expect({
@@ -461,7 +461,6 @@ describe("job recovery from a real on-disk image", () => {
       completed: row?.job.completed,
       pew: completion?.expectation.isDone,
     }).toEqual({ action: "unknown", completed: true, pew: true });
-    restored.release(key);
   });
 });
 

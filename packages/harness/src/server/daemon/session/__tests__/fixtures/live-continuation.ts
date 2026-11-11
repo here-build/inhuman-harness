@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { prompt } from "@inhuman.tools/harness-commons";
+import type { SessionEffectRow } from "@inhuman.tools/harness-contract/schema";
 import {
   CompletionJob,
   ReACTChunk,
@@ -10,14 +11,20 @@ import {
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
+import type { SerializedModelRow } from "@inhuman.tools/model";
 import { when } from "mobx";
 import { onTestFinished } from "vitest";
-
-import { documentKey } from "@/protocol/document";
 
 import { installScriptedModel, scriptedConnectionId, useKeepFirstCompact } from "../../../../testkit/scripted-model.js";
 import { KernelDaemon } from "../../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../../project/ProjectDaemon.js";
+
+export type SessionCut = {
+  readonly rootId: string;
+  readonly revision: number;
+  readonly rows: readonly SerializedModelRow[];
+  readonly effects: readonly SessionEffectRow[];
+};
 
 export const wait = (predicate: () => boolean) => when(predicate, { timeout: 8_000 });
 export const rounds = (turn: SessionTurn) =>
@@ -25,8 +32,20 @@ export const rounds = (turn: SessionTurn) =>
 export const boundaries = (turn: SessionTurn) =>
   [...turn.doneWork, ...turn.queue].filter((cell): cell is ReACTChunk => cell instanceof ReACTChunk);
 
+export function captureCut(live: {
+  readonly kernel: KernelDaemon;
+  readonly session: { readonly sessionId: string; readonly root: { readonly uuid: string }; readonly doc: SessionPlexus["doc"] };
+}): SessionCut {
+  return {
+    rootId: live.session.root.uuid,
+    revision: Math.max(live.session.doc.revision, 1),
+    rows: live.session.doc.toNodeRows(),
+    effects: live.kernel.db.listSessionEffects(live.session.sessionId),
+  };
+}
+
 export async function liveSession(
-  image?: Uint8Array,
+  cut?: SessionCut,
   files: Readonly<Record<string, string>> = {},
   workspacePath?: string,
   keepFirstCompact = false,
@@ -37,16 +56,32 @@ export async function liveSession(
   let kernel = new KernelDaemon(system);
   await kernel.ready;
   const model = installScriptedModel(kernel);
-  if (image != null) {
-    const created = await kernel.runtime.documents!.create(documentKey("sessions", "s1"), image);
-    if (!created.ok) throw new Error(`create image: ${created.reason}`);
-    const doc = await kernel.mintSessionDocument("s1", workspace);
-    await kernel.flushSession(doc);
+  if (cut != null) {
+    const now = Date.now();
+    kernel.db.writeTransaction(["sessions", "session_nodes", "session_effects"], (tx) => {
+      kernel.db.insertSession({
+        sessionId: "s1",
+        workspacePath: workspace,
+        revision: cut.revision,
+        createdAtMs: now,
+        lastActiveAtMs: now,
+      });
+      kernel.db.commitSessionNodesInTx(tx, "s1", {
+        rootId: cut.rootId,
+        revision: cut.revision,
+        upserts: cut.rows,
+        deletes: [],
+        replaceAll: true,
+      });
+      for (const effect of cut.effects) {
+        kernel.db.upsertSessionEffectInTx(tx, effect);
+      }
+    });
     kernel[Symbol.dispose]();
     kernel = new KernelDaemon(system);
     await kernel.ready;
   }
-  const script = image == null ? model : installScriptedModel(kernel);
+  const script = cut == null ? model : installScriptedModel(kernel);
   if (keepFirstCompact) useKeepFirstCompact(kernel, system);
   const project = new ProjectDaemon(kernel, workspace);
   await project.ready;
@@ -75,8 +110,12 @@ export async function startTurn(live: Awaited<ReturnType<typeof liveSession>>, t
 }
 
 export function replicaOf(session: Awaited<ReturnType<typeof liveSession>>["session"]): SessionPlexus {
-  const replica = SessionPlexus.create(session.doc.guid);
-  replica.applyUpdate(session.doc.encodeStateAsUpdate());
+  const replica = SessionPlexus.fromNodeRows(session.doc.toNodeRows(), {
+    rootId: session.root.uuid,
+    sessionId: session.sessionId,
+    revision: session.doc.revision,
+    meta: session.doc.exportMeta(),
+  });
   onTestFinished(() => replica.destroy());
   return replica;
 }

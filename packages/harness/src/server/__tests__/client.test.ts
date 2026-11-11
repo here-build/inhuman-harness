@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { chdir } from "node:process";
 
 import { KERNEL_DOC_GUID, SessionPlexus } from "@inhuman.tools/harness-model";
-import { destroyProvider, waitForSync, WebsocketProvider } from "@inhuman.tools/harness-peer";
+import { destroyRoomConnection, RoomConnection, waitForSync } from "@inhuman.tools/harness-peer";
 import { Client, RestoreNotFound } from "@inhuman.tools/harness-sdk";
 import { daemonSocketPath, projectSessionsDir } from "@inhuman.tools/harness-sdk/paths";
 import { pathExists, readJson } from "fs-extra";
@@ -72,11 +72,9 @@ describe("Client", () => {
         if (provider === null) throw new Error("missing session provider");
         expect({
           sessionId: provider.params.sessionId,
-          stockAwareness: provider.awareness.getLocalState(),
           sessions: Object.keys(project.sessions),
         }).toEqual({
           sessionId: started.sessionId,
-          stockAwareness: null,
           sessions: [started.sessionId],
         });
 
@@ -144,7 +142,7 @@ describe("Client", () => {
         const sessionId = started.sessionId;
         const unknownId = randomUUID();
         const attachedDoc = SessionPlexus.create(`harness:session:${sessionId}`);
-        const attachedProvider = new WebsocketProvider(`ws+unix://${socketPath}:`, "session", attachedDoc, {
+        const attachedProvider = new RoomConnection(`ws+unix://${socketPath}:`, "session", attachedDoc.doc, {
           WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
           params: { sessionId },
         });
@@ -178,7 +176,7 @@ describe("Client", () => {
             membership: false,
           });
         } finally {
-          destroyProvider(attachedProvider);
+          destroyRoomConnection(attachedProvider);
           attachedDoc.destroy();
         }
 

@@ -289,7 +289,7 @@ describe("login loss", () => {
 });
 
 describe("room bridge", () => {
-  it("dials on open, ignores a repeat, and bridges binary and text over 1 MiB both ways", async () => {
+  it("dials on open, ignores a repeat, and bridges plane and JSON-RPC text over 1 MiB both ways", async () => {
     const r = await rig();
     const ctl = await control(r);
     const room = "/session?sessionId=s1&path=%2Fwork";
@@ -300,42 +300,54 @@ describe("room bridge", () => {
     expect(r.relay.rooms()).toHaveLength(1);
     expect(r.daemon.sockets).toHaveLength(1);
 
-    const bin = new Uint8Array(1_500_000).map((_, i) => i % 251);
-    const text = bigText(1_400_000);
-    relaySide.ws.send(bin);
+    const largePlane = JSON.stringify({
+      kind: "shape/delta",
+      subscriptionId: "sub-1",
+      lane: "session_nodes",
+      offset: 1,
+      reset: true,
+      upserts: [{ id: "n1", payload: bigText(1_400_000) }],
+      deletes: [],
+      upToDate: true,
+    });
+    const text = bigText(1_200_000);
+    relaySide.ws.send(largePlane);
     relaySide.ws.send(text);
     relaySide.ws.send('{"jsonrpc":"2.0","id":"a:1","method":"m"}');
     await until(() => daemonSide.got.length === 3, "daemon frames");
-    expect(daemonSide.got[0]?.isBinary).toBe(true);
-    expect(new Uint8Array(daemonSide.got[0]!.data)).toEqual(bin);
+    expect(daemonSide.got[0]?.isBinary).toBe(false);
+    expect(daemonSide.got[0]!.data.toString("utf8") === largePlane).toBe(true);
     expect(daemonSide.got[1]?.isBinary).toBe(false);
     expect(daemonSide.got[1]!.data.toString("utf8") === text).toBe(true);
     expect(daemonSide.got[2]!.data.toString()).toBe('{"jsonrpc":"2.0","id":"a:1","method":"m"}');
 
-    daemonSide.ws.send(bin, { binary: true });
+    daemonSide.ws.send(largePlane);
     daemonSide.ws.send(text);
     daemonSide.ws.send('{"jsonrpc":"2.0","id":"a:1","result":1}');
     await until(() => relaySide.got.filter((g) => g !== " ping").length === 3, "relay frames");
     const back = relaySide.got.filter((g) => g !== " ping");
-    expect(new Uint8Array(back[0] as ArrayBuffer)).toEqual(bin);
+    expect(back[0] === largePlane).toBe(true);
     expect(back[1] === text).toBe(true);
     expect(back[2]).toBe('{"jsonrpc":"2.0","id":"a:1","result":1}');
   });
 
-  it("drops the daemon's query-awareness keepalive but passes the relay's query and other frames", async () => {
+  it("drops the daemon's ping keepalive and binary frames while forwarding presence and relay queries", async () => {
     const r = await rig();
     const ctl = await control(r);
     const { relaySide, daemonSide } = await openRoom(r, ctl, "/kernel");
-    daemonSide.ws.send(new Uint8Array([3]), { binary: true });
+    const presenceFrame = '{"kind":"presence/update","entries":[[1,{"attention":["x"]},1]]}';
+    daemonSide.ws.send('{"kind":"ping"}');
+    daemonSide.ws.send('{"kind":"ping","ts":123}');
     daemonSide.ws.send(new Uint8Array([1, 2, 9]), { binary: true });
-    await until(() => relaySide.got.length === 1, "awareness frame");
+    daemonSide.ws.send(presenceFrame);
+    await until(() => relaySide.got.filter((g) => g !== " ping").length === 1, "presence frame");
     await settle(100);
-    expect(new Uint8Array(relaySide.got[0] as ArrayBuffer)).toEqual(new Uint8Array([1, 2, 9]));
-    expect(relaySide.got).toHaveLength(1);
+    const receivedByRelay = relaySide.got.filter((g) => g !== " ping");
+    expect(receivedByRelay).toEqual([presenceFrame]);
 
-    relaySide.ws.send(new Uint8Array([3]));
+    relaySide.ws.send('{"kind":"presence/query"}');
     await until(() => daemonSide.got.length === 1, "relay query");
-    expect(new Uint8Array(daemonSide.got[0]!.data)).toEqual(new Uint8Array([3]));
+    expect(daemonSide.got[0]!.data.toString("utf8")).toBe('{"kind":"presence/query"}');
   });
 
   it("closes the relay socket 4000 + status when the daemon refuses the upgrade", async () => {

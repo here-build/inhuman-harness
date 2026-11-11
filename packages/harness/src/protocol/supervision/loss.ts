@@ -72,14 +72,6 @@ export function mayReplaceExecutionOwner(evidence: OwnerEvidence): boolean {
   return replacementDecision(evidence).action === "replace";
 }
 
-/**
- * Yjs death still requires the previous runtime to exit and release its lock
- * before a new execution owner starts.
- */
-export function mayStartExecutionOwnerAfterYjsLoss(runtime: OwnerEvidence): boolean {
-  return mayReplaceExecutionOwner(runtime);
-}
-
 export function shutdownIsComplete(cutoff: ShutdownCutoff): boolean {
   return cutoff.drain === "complete" && cutoff.flush !== "pending";
 }

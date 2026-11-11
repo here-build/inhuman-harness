@@ -41,28 +41,18 @@ function scratch(): string {
 }
 
 function roster(
-  rootFlags: string[] = [],
   runtimeFlags: string[] = [],
   restart: RestartPolicy = never,
-  runtimeRestart: RestartPolicy = restart,
 ) {
   return {
     servers: [
-      {
-        id: "yjs",
-        role: "yjs" as const,
-        executable: process.execPath,
-        args: [supervisedChild, ...rootFlags],
-        requires: [] as string[],
-        restart,
-      },
       {
         id: "runtime",
         role: "runtime" as const,
         executable: process.execPath,
         args: [supervisedChild, ...runtimeFlags],
-        requires: ["yjs"],
-        restart: runtimeRestart,
+        requires: [] as string[],
+        restart,
       },
     ],
   };
@@ -93,21 +83,22 @@ async function start(
 }
 
 describe("descriptors and readiness", () => {
-  it("starts from F3 descriptors and keeps sync ready independent of execution", async () => {
+  it("starts from descriptors and publishes sync, storage, and execution readiness", async () => {
     const hv = await start(scratch());
     const health = hv.health();
     expect(isSyncReady(health)).toBe(true);
     expect(isExecutionReady(health)).toBe(true);
     expect(health.sync.state).toBe("ready");
+    expect(health.storage.state).toBe("ready");
     expect(health.execution.state).toBe("ready");
     const ids = hv.snapshot().map((child) => child.id);
-    expect(ids).toEqual(["yjs", "runtime"]);
+    expect(ids).toEqual(["runtime"]);
     expect(hv.snapshot().find((child) => child.id === "runtime")?.identity.hypervisor.id).toBe("hv-test");
   });
 
-  it("does not admit a runtime before its yjs readiness dependency", async () => {
+  it("times out if runtime never publishes readiness", async () => {
     const root = scratch();
-    await expect(start(root, roster(["--unready"], [], never), 400)).rejects.toThrow(/timeout waiting for yjs ready/);
+    await expect(start(root, roster(["--unready"], never), 400, 400)).rejects.toThrow(/timeout waiting for runtime ready/);
   });
 
   it("records exit when a child dies before ready", async () => {
@@ -118,8 +109,8 @@ describe("descriptors and readiness", () => {
         serverRoster: {
           servers: [
             {
-              id: "yjs",
-              role: "yjs",
+              id: "runtime",
+              role: "runtime",
               executable: process.execPath,
               args: ["-e", "process.exit(1)"],
               requires: [],
@@ -196,7 +187,7 @@ describe("replacement and child locks", () => {
 
   it("replaces a runtime only after confirmed exit and lock release", async () => {
     const root = scratch();
-    const hv = await start(root, roster([], [], never));
+    const hv = await start(root, roster([], never));
     const before = hv.snapshot().find((child) => child.id === "runtime");
     expect(before?.pid).toBeDefined();
     const generation = before?.identity.runtimeGeneration;
@@ -215,19 +206,9 @@ describe("replacement and child locks", () => {
     expect(await isLifetimeLockHeld(lockPathFor(root, "runtime"))).toBe(true);
   });
 
-  it("does not restart runtime while a required yjs plane is down", async () => {
-    const hv = await start(scratch(), roster([], [], never, always), 400, 15_000);
-    const yjs = hv.snapshot().find((child) => child.id === "yjs");
-    process.kill(yjs?.pid ?? 0, "SIGKILL");
-    await waitUntil("yjs down", () => hv.snapshot().find((child) => child.id === "yjs")?.exit !== undefined, 5_000);
-    await sleep(600);
-    expect(isExecutionReady(hv.health())).toBe(false);
-    expect(hv.snapshot().find((child) => child.id === "runtime")?.exit).toBeDefined();
-  });
-
   it("restarts on-failure after the previous lock is released", async () => {
     const root = scratch();
-    const hv = await start(root, roster([], [], onFailure));
+    const hv = await start(root, roster([], onFailure));
     const before = hv.snapshot().find((child) => child.id === "runtime");
     process.kill(before?.pid ?? 0, "SIGKILL");
     await waitUntil(
@@ -261,7 +242,7 @@ describe("restart policy", () => {
     );
 
   it("a ready restart refills the attempt budget", async () => {
-    const hv = await start(scratch(), roster([], [], never, { mode: "on-failure", maxAttempts: 1, backoffMs: 20 }));
+    const hv = await start(scratch(), roster([], { mode: "on-failure", maxAttempts: 1, backoffMs: 20 }));
     const first = runtimeOf(hv)?.pid;
     process.kill(first ?? 0, "SIGKILL");
     await restartedFrom(hv, first);
@@ -277,8 +258,7 @@ describe("restart policy", () => {
       root,
       {
         servers: [
-          roster().servers[0],
-          { ...roster().servers[1], args: ready, restart: { mode: "on-failure", maxAttempts: 2, backoffMs: 20 } },
+          { ...roster().servers[0]!, args: ready, restart: { mode: "on-failure", maxAttempts: 2, backoffMs: 20 } },
         ],
       },
       400,
@@ -298,7 +278,7 @@ describe("restart policy", () => {
   });
 
   it("a restart waiting on its requires does not spawn after shutdown", async () => {
-    const hv = await start(scratch(), roster([], [], never, { mode: "always", maxAttempts: 3, backoffMs: 0 }));
+    const hv = await start(scratch(), roster([], { mode: "always", maxAttempts: 3, backoffMs: 0 }));
     // Hold the restart inside spawnAndWaitReady's awaits while shutdown runs.
     const gate = hv as unknown as { waitForRequires: () => Promise<void> };
     let entered = false;
@@ -318,7 +298,7 @@ describe("restart policy", () => {
 
 describe("shutdown cutoff", () => {
   it("refuses new admission and completes after drain plus flush", async () => {
-    const hv = await start(scratch(), roster([], [], always));
+    const hv = await start(scratch(), roster([], always));
     const cutoff = await hv.shutdown({ deadlineMs: 5_000 });
     expect(hv.admissionState).toBe("refused");
     expect(cutoff.admission).toBe("refused");
@@ -329,7 +309,7 @@ describe("shutdown cutoff", () => {
   });
 
   it("does not treat a missing cutoff as a successful flush", async () => {
-    const hv = await start(scratch(), roster([], [], never));
+    const hv = await start(scratch(), roster([], never));
     for (const child of hv.snapshot()) {
       if (child.pid !== undefined) process.kill(child.pid, "SIGKILL");
     }
@@ -340,7 +320,7 @@ describe("shutdown cutoff", () => {
   });
 
   it("keeps a forced pending flush observable", async () => {
-    const hv = await start(scratch(), roster([], ["--ignore-shutdown"], never));
+    const hv = await start(scratch(), roster(["--ignore-shutdown"], never));
     const cutoff = await hv.shutdown({ deadlineMs: 200 });
     expect(cutoff.admission).toBe("refused");
     expect(cutoff.forced).toBe(true);

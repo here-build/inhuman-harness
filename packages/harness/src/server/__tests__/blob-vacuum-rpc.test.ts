@@ -3,7 +3,6 @@
  * blob/vacuum over the session plane: a stored session's large text goes to the kernel's bucket and the stored
  * image shrinks to one snapshot. A dry run counts and writes nothing, and a second run finds nothing.
  */
-import { statSync } from "node:fs";
 import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,9 +19,6 @@ import {
   SessionTurn,
 } from "@inhuman.tools/harness-model";
 import { describe, expect, it, onTestFinished } from "vitest";
-
-import { documentImageSegments, documentKey } from "@/protocol/document";
-import { DocumentImageStore } from "@/yjs/storage";
 
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../daemon/project/ProjectDaemon.js";
@@ -81,7 +77,7 @@ function seed(plexus: SessionPlexus) {
 }
 
 function imageSize(kernel: KernelDaemon): number {
-  return statSync(join(kernel.root, ...documentImageSegments("sessions", "s-vacuum"))).size;
+  return kernel.sessionStoredBytes("s-vacuum");
 }
 
 describe("blob/vacuum", () => {
@@ -151,11 +147,15 @@ describe("blob/vacuum", () => {
       same: parseStoredBlob(summarizer.promptMessages[1]?.contentBlobJson ?? null)?.sha256,
     });
 
-    // What is on disk is a single snapshot of the vacuumed document, and it opens as a session.
-    const disk = await new DocumentImageStore(kernel.root).read(documentKey("sessions", "s-vacuum"));
-    if (disk === undefined) throw new Error("the image did not read");
-    const restored = SessionPlexus.create(session.plexus.doc.guid);
-    restored.applyUpdate(disk);
+    // What is in SQLite is normalized rows of the vacuumed document, and it opens as a session.
+    const loaded = kernel.db.loadSessionNodes("s-vacuum");
+    if (loaded === undefined) throw new Error("the session nodes did not read");
+    const restored = SessionPlexus.fromNodeRows(loaded.rows, {
+      rootId: loaded.rootId,
+      sessionId: "s-vacuum",
+      revision: loaded.revision,
+      meta: kernel.db.loadSessionRuntimeMeta("s-vacuum"),
+    });
     try {
       const jobs = restored.getAllOfType(FileMutateToolJob);
       const rounds = restored.getAllOfType(CompletionExpectation);

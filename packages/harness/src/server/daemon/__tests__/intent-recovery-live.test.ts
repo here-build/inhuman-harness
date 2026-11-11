@@ -2,10 +2,10 @@
  * Live KernelDaemon + ProjectDaemon wiring of the K2 intent/recovery adapter.
  * Natural seating. No HTTPServer / HarnessDaemon.
  */
-import { chmodSync, existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import {
   BotCallJob,
@@ -25,10 +25,8 @@ import { joinReleased } from "@inhuman.tools/turn/agent-calls";
 import { observable, runInAction, when } from "mobx";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { documentKey } from "@/protocol/document";
 import { persistJobIntent } from "@/runtime";
 import type { CatalogEntry } from "@/tool-catalog";
-import { documentImagePath } from "@/yjs/storage";
 
 import { KernelDaemon } from "../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../project/ProjectDaemon.js";
@@ -81,27 +79,21 @@ async function openLive(label: string) {
   return { system, workspace, kernel, project };
 }
 
-function lockSessionImages(system: string, sessionId: string): void {
-  const dir = dirname(documentImagePath(system, documentKey("sessions", sessionId)));
-  const images = readdirSync(dir).map((name) => join(dir, name));
-  const mode = 0o755;
-  chmodSync(dir, 0o555);
-  for (const image of images) chmodSync(image, 0o444);
+function lockDatabase(kernel: KernelDaemon): void {
+  kernel.db.sqlite.pragma("query_only = ON");
   onTestFinished(() => {
     try {
-      for (const image of images) chmodSync(image, 0o600);
-      chmodSync(dir, mode);
+      kernel.db.sqlite.pragma("query_only = OFF");
     } catch {}
   });
 }
 
 describe("live intent receipts and recovery gate", () => {
-  
   it("intentRequired file-mutate does not run BODY when flush fails, and settles as a failure", async () => {
-    const { system, workspace, kernel, project } = await openLive("chmod");
+    const { workspace, kernel, project } = await openLive("chmod");
     const session = await project.session("write");
     await kernel.flushSession(session.plexus);
-    lockSessionImages(system, "write");
+    lockDatabase(kernel);
     const target = join(workspace, "blocked.txt");
     const job = new FileMutateToolJob({
       toolCallId: "w1",
@@ -110,12 +102,11 @@ describe("live intent receipts and recovery gate", () => {
       humanApprove: true,
       orchestrationResult: true,
     });
-    const documents = kernel.runtime.documents!;
-    const originalFlush = documents.flush.bind(documents);
+    const originalFlush = kernel.flushSession.bind(kernel);
     const gated = observable.box(false);
-    vi.spyOn(documents, "flush").mockImplementation(async (flushKey, checkpoint, options) => {
+    vi.spyOn(kernel, "flushSession").mockImplementation(async (plexus, options) => {
       try {
-        return await originalFlush(flushKey, checkpoint, options);
+        return await originalFlush(plexus, options);
       } finally {
         if (job.startedAtMs != null) runInAction(() => gated.set(true));
       }
@@ -135,8 +126,7 @@ describe("live intent receipts and recovery gate", () => {
   it("covering receipt then cancel does not start BODY", async () => {
     const { workspace, kernel, project } = await openLive("cancel");
     const session = await project.session("write");
-    const documents = kernel.runtime.documents!;
-    const originalFlush = documents.flush.bind(documents);
+    const originalFlush = kernel.flushSession.bind(kernel);
     const job = new FileMutateToolJob({
       toolCallId: "w1",
       name: "write_file",
@@ -150,11 +140,10 @@ describe("live intent receipts and recovery gate", () => {
       permissionMode: "yolo",
     });
     const gated = observable.box(false);
-    vi.spyOn(documents, "flush").mockImplementation(async (flushKey, checkpoint, options) => {
+    vi.spyOn(kernel, "flushSession").mockImplementation(async (plexus, options) => {
       try {
-        const result = await originalFlush(flushKey, checkpoint, options);
+        await originalFlush(plexus, options);
         if (job.startedAtMs != null) turn.cancelRequested = true;
-        return result;
       } finally {
         if (job.startedAtMs != null) runInAction(() => gated.set(true));
       }
@@ -168,12 +157,12 @@ describe("live intent receipts and recovery gate", () => {
   });
 
   it("persist-fail skips web/MCP BODY and fails a completion PEW without wedging", async () => {
-    const { system, kernel, project } = await openLive("gates");
+    const { kernel, project } = await openLive("gates");
     const tools = await project.session("tools");
     const completeSession = await project.session("complete");
     await kernel.flushSession(tools.plexus);
     await kernel.flushSession(completeSession.plexus);
-    lockSessionImages(system, "tools");
+    lockDatabase(kernel);
     const search = new WebSearchToolJob({
       toolCallId: "s1",
       name: "web_search",
@@ -218,12 +207,13 @@ describe("live intent receipts and recovery gate", () => {
     }).toEqual({ pew: "failed", reducerExited: true, open: null });
   });
 
-  it("cold recover via openExisting applies K1 rows and keeps idle honor-off", async () => {
+  it("cold recover via SQLite applies K1 rows and keeps idle honor-off", async () => {
     const { system, kernel, project } = await openLive("cold");
     kernel.catalog.replacePack([botCall("offload")]);
     const session = await project.session("idle");
     await session.park();
-    const idleRoot = kernel.sessionPlexus("idle")!.root;
+    const idlePlexus = kernel.sessionPlexus("idle")!;
+    const idleRoot = idlePlexus.root;
     const sys = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -248,7 +238,8 @@ describe("live intent receipts and recovery gate", () => {
     idleRoot.head = closedTurn(sys, need, call);
     const cancelled = await project.session("cancel");
     await cancelled.park();
-    const cancelRoot = kernel.sessionPlexus("cancel")!.root;
+    const cancelPlexus = kernel.sessionPlexus("cancel")!;
+    const cancelRoot = cancelPlexus.root;
     const leaf = new SystemToolJob({
       toolCallId: "c2",
       name: "read_file",
@@ -262,11 +253,9 @@ describe("live intent receipts and recovery gate", () => {
     });
     cancelTurn.pushChild(leaf);
     cancelRoot.head = cancelTurn;
-    const key = documentKey("sessions", "idle");
-    const documents = kernel.runtime.documents!;
-    const sysGate = await persistJobIntent(documents, key, sys);
-    const callGate = await persistJobIntent(documents, key, call);
-    const leafGate = await persistJobIntent(documents, documentKey("sessions", "cancel"), leaf);
+    const sysGate = await persistJobIntent(() => kernel.flushSession(idlePlexus), sys);
+    const callGate = await persistJobIntent(() => kernel.flushSession(idlePlexus), call);
+    const leafGate = await persistJobIntent(() => kernel.flushSession(cancelPlexus), leaf);
     expect({
       sys: sysGate.ok,
       call: callGate.ok,
@@ -278,8 +267,8 @@ describe("live intent receipts and recovery gate", () => {
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
     restored.catalog.replacePack([botCall("offload")]);
-    expect(restored.runtime.documents?.getLoaded(key)).toBeUndefined();
-    const open = vi.spyOn(restored.runtime.documents!, "openExisting");
+    expect(restored.sessionPlexus("idle")).toBeUndefined();
+    const open = vi.spyOn(restored.db, "loadSessionNodes");
     await restored.acquireSession("idle");
     await restored.acquireSession("cancel");
     const attached = await restored.attachSession("idle");
@@ -343,7 +332,7 @@ describe("live intent receipts and recovery gate", () => {
       workerSessionId: "worker",
     });
     kernel.sessionPlexus("hot")!.root.head = closedTurn(call);
-    expect(kernel.runtime.documents?.getLoaded(documentKey("sessions", "hot"))).toBeDefined();
+    expect(kernel.sessionPlexus("hot")).toBeDefined();
     const replaced = await project.attachEligible("hot");
     const live = [...replaced.plexus.root.motionWork()].find((node): node is BotCallJob => node instanceof BotCallJob);
     expect({
@@ -372,8 +361,8 @@ describe("live intent receipts and recovery gate", () => {
     s1.root.applyKvs([{ form: "kv-set", key: "mark", value: "left" }]);
     s2.root.applyKvs([{ form: "kv-set", key: "mark", value: "right" }]);
     expect({
-      documents: k1.runtime.documents === k2.runtime.documents,
+      dbs: k1.db === k2.db,
       marks: [s1.root.kvs.mark, s2.root.kvs.mark],
-    }).toEqual({ documents: false, marks: ["left", "right"] });
+    }).toEqual({ dbs: false, marks: ["left", "right"] });
   });
 });

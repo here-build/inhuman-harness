@@ -15,7 +15,6 @@ import { memoryCredentialsStore, openDriverRegistry } from "@/connections";
 import { mcpProvider } from "@/providers/mcp";
 import { openaiCompatProvider } from "@/providers/openai-compat/register";
 import { KernelToolCatalog } from "@/tool-catalog";
-import { DocumentService } from "@/yjs";
 
 import { ProductionRuntime } from "../compose.js";
 import { graphEligibleSessionIds } from "../eligibility.js";
@@ -204,32 +203,22 @@ describe("production runtime composition", () => {
     expect(a.catalog.connectionHost).not.toBe(b.catalog.connectionHost);
   });
 
-  it("binds DocumentService without starting catalog observers", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "runtime-docs-"));
-    temps.push(root);
-    const documents = new DocumentService({ root });
+  it("binds kernel tables without starting catalog observers", () => {
     const catalog = new KernelToolCatalog();
     const runtime = new ProductionRuntime({
       registry: localRoster(),
       catalog,
-      documents,
     });
     runtime.bind(emptyTables());
-    const key = { kind: "sessions" as const, id: "cold" };
     expect({
       activated: runtime.activated,
       host: catalog.connectionHost,
-      documents: runtime.documents === documents,
-      loaded: documents.getLoaded(key),
+      replica: runtime.replica("cold"),
     }).toEqual({
       activated: false,
       host: undefined,
-      documents: true,
-      loaded: undefined,
+      replica: undefined,
     });
-    const opened = await documents.openExisting(key);
-    expect(opened).toEqual({ ok: false, reason: "not-found" });
-    expect(documents.getLoaded(key)).toBeUndefined();
     runtime[Symbol.dispose]();
   });
 

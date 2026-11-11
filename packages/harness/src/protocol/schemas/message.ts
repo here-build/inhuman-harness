@@ -17,7 +17,7 @@ function refineChildHealth(
   ctx: z.RefinementCtx,
 ): void {
   const kind = message.identity.process.kind;
-  const allowed = new Set(kind === "yjs" || kind === "runtime" ? publishedReadiness(kind) : []);
+  const allowed = new Set(kind === "runtime" ? publishedReadiness(kind) : []);
   const present = (["sync", "storage", "execution"] as const).filter((plane) => message.health[plane] != null);
   if (present.length === 0) {
     ctx.addIssue({

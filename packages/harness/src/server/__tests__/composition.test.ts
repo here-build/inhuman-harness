@@ -108,7 +108,7 @@ describe("product provider roster", () => {
 });
 
 describe("product topology roster", () => {
-  it("names yjs-server and runtime-server roles with runtime requiring yjs", () => {
+  it("names single supervised runtime role over harness-daemon", () => {
     const bins = productBins();
     const roster = productRoster(bins);
     expect(
@@ -118,11 +118,11 @@ describe("product topology roster", () => {
         requires: server.requires,
       })),
     ).toEqual([
-      { id: "yjs", role: "yjs", requires: [] },
-      { id: "runtime", role: "runtime", requires: ["yjs"] },
+      { id: "runtime", role: "runtime", requires: [] },
     ]);
-    expect(bins.yjs.args.join(" ")).toMatch(/[/\\]dist[/\\]yjs[/\\]bin\.js$/);
-    expect(bins.runtime.args.join(" ")).toMatch(/runtime-bin\.js/);
+    expect(bins.runtime.args).toHaveLength(2);
+    expect(bins.runtime.args[0]).toMatch(/[/\\]bin\.js$/);
+    expect(bins.runtime.args[1]).toBe("--supervised");
   });
 });
 

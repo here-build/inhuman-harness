@@ -18,11 +18,13 @@ import { expect, onTestFinished, test } from "vitest";
 
 import {
   boundaries,
+  captureCut,
   configureJudge,
   liveSession,
   replicaOf,
   rounds,
   startTurn,
+  type SessionCut,
   wait,
 } from "./fixtures/live-continuation.js";
 
@@ -306,19 +308,22 @@ test("CodeAct executes through the real runtime and obeys its declared follow-up
   }).toEqual({ rounds: 1, completed: true, result: "3", follows: false, decision: "halt" });
 });
 
-// These are real persisted prefixes of one production turn, observed at every Y update.
-// Restart loads the prefix through DocumentService and the normal daemon recovery path.
+// These are real persisted prefixes of one production turn, observed at every patch cut.
+// Restart loads the prefix through SQLite and the normal daemon recovery path.
 test("all persisted response/decision/admission cuts recover once and remain stable across repeated restarts", async () => {
   const live = await liveSession(undefined, { "effect.txt": "seed" });
   live.session.root.permissionMode = "yolo";
   const { turn } = await startTurn(live);
   const source = rounds(turn)[0]!;
-  const images = new Map<string, { image: Uint8Array; effect: string }>();
+  const images = new Map<string, { image: SessionCut; effect: string }>();
   const violations: unknown[] = [];
   const capture = (): void => {
-    const image = live.session.doc.encodeStateAsUpdate();
-    const view = SessionPlexus.create(live.session.doc.guid);
-    view.applyUpdate(image);
+    const image = captureCut(live);
+    const view = SessionPlexus.fromNodeRows(image.rows, {
+      rootId: image.rootId,
+      sessionId: live.session.sessionId,
+      revision: image.revision,
+    });
     try {
       const saved = view.root.head as SessionTurn;
       const tape = [...saved.doneWork, ...saved.queue];
@@ -360,8 +365,8 @@ test("all persisted response/decision/admission cuts recover once and remain sta
     }
   };
   const doc = live.session.doc;
-  doc.on("update", capture);
-  onTestFinished(() => doc.off("update", capture));
+  const stopCapture = doc.onPatch(capture);
+  onTestFinished(stopCapture);
   live.model.reply({
     calls: [
       responseCall("title", "update_metadata", '{"current_turn_title":"Inspect"}'),
@@ -371,7 +376,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
   await wait(() => rounds(turn).length === 2);
   live.model.reply({ text: "Done." });
   await wait(() => turn.reducerExited);
-  doc.off("update", capture);
+  stopCapture();
   expect({ violations, cuts: [...images.keys()].sort() }).toEqual({
     violations: [],
     cuts: ["boundary-undecided", "decision-recorded", "metadata-recorded", "provider-settled", "successor-recorded"],
@@ -398,7 +403,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
       phase,
       effect: "seed\nhit",
     });
-    let stableImage = recovered.session.doc.encodeStateAsUpdate();
+    let stableImage = captureCut(recovered);
     const identities = rounds(resumed).map((job) => job.uuid);
     for (let restart = 0; restart < 2; restart += 1) {
       const restarted = await liveSession(stableImage, { "effect.txt": "seed\nhit" }, live.project.path);
@@ -410,7 +415,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
         tools: toolJobs(final).map((job) => job.toolCallId),
       }).toEqual({ phase, exited: true, rounds: identities, tools: ["title", "effect"] });
       expect(readFileSync(join(restarted.project.path, "effect.txt"), "utf8")).toBe("seed\nhit");
-      stableImage = restarted.session.doc.encodeStateAsUpdate();
+      stableImage = captureCut(restarted);
     }
   }
 }, 40_000);
@@ -423,7 +428,7 @@ test("repeated restarts abandon each interrupted provider attempt and grant one 
   for (let restart = 0; restart < 2; restart += 1) {
     await wait(() => rounds(current).at(-1)?.orchestrated === true);
     abandoned.push(rounds(current).at(-1)!.uuid);
-    const image = live.session.doc.encodeStateAsUpdate();
+    const image = captureCut(live);
     live = await liveSession(image, {}, live.project.path);
     current = live.session.root.head as SessionTurn;
     await wait(() => rounds(current).length === restart + 2);
@@ -460,14 +465,17 @@ test("a forced compaction and its expansion boundary survive the same durable cu
   const live = await liveSession(undefined, {}, undefined, true);
   const { turn } = await startTurn(live);
   const source = rounds(turn)[0]!;
-  let image: Uint8Array | null = null;
+  let image: SessionCut | null = null;
   let compactId = "";
   const violations: string[] = [];
   const doc = live.session.doc;
   const capture = (): void => {
-    const snapshot = doc.encodeStateAsUpdate();
-    const replica = SessionPlexus.create(doc.guid);
-    replica.applyUpdate(snapshot);
+    const snapshot = captureCut(live);
+    const replica = SessionPlexus.fromNodeRows(snapshot.rows, {
+      rootId: snapshot.rootId,
+      sessionId: live.session.sessionId,
+      revision: snapshot.revision,
+    });
     try {
       const saved = replica.root.head as SessionTurn;
       const compact = [...saved.doneWork, ...saved.queue].find(
@@ -485,8 +493,8 @@ test("a forced compaction and its expansion boundary survive the same durable cu
       replica.destroy();
     }
   };
-  doc.on("update", capture);
-  onTestFinished(() => doc.off("update", capture));
+  const stopCapture = doc.onPatch(capture);
+  onTestFinished(stopCapture);
   live.model.reply({
     usage: { totalTokens: 91, contextLimit: 100 },
     calls: [responseCall("need", "context_need", '{"min_remaining_tokens":40}')],
@@ -494,7 +502,7 @@ test("a forced compaction and its expansion boundary survive the same durable cu
   await wait(() => rounds(turn).length === 2);
   live.model.reply({ text: "Done." });
   await wait(() => turn.reducerExited);
-  doc.off("update", capture);
+  stopCapture();
   expect({
     violations,
     captured: image != null,

@@ -3,15 +3,14 @@ import { z } from "zod";
 import type { ReadinessKind } from "./health.js";
 
 /** Servers the hypervisor launches. Hypervisor itself is not a descriptor. */
-export const serverRoleSchema = z.enum(["yjs", "runtime"]);
+export const serverRoleSchema = z.enum(["runtime"]);
 export type ServerRole = z.infer<typeof serverRoleSchema>;
 
-const yjsReadiness = ["sync", "storage"] as const satisfies readonly ReadinessKind[];
-const runtimeReadiness = ["execution"] as const satisfies readonly ReadinessKind[];
+const runtimeReadiness = ["sync", "storage", "execution"] as const satisfies readonly ReadinessKind[];
 
 /** Readiness kinds a role publishes. Socket bind is not a kind. */
-export function publishedReadiness(role: ServerRole): readonly ReadinessKind[] {
-  return role === "yjs" ? yjsReadiness : runtimeReadiness;
+export function publishedReadiness(_role: ServerRole): readonly ReadinessKind[] {
+  return runtimeReadiness;
 }
 
 export const restartPolicySchema = z

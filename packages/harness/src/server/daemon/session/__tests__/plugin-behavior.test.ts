@@ -627,7 +627,7 @@ test.each(["pre", "post"] as const)(
     await callback.entered;
     const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
-    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
+    const before = JSON.stringify(session.plexus.doc.toNodeRows());
     callback.release();
     await callback.returned;
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -636,7 +636,7 @@ test.each(["pre", "post"] as const)(
       current: session.sessionRuntime.isCurrent,
       exited: turn.reducerExited,
       completed: turn.completed,
-      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
+      state: JSON.stringify(session.plexus.doc.toNodeRows()),
       log: kernel.behavior.directory.get(ownerId).log.map(toJS),
       notes: latePluginNotes(kernel),
     }).toEqual({ current: false, exited: false, completed: false, state: before, log: [], notes: [] });

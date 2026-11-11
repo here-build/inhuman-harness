@@ -32,7 +32,7 @@ describe("kernel lifetime", () => {
     kernel.plexus.root.termContinue.k = "last";
     session.root.mode = "plan";
     await daemon[Symbol.asyncDispose]();
-    expect(kernel.runtime.documents?.loaded()).toEqual([]);
+    expect([...kernel.runtime.acquired]).toEqual([]);
 
     const restored = new KernelDaemon(system);
     onTestFinished(() => restored[Symbol.dispose]());
@@ -83,7 +83,9 @@ describe("kernel lifetime", () => {
     const restored = new KernelDaemon(system);
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
-    vi.spyOn(restored.runtime.documents!, "openExisting").mockResolvedValueOnce({ ok: false, reason: "overload" });
+    vi.spyOn(restored.db, "loadSessionNodes").mockImplementationOnce(() => {
+      throw new Error("session load failed: overload");
+    });
     await expect(restored.acquireSession("s")).rejects.toThrow(/overload/);
     expect({
       found: (await restored.acquireSession("s"))?.root.sessionId,

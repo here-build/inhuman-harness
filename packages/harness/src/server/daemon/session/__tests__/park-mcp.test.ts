@@ -194,13 +194,13 @@ describe("Park MCP", () => {
     await when(() => job.dispatched, { timeout: TIMEOUT });
     const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
-    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
+    const before = JSON.stringify(session.plexus.doc.toNodeRows());
     gate.settle.resolve({ ok: true, value: "late pong" });
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect({
       receipt: job.receiptJson,
       completed: job.completed,
-      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
+      state: JSON.stringify(session.plexus.doc.toNodeRows()),
     }).toEqual({ receipt: null, completed: false, state: before });
     replacement.recover({ kind: "interrupt", message: "new owner settles the interrupted work" });
   });

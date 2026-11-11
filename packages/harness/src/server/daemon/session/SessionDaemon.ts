@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { statSync } from "node:fs";
-import { join } from "node:path";
 
 import { asUserPrompt, asSystemPrompt } from "@inhuman.tools/harness-commons";
 import { connectAdoptOutput, contract, isUiForm } from "@inhuman.tools/harness-contract";
@@ -52,18 +50,15 @@ import { turnRetentionJson } from "@inhuman.tools/turn/context";
 import { SessionRuntime } from "@inhuman.tools/turn/runtime";
 import { writeBlob } from "@inhuman.tools/turn/tool-runtime";
 import { observable, type IReactionDisposer, reaction, runInAction } from "mobx";
-import type { DocumentContainer } from "@inhuman.tools/model";
 
 import { pluginStateSnapshotFromHead, restoreSessionPluginState, Refusal, toJS } from "@/extensions";
 import { explainCall } from "@/policy-processor/explain";
 import { scopes } from "@/policy-processor/scope";
-import { documentImageSegments } from "@/protocol/document";
 import { isMcpDriver } from "@/providers/mcp";
 import { bindCompletionFace, OpenAiCompatActor } from "@/providers/openai-compat";
 import { type SessionCommandHost } from "@/session";
 import { behaviorEntriesOf, bindSessionCatalog } from "@/tool-catalog";
 import { resolveEvalPermissionMode, unattendedFailureText } from "@/tool-runtime";
-import { attachLens, type AwarenessRoom, type PlaneSocket } from "@/yjs";
 
 import { cancelAgentCall } from "./agent-calls-operator.js";
 import { completeCallExceptionally } from "./agent-runtime.js";
@@ -85,8 +80,10 @@ import { readBlobSync } from "../../blobs/store.js";
 import { vacuumSession, type VacuumCounts } from "../../blobs/vacuum.js";
 import { captureEnv } from "../../capture-env.js";
 import { DaemonRpcMethod, parseRpcInput, RequestHost, RpcInvalidParams } from "../../contract.js";
+import type { RpcRequestIdentity } from "../../transport/jsonrpc.js";
 import { SHELL_TOOL_NAME } from "../../toolkit/catalog.js";
 import { sessionCatalog } from "../../toolkit/tool-table.js";
+import { attachPlane, type PlaneSocket, type PresenceRoom } from "../../transport/plane.js";
 import { applyPendingBotNotice } from "../bots/index.js";
 import type { KernelDaemon } from "../kernel/KernelDaemon.js";
 import type { ProjectDaemon } from "../project/ProjectDaemon.js";
@@ -149,7 +146,9 @@ export class SessionDaemon extends RequestHost implements Disposable {
   readonly doors = new DoorSession((line) => step(line));
   /** Held until the eval-admission flush receipt; honor must not start the program. */
   readonly evalAdmissionHeld = observable.box(false);
-  readonly #room: AwarenessRoom;
+  readonly #room: PresenceRoom;
+  readonly #seenTurns = new Map<string, SessionTurn>();
+  readonly #stopSeenTurns: () => void;
   #closed = false;
   #parked = false;
   #parkWait: Promise<void> | null = null;
@@ -425,10 +424,20 @@ export class SessionDaemon extends RequestHost implements Disposable {
       const imageBytesBefore = this.#imageBytes();
       let counts: VacuumCounts;
       try {
-        counts = vacuumSession(this.root, writeBlob, {
-          dryRun,
-          read: (sha256) => readBlobSync(sha256)?.bytes ?? null,
-        });
+        counts = vacuumSession(
+          this.root,
+          (bytes, mime) => {
+            const ref = writeBlob(bytes, mime);
+            if (!dryRun) {
+              this.kernel.recordSessionBlob(this.sessionId, ref.sha256, bytes.byteLength);
+            }
+            return ref;
+          },
+          {
+            dryRun,
+            read: (sha256) => readBlobSync(sha256)?.bytes ?? null,
+          },
+        );
       } catch (error) {
         // What moved before the stop is moved for good; the snapshot reclaims it.
         if (!dryRun) await this.kernel.flushSession(this.plexus, { force: true }).catch(() => undefined);
@@ -558,6 +567,13 @@ export class SessionDaemon extends RequestHost implements Disposable {
     this.plexus = existing;
     this.#hydrated = restored;
     this.#room = this.kernel.sessionRoom(this.sessionId, this.plexus.awareness);
+    const recordSeenTurns = (): void => {
+      for (const turn of this.plexus.getAllOfType(SessionTurn)) {
+        this.#seenTurns.set(turn.uuid, turn);
+      }
+    };
+    recordSeenTurns();
+    this.#stopSeenTurns = this.plexus.doc.onPatch(recordSeenTurns);
     if (!this.#hydrated) {
       runInAction(() => {
         const seed = sessionMintKvs(project.kernel.plexus.root.kvs, project.root.kvs);
@@ -578,7 +594,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     this.sessionRuntime = new SessionRuntime(this.plexus, {
       kind: "durable",
       commit: async (checkpoint) => {
-        await this.kernel.flushSession(this.plexus);
+        await this.kernel.flushSession(this.plexus, { checkpoint });
         return {
           sessionId: checkpoint.sessionId,
           incarnation: checkpoint.incarnation,
@@ -776,7 +792,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     return this.plexus.root;
   }
 
-  get doc(): DocumentContainer {
+  get doc(): SessionPlexus["doc"] {
     return this.plexus.doc;
   }
 
@@ -840,7 +856,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       },
       loadTurn: (id) => {
         try {
-          const loaded = this.plexus.loadEntity(id);
+          const loaded = this.plexus.loadEntity(id) ?? this.#seenTurns.get(id);
           return loaded instanceof SessionTurn ? loaded : undefined;
         } catch {
           return undefined;
@@ -866,6 +882,17 @@ export class SessionDaemon extends RequestHost implements Disposable {
     return this.#serialize(run);
   }
 
+  override async handleRequest(method: string, args: unknown, identity?: RpcRequestIdentity): Promise<unknown> {
+    const result = await super.handleRequest(method, args, identity);
+    if (!this.#closed && method !== "blob/vacuum" && method !== "blob/get") {
+      const delta = this.plexus.doc.peekNodeDelta();
+      if (delta.upserts.length > 0 || delta.deletes.length > 0) {
+        await this.kernel.flushSession(this.plexus);
+      }
+    }
+    return result;
+  }
+
   /**
    * An answer must not wait behind a perform that is itself parked on the human, and a blob read
    * touches no document, so a diff can paint while a long turn holds the queue.
@@ -874,13 +901,17 @@ export class SessionDaemon extends RequestHost implements Disposable {
     return method !== "ask/answer" && method !== "ack/answer" && method !== "blob/get";
   }
 
-  protected override attach(socket: PlaneSocket): void {
+  protected override attach(socket: PlaneSocket, connectionId: string): ((text: string) => boolean) | void {
     if (this.#closed) {
       socket.close(1001, "session disposed");
       return;
     }
-    // Clients read through a lens and change state through RPC.
-    attachLens(this.plexus.doc, socket, this.#room, this.plexus.awareness);
+    return attachPlane({
+      socket,
+      connectionId,
+      laneHub: this.kernel.laneHub,
+      room: this.#room,
+    });
   }
 
   /**
@@ -933,6 +964,8 @@ export class SessionDaemon extends RequestHost implements Disposable {
 
   #dropParked(): void {
     if (this.#closed) return;
+    this.#stopSeenTurns();
+    this.#seenTurns.clear();
     runInAction(() => {
       delete this.project.sessions[this.sessionId];
     });
@@ -1051,14 +1084,9 @@ export class SessionDaemon extends RequestHost implements Disposable {
     return ids;
   }
 
-  /** Size of this session's stored image; 0 before it is first written. */
+  /** Size of this session's stored SQLite rows; 0 before it is first written. */
   #imageBytes(): number {
-    try {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- the kernel's own image path for this session
-      return statSync(join(this.kernel.root, ...documentImageSegments("sessions", this.sessionId))).size;
-    } catch {
-      return 0;
-    }
+    return this.kernel.sessionStoredBytes(this.sessionId);
   }
 
   #applyRename(title: string): { ok: true; title: string } {

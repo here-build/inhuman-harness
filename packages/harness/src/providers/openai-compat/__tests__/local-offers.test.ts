@@ -2,7 +2,7 @@
  * Local detection: the probe, the demand-gated interval, and the class wiring
  * (observer wakes it, kernel awareness gates the interval).
  */
-import { applyAwarenessUpdate, encodeAwarenessUpdate, ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
+import { ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
 import { publishRevalidationDemand } from "@inhuman.tools/plexus-expectations";
 import { observable, reaction, runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -169,7 +169,7 @@ describe("OpenAiCompatDriverConnection.offers", () => {
 
     const author = new PlexusAwareness();
     publishRevalidationDemand(author, [{ kind: "driver", name: "probed" }]);
-    applyAwarenessUpdate(hub, encodeAwarenessUpdate(author, [...author.meta.keys()]), "remote");
+    hub.applyPresenceEntries(author.toPresenceEntries(), "remote");
     await vi.advanceTimersByTimeAsync(LOCAL_PROBE_INTERVAL_MS);
     expect(lm.calls.length).toBeGreaterThan(sweep);
 

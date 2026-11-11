@@ -28,9 +28,7 @@ import {
   type ResolveOptions,
   type ResolvePurpose,
 } from "@/connections";
-import type { DocumentCheckpoint, DocumentKey, FlushResult } from "@/protocol/document";
 import { KernelToolCatalog as CatalogTable, type KernelToolCatalog } from "@/tool-catalog";
-import type { CreateResult, DocumentRef, OpenResult } from "@/yjs";
 
 import { McpConnectionToolCatalogHost } from "./connection-tools.js";
 import { isConversationSession } from "./eligibility.js";
@@ -42,33 +40,10 @@ type KernelTables = {
   readonly drivers: Record<string, DriverSpec | undefined>;
 };
 
-/**
- * Smallest document face ProductionRuntime stores. DocumentService and
- * RemoteDocumentAdapter both satisfy it; this package is not an image writer.
- */
-export interface RuntimeDocuments {
-  readonly serverEpoch: number;
-  getLoaded(key: DocumentKey): DocumentRef | undefined;
-  loaded(): readonly DocumentRef[];
-  checkpoint(key: DocumentKey): DocumentCheckpoint | undefined;
-  openExisting(key: DocumentKey): Promise<OpenResult>;
-  create(key: DocumentKey, initial?: Uint8Array): Promise<CreateResult>;
-  flush(
-    key: DocumentKey,
-    checkpoint: DocumentCheckpoint,
-    options?: {
-      readonly runtimeGeneration?: number;
-      readonly connectionEpoch?: number;
-    },
-  ): Promise<FlushResult>;
-  release(key: DocumentKey): void | Promise<void>;
-}
-
 type RuntimeOpts = {
   readonly registry: DriverRegistry;
   readonly catalog?: KernelToolCatalog;
   readonly moduleRoot?: string;
-  readonly documents?: RuntimeDocuments;
 };
 
 function secretsOf(secrets: CredentialsStore | ConnectionSecretsView, connectionId: string): ConnectionSecretsView {
@@ -90,7 +65,6 @@ export class ProductionRuntime<
 > implements Disposable {
   readonly catalog: KernelToolCatalog;
   readonly registry: DriverRegistry;
-  readonly documents: RuntimeDocuments | undefined;
   readonly #replicas = new Map<string, T>();
   #moduleRoot: string | undefined;
   #tables: KernelTables | null = null;
@@ -101,7 +75,6 @@ export class ProductionRuntime<
     this.registry = opts.registry;
     this.catalog = opts.catalog ?? new CatalogTable();
     this.#moduleRoot = opts.moduleRoot;
-    this.documents = opts.documents;
   }
 
   get activated(): boolean {

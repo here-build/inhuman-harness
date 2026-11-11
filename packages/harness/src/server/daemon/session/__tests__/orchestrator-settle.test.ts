@@ -60,7 +60,7 @@ function closedTurn(...children: ToolCallJob[]): SessionTurn {
 }
 
 function failIntentPersist(kernel: KernelDaemon): void {
-  vi.spyOn(kernel.runtime.documents!, "flush").mockResolvedValue({ ok: false, reason: "storage-failed" });
+  vi.spyOn(kernel, "flushSession").mockRejectedValue(new Error("storage-failed"));
 }
 
 describe("orchestrator settlement", () => {
@@ -138,12 +138,12 @@ describe("orchestrator settlement", () => {
       expectation: new CompletionExpectation({ connectionId: "missing", completionMode: "isolated" }),
     });
     turn.pushChild(completion);
-    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
+    const before = JSON.stringify(session.plexus.doc.toNodeRows());
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect({
       orchestrated: completion.orchestrated,
       done: completion.expectation.isDone,
-      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
+      state: JSON.stringify(session.plexus.doc.toNodeRows()),
     }).toEqual({ orchestrated: false, done: false, state: before });
   });
 
@@ -186,7 +186,7 @@ describe("orchestrator settlement", () => {
     onTestFinished(() => replacement[Symbol.asyncDispose]());
     const nextScope = scopes.get(session.root);
     onTestFinished(() => nextScope.close());
-    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
+    const before = JSON.stringify(session.plexus.doc.toNodeRows());
     pending.resolve({ action: "allow", findings: [] });
     await new Promise<void>((resolve) => setImmediate(resolve));
     session.orchestrator[Symbol.dispose]();
@@ -196,7 +196,7 @@ describe("orchestrator settlement", () => {
       policy: job.policyResult,
       currentScope: scopes.get(session.root) === nextScope,
       nextClosed: nextScope.closed,
-      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
+      state: JSON.stringify(session.plexus.doc.toNodeRows()),
     }).toEqual({ closed: true, aborted: true, policy: null, currentScope: true, nextClosed: false, state: before });
   });
 

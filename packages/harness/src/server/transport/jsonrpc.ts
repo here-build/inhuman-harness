@@ -7,8 +7,7 @@ import {
   JSON_RPC_PARSE_ERROR,
   type JsonRpcId,
 } from "@/protocol/rpc";
-import type { PlaneSocket } from "@/yjs";
-
+import type { PlaneSocket } from "./plane.js";
 import { parseJsonUnknown, readField } from "../util/read-field.js";
 
 /**

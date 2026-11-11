@@ -24,8 +24,6 @@ import { Client } from "@inhuman.tools/harness-sdk";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { documentKey } from "@/protocol/document";
-
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
 import { HarnessDaemon } from "../../server/HarnessDaemon.js";
 import { KernelDaemon } from "../KernelDaemon.js";
@@ -266,10 +264,7 @@ describe("kernel seat machine", () => {
       conversationGlance: kernel.plexus.root.sessions.conversation != null,
     }).toEqual({ project: "", conversationGlance: true });
 
-    const documents = kernel.runtime.documents!;
-    const kernelKey = documentKey("kernel", "kernel");
-    const flushed = await documents.flush(kernelKey, documents.checkpoint(kernelKey)!);
-    expect(flushed.ok).toBe(true);
+    kernel.flushKernel();
     kernel[Symbol.dispose]();
     firstGone = true;
     restored = new KernelDaemon(system);

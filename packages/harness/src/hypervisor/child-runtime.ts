@@ -195,7 +195,7 @@ export async function runSupervisedProcess(
 }
 
 function parseRole(value: string): ServerRole {
-  if (value === "yjs" || value === "runtime") return value;
+  if (value === "runtime") return value;
   throw new Error(`unknown supervised child role ${value}`);
 }
 

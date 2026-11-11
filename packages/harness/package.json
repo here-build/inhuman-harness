@@ -1,11 +1,10 @@
 {
   "name": "@inhuman.tools/harness",
   "version": "0.3.0",
-  "description": "Harness core: the daemon (kernel and session planes), runtime, providers and the Yjs sync plane. Shells attach over harness-peer or harness-sdk.",
+  "description": "Harness core: the daemon (kernel and session planes), runtime, providers and the SQLite reactivity plane. Shells attach over harness-peer or harness-sdk.",
   "type": "module",
   "bin": {
-    "harness-daemon": "./dist/server/bin.js",
-    "harness-yjs-server": "./dist/yjs/bin.js"
+    "harness-daemon": "./dist/server/bin.js"
   },
   "exports": {
     ".": {

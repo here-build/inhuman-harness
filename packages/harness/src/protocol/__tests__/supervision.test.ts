@@ -26,7 +26,6 @@ import {
   isStaleSupervisionIdentity,
   isSyncReady,
   mayReplaceExecutionOwner,
-  mayStartExecutionOwnerAfterYjsLoss,
   replacementDecision,
   shutdownFlushFailed,
   shutdownIsComplete,
@@ -34,11 +33,11 @@ import {
 
 const restart = { mode: "on-failure" as const, maxAttempts: 3, backoffMs: 250 };
 
-const yjsDescriptor = {
-  id: "yjs",
-  role: "yjs" as const,
-  executable: "/usr/bin/harness-yjs-server",
-  args: ["--root", "/tmp/harness"],
+const primaryDescriptor = {
+  id: "primary",
+  role: "runtime" as const,
+  executable: "/usr/bin/harness-daemon",
+  args: ["--supervised", "--root", "/tmp/harness"],
   requires: [] as string[],
   restart,
 };
@@ -46,8 +45,8 @@ const yjsDescriptor = {
 const runtimeDescriptor = {
   id: "runtime",
   role: "runtime" as const,
-  executable: "/usr/bin/harness-runtime-server",
-  requires: ["yjs"],
+  executable: "/usr/bin/harness-daemon",
+  requires: ["primary"],
   restart,
 };
 
@@ -70,9 +69,9 @@ const runtimeHealth = { execution: { state: "starting" as const } };
 describe("server descriptors", () => {
   it("parses executable, role, readiness dependencies, and restart policy as data", () => {
     const parsed = serverDescriptorSchema.parse(runtimeDescriptor);
-    expect(parsed.executable).toBe("/usr/bin/harness-runtime-server");
+    expect(parsed.executable).toBe("/usr/bin/harness-daemon");
     expect(parsed.role).toBe("runtime");
-    expect(parsed.requires).toEqual(["yjs"]);
+    expect(parsed.requires).toEqual(["primary"]);
     expect(parsed.restart).toEqual(restart);
     expect(parsed.args).toEqual([]);
     expect(parsed).not.toHaveProperty("publishes");
@@ -81,7 +80,7 @@ describe("server descriptors", () => {
   });
 
   it("fills omitted args rather than requiring an implementation import", () => {
-    expect(serverDescriptorSchema.parse(yjsDescriptor).args).toEqual(["--root", "/tmp/harness"]);
+    expect(serverDescriptorSchema.parse(primaryDescriptor).args).toEqual(["--supervised", "--root", "/tmp/harness"]);
     expect(
       serverDescriptorSchema.safeParse({
         ...runtimeDescriptor,
@@ -97,25 +96,24 @@ describe("server descriptors", () => {
   });
 
   it("derives published readiness from role", () => {
-    expect(publishedReadiness("yjs")).toEqual(["sync", "storage"]);
-    expect(publishedReadiness("runtime")).toEqual(["execution"]);
+    expect(publishedReadiness("runtime")).toEqual(["sync", "storage", "execution"]);
   });
 
   it("rejects unknown, duplicate, and cyclic readiness dependencies", () => {
-    expect(serverRosterSchema.parse({ servers: [yjsDescriptor, runtimeDescriptor] }).servers).toHaveLength(2);
+    expect(serverRosterSchema.parse({ servers: [primaryDescriptor, runtimeDescriptor] }).servers).toHaveLength(2);
     expect(
       serverRosterSchema.safeParse({
-        servers: [yjsDescriptor, { ...runtimeDescriptor, requires: ["missing"] }],
+        servers: [primaryDescriptor, { ...runtimeDescriptor, requires: ["missing"] }],
       }).success,
     ).toBe(false);
     expect(
       serverRosterSchema.safeParse({
-        servers: [yjsDescriptor, { ...runtimeDescriptor, id: "yjs" }],
+        servers: [primaryDescriptor, { ...runtimeDescriptor, id: "primary" }],
       }).success,
     ).toBe(false);
     expect(
       serverRosterSchema.safeParse({
-        servers: [{ ...yjsDescriptor, requires: ["runtime"] }, runtimeDescriptor],
+        servers: [{ ...primaryDescriptor, requires: ["runtime"] }, runtimeDescriptor],
       }).success,
     ).toBe(false);
   });
@@ -169,7 +167,7 @@ describe("health planes", () => {
         identity,
         health: starting,
       }).success,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       supervisionMessageSchema.safeParse({
         v: SUPERVISION_PROTOCOL_VERSION,
@@ -182,10 +180,10 @@ describe("health planes", () => {
       supervisionMessageSchema.safeParse({
         v: SUPERVISION_PROTOCOL_VERSION,
         op: "health",
-        identity: { ...identity, process: { kind: "yjs", id: "yjs-1" } },
+        identity: { ...identity, process: { kind: "hypervisor", id: "hv-child" } },
         health: { sync: { state: "ready" } },
       }).success,
-    ).toBe(true);
+    ).toBe(false);
   });
 });
 
@@ -283,7 +281,7 @@ describe("loss and replacement", () => {
       reason: "parent-loss-holds-runtime-lock",
     });
     expect(
-      mayStartExecutionOwnerAfterYjsLoss({
+      mayReplaceExecutionOwner({
         ...live,
         parentLost: true,
         exitConfirmed: true,
@@ -291,7 +289,7 @@ describe("loss and replacement", () => {
       }),
     ).toBe(true);
     expect(
-      mayStartExecutionOwnerAfterYjsLoss({
+      mayReplaceExecutionOwner({
         ...live,
         exitConfirmed: true,
       }),

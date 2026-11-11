@@ -2,8 +2,8 @@
  * The daemon's side of remote access, a long-lived client of the relay
  * (`harness-relay/PROTOCOL.md`). One control socket carries `open` / `req` /
  * `cancel` from the relay; each room is a pair of sockets, a chunked one to
- * the relay and a raw one to this daemon's own unix socket, bridged without
- * parsing Yjs. Runs while logged in; `start` / `stop` are idempotent.
+ * the relay and a raw one to this daemon's own unix socket, bridged over
+ * UTF-8 text frames. Runs while logged in; `start` / `stop` are idempotent.
  */
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
@@ -52,11 +52,6 @@ type Room = {
   readonly local: WebSocket;
   closed: boolean;
 };
-
-/** The daemon's 10 s query-awareness keepalive: a binary frame of exactly the y-websocket type 3. */
-function isQueryAwareness(bytes: Uint8Array): boolean {
-  return bytes.length === 1 && bytes[0] === 3;
-}
 
 function rawBytes(data: RawData): Buffer {
   if (Array.isArray(data)) return Buffer.concat(data);
@@ -438,16 +433,11 @@ export class RemoteConnector {
       for (const frame of toLocal.splice(0)) local.send(frame, { binary: typeof frame !== "string" });
     });
     local.on("message", (data: RawData, isBinary: boolean) => {
-      const bytes = rawBytes(data);
-      let frame: string | Uint8Array;
-      if (isBinary) {
-        if (isQueryAwareness(bytes)) return;
-        frame = bytes;
-      } else {
-        frame = bytes.toString("utf8");
-      }
-      if (relayOpen && relay.readyState === OPEN) relay.send(frame);
-      else toRelay.push(frame);
+      if (isBinary) return;
+      const text = rawBytes(data).toString("utf8");
+      if (text === '{"kind":"ping"}' || text.startsWith('{"kind":"ping",')) return;
+      if (relayOpen && relay.readyState === OPEN) relay.send(text);
+      else toRelay.push(text);
     });
     local.on("unexpected-response", (_request, response) => {
       response.resume();

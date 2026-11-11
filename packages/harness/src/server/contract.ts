@@ -16,10 +16,9 @@ import {
   uiParkSchema,
   uiResolvePending,
 } from "@/protocol/rpc";
-import type { PlaneSocket } from "@/yjs";
-
 import { acceptJsonRpc } from "./transport/accept.js";
 import type { RpcApplication, RpcRequestIdentity } from "./transport/jsonrpc.js";
+import type { PlaneSocket } from "./transport/plane.js";
 import { asRecord } from "./util/read-field.js";
 
 export class UiCancelled extends Error {
@@ -171,10 +170,10 @@ export class RequestHost implements RpcApplication {
 
   /** Adapter for existing upgrade callers. Transport does not construct this host. */
   accept(socket: Duplex, request: IncomingMessage, head: Buffer, wss: WebSocketServer): void {
-    acceptJsonRpc(socket, request, head, wss, this, (plane) => this.attach(plane));
+    acceptJsonRpc(socket, request, head, wss, this, (plane, connectionId) => this.attach(plane, connectionId));
   }
 
-  protected attach(_plane: PlaneSocket): void {}
+  protected attach(_plane: PlaneSocket, _connectionId: string): ((text: string) => boolean) | void {}
 
   protected get parent(): RequestHost | undefined {
     return undefined;

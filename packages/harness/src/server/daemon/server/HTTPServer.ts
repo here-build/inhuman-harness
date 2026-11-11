@@ -5,10 +5,9 @@ import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import { WebSocketServer } from "ws";
 
-import { classifyPublicUpgrade, UPGRADE_NOT_FOUND, UPGRADE_ROUTE_FAILED } from "@/yjs";
-
 import type { HarnessDaemon } from "./HarnessDaemon.js";
 import { type RequestHost } from "../../contract.js";
+import { classifyPublicUpgrade, UPGRADE_NOT_FOUND, UPGRADE_ROUTE_FAILED } from "../../transport/routes.js";
 import { errnoCode } from "../../util/errno.js";
 
 export class HTTPServer implements AsyncDisposable {

@@ -2,7 +2,6 @@
  * Conversation rewind is a head write. Mint ends the episode. Redo walks
  * loadEntity, not liveTurns. Continue off-tip does not mint.
  */
-import { chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,9 +16,6 @@ import {
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
-
-import { documentKey } from "@/protocol/document";
-import { documentImagePath } from "@/yjs/storage";
 
 import { RpcInvalidParams } from "../../../contract.js";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
@@ -120,14 +116,10 @@ describe("turn/rewind", () => {
       twoOffChain: await refused(session.handleRequest("turn/rewind", { turnId: two.uuid })),
     };
 
-    const sessionsDir = join(session.kernel.root, "documents", "sessions");
-    const image = documentImagePath(session.kernel.root, documentKey("sessions", session.sessionId));
     await session.handleRequest("turn/rewind", { turnId: one.uuid });
-    await chmod(sessionsDir, 0o555);
-    await chmod(image, 0o444);
-    onTestFinished(async () => {
-      await chmod(image, 0o600);
-      await chmod(sessionsDir, 0o755);
+    session.kernel.db.sqlite.pragma("query_only = ON");
+    onTestFinished(() => {
+      session.kernel.db.sqlite.pragma("query_only = OFF");
     });
     const beforeEval = { head: session.root.head?.prompt, tip: session.root.tip?.prompt };
     const persist = await refused(

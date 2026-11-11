@@ -1,6 +1,6 @@
 /**
- * Product composition: shipped driver-provider roster, hypervisor descriptors
- * (yjs + runtime bins), and the in-process daemon host. Importing this module
+ * Product composition: shipped driver-provider roster, hypervisor descriptor
+ * (supervised daemon bin), and the in-process daemon host. Importing this module
  * loads runtime and providers. The public barrel must not.
  */
 import { existsSync } from "node:fs";
@@ -71,64 +71,40 @@ const PRODUCT_RESTART: RestartPolicy = {
 };
 
 export type ProductBins = {
-  readonly yjs: {
-    readonly executable: string;
-    readonly args: readonly string[];
-  };
   readonly runtime: {
     readonly executable: string;
     readonly args: readonly string[];
   };
 };
 
-/** Built runtime bin. Source resolves `dist/server`; emit resolves the sibling. */
+/** Built daemon bin in supervised mode. Source resolves `dist/server`; emit resolves the sibling. */
 function runtimeBin(): { executable: string; args: string[] } {
   const here = fileURLToPath(new URL(".", import.meta.url));
-  const sibling = join(here, "runtime-bin.js");
-  const fromSource = join(here, "../../dist/server/runtime-bin.js");
+  const sibling = join(here, "bin.js");
+  const fromSource = join(here, "../../dist/server/bin.js");
   return {
     executable: process.execPath,
-    args: [existsSync(sibling) ? sibling : fromSource],
-  };
-}
-
-/** Built yjs bin. Source resolves `dist/yjs`; emit resolves the sibling of `dist/server`. */
-function yjsBin(): { executable: string; args: string[] } {
-  const here = fileURLToPath(new URL(".", import.meta.url));
-  const sibling = join(here, "../yjs/bin.js");
-  const fromSource = join(here, "../../dist/yjs/bin.js");
-  return {
-    executable: process.execPath,
-    args: [existsSync(sibling) ? sibling : fromSource],
+    args: [existsSync(sibling) ? sibling : fromSource, "--supervised"],
   };
 }
 
 /** Built package bins named by the hypervisor descriptors. */
 export function productBins(): ProductBins {
   return {
-    yjs: yjsBin(),
     runtime: runtimeBin(),
   };
 }
 
-/** Hypervisor descriptors. Runtime requires yjs readiness. */
+/** Hypervisor descriptor for the single SQLite-backed runtime process. */
 export function productRoster(bins: ProductBins = productBins()): ServerRoster {
   return {
     servers: [
-      {
-        id: "yjs",
-        role: "yjs",
-        executable: bins.yjs.executable,
-        args: [...bins.yjs.args],
-        requires: [],
-        restart: PRODUCT_RESTART,
-      },
       {
         id: "runtime",
         role: "runtime",
         executable: bins.runtime.executable,
         args: [...bins.runtime.args],
-        requires: ["yjs"],
+        requires: [],
         restart: PRODUCT_RESTART,
       },
     ],

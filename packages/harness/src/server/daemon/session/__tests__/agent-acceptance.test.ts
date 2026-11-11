@@ -103,14 +103,14 @@ describe("agent acceptance step 3", () => {
     await entered.promise;
     const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
-    const before = Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64");
+    const before = JSON.stringify(session.plexus.doc.toNodeRows());
     release.resolve();
     await returned.promise;
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect({
       worker: call.workerSessionId,
       completed: call.completed,
-      state: Buffer.from(session.plexus.doc.encodeStateAsUpdate()).toString("base64"),
+      state: JSON.stringify(session.plexus.doc.toNodeRows()),
     }).toEqual({ worker: "", completed: false, state: before });
   });
 

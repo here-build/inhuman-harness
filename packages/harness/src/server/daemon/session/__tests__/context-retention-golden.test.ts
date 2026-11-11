@@ -433,8 +433,10 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     expect(JSON.stringify([...projectHistory(tip, { readVisual })])).toBe(before);
 
     // Rehydrate the document into a fresh plexus.
-    const reborn = SessionPlexus.create(f.plexus.doc.guid);
-    reborn.applyUpdate(f.plexus.doc.encodeStateAsUpdate());
+    const reborn = SessionPlexus.fromNodeRows(f.plexus.doc.toNodeRows(), {
+      rootId: f.plexus.root.uuid,
+      sessionId: f.plexus.root.sessionId,
+    });
     onTestFinished(() => reborn.destroy());
     const rebornTip = reborn.loadEntity(tip.uuid);
     expect(rebornTip).toBeInstanceOf(CompletionExpectation);

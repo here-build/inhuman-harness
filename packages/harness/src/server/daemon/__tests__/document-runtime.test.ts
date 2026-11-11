@@ -1,17 +1,12 @@
 /**
- * ProductionRuntime + DocumentService: images round-trip through flush
- * receipts, getLoaded stays memory-only.
+ * ProductionRuntime + HarnessDatabase SQLite storage: node rows round-trip
+ * through flushSession, and sessionPlexus stays memory-only.
  */
-import { chmodSync } from "node:fs";
 import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { describe, expect, it, onTestFinished } from "vitest";
-
-import { documentKey, receiptCoversCheckpoint } from "@/protocol/document";
-import { DocumentService } from "@/yjs";
-import { documentImagePath } from "@/yjs/storage";
 
 import { KernelDaemon } from "../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../project/ProjectDaemon.js";
@@ -20,8 +15,7 @@ async function openKernel(label: string): Promise<string> {
   return realpath(await mkdtemp(join(tmpdir(), `harness-i1-${label}-`)));
 }
 
-describe("local document/runtime integration", () => {
-  
+describe("local SQLite/runtime integration", () => {
   it("bind/activate still has no catalog observers until activate()", async () => {
     const kernel = new KernelDaemon(await openKernel("bind"));
     onTestFinished(() => kernel[Symbol.dispose]());
@@ -36,7 +30,7 @@ describe("local document/runtime integration", () => {
     }).toEqual({ activated: true, host: "bound" });
   });
 
-  it("kernel and session documents round-trip through DocumentService flush receipts", async () => {
+  it("kernel and session documents round-trip through SQLite flush", async () => {
     const system = await openKernel("flush-k");
     const workspace = await openKernel("flush-p");
     const kernel = new KernelDaemon(system);
@@ -46,29 +40,22 @@ describe("local document/runtime integration", () => {
     const session = await project.session("s1");
     await session.park();
     session.root.applyKvs([{ form: "kv-set", key: "mark", value: "hello" }]);
-    const documents = kernel.runtime.documents!;
-    const key = documentKey("sessions", "s1");
-    const checkpoint = documents.checkpoint(key)!;
-    const result = await documents.flush(key, checkpoint);
-    expect({
-      ok: result.ok,
-      covers: result.ok && receiptCoversCheckpoint(result.receipt, checkpoint),
-    }).toEqual({ ok: true, covers: true });
+    await kernel.flushSession(session.plexus);
     kernel[Symbol.dispose]();
 
     const restored = new KernelDaemon(system);
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
-    expect(restored.runtime.documents?.getLoaded(key)).toBeUndefined();
+    expect(restored.sessionPlexus("s1")).toBeUndefined();
     const acquired = await restored.acquireSession("s1");
     expect({
       mark: acquired?.root.kvs.mark,
       live: restored.liveSession("s1"),
-      loaded: restored.runtime.documents?.getLoaded(key)?.doc === acquired?.doc,
+      loaded: restored.sessionPlexus("s1")?.doc === acquired?.doc,
     }).toEqual({ mark: "hello", live: undefined, loaded: true });
   });
 
-  it("failed flush is not success and keeps the dirty suffix loaded", async () => {
+  it("failed flush is not success and keeps the dirty nodes uncommitted", async () => {
     const system = await openKernel("fail-k");
     const workspace = await openKernel("fail-p");
     const kernel = new KernelDaemon(system);
@@ -78,31 +65,23 @@ describe("local document/runtime integration", () => {
     await project.ready;
     const session = await project.session("s1");
     await kernel.flushSession(session.plexus);
-    const documents = kernel.runtime.documents!;
-    const key = documentKey("sessions", "s1");
-    const image = documentImagePath(system, key);
-    const dir = dirname(image);
-    const mode = 0o755;
-    chmodSync(dir, 0o555);
-    chmodSync(image, 0o444);
+    kernel.db.sqlite.pragma("query_only = ON");
     onTestFinished(() => {
       try {
-        chmodSync(image, 0o600);
-        chmodSync(dir, mode);
+        kernel.db.sqlite.pragma("query_only = OFF");
       } catch {}
     });
     session.root.applyKvs([{ form: "kv-set", key: "mark", value: "dirty" }]);
-    await expect(kernel.flushSession(session.plexus)).rejects.toThrow(/storage-failed/);
-    chmodSync(image, 0o600);
-    chmodSync(dir, mode);
+    await expect(kernel.flushSession(session.plexus)).rejects.toThrow();
+    kernel.db.sqlite.pragma("query_only = OFF");
     expect({
       mark: session.root.kvs.mark,
-      loaded: documents.getLoaded(key)?.doc === session.plexus.doc,
-      dirty: documents instanceof DocumentService && documents.memory().dirtyBytes > 0,
+      loaded: kernel.sessionPlexus("s1")?.doc === session.plexus.doc,
+      dirty: session.plexus.doc.peekNodeDelta().upserts.length > 0,
     }).toEqual({ mark: "dirty", loaded: true, dirty: true });
   });
 
-  it("getLoaded does not intern a cold image; openExisting hydrates without SessionDaemon", async () => {
+  it("sessionPlexus does not intern a cold session; acquireSession hydrates without SessionDaemon", async () => {
     const system = await openKernel("cold-k");
     const workspace = await openKernel("cold-p");
     const kernel = new KernelDaemon(system);
@@ -116,21 +95,19 @@ describe("local document/runtime integration", () => {
     const restored = new KernelDaemon(system);
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
-    const key = documentKey("sessions", "idle");
     expect({
-      loaded: restored.runtime.documents?.getLoaded(key),
       plexus: restored.sessionPlexus("idle"),
       live: restored.liveSession("idle"),
-    }).toEqual({ loaded: undefined, plexus: undefined, live: undefined });
+    }).toEqual({ plexus: undefined, live: undefined });
     const acquired = await restored.acquireSession("idle");
     expect({
       id: acquired?.root.sessionId,
       live: restored.liveSession("idle"),
-      loaded: restored.runtime.documents?.getLoaded(key)?.doc === acquired?.doc,
+      loaded: restored.sessionPlexus("idle")?.doc === acquired?.doc,
     }).toEqual({ id: "idle", live: undefined, loaded: true });
   });
 
-  it("kernel overviews survive dispose through DocumentService", async () => {
+  it("kernel overviews survive dispose through SQLite", async () => {
     const system = await openKernel("glance-k");
     const workspace = await openKernel("glance-p");
     const kernel = new KernelDaemon(system);
@@ -140,10 +117,7 @@ describe("local document/runtime integration", () => {
     const session = await project.session("seated");
     session.root.agent.spec.resident = true;
     await kernel.flushSession(session.plexus);
-    const kernelKey = documentKey("kernel", "kernel");
-    const kernelDocs = kernel.runtime.documents!;
-    const kernelFlush = await kernelDocs.flush(kernelKey, kernelDocs.checkpoint(kernelKey)!);
-    expect(kernelFlush.ok).toBe(true);
+    kernel.flushKernel();
     expect(kernel.plexus.root.sessions.seated?.resident).toBe(true);
     kernel[Symbol.dispose]();
 
@@ -153,11 +127,9 @@ describe("local document/runtime integration", () => {
     expect({
       resident: restored.plexus.root.sessions.seated?.resident,
       ids: Object.keys(restored.plexus.root.sessions),
-      loaded: restored.runtime.documents?.getLoaded(documentKey("kernel", "kernel")) != null,
     }).toEqual({
       resident: true,
       ids: ["seated"],
-      loaded: true,
     });
   });
 
@@ -168,7 +140,6 @@ describe("local document/runtime integration", () => {
     await kernel.ready;
     const project = new ProjectDaemon(kernel, workspace);
     await project.ready;
-    const key = documentKey("projects", workspace);
     const awareness = project.plexus.awareness;
     const doc = project.plexus.doc;
     let stopped = false;
@@ -177,10 +148,9 @@ describe("local document/runtime integration", () => {
     });
     project[Symbol.dispose]();
     expect({
-      loaded: kernel.runtime.documents?.getLoaded(key)?.doc === doc,
       awarenessDoc: awareness.doc === doc,
       stopped,
-    }).toEqual({ loaded: true, awarenessDoc: true, stopped: false });
+    }).toEqual({ awarenessDoc: true, stopped: false });
     kernel[Symbol.dispose]();
     expect(stopped).toBe(true);
   });
@@ -207,18 +177,16 @@ describe("local document/runtime integration", () => {
       samePlexus: s1.plexus === s2.plexus,
       k1SeesK2: k1.sessionPlexus("same") === s2.plexus,
       k2SeesK1: k2.sessionPlexus("same") === s1.plexus,
-      loadedSameDoc:
-        k1.runtime.documents?.getLoaded(documentKey("sessions", "same"))?.doc ===
-        k2.runtime.documents?.getLoaded(documentKey("sessions", "same"))?.doc,
+      loadedSameDoc: k1.sessionPlexus("same")?.doc === k2.sessionPlexus("same")?.doc,
       marks: [s1.root.kvs.mark, s2.root.kvs.mark],
-      documents: k1.runtime.documents === k2.runtime.documents,
+      dbs: k1.db === k2.db,
     }).toEqual({
       samePlexus: false,
       k1SeesK2: false,
       k2SeesK1: false,
       loadedSameDoc: false,
       marks: ["left", "right"],
-      documents: false,
+      dbs: false,
     });
   });
 });

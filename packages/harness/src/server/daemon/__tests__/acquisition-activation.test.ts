@@ -1,5 +1,5 @@
 /**
- * Construction vs acquire/hydrate/activate. getLoaded never I/O.
+ * Construction vs acquire/hydrate/activate. sessionPlexus never I/O.
  * Two kernel instances do not share path-keyed overlays.
  */
 import { mkdtemp, realpath } from "node:fs/promises";
@@ -9,7 +9,6 @@ import { join } from "node:path";
 import { SessionPlexus } from "@inhuman.tools/harness-model";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { documentKey } from "@/protocol/document";
 import { catalogRecipe } from "@/tool-catalog";
 
 import { KernelDaemon } from "../kernel/KernelDaemon.js";
@@ -20,8 +19,7 @@ async function openKernel(label: string): Promise<string> {
 }
 
 describe("acquisition and activation gates", () => {
-  
-  it("getLoaded does not read disk", async () => {
+  it("sessionPlexus does not read SQLite", async () => {
     const system = await openKernel("k");
     const workspace = await openKernel("p");
     const kernel = new KernelDaemon(system);
@@ -36,18 +34,17 @@ describe("acquisition and activation gates", () => {
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
 
-    const open = vi.spyOn(restored.runtime.documents!, "openExisting");
+    const open = vi.spyOn(restored.db, "loadSessionNodes");
     expect({
       plexus: restored.sessionPlexus("idle"),
-      loaded: restored.runtime.documents?.getLoaded(documentKey("sessions", "idle")),
       live: restored.liveSession("idle"),
-    }).toEqual({ plexus: undefined, loaded: undefined, live: undefined });
+    }).toEqual({ plexus: undefined, live: undefined });
     expect(open).not.toHaveBeenCalled();
 
     const acquired = await restored.acquireSession("idle");
     expect({
       id: acquired?.root.sessionId,
-      loaded: restored.runtime.documents?.getLoaded(documentKey("sessions", "idle"))?.doc === acquired?.doc,
+      loaded: restored.sessionPlexus("idle")?.doc === acquired?.doc,
       live: restored.liveSession("idle"),
       openCalls: open.mock.calls.length,
     }).toEqual({
@@ -88,7 +85,7 @@ describe("acquisition and activation gates", () => {
     }).toEqual({ live: undefined, activated: false, sameDoc: true });
   });
 
-  it("overlapping acquireSession connects one plexus", async () => {
+  it("overlapping acquireSession hydrates one plexus", async () => {
     const system = await openKernel("k-acq");
     const workspace = await openKernel("p-acq");
     const kernel = new KernelDaemon(system);
@@ -102,16 +99,16 @@ describe("acquisition and activation gates", () => {
     const restored = new KernelDaemon(system);
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
-    const connect = vi.spyOn(SessionPlexus, "connect");
-    const open = vi.spyOn(restored.runtime.documents!, "openExisting");
+    const hydrate = vi.spyOn(SessionPlexus, "fromNodeRows");
+    const open = vi.spyOn(restored.db, "loadSessionNodes");
     const [a, b] = await Promise.all([restored.acquireSession("idle"), restored.acquireSession("idle")]);
     expect({
       same: a === b,
       id: a?.root.sessionId,
-      connects: connect.mock.calls.length,
+      hydrates: hydrate.mock.calls.length,
       opens: open.mock.calls.length,
-    }).toEqual({ same: true, id: "idle", connects: 1, opens: 1 });
-    connect.mockRestore();
+    }).toEqual({ same: true, id: "idle", hydrates: 1, opens: 1 });
+    hydrate.mockRestore();
     open.mockRestore();
   });
 
@@ -185,9 +182,7 @@ describe("acquisition and activation gates", () => {
       samePlexus: s1.plexus === s2.plexus,
       k1SeesK2: k1.sessionPlexus("same") === s2.plexus,
       k2SeesK1: k2.sessionPlexus("same") === s1.plexus,
-      loadedSameDoc:
-        k1.runtime.documents?.getLoaded(documentKey("sessions", "same"))?.doc ===
-        k2.runtime.documents?.getLoaded(documentKey("sessions", "same"))?.doc,
+      loadedSameDoc: k1.sessionPlexus("same")?.doc === k2.sessionPlexus("same")?.doc,
     }).toEqual({
       samePlexus: false,
       k1SeesK2: false,

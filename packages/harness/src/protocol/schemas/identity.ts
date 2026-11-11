@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Opaque process identity. There is no pid field: pid reuse is not ownership.
  */
-export const processKindSchema = z.enum(["hypervisor", "yjs", "runtime"]);
+export const processKindSchema = z.enum(["hypervisor", "runtime"]);
 
 export const processIdentitySchema = z
   .object({

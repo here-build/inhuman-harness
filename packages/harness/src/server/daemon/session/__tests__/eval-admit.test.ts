@@ -3,7 +3,6 @@
  * reuse identities; `manual` is not a legal eval policy.
  */
 import { existsSync } from "node:fs";
-import { chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -20,9 +19,6 @@ import { walkWork } from "@inhuman.tools/plexus-expectations";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
-
-import { documentKey } from "@/protocol/document";
-import { documentImagePath } from "@/yjs/storage";
 
 import { RpcInvalidParams } from "../../../contract.js";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
@@ -264,14 +260,10 @@ describe("eval admission", () => {
     expect({ busy: findEvalTurnByRequestId(busySession.root, "req-busy") }).toEqual({ busy: null });
 
     const persistSession = await openSession();
-    const sessionsDir = join(persistSession.kernel.root, "documents", "sessions");
-    const image = documentImagePath(persistSession.kernel.root, documentKey("sessions", persistSession.sessionId));
-    expect(existsSync(image)).toBe(true);
-    await chmod(sessionsDir, 0o555);
-    await chmod(image, 0o444);
-    onTestFinished(async () => {
-      await chmod(image, 0o600);
-      await chmod(sessionsDir, 0o755);
+    expect(persistSession.kernel.db.loadSessionNodes(persistSession.sessionId)).toBeDefined();
+    persistSession.kernel.db.sqlite.pragma("query_only = ON");
+    onTestFinished(() => {
+      persistSession.kernel.db.sqlite.pragma("query_only = OFF");
     });
     const target = join(persistSession.root.path, "escaped.txt");
     await expect(

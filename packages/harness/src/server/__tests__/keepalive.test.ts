@@ -1,51 +1,61 @@
 import {
-  DocumentContainer,
-  encodeAwarenessUpdate,
-  ReactiveAwareness as PlexusAwareness,
-} from "@inhuman.tools/model";
+  decodePlaneFrame,
+  encodePresenceQuery,
+  encodePresenceUpdate,
+} from "@inhuman.tools/harness-peer";
+import { ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  MESSAGE_AWARENESS,
-  MESSAGE_QUERY_AWARENESS,
-  MESSAGE_SYNC,
-  encodeAwarenessFrame,
-  peekMessageType,
-} from "@/protocol/document";
-import { keepPlaneAlive, PLANE_PING_MS, AwarenessRoom, attachLens, type PlaneSocket } from "@/yjs";
-import { GenericRoot } from "@/yjs/generic-root";
+  attachPlane,
+  keepPlaneAlive,
+  PLANE_PING_MS,
+  PresenceRoom,
+  type PlaneSocket,
+} from "../transport/plane.js";
+import { classifyPublicUpgrade } from "../transport/routes.js";
 
 function fakeSocket(): {
   socket: PlaneSocket;
-  sent: Uint8Array[];
-  deliver: (frame: Uint8Array) => void;
+  sent: string[];
+  deliver: (text: string) => void;
+  closeNow: () => void;
 } {
-  const sent: Uint8Array[] = [];
-  let onBinary = (_frame: Uint8Array): void => undefined;
+  const sent: string[] = [];
+  const textHandlers = new Set<(text: string) => void>();
+  const closeHandlers = new Set<() => void>();
+  const runClose = (): void => {
+    for (const handler of [...closeHandlers]) handler();
+  };
   const socket: PlaneSocket = {
-    send: (frame) => {
-      sent.push(frame);
+    sendText: (text) => {
+      sent.push(text);
     },
-    sendText: () => undefined,
-    close: () => undefined,
-    onBinary: (handler) => {
-      onBinary = handler;
+    close: () => {
+      runClose();
     },
-    onText: () => undefined,
-    onClose: () => undefined,
+    onText: (handler) => {
+      textHandlers.add(handler);
+    },
+    onClose: (handler) => {
+      closeHandlers.add(handler);
+    },
   };
   return {
     socket,
     sent,
-    deliver: (frame) => onBinary(frame),
+    deliver: (text) => {
+      for (const handler of [...textHandlers]) handler(text);
+    },
+    closeNow: runClose,
   };
 }
 
-describe("plane keep-alive", () => {
-  it("plane keep-alive: WS ping + awareness round-trip, no echo to sender", () => {
+describe("plane keep-alive and presence routing", () => {
+  it("plane keep-alive: WS ping + JSON ping/pong round-trip, presence relay with no echo to sender", () => {
     vi.useFakeTimers();
     try {
-      const outbound: Uint8Array[] = [];
+      const outbound: string[] = [];
       let pings = 0;
       let onClose = (): void => undefined;
       keepPlaneAlive(
@@ -54,8 +64,8 @@ describe("plane keep-alive", () => {
           ping: () => {
             pings += 1;
           },
-          send: (frame: Uint8Array) => {
-            outbound.push(frame);
+          sendText: (text: string) => {
+            outbound.push(text);
           },
           on: (_event: "close", listener: () => void) => {
             onClose = listener;
@@ -65,59 +75,47 @@ describe("plane keep-alive", () => {
       );
       vi.advanceTimersByTime(PLANE_PING_MS);
 
-      const inbound: Uint8Array[] = [];
-      let onBinary = (_frame: Uint8Array): void => undefined;
-      const socket: PlaneSocket = {
-        send: (frame) => {
-          inbound.push(frame);
-        },
-        sendText: () => undefined,
-        close: () => undefined,
-        onBinary: (handler) => {
-          onBinary = handler;
-        },
-        onText: () => undefined,
-        onClose: () => undefined,
-      };
-      attachLens(new DocumentContainer(new GenericRoot()), socket);
-      onBinary(outbound[0]!);
+      const peer = fakeSocket();
+      const room = new PresenceRoom();
+      peer.socket.onText(attachPlane({ socket: peer.socket, connectionId: "peer", room }));
+      peer.deliver(outbound[0]!);
+      peer.deliver(encodePresenceQuery());
       onClose();
       vi.advanceTimersByTime(PLANE_PING_MS);
 
       expect({
         pings,
-        outbound: outbound.map(peekMessageType),
-        // The seat opens with the replica's STEP1; the rest is the awareness answer.
-        inbound: inbound.map(peekMessageType).filter((type) => type !== MESSAGE_SYNC),
+        outbound: outbound.map((text) => decodePlaneFrame(text)?.kind),
+        inbound: peer.sent.map((text) => decodePlaneFrame(text)?.kind),
       }).toEqual({
         pings: 1,
-        outbound: [MESSAGE_QUERY_AWARENESS],
-        inbound: [MESSAGE_QUERY_AWARENESS],
+        outbound: ["ping"],
+        inbound: ["pong", "presence/state"],
       });
+      room.close(1000, "done");
     } finally {
       vi.useRealTimers();
     }
 
-    const doc = new DocumentContainer(new GenericRoot());
-    const hub = new PlexusAwareness(doc);
-    const room = new AwarenessRoom(hub);
+    const hub = new PlexusAwareness();
+    const room = new PresenceRoom(hub);
     const a = fakeSocket();
     const b = fakeSocket();
-    attachLens(doc, a.socket, room, hub);
-    attachLens(doc, b.socket, room, hub);
+    a.socket.onText(attachPlane({ socket: a.socket, connectionId: "a", room }));
+    b.socket.onText(attachPlane({ socket: b.socket, connectionId: "b", room }));
     a.sent.length = 0;
     b.sent.length = 0;
 
     hub.setLocalStateField("role:expectation:live", { text: "stream", thought: "" });
     const peer = new PlexusAwareness();
     peer.setLocalStateField("attention", ["x"]);
-    const inbound = encodeAwarenessFrame(encodeAwarenessUpdate(peer, [...peer.meta.keys()]));
+    const inbound = encodePresenceUpdate(peer.toPresenceEntries());
     const beforeA = a.sent.length;
     const beforeB = b.sent.length;
     a.deliver(inbound);
     expect({
-      hubToA: a.sent.some((frame) => peekMessageType(frame) === MESSAGE_AWARENESS),
-      hubToB: b.sent.some((frame) => peekMessageType(frame) === MESSAGE_AWARENESS),
+      hubToA: a.sent.some((text) => decodePlaneFrame(text)?.kind === "presence/update"),
+      hubToB: b.sent.some((text) => decodePlaneFrame(text)?.kind === "presence/update"),
       echoToSender: a.sent.length,
       forwardToPeer: b.sent.length > beforeB,
     }).toEqual({
@@ -127,8 +125,30 @@ describe("plane keep-alive", () => {
       forwardToPeer: true,
     });
 
+    a.closeNow();
+    expect(b.sent.some((text) => {
+      const parsed = decodePlaneFrame(text);
+      return parsed?.kind === "presence/update" && parsed.entries.some(([, state]) => state === null);
+    })).toBe(true);
+
     room.close(1000, "test");
     hub.destroy();
     peer.destroy();
+  });
+
+  it("classifies public upgrade routes", () => {
+    expect({
+      kernel: classifyPublicUpgrade("/kernel"),
+      project: classifyPublicUpgrade("/project?path=%2Ftmp%2Fp"),
+      restore: classifyPublicUpgrade("/session?sessionId=s1"),
+      mint: classifyPublicUpgrade("/session?path=%2Ftmp%2Fp&sessionId=s1"),
+      missing: classifyPublicUpgrade("/unknown"),
+    }).toEqual({
+      kernel: { action: "open", key: { kind: "kernel" } },
+      project: { action: "open", key: { kind: "projects", id: "/tmp/p" } },
+      restore: { action: "open", key: { kind: "sessions", id: "s1" } },
+      mint: { action: "create", room: "session", path: "/tmp/p", sessionId: "s1" },
+      missing: { action: "refuse", status: 404, reason: "not found" },
+    });
   });
 });
