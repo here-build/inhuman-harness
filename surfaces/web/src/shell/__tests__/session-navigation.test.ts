@@ -2,6 +2,8 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { KernelPlexus, KernelRoot, ProjectPlexus, SessionOverview, SessionPlexus } from "@inhuman.tools/harness-model";
+import { runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FileSidebar } from "../file-sidebar.js";
@@ -65,6 +67,76 @@ async function renderRail(kind: "overview" | "project", go = vi.fn(), onMint = v
 }
 
 describe("session navigation migration", () => {
+  it.each([
+    ["overview", false],
+    ["project", false],
+    ["overview", true],
+    ["project", true],
+  ] as const)("updates the selected %s row title without remounting (attached: %s)", async (kind, attached) => {
+    const overview = new SessionOverview({ title: "Original title", lastMessageAt: Date.now() });
+    const kernel = KernelPlexus.create(new KernelRoot({ projects: { "/work": "" }, sessions: { s0: overview } }));
+    const project = ProjectPlexus.create("/work");
+    const session = attached ? SessionPlexus.create("s0", "/work") : null;
+    runInAction(() => {
+      project.root.sessions.s0 = "";
+      if (session != null) session.root.manualTitle = "Original title";
+    });
+    state.dial = { kernel, projects: new Map([["/work", project]]), project, session, link: null };
+    try {
+      await renderRail(kind);
+      expect(container.querySelector("a")?.textContent).toContain("Original title");
+      await act(async () => {
+        runInAction(() => {
+          if (session != null) session.root.manualTitle = "Updated title";
+          else overview.title = "Updated title";
+        });
+      });
+      expect(container.querySelector("a")?.textContent).toContain("Updated title");
+    } finally {
+      await act(async () => root.unmount());
+      kernel.destroy();
+      project.destroy();
+      session?.destroy();
+    }
+  });
+
+  it.each(["overview", "project"] as const)(
+    "adds and removes %s sessions live before metadata arrives",
+    async (kind) => {
+      const kernel = KernelPlexus.create(new KernelRoot({ projects: { "/work": "" } }));
+      const project = ProjectPlexus.create("/work");
+      const overview = new SessionOverview();
+      state.dial = { kernel, projects: new Map([["/work", project]]), project, session: null, link: null };
+      try {
+        await renderRail(kind);
+        expect(container.querySelectorAll("a")).toHaveLength(0);
+        await act(async () => {
+          runInAction(() => {
+            project.root.sessions.new = "";
+            kernel.root.sessions.new = overview;
+          });
+        });
+        expect(container.querySelectorAll("a")).toHaveLength(0);
+        await act(async () => {
+          runInAction(() => {
+            overview.lastPrompt = "First message";
+          });
+        });
+        expect(container.querySelector("a")?.textContent).toContain("First message");
+        await act(async () => {
+          runInAction(() => {
+            delete project.root.sessions.new;
+          });
+        });
+        expect(container.querySelectorAll("a")).toHaveLength(0);
+      } finally {
+        await act(async () => root.unmount());
+        kernel.destroy();
+        project.destroy();
+      }
+    },
+  );
+
   it.each(["overview", "project"] as const)(
     "labels the %s search and supports filtering and clearing",
     async (kind) => {

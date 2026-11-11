@@ -309,15 +309,9 @@ function listedSessions(
   held: ProjectPlexus,
   selectedSessionId: string | null,
 ): string[] {
-  return Object.keys(held.root.sessions).filter((sessionId) => {
-    if (sessionId === selectedSessionId) return true;
-    if (!Object.hasOwn(glances, sessionId)) return false;
-    const overview = glances[sessionId];
-    if (overview == null || !isConversationOverview(overview)) return false;
-    const title = rowText(overview.title);
-    const status = rowText(overview.status);
-    return title.trim() !== "" || status.trim() !== "";
-  });
+  return Object.keys(held.root.sessions).filter((sessionId) =>
+    listedConversation(glances[sessionId], sessionId === selectedSessionId),
+  );
 }
 
 function lightOf(
@@ -345,7 +339,7 @@ function labelOf(
   });
 }
 
-function SessionRow({
+const SessionRow = observer(function SessionRowView({
   sessionId,
   selected,
   href,
@@ -380,7 +374,7 @@ function SessionRow({
       detail={project}
     />
   );
-}
+});
 
 function RailRow({
   href,
