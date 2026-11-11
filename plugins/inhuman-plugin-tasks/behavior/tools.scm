@@ -9,7 +9,7 @@
        (equal? (:%plugin-surface value) "refusal")))
 
 (define/tool 'task__create
-  :description "Create a task with pending status and return its taskId. The harness manages status; completion requires task__validate, not a completed argument. The validationProgram is saved at creation and cannot be replaced. It must inspect current project state through files, tests, or a :readonly agent/ask using the task requirements, then call (tasks/write-completion-verdict ok comments). Returning #t or (list #t \"…\") is not a stamp. ;; use one-shot for schema-constrained responses"
+  :description "Create a pending task with a saved Scheme validation program. Choose a unique taskId; the tool returns that ID. Creation captures the program without running its checks. When the work is ready, call task__start and then task__validate with that ID. The saved program cannot be replaced; drop the task and create a new ID if its checks need correction."
   :expose 'tool
   :class 'meta
   :representation 'both
@@ -17,7 +17,13 @@
   :is-side-channel #t
   :question "create **{{subject}}**?{{#description}}\n{{description}}{{/description}}{{#activeForm}}\nform **{{activeForm}}**{{/activeForm}}{{#activationBrief}}\nbrief **{{activationBrief}}**{{/activationBrief}}{{#validationProgram}}\nprogram `{{validationProgram}}`{{/validationProgram}}"
   :effect "created **{{subject}}**{{#description}}\n{{description}}{{/description}}{{#activeForm}}\nform **{{activeForm}}**{{/activeForm}}{{#activationBrief}}\nbrief **{{activationBrief}}**{{/activationBrief}}{{#validationProgram}}\nprogram `{{validationProgram}}`{{/validationProgram}}"
-  :input (s/object (s/field "subject" (s/string)) (s/field "description" (s/string)) (s/field "activeForm" (s/optional (s/string))) (s/field "activationBrief" (s/optional (s/string))) (s/field "validationProgram" (s/string)) (s/field "taskId" (s/string)))
+  :input (s/object
+    (s/field "subject" (s/string) "Short task title.")
+    (s/field "description" (s/string) "Task requirements and scope; the validation program must check these requirements.")
+    (s/field "activeForm" (s/optional (s/string)) "Progress label displayed while this task is active.")
+    (s/field "activationBrief" (s/optional (s/string)) "Instructions to follow when this task becomes active.")
+    (s/field "validationProgram" (s/string) "Scheme source text, saved now and evaluated later by task__validate in a fresh scope. Use Scheme calls such as (read_file \"path\") for file text, (equal? actual expected) for comparison, and (tasks/write-completion-verdict ok \"evidence\") for the final verdict. Available project ports: read_file, list_dir, grep, glob, fff_search, shell. Paths resolve from the project root. Adapt this example to the task's actual requirements: (tasks/write-completion-verdict (equal? (read_file \"status.txt\") \"ready\") \"status.txt must contain exactly ready\"). The outer argument is a JSON string; its contents use Scheme syntax. Returning #t alone does not record a verdict.")
+    (s/field "taskId" (s/string) "A nonempty unique ID you choose, such as remove-picker. Reuse this ID with task__start, task__validate, task__after, and task__drop."))
   :handler (lambda (input)
              (let ((source (exam/capture (:validationProgram input))))
                (call/method 'tasks 'create
@@ -29,7 +35,7 @@
                :activationBrief (text-or (:activationBrief input))))))
 
 (define/tool 'task__start
-  :description "Start a task and return its subject and activationBrief. Only one task can be active; any previously active task returns to pending. Starting an already-active task changes nothing."
+  :description "Make a pending task active before working on it or calling task__validate. Returns its subject and activationBrief. Only one task is active at a time; starting another returns the previous task to pending. Starting the active task changes nothing."
   :expose 'tool
   :class 'meta
   :representation 'both
@@ -37,7 +43,7 @@
   :is-side-channel #t
   :question "start `{{taskId}}`?"
   :effect "started `{{taskId}}`"
-  :input (s/object (s/field "taskId" (s/string)))
+  :input (s/object (s/field "taskId" (s/string) "ID of an existing pending or active task."))
   :handler (lambda (input)
              (let ((started (call/method 'tasks 'start :task-id (:taskId input))))
                (if (refusal? started)
@@ -49,7 +55,7 @@
                                :activationBrief (text-or (:activationBrief page)))))))))
 
 (define/tool 'task__drop
-  :description "Drop a task and save the reason. Completed tasks cannot be dropped. Dropping an already-dropped task changes nothing. Returns no value."
+  :description "Abandon an unfinished task and save the reason. Use this when its scope or saved Scheme validation program needs replacement, then task__create with a new ID. Completed tasks cannot be dropped; dropping an already-dropped task changes nothing. Returns false as an acknowledgement on success."
   :expose 'tool
   :class 'meta
   :representation 'both
@@ -57,13 +63,13 @@
   :is-side-channel #t
   :question "drop `{{taskId}}`?{{#reason}}\n{{reason}}{{/reason}}"
   :effect "dropped `{{taskId}}`{{#reason}}\n{{reason}}{{/reason}}"
-  :input (s/object (s/field "taskId" (s/string)) (s/field "reason" (s/string)))
+  :input (s/object (s/field "taskId" (s/string) "ID of the unfinished task to drop.") (s/field "reason" (s/string) "Why this task is being abandoned or replaced; saved with the task."))
   :handler (lambda (input)
              (let ((dropped (call/method 'tasks 'drop :task-id (:taskId input) :reason (:reason input))))
                (if (refusal? dropped) dropped #f))))
 
 (define/tool 'task__after
-  :description "Add a prerequisite: taskId waits until after is completed. Does not start either task. Returns no value."
+  :description "Record that taskId depends on the task named by after. Both tasks must already exist. This records the prerequisite for planning; it does not start tasks or block task__start. Returns false as an acknowledgement on success."
   :expose 'tool
   :class 'meta
   :representation 'both
@@ -71,13 +77,13 @@
   :is-side-channel #t
   :question "after `{{taskId}}` `{{after}}`?"
   :effect "after `{{taskId}}` `{{after}}`"
-  :input (s/object (s/field "taskId" (s/string)) (s/field "after" (s/string)))
+  :input (s/object (s/field "taskId" (s/string) "ID of the dependent task.") (s/field "after" (s/string) "ID of its prerequisite task."))
   :handler (lambda (input)
              (let ((edged (call/method 'tasks 'after :task-id (:taskId input) :after (:after input))))
                (if (refusal? edged) edged #f))))
 
 (define/tool 'task__validate
-  :description "Validate the active task using the validationProgram saved at creation; no replacement program is accepted. That program must call (tasks/write-completion-verdict ok comments) after checking current project state. The tool returns that pair."
+  :description "Run the active task's saved Scheme validation program against current project state. Call task__start first. The program must finish with (tasks/write-completion-verdict ok comments); the tool returns that boolean/string pair. A true verdict completes the task; a false verdict returns it to pending so you can fix the work, start it, and validate again. To correct the saved program itself, drop the task and create a new ID."
   :expose 'tool
   :class 'meta
   :representation 'both
@@ -85,7 +91,7 @@
   :is-side-channel #t
   :question "validate `{{taskId}}`?"
   :effect "validated `{{taskId}}`"
-  :input (s/object (s/field "taskId" (s/string)))
+  :input (s/object (s/field "taskId" (s/string) "ID of the active task whose saved Scheme program should run."))
   :handler (lambda (input)
              (let ((page (call/method 'tasks 'page :task-id (:taskId input))))
                (if (refusal? page)

@@ -3,9 +3,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { jsonToVal } from "../eval.js";
 import { callDeclaredTool, loadProgram, type Registry } from "../index.js";
+import { ExamProgramError } from "../surface-error.js";
 import { Proc, type Val } from "../value.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +42,34 @@ async function probe(body: string, environment: Map<string, Proc>): Promise<Val>
 }
 
 describe("exam uneval", () => {
+  it("attributes source failures to the exam phase without claiming a task was created", async () => {
+    await expect(probe(`(exam/capture ${JSON.stringify("(read_file")})`, new Map())).rejects.toMatchObject({
+      code: "exam/program-syntax",
+      phase: "capture",
+      cause: expect.any(Error),
+    });
+    await expect(probe('(exam/capture "")', new Map())).rejects.toBeInstanceOf(ExamProgramError);
+    await expect(probe('(exam/apply "(lambda () unknown-name)")', new Map())).rejects.toMatchObject({
+      code: "exam/unbound-name",
+      phase: "apply",
+    });
+  });
+
+  it("preserves file-port errors rather than treating them as Scheme authoring failures", async () => {
+    const missing = new Error("read_file: status.txt does not exist");
+    const environment = new Map([
+      [
+        "read_file",
+        binding("read_file", () => {
+          throw missing;
+        }),
+      ],
+    ]);
+    await expect(probe('(exam/apply "(lambda (read_file) (read_file \\"status.txt\\"))")', environment)).rejects.toBe(
+      missing,
+    );
+  });
+
   it("keeps every form of a begin and turns each port into a parameter", async () => {
     const value = await probe(
       '(exam/capture "(begin (read_file \\"a.ts\\") (tasks/write-completion-verdict #t \\"matches\\"))")',
@@ -168,5 +198,18 @@ describe("exam uneval", () => {
       "task__validate",
     ]);
     expect([...registry.tools.values()].every((tool) => tool.isSideChannel)).toBe(true);
+    const catalog = z
+      .object({
+        tools: z.record(z.string(), z.object({ description: z.string(), opts: z.unknown() })),
+      })
+      .parse(JSON.parse(readFileSync(join(HERE, "../../../../pretty-mcp/catalog/harness-toolkit.json"), "utf8")));
+    for (const tool of registry.tools.values()) {
+      const printed = catalog.tools[tool.name];
+      expect(printed?.description).toBe(tool.description);
+      expect(printed?.opts).toMatchObject({
+        properties: tool.input?.json.properties,
+        required: tool.input?.json.required,
+      });
+    }
   });
 });

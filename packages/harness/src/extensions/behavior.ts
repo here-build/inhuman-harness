@@ -11,6 +11,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import {
   EnvCapability,
+  ArrivalError,
   exec,
   isSchemeValue,
   jsToScheme,
@@ -25,8 +26,8 @@ import { APair, AString, ASymbol, nil, schemeFalse } from "@here.build/arrival/r
 import { isOptionalTag, stripOptionalSuffix, tagToJsonSchema } from "@here.build/arrival/schema-tag";
 import { toolContinuationSchema } from "@inhuman.tools/plugin-sdk";
 
-import { jsToVal, plain, sliceForm, valToScheme } from "./crossing.js";
-import { PluginSurfaceError } from "./surface-error.js";
+import { jsToVal, plain, sliceForm, unwrapBehaviorError, valToScheme } from "./crossing.js";
+import { ExamProgramError, PluginSurfaceError } from "./surface-error.js";
 import { Dict, Lambda, Refusal, SchemaV, asString, type Ctx, type Frame, type Val } from "./value.js";
 
 export const behaviorAls = new AsyncLocalStorage<Ctx>();
@@ -444,9 +445,16 @@ const EXAM_PORTS = new Set([...WORLD_PORTS, STAMP_PORT]);
  */
 async function captureExam(source: string): Promise<string> {
   const { buildWireframe } = await import("@here.build/arrival/provenance");
-  const parsed = await parse(source, "exam.scm");
+  const parsed = await parse(source, "exam.scm").catch((error: unknown) => {
+    if (error instanceof Error && (error.name === "ParseError" || error.name === "Unterminated")) {
+      throw new ExamProgramError("capture", error);
+    }
+    throw error;
+  });
   const forms = flattenExamForms((Array.isArray(parsed) ? parsed : [parsed]) as SchemeValue[]);
-  PluginSurfaceError.invariant(forms.length > 0, "exam program is empty");
+  if (forms.length === 0) {
+    throw new ExamProgramError("capture", new Error("the program is empty"));
+  }
   const only = forms[0];
   if (forms.length === 1) return closedForm(buildWireframe, only);
   const params: string[] = [];
@@ -539,6 +547,12 @@ async function applyExam(source: string, ctx: Ctx): Promise<Val> {
       capabilities: [behaviorCapability],
       scope,
       program: { forms: forms as readonly SchemeValue[], source, strict: false },
+    }).catch((error: unknown) => {
+      const cause = unwrapBehaviorError(error);
+      if (cause instanceof ArrivalError && cause["arrival/error-category"] === "unbound-variable") {
+        throw new ExamProgramError("apply", cause);
+      }
+      throw error;
     });
     const list = Array.isArray(value) ? value : [value];
     return jsToVal(list[list.length - 1]);

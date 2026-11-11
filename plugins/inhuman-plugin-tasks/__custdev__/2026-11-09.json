@@ -1,0 +1,679 @@
+{
+  "date": "2026-11-09",
+  "method": "Four fresh-context agents read only the exported live task schema, used real plugin handlers, state methods and Scheme interpreter with a temporary file workspace, then reported post-mortems. The revised fixture shares the production error formatter; separate tests execute the actual session adapter.",
+  "cohort": "One inherited model, four clean-room sessions; no cross-lineage validation.",
+  "fixture": {
+    "status.txt": "ready"
+  },
+  "limitations": [
+    "Small directional probe. The example matches the fixture; no claim of generalization or reduced call count.",
+    "Cold scenarios both allowed six calls; recovery baseline allowed six, revised eight (seven used). Baseline received two extra calls after the generic error wrapper changed; those two calls are excluded here.",
+    "Fixture does not model session authorization or verbosity; actual session integration tests cover those boundaries."
+  ],
+  "surface_before": [
+    {
+      "name": "task__create",
+      "description": "Create a task with pending status and return its taskId. The harness manages status; completion requires task__validate, not a completed argument. The validationProgram is saved at creation and cannot be replaced. It must inspect current project state through files, tests, or a :readonly agent/ask using the task requirements, then call (tasks/write-completion-verdict ok comments). Returning #t or (list #t \"…\") is not a stamp. ;; use one-shot for schema-constrained responses",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "activeForm": {
+            "type": "string"
+          },
+          "activationBrief": {
+            "type": "string"
+          },
+          "validationProgram": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "description",
+          "validationProgram",
+          "taskId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__start",
+      "description": "Start a task and return its subject and activationBrief. Only one task can be active; any previously active task returns to pending. Starting an already-active task changes nothing.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__drop",
+      "description": "Drop a task and save the reason. Completed tasks cannot be dropped. Dropping an already-dropped task changes nothing. Returns no value.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__after",
+      "description": "Add a prerequisite: taskId waits until after is completed. Does not start either task. Returns no value.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId",
+          "after"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__validate",
+      "description": "Validate the active task using the validationProgram saved at creation; no replacement program is accepted. That program must call (tasks/write-completion-verdict ok comments) after checking current project state. The tool returns that pair.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "surface_after": [
+    {
+      "name": "task__create",
+      "description": "Create a pending task with a saved Scheme validation program. Choose a unique taskId; the tool returns that ID. Creation captures the program without running its checks. When the work is ready, call task__start and then task__validate with that ID. The saved program cannot be replaced; drop the task and create a new ID if its checks need correction.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "Short task title."
+          },
+          "description": {
+            "type": "string",
+            "description": "Task requirements and scope; the validation program must check these requirements."
+          },
+          "activeForm": {
+            "type": "string",
+            "description": "Progress label displayed while this task is active."
+          },
+          "activationBrief": {
+            "type": "string",
+            "description": "Instructions to follow when this task becomes active."
+          },
+          "validationProgram": {
+            "type": "string",
+            "description": "Scheme source text, saved now and evaluated later by task__validate in a fresh scope. Use Scheme calls such as (read_file \"path\") for file text, (equal? actual expected) for comparison, and (tasks/write-completion-verdict ok \"evidence\") for the final verdict. Available project ports: read_file, list_dir, grep, glob, fff_search, shell. Paths resolve from the project root. Adapt this example to the task's actual requirements: (tasks/write-completion-verdict (equal? (read_file \"status.txt\") \"ready\") \"status.txt must contain exactly ready\"). The outer argument is a JSON string; its contents use Scheme syntax. Returning #t alone does not record a verdict."
+          },
+          "taskId": {
+            "type": "string",
+            "description": "A nonempty unique ID you choose, such as remove-picker. Reuse this ID with task__start, task__validate, task__after, and task__drop."
+          }
+        },
+        "required": [
+          "subject",
+          "description",
+          "validationProgram",
+          "taskId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__start",
+      "description": "Make a pending task active before working on it or calling task__validate. Returns its subject and activationBrief. Only one task is active at a time; starting another returns the previous task to pending. Starting the active task changes nothing.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "ID of an existing pending or active task."
+          }
+        },
+        "required": [
+          "taskId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__drop",
+      "description": "Abandon an unfinished task and save the reason. Use this when its scope or saved Scheme validation program needs replacement, then task__create with a new ID. Completed tasks cannot be dropped; dropping an already-dropped task changes nothing. Returns false as an acknowledgement on success.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "ID of the unfinished task to drop."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this task is being abandoned or replaced; saved with the task."
+          }
+        },
+        "required": [
+          "taskId",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__after",
+      "description": "Record that taskId depends on the task named by after. Both tasks must already exist. This records the prerequisite for planning; it does not start tasks or block task__start. Returns false as an acknowledgement on success.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "ID of the dependent task."
+          },
+          "after": {
+            "type": "string",
+            "description": "ID of its prerequisite task."
+          }
+        },
+        "required": [
+          "taskId",
+          "after"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__validate",
+      "description": "Run the active task's saved Scheme validation program against current project state. Call task__start first. The program must finish with (tasks/write-completion-verdict ok comments); the tool returns that boolean/string pair. A true verdict completes the task; a false verdict returns it to pending so you can fix the work, start it, and validate again. To correct the saved program itself, drop the task and create a new ID.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "ID of the active task whose saved Scheme program should run."
+          }
+        },
+        "required": [
+          "taskId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "runs": [
+    {
+      "condition": "baseline",
+      "scenario": "Create/start/validate a task checking status.txt is exactly ready.",
+      "budget": 6,
+      "completed": true,
+      "trace": [
+        {
+          "input": {
+            "name": "task__create",
+            "arguments": {
+              "taskId": "check-status",
+              "subject": "check-status",
+              "description": "Verify that status.txt contains exactly ready.",
+              "validationProgram": "(tasks/write-completion-verdict (equal? (read_file \"status.txt\") \"ready\") \"status.txt must contain exactly ready\")"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": "check-status"
+          }
+        },
+        {
+          "input": {
+            "name": "task__start",
+            "arguments": {
+              "taskId": "check-status"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": {
+              "subject": "check-status",
+              "activationBrief": ""
+            }
+          }
+        },
+        {
+          "input": {
+            "name": "task__validate",
+            "arguments": {
+              "taskId": "check-status"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": [
+              true,
+              "status.txt must contain exactly ready"
+            ]
+          }
+        }
+      ],
+      "postmortem": "Inferred Scheme, read_file signature and equal?; not explicitly documented."
+    },
+    {
+      "condition": "revised",
+      "scenario": "Create/start/validate a task checking status.txt is exactly ready.",
+      "budget": 6,
+      "completed": true,
+      "trace": [
+        {
+          "input": {
+            "name": "task__create",
+            "arguments": {
+              "taskId": "check-status",
+              "subject": "Check status",
+              "description": "Verify status.txt contains exactly ready, without a newline.",
+              "validationProgram": "(tasks/write-completion-verdict (equal? (read_file \"status.txt\") \"ready\") \"status.txt must contain exactly ready\")"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": "check-status"
+          }
+        },
+        {
+          "input": {
+            "name": "task__start",
+            "arguments": {
+              "taskId": "check-status"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": {
+              "subject": "Check status",
+              "activationBrief": ""
+            }
+          }
+        },
+        {
+          "input": {
+            "name": "task__validate",
+            "arguments": {
+              "taskId": "check-status"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": [
+              true,
+              "status.txt must contain exactly ready"
+            ]
+          }
+        }
+      ],
+      "postmortem": "Used documented Scheme example, file text return and lifecycle. No confusion encountered."
+    },
+    {
+      "condition": "baseline",
+      "scenario": "Reproduce JavaScript validation source, recover and complete its check.",
+      "budget": 6,
+      "completed": false,
+      "trace": [
+        {
+          "input": {
+            "name": "task__create",
+            "arguments": {
+              "taskId": "recover-status",
+              "subject": "Check status",
+              "description": "Verify status.txt contains ready",
+              "validationProgram": "const t = read_file(\"status.txt\"); const found = /ready|done/.test(t); tasks/write-completion-verdict(found, \"status check\");"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": "recover-status"
+          }
+        },
+        {
+          "input": {
+            "name": "task__start",
+            "arguments": {
+              "taskId": "recover-status"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": {
+              "subject": "Check status",
+              "activationBrief": ""
+            }
+          }
+        },
+        {
+          "input": {
+            "name": "task__validate",
+            "arguments": {
+              "taskId": "recover-status"
+            }
+          },
+          "output": {
+            "ok": false,
+            "text": "task__validate: Unbound variable `const' — did you mean `cons` or `cons*`?"
+          }
+        },
+        {
+          "input": {
+            "name": "task__create",
+            "arguments": {
+              "taskId": "recover-status-scheme",
+              "subject": "Check status",
+              "description": "Verify status.txt contains ready",
+              "validationProgram": "(tasks/write-completion-verdict (equal? (read-file \"status.txt\") \"ready\") \"status check\")"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": "recover-status-scheme"
+          }
+        },
+        {
+          "input": {
+            "name": "task__start",
+            "arguments": {
+              "taskId": "recover-status-scheme"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": {
+              "subject": "Check status",
+              "activationBrief": ""
+            }
+          }
+        },
+        {
+          "input": {
+            "name": "task__validate",
+            "arguments": {
+              "taskId": "recover-status-scheme"
+            }
+          },
+          "output": {
+            "ok": false,
+            "text": "task__validate: Unbound variable `read-file'"
+          }
+        }
+      ],
+      "postmortem": "Saved JavaScript failed with unbound const. Replacement guessed read-file and failed again. File-reading API remained unresolved."
+    },
+    {
+      "condition": "revised",
+      "scenario": "Reproduce the same JavaScript source, recover and complete its check.",
+      "budget": 8,
+      "completed": true,
+      "trace": [
+        {
+          "input": {
+            "name": "task__create",
+            "arguments": {
+              "taskId": "recover-status",
+              "subject": "Check status",
+              "description": "Verify status.txt contains ready",
+              "validationProgram": "const t = read_file(\"status.txt\"); const found = /ready|done/.test(t); tasks/write-completion-verdict(found, \"status check\");"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": "recover-status"
+          }
+        },
+        {
+          "input": {
+            "name": "task__start",
+            "arguments": {
+              "taskId": "recover-status"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": {
+              "subject": "Check status",
+              "activationBrief": ""
+            }
+          }
+        },
+        {
+          "input": {
+            "name": "task__validate",
+            "arguments": {
+              "taskId": "recover-status"
+            }
+          },
+          "output": {
+            "ok": false,
+            "text": "validationProgram is Scheme source evaluated by the task examiner. Scheme exam program: Unbound variable `const' — did you mean `cons` or `cons*`?\n1. The saved validationProgram cannot be replaced. Call task__drop for \"recover-status\" with a reason, then task__create with a new taskId and a corrected validationProgram; call task__start and task__validate on that new ID.\n2. Write checks as Scheme calls: (read_file \"path\") returns file text; (equal? actual expected) compares values. Finish with (tasks/write-completion-verdict ok \"evidence\").\n3. Adapt this working shape to the task requirements: (tasks/write-completion-verdict (equal? (read_file \"status.txt\") \"ready\") \"status.txt must contain exactly ready\")\nThe program is JSON string data at the tool boundary; its contents use Scheme syntax. It runs later during task__validate, after task__start."
+          }
+        },
+        {
+          "input": {
+            "name": "task__drop",
+            "arguments": {
+              "taskId": "recover-status",
+              "reason": "Saved validationProgram used JavaScript; replace with Scheme check that status.txt equals ready."
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": false
+          }
+        },
+        {
+          "input": {
+            "name": "task__create",
+            "arguments": {
+              "taskId": "recover-status-scheme",
+              "subject": "Check status",
+              "description": "Verify status.txt contains ready",
+              "validationProgram": "(tasks/write-completion-verdict (equal? (read_file \"status.txt\") \"ready\") \"status.txt must contain exactly ready\")"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": "recover-status-scheme"
+          }
+        },
+        {
+          "input": {
+            "name": "task__start",
+            "arguments": {
+              "taskId": "recover-status-scheme"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": {
+              "subject": "Check status",
+              "activationBrief": ""
+            }
+          }
+        },
+        {
+          "input": {
+            "name": "task__validate",
+            "arguments": {
+              "taskId": "recover-status-scheme"
+            }
+          },
+          "output": {
+            "ok": true,
+            "value": [
+              true,
+              "status.txt must contain exactly ready"
+            ]
+          }
+        }
+      ],
+      "postmortem": "Followed explicit drop/new ID/Scheme/start/validate recovery. Reported unexplained false drop acknowledgement; descriptions were then corrected."
+    }
+  ],
+  "changes_earned": [
+    "Put Scheme, exact ports, read_file return type and runnable example in live validationProgram field.",
+    "Separate unsaved capture retry from immutable saved-program replacement.",
+    "Name false success acknowledgements for drop/after.",
+    "Remove unsupported agent/ask and background-validation claims; describe after as recorded planning data."
+  ],
+  "surface_tested_revised": [
+    {
+      "name": "task__create",
+      "description": "Create a pending task with a saved Scheme validation program. Choose a unique taskId; the tool returns that ID. Creation captures the program without running its checks. When the work is ready, call task__start and then task__validate with that ID. The saved program cannot be replaced; drop the task and create a new ID if its checks need correction.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "Short task title."
+          },
+          "description": {
+            "type": "string",
+            "description": "Task requirements and scope; the validation program must check these requirements."
+          },
+          "activeForm": {
+            "type": "string",
+            "description": "Progress label displayed while this task is active."
+          },
+          "activationBrief": {
+            "type": "string",
+            "description": "Instructions to follow when this task becomes active."
+          },
+          "validationProgram": {
+            "type": "string",
+            "description": "Scheme source text, saved now and evaluated later by task__validate in a fresh scope. Use Scheme calls such as (read_file \"path\") for file text, (equal? actual expected) for comparison, and (tasks/write-completion-verdict ok \"evidence\") for the final verdict. Available project ports: read_file, list_dir, grep, glob, fff_search, shell. Paths resolve from the project root. Adapt this example to the task's actual requirements: (tasks/write-completion-verdict (equal? (read_file \"status.txt\") \"ready\") \"status.txt must contain exactly ready\"). The outer argument is a JSON string; its contents use Scheme syntax. Returning #t alone does not record a verdict."
+          },
+          "taskId": {
+            "type": "string",
+            "description": "A nonempty unique ID you choose, such as remove-picker. Reuse this ID with task__start, task__validate, task__after, and task__drop."
+          }
+        },
+        "required": [
+          "subject",
+          "description",
+          "validationProgram",
+          "taskId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__start",
+      "description": "Make a pending task active before working on it or calling task__validate. Returns its subject and activationBrief. Only one task is active at a time; starting another returns the previous task to pending. Starting the active task changes nothing.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "ID of an existing pending or active task."
+          }
+        },
+        "required": [
+          "taskId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__drop",
+      "description": "Abandon an unfinished task and save the reason. Use this when its scope or saved Scheme validation program needs replacement, then task__create with a new ID. Completed tasks cannot be dropped; dropping an already-dropped task changes nothing. Returns no value.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "ID of the unfinished task to drop."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this task is being abandoned or replaced; saved with the task."
+          }
+        },
+        "required": [
+          "taskId",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__after",
+      "description": "Record that taskId depends on the task named by after. Both tasks must already exist. This records the prerequisite for planning; it does not start tasks or block task__start. Returns no value.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "ID of the dependent task."
+          },
+          "after": {
+            "type": "string",
+            "description": "ID of its prerequisite task."
+          }
+        },
+        "required": [
+          "taskId",
+          "after"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "task__validate",
+      "description": "Run the active task's saved Scheme validation program against current project state. Call task__start first. The program must finish with (tasks/write-completion-verdict ok comments); the tool returns that boolean/string pair. A true verdict completes the task; a false verdict returns it to pending so you can fix the work, start it, and validate again. To correct the saved program itself, drop the task and create a new ID.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "ID of the active task whose saved Scheme program should run."
+          }
+        },
+        "required": [
+          "taskId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

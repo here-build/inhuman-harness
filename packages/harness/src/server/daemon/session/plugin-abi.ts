@@ -11,9 +11,9 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-import invariant from "tiny-invariant";
-
+import { trace } from "@inhuman.tools/harness-diagnostics";
 import { documentRoot, SessionRoot, ToolCallJob } from "@inhuman.tools/harness-model";
+import invariant from "tiny-invariant";
 
 import {
   callDeclaredTool,
@@ -28,14 +28,23 @@ import {
   type Val,
   type BehaviorKernel,
 } from "@/extensions";
+import { ExamProgramError } from "@/extensions/surface-error";
 import type { CatalogEntry } from "@/tool-catalog";
 import { ToolCallHandler } from "@/tool-runtime";
 
 import { reportProblem, type PluginProblems } from "./plugin-bots.js";
+import { taskExamDoor } from "./task-exam-door.js";
 import { type ToolContext } from "../../toolkit/executor.js";
 
 /** Tool ctx for exam ports. Entered around each execute so concurrent calls do not share one slot. */
 const examToolCtx = new AsyncLocalStorage<ToolContext>();
+const examDoors = new WeakMap<
+  SessionRoot,
+  {
+    seen: Set<string>;
+    pending: { code: string; tool: string } | null;
+  }
+>();
 
 /** One loaded ABI and the catalog rows it contributes. */
 export type PluginAbi = {
@@ -108,20 +117,44 @@ async function loadAbi(
       caption: decl.caption,
       execute: async (raw, ctx) => {
         const sessionId = typeof ctx.sessionId === "string" ? ctx.sessionId : "";
-        const value = await examToolCtx.run(examContext(ctx, sessionId), () =>
-          callDeclaredTool(registry, decl.name, jsonToVal(raw ?? {}), (_receiver, method, kw) =>
-            kernel.callState({
-              plugin: plugin.name,
-              scope: "session",
-              agentId: sessionId,
-              projectId: "",
-              method,
-              args: Object.fromEntries([...kw].map(([key, item]) => [key, toJS(item)])),
-              hostAuthority: true,
-            }),
-          ),
-        );
-        return toolResultOf(value);
+        const session = ctx.invocation instanceof ToolCallJob ? documentRoot(ctx.invocation) : null;
+        const doors =
+          session instanceof SessionRoot
+            ? (examDoors.get(session) ?? { seen: new Set<string>(), pending: null })
+            : null;
+        if (session instanceof SessionRoot && doors != null) examDoors.set(session, doors);
+        try {
+          const value = await examToolCtx.run(examContext(ctx, sessionId), () =>
+            callDeclaredTool(registry, decl.name, jsonToVal(raw ?? {}), (_receiver, method, kw) =>
+              kernel.callState({
+                plugin: plugin.name,
+                scope: "session",
+                agentId: sessionId,
+                projectId: "",
+                method,
+                args: Object.fromEntries([...kw].map(([key, item]) => [key, toJS(item)])),
+                hostAuthority: true,
+              }),
+            ),
+          );
+          const result = toolResultOf(value);
+          if (result.ok && doors?.pending?.tool === decl.name) {
+            trace("harness:task-exam", `successful-call-after-rejection ${doors.pending.code} tool=${decl.name}`);
+            doors.pending = null;
+          }
+          return result;
+        } catch (error) {
+          if (plugin.name !== "tasks" || !(error instanceof ExamProgramError)) throw error;
+          const text = taskExamDoor(error, decl.name, raw, !doors?.seen.has(error.code));
+          if (text == null) throw error;
+          doors?.seen.add(error.code);
+          if (doors != null) doors.pending = { code: error.code, tool: decl.name };
+          trace(
+            "harness:task-exam",
+            `rejected ${error.code} owner=${error.owner} field=validationProgram tier=${error.tier}`,
+          );
+          return { ok: false, text };
+        }
       },
     });
   }
