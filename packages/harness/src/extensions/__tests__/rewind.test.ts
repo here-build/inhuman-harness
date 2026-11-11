@@ -51,7 +51,7 @@ describe("session plugin state rewind", () => {
       restoreSessionPluginState({
         directory,
         sessionId: "s1",
-        live: session.root.pluginState,
+        session: session.root,
         snapshot: pluginStateSnapshotFromHead(ended),
       });
     });

@@ -1,3 +1,5 @@
+import type { SessionRoot } from "@inhuman.tools/harness-model";
+
 import { decodeLog, sessionStateKey } from "./state-store.js";
 import type { StateDirectory } from "./state.js";
 
@@ -51,16 +53,11 @@ export function pluginStateSnapshotFromHead(head: unknown): Record<string, strin
 export function restoreSessionPluginState(opts: {
   readonly directory: StateDirectory;
   readonly sessionId: string;
-  readonly live: Record<string, string>;
+  readonly session: SessionRoot;
   readonly snapshot: Record<string, string>;
 }): void {
-  const { live, snapshot, directory, sessionId } = opts;
-  for (const key of Object.keys(live)) {
-    if (!(key in snapshot)) delete live[key];
-  }
-  for (const [key, json] of Object.entries(snapshot)) {
-    if (live[key] !== json) live[key] = json;
-  }
+  const { snapshot, directory, sessionId, session } = opts;
+  session.pluginState = { ...snapshot };
   for (const id of directory.sessionOwners(sessionId)) {
     const key = sessionStateKey(directory.parts(id));
     directory.reset(id, Object.hasOwn(snapshot, key) ? decodeLog(snapshot[key]!) : []);

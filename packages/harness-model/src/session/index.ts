@@ -7,6 +7,7 @@ export * from "./expectations/index.js";
 export * from "./tool-outcome.js";
 export * from "./blob-ref.js";
 export * from "./prompt-parts.js";
+export * from "./plugin-log.js";
 export * from "./RegisteredToolsSet.js";
 export * from "./Agent.js";
 export * from "../reasoning-effort.js";

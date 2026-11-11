@@ -460,7 +460,7 @@ export class SessionBehavior implements Disposable {
     // session now belongs to the head that replaced it: record nothing on the
     // old turn and restore nothing, however late its hooks finish.
     if (!isWorkReachable(this.session, turn)) return;
-    turn.pluginState = this.session.pluginState;
+    turn.recordPluginState(this.session.pluginHeads);
   }
 
   #boundaryReport(point: string, outcome: BoundaryOutcome): void {

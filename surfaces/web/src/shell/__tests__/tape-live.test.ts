@@ -95,7 +95,7 @@ describe("tape projection", () => {
     const actions: object[] = [{ type: "set", text: "Ship the sidebar", loops: 1 }];
     await act(async () => {
       runInAction(() => {
-        root.pluginState["inhuman-plugin-goal:state"] = JSON.stringify(actions);
+        root.writePluginLog("inhuman-plugin-goal:state", JSON.stringify(actions));
       });
     });
     expect(container.querySelector(".side-left .progress-items")?.textContent).toContain("Ship the sidebar");
@@ -103,7 +103,7 @@ describe("tape projection", () => {
     actions.push({ type: "tick" });
     await act(async () => {
       runInAction(() => {
-        root.pluginState["inhuman-plugin-goal:state"] = JSON.stringify(actions);
+        root.writePluginLog("inhuman-plugin-goal:state", JSON.stringify(actions));
       });
     });
     expect(container.querySelector(".side-left .progress-items")?.textContent).toMatch(/exhausted|limit reached/i);
@@ -111,7 +111,7 @@ describe("tape projection", () => {
 
     await act(async () => {
       runInAction(() => {
-        root.pluginState["inhuman-plugin-goal:state"] = "[]";
+        root.writePluginLog("inhuman-plugin-goal:state", "[]");
       });
     });
     expect(container.querySelector(".side-left .progress-items")?.textContent ?? "").not.toContain("Ship the sidebar");
@@ -121,7 +121,7 @@ describe("tape projection", () => {
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], doneWork: [] });
     const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
     root.head = turn;
-    root.pluginState["inhuman-plugin-goal:state"] = JSON.stringify([{ type: "set", text: "Early goal", loops: 2 }]);
+    root.writePluginLog("inhuman-plugin-goal:state", JSON.stringify([{ type: "set", text: "Early goal", loops: 2 }]));
     const booted = SessionPlexus.bootstrap(root);
     release = () => booted.destroy();
     state.dial.session = { root };

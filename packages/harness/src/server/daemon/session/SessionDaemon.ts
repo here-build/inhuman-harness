@@ -1022,7 +1022,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       restoreSessionPluginState({
         directory: this.kernel.behavior.directory,
         sessionId: this.sessionId,
-        live: this.root.pluginState,
+        session: this.root,
         snapshot,
       });
     });

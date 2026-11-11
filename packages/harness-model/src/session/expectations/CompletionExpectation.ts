@@ -190,7 +190,40 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
    * not the completion's end.
    */
   @state accessor thoughtEndedAtMs: number | null = null;
-  @state.list accessor messages: CompletionMessage[] = [];
+  @state.ref accessor historyTail: CompletionExpectation | null = null;
+  @state.list accessor messageCells: CompletionMessage[] = [];
+
+  /** Cumulative history is a view; only this round's suffix and predecessor are stored. */
+  @computed
+  get messages(): CompletionMessage[] {
+    const segments: CompletionMessage[][] = [this.messageCells];
+    const seen = new Set<CompletionExpectation>([this]);
+    let round = this.historyTail;
+    while (round !== null) {
+      if (seen.has(round)) throw new TypeError("completion history cycle");
+      seen.add(round);
+      segments.push(round.messageCells);
+      round = round.historyTail;
+    }
+    return segments.toReversed().flat();
+  }
+
+  set messages(messages: CompletionMessage[]) {
+    let tail: CompletionExpectation | null = null;
+    let start = 0;
+    for (let index = messages.length - 1; index >= 0; index--) {
+      const cell = messages[index];
+      const previous = tapeCompletion(cell) ?? (cell instanceof CompletionExpectation ? cell : null);
+      if (previous === null || previous === this) continue;
+      const prefix = previous.messages;
+      if (prefix.length !== index || !prefix.every((item, at) => item === messages[at])) continue;
+      tail = previous;
+      start = index;
+      break;
+    }
+    this.historyTail = tail;
+    this.messageCells = messages.slice(start);
+  }
   /**
    * R3. The retention clock read once at round open:
    * `{at: <completion uuid>, reason, coldByMs?, freedTokens?}`. Empty =
@@ -271,6 +304,8 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
           model?: string;
           reasoningEffort?: ReasoningEffort | null;
           messages?: CompletionMessage[];
+          historyTail?: CompletionExpectation | null;
+          messageCells?: CompletionMessage[];
           retentionClockJson?: string;
           responseSchema?: Readonly<Record<string, unknown>> | null;
           responseCalls?: ResponseCall[];
@@ -280,13 +315,14 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
       super(props);
       return;
     }
-    const { responseSchema, ...rest } = props;
+    const { responseSchema, messages, ...rest } = props;
     // `JSON.stringify(null)` is the string "null", which would read back as a schema.
     const init = {
       ...rest,
       responseSchemaJson: responseSchema == null ? null : JSON.stringify(responseSchema),
     };
     super(init);
+    if (messages !== undefined) this.messages = messages;
   }
 
   /**

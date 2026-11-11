@@ -11,6 +11,7 @@ import { AgentCallNotification } from "./jobs/AgentCallNotification.js";
 import { mcpToolRefKey, type McpPersistScope } from "./mcp-name-floor.js";
 import { projectionsOf } from "./projection-registry.js";
 import { SkillSpec } from "./prompt-parts.js";
+import { PluginAction, pluginLogHeads, pluginLogs } from "./plugin-log.js";
 import { readRootOf } from "./read-roots.js";
 import { type SessionUnfinished } from "./unfinished.js";
 import { ActionSpec } from "../shared/ActionSpec.js";
@@ -197,7 +198,21 @@ export class SessionRoot extends WorkContainer {
    * `plugin:namespace`. It survives a park and a restart; a rewind replaces
    * it with the target turn's plugin state.
    */
-  @state.record accessor pluginState: Record<string, string> = {};
+  @state.refList accessor pluginHeads: PluginAction[] = [];
+
+  @computed
+  get pluginState(): Readonly<Record<string, string>> {
+    return Object.freeze(pluginLogs(this.pluginHeads));
+  }
+
+  set pluginState(logs: Readonly<Record<string, string>>) {
+    this.pluginHeads = pluginLogHeads(logs, this.pluginHeads);
+  }
+
+  @state.action
+  writePluginLog(namespace: string, json: string): void {
+    this.pluginState = { ...this.pluginState, [namespace]: json };
+  }
   /** Leftover document record. Does not authorize. Empty on older documents. */
   @state.record accessor judgeCache: Record<string, string> = {};
   @state.childRecord accessor actions: Record<string, ActionSpec> = {};
@@ -277,6 +292,7 @@ export class SessionRoot extends WorkContainer {
           readonly policyProgram?: string;
           readonly judgeAskProgram?: string;
           readonly judgeCache?: Record<string, string>;
+          readonly pluginState?: Record<string, string>;
           readonly lastUsedConnectionModel?: Record<string, string>;
           readonly actions?: Record<string, ActionSpec>;
           readonly skills?: SkillSpec[];
@@ -299,6 +315,7 @@ export class SessionRoot extends WorkContainer {
   ) {
     super(props);
     if (typeof props === "symbol") return;
+    if (props?.pluginState !== undefined) this.pluginState = props.pluginState;
     if (this.agent == null) this.agent = new Agent();
   }
 

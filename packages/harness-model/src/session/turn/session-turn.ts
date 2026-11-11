@@ -26,6 +26,7 @@ import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SequenceJob } from "../jobs/SequenceJob.js";
 import { ToolCallJob } from "../jobs/ToolCallJob.js";
 import { RegisteredToolsSet } from "../RegisteredToolsSet.js";
+import { PluginAction, pluginLogHeads, pluginLogs } from "../plugin-log.js";
 import type { SessionSystemPrompt, SystemPromptParts } from "../SessionSystemPrompt.js";
 import { SessionSystemPromptDerivation } from "../SessionSystemPromptDerivation.js";
 import { storageAfterTurn, type PluginStorageMap } from "../trajectory-projection.js";
@@ -176,9 +177,12 @@ export class SessionTurn extends SequenceJob {
   @state accessor retentionJson: string = "";
 
   @state private accessor pluginStateJson: string | null = null;
+  @state.refList accessor pluginHeads: PluginAction[] = [];
+  @state accessor pluginStateRecorded = false;
 
   @computed
   get pluginState(): ReadonlyDeep<Record<string, string>> | null {
+    if (this.pluginStateRecorded) return pluginLogs(this.pluginHeads);
     const rec = frozenRecord(this.pluginStateJson);
     if (rec == null) return null;
     const out: Record<string, string> = {};
@@ -190,9 +194,17 @@ export class SessionTurn extends SequenceJob {
   }
 
   set pluginState(next: Readonly<Record<string, string>> | null) {
-    const json = next == null ? null : JSON.stringify(next);
-    if (json === this.pluginStateJson) return;
-    this.pluginStateJson = json;
+    const prior = this.turnTail instanceof SessionTurn ? this.turnTail.pluginHeads : [];
+    this.pluginHeads = next === null ? [] : pluginLogHeads(next, prior);
+    this.pluginStateRecorded = next !== null;
+    this.pluginStateJson = null;
+  }
+
+  @state.action
+  recordPluginState(heads: readonly PluginAction[]): void {
+    this.pluginHeads = [...heads];
+    this.pluginStateRecorded = true;
+    this.pluginStateJson = null;
   }
 
   @computed
@@ -653,6 +665,10 @@ export class SessionTurn extends SequenceJob {
   ) {
     super(props);
     if (typeof props === "symbol") return;
+    if (this.pluginStateJson !== null) {
+      const legacy = this.pluginState;
+      if (legacy !== null) this.pluginState = legacy;
+    }
     const alignWithChildren = (chunk: TurnChunk): TurnChunk => {
       const chunkUuid =
         chunk instanceof Job

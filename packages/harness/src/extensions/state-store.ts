@@ -58,7 +58,7 @@ export class KernelStateStore implements StateStore {
       const root = this.session(owner.scopeId);
       if (root == null) return;
       runInAction(() => {
-        root.pluginState[sessionStateKey(owner)] = encodeLog(log);
+        root.writePluginLog(sessionStateKey(owner), encodeLog(log));
       });
       return;
     }
