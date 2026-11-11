@@ -30,6 +30,8 @@ import Database, { type Database as BetterSqliteDatabase, type Options as Better
 import { and, asc, eq } from "drizzle-orm";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
+import { migrateLegacySqliteSchema } from "./sqlite-migration.js";
+
 export const HARNESS_TABLE_NAMES = [
   "kernel_state",
   "scope_nodes",
@@ -100,8 +102,8 @@ export class HarnessDatabase implements Disposable {
   #commitOffset = 0;
   #txDepth = 0;
   #nestedTouchedTables: HarnessTableName[] = [];
-  #txScopeNodeChanges = new Map<string, MutableRowDelta<ScopeNodeRow>>();
-  #txSessionNodeChanges = new Map<string, MutableRowDelta<SessionNodeRow>>();
+  readonly #txScopeNodeChanges = new Map<string, MutableRowDelta<ScopeNodeRow>>();
+  readonly #txSessionNodeChanges = new Map<string, MutableRowDelta<SessionNodeRow>>();
 
   constructor(path = ":memory:", options?: HarnessDatabaseOptions) {
     this.#sqlite = new Database(path, options);
@@ -109,7 +111,17 @@ export class HarnessDatabase implements Disposable {
     this.#sqlite.pragma("synchronous = NORMAL");
     this.#sqlite.pragma("foreign_keys = ON");
     this.#sqlite.pragma("busy_timeout = 5000");
-    this.#sqlite.exec(bootstrapHarnessSqliteSql);
+    const migratedLegacy = options?.readonly !== true && migrateLegacySqliteSchema(this.#sqlite);
+    if (options?.readonly !== true) {
+      this.#sqlite.exec(bootstrapHarnessSqliteSql);
+      if (migratedLegacy) {
+        this.#sqlite
+          .prepare(
+            "DELETE FROM sessions WHERE NOT EXISTS (SELECT 1 FROM session_nodes WHERE session_nodes.session_id = sessions.session_id)",
+          )
+          .run();
+      }
+    }
     this.#drizzle = drizzle(this.#sqlite, { schema: harnessSchema });
   }
 
@@ -633,14 +645,7 @@ export class HarnessDatabase implements Disposable {
 
   deleteSession(sessionId: string): boolean {
     return this.writeTransaction(
-      [
-        "sessions",
-        "pending_asks",
-        "session_turns",
-        "session_nodes",
-        "session_effects",
-        "session_blobs",
-      ],
+      ["sessions", "pending_asks", "session_turns", "session_nodes", "session_effects", "session_blobs"],
       (tx) => {
         const nodeIds = tx
           .select({ id: sessionNodesTable.id })
@@ -721,7 +726,11 @@ export class HarnessDatabase implements Disposable {
     });
   }
 
-  getSessionEffect(sessionId: string, effectKey: string, kind?: "commit" | "command" | "effect"): SessionEffectRow | undefined {
+  getSessionEffect(
+    sessionId: string,
+    effectKey: string,
+    kind?: "commit" | "command" | "effect",
+  ): SessionEffectRow | undefined {
     if (kind) {
       const id = rowPairId(sessionId, `${kind}:${effectKey}`);
       return this.#drizzle.select().from(sessionEffectsTable).where(eq(sessionEffectsTable.id, id)).get();
@@ -787,10 +796,7 @@ export class HarnessDatabase implements Disposable {
       .all();
   }
 
-  insertSessionBlobInTx(
-    tx: HarnessDrizzleTx,
-    blob: Omit<SessionBlobRowInsert, "id"> & { readonly id?: string },
-  ): void {
+  insertSessionBlobInTx(tx: HarnessDrizzleTx, blob: Omit<SessionBlobRowInsert, "id"> & { readonly id?: string }): void {
     const id = blob.id ?? rowPairId(blob.sessionId, blob.blobId);
     tx.insert(sessionBlobsTable)
       .values({ ...blob, id })

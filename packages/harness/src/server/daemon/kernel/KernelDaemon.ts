@@ -824,6 +824,61 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       // One unloadable project is that project's failure, not the kernel's.
       await this.project(workspace).ready.catch((error: unknown) => fail(`project ${workspace}`, error));
     }
+    const prunedSessions = new Set<string>();
+    const touchedProjectPaths = new Set<string>();
+    runInAction(() => {
+      for (const id of Object.keys(plexus.root.sessions)) {
+        if (!this.hasStoredSession(id)) {
+          prunedSessions.add(id);
+          delete plexus.root.sessions[id];
+          plexus.root.reconcileAgentRelations(id, []);
+        }
+      }
+      for (const [name, id] of Object.entries(plexus.root.botsRoster)) {
+        if (!this.hasStoredSession(id)) {
+          prunedSessions.add(id);
+          delete plexus.root.botsRoster[name];
+        }
+      }
+      for (const project of [this.#globalHost, ...this.#projects.values()]) {
+        if (project?.plexus == null) continue;
+        let projectTouched = false;
+        for (const id of Object.keys(project.root.sessions)) {
+          if (!this.hasStoredSession(id)) {
+            prunedSessions.add(id);
+            delete project.root.sessions[id];
+            projectTouched = true;
+          }
+        }
+        for (const [name, id] of Object.entries(project.root.botsRoster)) {
+          if (!this.hasStoredSession(id)) {
+            prunedSessions.add(id);
+            delete project.root.botsRoster[name];
+            projectTouched = true;
+          }
+        }
+        if (projectTouched) touchedProjectPaths.add(project.path);
+      }
+      if (prunedSessions.size > 0) {
+        for (const [callId, rel] of Object.entries(plexus.root.agentCalls)) {
+          if (prunedSessions.has(rel.callerSessionId) || prunedSessions.has(rel.workerSessionId)) {
+            delete plexus.root.agentCalls[callId];
+          }
+        }
+        for (const [tabKey, id] of Object.entries(plexus.root.termContinue)) {
+          if (prunedSessions.has(id)) {
+            delete plexus.root.termContinue[tabKey];
+          }
+        }
+      }
+    });
+    if (prunedSessions.size > 0) {
+      for (const path of touchedProjectPaths) {
+        const projectDoc = this.#projectDocs.get(path);
+        if (projectDoc != null) this.#flushScopeSync(projectScopeId(path), projectDoc.doc);
+      }
+      this.flushKernel();
+    }
     for (const [id, glance] of Object.entries(plexus.root.sessions)) {
       if (glance?.resident !== true) continue;
       if (this.#closed) break;
@@ -1598,6 +1653,13 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         createdAtMs: Date.now(),
       });
     });
+  }
+
+  hasStoredSession(sessionId: string): boolean {
+    if (this.runtime.replica(sessionId) != null) return true;
+    return (
+      this.db.sqlite.prepare("SELECT 1 FROM session_nodes WHERE session_id = ? LIMIT 1").get(sessionId) !== undefined
+    );
   }
 
   sessionStoredBytes(sessionId: string): number {

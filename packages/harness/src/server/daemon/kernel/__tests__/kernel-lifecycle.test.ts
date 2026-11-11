@@ -8,7 +8,7 @@ import { mkdir, mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { publishKernelSeat, sessionIsOccupied } from "@inhuman.tools/harness-model";
+import { publishKernelSeat, SessionOverview, sessionIsOccupied } from "@inhuman.tools/harness-model";
 import { runInAction, when } from "mobx";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -22,7 +22,6 @@ async function scratch(label: string): Promise<string> {
 }
 
 describe("kernel lifetime", () => {
-  
   it("async dispose persists a write made just before it and releases every document", async () => {
     const system = await scratch("k");
     const workspace = await scratch("p");
@@ -165,6 +164,54 @@ describe("kernel lifetime", () => {
         permissionMode: "yolo",
         running: false,
         headTurnId: null,
+      },
+    });
+  });
+
+  it("boot prunes orphaned session glances and roster pointers whose session_nodes are absent", async () => {
+    const system = await scratch("k");
+    const workspace = await scratch("p");
+    const kernel = new KernelDaemon(system);
+    await kernel.ready;
+    const project = kernel.project(workspace);
+    await project.ready;
+    await kernel.flushSession((await project.session("live-session")).plexus);
+    runInAction(() => {
+      kernel.plexus.root.sessions["orphan-session"] = new SessionOverview({ title: "Orphan" });
+      kernel.plexus.root.botsRoster["orphan-global"] = "orphan-worker";
+      kernel.plexus.root.termContinue["tab-orphan"] = "orphan-session";
+      kernel.plexus.root.termContinue["tab-live"] = "live-session";
+      kernel.plexus.root.termContinue["tab-synthetic"] = "synthetic-id";
+      project.root.sessions["orphan-session"] = "";
+      project.root.botsRoster["orphan-project"] = "orphan-project-worker";
+    });
+    kernel.flushKernel();
+    kernel[Symbol.dispose]();
+
+    const restored = new KernelDaemon(system);
+    onTestFinished(() => restored[Symbol.dispose]());
+    await restored.ready;
+    const restoredProject = restored.project(workspace);
+    await restoredProject.ready;
+
+    expect({
+      hasLiveGlance: restored.plexus.root.sessions["live-session"] != null,
+      hasOrphanGlance: restored.plexus.root.sessions["orphan-session"] != null,
+      hasOrphanGlobalBot: "orphan-global" in restored.plexus.root.botsRoster,
+      hasLiveProjectSession: "live-session" in restoredProject.root.sessions,
+      hasOrphanProjectSession: "orphan-session" in restoredProject.root.sessions,
+      hasOrphanProjectBot: "orphan-project" in restoredProject.root.botsRoster,
+      termContinue: { ...restored.plexus.root.termContinue },
+    }).toEqual({
+      hasLiveGlance: true,
+      hasOrphanGlance: false,
+      hasOrphanGlobalBot: false,
+      hasLiveProjectSession: true,
+      hasOrphanProjectSession: false,
+      hasOrphanProjectBot: false,
+      termContinue: {
+        "tab-live": "live-session",
+        "tab-synthetic": "synthetic-id",
       },
     });
   });
