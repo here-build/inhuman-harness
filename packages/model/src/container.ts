@@ -1,34 +1,63 @@
 import { observable, runInAction } from "mobx";
 
 import { ReactiveAwareness, type AwarenessShape } from "./awareness.js";
-import { getModelMetadata } from "./metadata.js";
+import { BrokenReferenceError } from "./errors.js";
+import { getModelByTag, getModelMetadata } from "./metadata.js";
 import { Model, type ModelContainerLink } from "./model.js";
-import { hydrateModel, isSerializedDocumentNode, serializeModel } from "./serialize.js";
+import {
+  collectReachableNodes,
+  hydrateFromNodeRows,
+  hydrateModel,
+  isModelPointer,
+  isSerializedDocumentNode,
+  serializeModel,
+  serializeNodeRow,
+} from "./serialize.js";
 import { CONTAINER_LINK } from "./symbols.js";
-import type { ModelPatch, ModelPatchBatch, SerializedDocument, SerializedModel } from "./types.js";
+import type {
+  ModelNodeDelta,
+  ModelPatch,
+  ModelPatchBatch,
+  SerializedDocument,
+  SerializedModel,
+  SerializedModelRow,
+} from "./types.js";
 
-function isSerializedDocument(val: unknown): val is SerializedDocument {
-  return (
-    val !== null &&
-    typeof val === "object" &&
-    "root" in val &&
-    isSerializedDocumentNode((val as Record<string, unknown>).root)
-  );
+function extractNodeId(rawKey: string): string {
+  if (rawKey.startsWith("[")) {
+    try {
+      const parsed: unknown = JSON.parse(rawKey);
+      if (Array.isArray(parsed) && parsed.length === 2 && typeof parsed[1] === "string") {
+        return parsed[1];
+      }
+    } catch {
+      // treat as literal nodeId
+    }
+  }
+  return rawKey;
 }
 
-function isModelPatchBatch(val: unknown): val is ModelPatchBatch {
-  return (
-    val !== null &&
-    typeof val === "object" &&
-    "patches" in val &&
-    Array.isArray((val as Record<string, unknown>).patches)
-  );
+function reconcileArrayInPlace(target: unknown[], next: readonly unknown[]): void {
+  let start = 0;
+  const minLen = Math.min(target.length, next.length);
+  while (start < minLen && Object.is(target[start], next[start])) {
+    start++;
+  }
+  if (start === target.length && start === next.length) {
+    return;
+  }
+  let end = 0;
+  while (
+    end < target.length - start &&
+    end < next.length - start &&
+    Object.is(target[target.length - 1 - end], next[next.length - 1 - end])
+  ) {
+    end++;
+  }
+  const deleteCount = target.length - start - end;
+  const insertItems = next.slice(start, next.length - end);
+  target.splice(start, deleteCount, ...insertItems);
 }
-
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
-
-export type DocumentUpdateListener = (update: Uint8Array, origin?: unknown) => void;
 
 export class DocumentContainer<TRoot extends Model = Model, TAwareness extends AwarenessShape = AwarenessShape> {
   @observable.ref accessor root: TRoot;
@@ -39,8 +68,10 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
 
   readonly #registry = new Map<string, Model>();
   readonly #knownNodes = new Set<string>();
+  readonly #committedNodeIds = new Set<string>();
+  readonly #dirtyNodeRevisions = new Map<string, number>();
+  readonly #detachedCandidates = new Set<string>();
   readonly #listeners = new Set<(batch: ModelPatchBatch) => void>();
-  readonly #updateListeners = new Set<DocumentUpdateListener>();
   readonly #destroyListeners = new Set<() => void>();
   readonly #meta = new Map<string, Map<string, unknown>>();
   readonly #bufferedPatches: ModelPatch[] = [];
@@ -69,7 +100,10 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
       }
     }
     this.registerNode(root);
-    for (const id of this.#registry.keys()) this.#knownNodes.add(id);
+    for (const id of this.#registry.keys()) {
+      this.#knownNodes.add(id);
+      this.#dirtyNodeRevisions.set(id, this.revision);
+    }
   }
 
   get doc(): this {
@@ -84,23 +118,15 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     return this.#destroyed;
   }
 
-  on(event: "update", listener: DocumentUpdateListener): void;
-  on(event: "destroy", listener: () => void): void;
-  on(event: "update" | "destroy", listener: DocumentUpdateListener | (() => void)): void {
-    if (event === "update") {
-      this.#updateListeners.add(listener as DocumentUpdateListener);
-    } else {
-      this.#destroyListeners.add(listener as () => void);
+  on(event: "destroy", listener: () => void): void {
+    if (event === "destroy") {
+      this.#destroyListeners.add(listener);
     }
   }
 
-  off(event: "update", listener: DocumentUpdateListener): void;
-  off(event: "destroy", listener: () => void): void;
-  off(event: "update" | "destroy", listener: DocumentUpdateListener | (() => void)): void {
-    if (event === "update") {
-      this.#updateListeners.delete(listener as DocumentUpdateListener);
-    } else {
-      this.#destroyListeners.delete(listener as () => void);
+  off(event: "destroy", listener: () => void): void {
+    if (event === "destroy") {
+      this.#destroyListeners.delete(listener);
     }
   }
 
@@ -122,7 +148,6 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
       }
     }
     this.#destroyListeners.clear();
-    this.#updateListeners.clear();
     this.#listeners.clear();
     this.awareness.destroy();
   }
@@ -133,7 +158,38 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
 
   static fromSnapshot<T extends Model = Model>(snapshot: SerializedDocument): DocumentContainer<any> {
     const root = hydrateModel<T>(snapshot);
-    return new DocumentContainer<T>(root, { revision: snapshot.revision, meta: snapshot.meta });
+    const container = new DocumentContainer<T>(root, {
+      guid: snapshot.guid,
+      revision: snapshot.revision,
+      meta: snapshot.meta,
+    });
+    container.markAllNodesCommitted();
+    return container;
+  }
+
+  static fromNodeRows<T extends Model = Model>(
+    rows: readonly SerializedModelRow[],
+    options?: {
+      readonly rootId?: string;
+      readonly revision?: number;
+      readonly clientId?: number;
+      readonly guid?: string;
+      readonly meta?: Record<string, Record<string, unknown>>;
+    },
+  ): DocumentContainer<any> {
+    const resolvedRootId = options?.rootId ?? rows[0]?.uuid;
+    if (!resolvedRootId) {
+      throw new BrokenReferenceError("Cannot hydrate DocumentContainer from empty node rows without rootId");
+    }
+    const root = hydrateFromNodeRows<T>(resolvedRootId, rows);
+    const container = new DocumentContainer<T>(root, {
+      guid: options?.guid,
+      revision: options?.revision ?? 0,
+      clientId: options?.clientId,
+      meta: options?.meta,
+    });
+    container.markAllNodesCommitted();
+    return container;
   }
 
   get isApplyingPatches(): boolean {
@@ -163,16 +219,19 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     return this.#registry;
   }
 
-  registerNode(node: Model): void {
-    if (!node || !node.uuid) return;
+  #bindSingleNode(node: Model): void {
     const current = this.#registry.get(node.uuid);
-    const currentLink = (node as any)[CONTAINER_LINK];
+    const currentLink = node[CONTAINER_LINK];
     if (current === node && currentLink?.container === this) {
       return;
     }
 
     this.#registry.set(node.uuid, node);
-    if (this.#isApplyingPatches) this.#knownNodes.add(node.uuid);
+    if (this.#isApplyingPatches) {
+      this.#knownNodes.add(node.uuid);
+    } else if (!this.#committedNodeIds.has(node.uuid)) {
+      this.#dirtyNodeRevisions.set(node.uuid, this.revision);
+    }
 
     const container = this;
     const link: ModelContainerLink = {
@@ -183,6 +242,11 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
       awareness: this.awareness,
       recordPatch: (patch: ModelPatch) => this.recordPatch(patch),
       registerNode: (child: Model) => this.registerNode(child),
+      notifyDetached: (detached: Model) => {
+        if (!this.#isApplyingPatches && detached && detached.uuid) {
+          this.#detachedCandidates.add(detached.uuid);
+        }
+      },
       serializeNode: (child: Model) => {
         this.registerNode(child);
         const graph = serializeModel(child, this.#knownNodes);
@@ -192,39 +256,39 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
       transact: <T>(fn: () => T) => this.transact(fn),
     };
 
-    (node as any)[CONTAINER_LINK] = link;
+    node[CONTAINER_LINK] = link;
+  }
+
+  registerNode(node: Model): void {
+    if (!node || !node.uuid) return;
+    const current = this.#registry.get(node.uuid);
+    const currentLink = node[CONTAINER_LINK];
+    if (current === node && currentLink?.container === this) {
+      return;
+    }
+
+    this.#bindSingleNode(node);
 
     const meta = getModelMetadata(node.constructor);
     for (const field of meta.stateFields.values()) {
+      const value = (node as unknown as Record<string, unknown>)[field.propertyKey];
       if (field.kind === "child" || field.kind === "ref") {
-        const child = (node as any)[field.propertyKey] as Model | null;
-        if (child) {
-          this.registerNode(child);
+        if (value instanceof Model) {
+          this.registerNode(value);
         }
-      } else if (field.kind === "childList" || field.kind === "refList") {
-        const list = (node as any)[field.propertyKey] as (Model | null | undefined)[] | undefined;
-        if (Array.isArray(list)) {
-          for (const child of list) {
-            if (child) {
-              this.registerNode(child);
+      } else if (field.kind === "childList" || field.kind === "refList" || field.kind === "list") {
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            if (item instanceof Model) {
+              this.registerNode(item);
             }
           }
         }
       } else if (field.kind === "childRecord") {
-        const rec = (node as any)[field.propertyKey] as Record<string, Model | undefined> | undefined;
-        if (rec && typeof rec === "object") {
-          for (const child of Object.values(rec)) {
-            if (child) {
+        if (value && typeof value === "object") {
+          for (const child of Object.values(value)) {
+            if (child instanceof Model) {
               this.registerNode(child);
-            }
-          }
-        }
-      } else if (field.kind === "list") {
-        const list = (node as any)[field.propertyKey];
-        if (Array.isArray(list)) {
-          for (const item of list) {
-            if (item instanceof Model) {
-              this.registerNode(item);
             }
           }
         }
@@ -234,7 +298,439 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
 
   unregisterNode(node: Model): void {
     this.#registry.delete(node.uuid);
-    delete (node as any)[CONTAINER_LINK];
+    this.#knownNodes.delete(node.uuid);
+    delete node[CONTAINER_LINK];
+  }
+
+  pruneUnreachableNodes(): string[] {
+    const reachable = collectReachableNodes(this.root);
+    for (const node of reachable.values()) {
+      this.#bindSingleNode(node);
+    }
+    const pruned: string[] = [];
+    for (const [id, node] of [...this.#registry.entries()]) {
+      if (!reachable.has(id)) {
+        this.unregisterNode(node);
+        this.#dirtyNodeRevisions.delete(id);
+        pruned.push(id);
+      }
+    }
+    this.#detachedCandidates.clear();
+    return pruned;
+  }
+
+  markAllNodesCommitted(): void {
+    this.pruneUnreachableNodes();
+    this.#committedNodeIds.clear();
+    for (const id of this.#registry.keys()) {
+      this.#committedNodeIds.add(id);
+    }
+    this.#dirtyNodeRevisions.clear();
+    this.#detachedCandidates.clear();
+  }
+
+  peekNodeDelta(): ModelNodeDelta {
+    this.registerNode(this.root);
+    if (this.#detachedCandidates.size > 0) {
+      this.pruneUnreachableNodes();
+    }
+
+    const toSerialize = new Set<string>();
+    for (const id of this.#dirtyNodeRevisions.keys()) {
+      if (this.#registry.has(id)) {
+        toSerialize.add(id);
+      } else {
+        this.#dirtyNodeRevisions.delete(id);
+      }
+    }
+    for (const id of this.#registry.keys()) {
+      if (!this.#committedNodeIds.has(id)) {
+        toSerialize.add(id);
+      }
+    }
+
+    const upserts: SerializedModelRow[] = [];
+    const queue = [...toSerialize];
+    const emitted = new Set<string>();
+
+    for (let i = 0; i < queue.length; i++) {
+      const id = queue[i]!;
+      if (emitted.has(id)) continue;
+      const node = this.#registry.get(id);
+      if (!node) continue;
+      emitted.add(id);
+      const row = serializeNodeRow(node, (target) => {
+        if (!this.#registry.has(target.uuid)) {
+          this.registerNode(target);
+        }
+        if (!this.#committedNodeIds.has(target.uuid) && !emitted.has(target.uuid)) {
+          queue.push(target.uuid);
+        }
+      });
+      upserts.push(row);
+    }
+
+    const deletes: string[] = [];
+    for (const committedId of this.#committedNodeIds) {
+      if (!this.#registry.has(committedId)) {
+        deletes.push(committedId);
+      }
+    }
+
+    return {
+      rootId: this.root.uuid,
+      revision: this.revision,
+      upserts,
+      deletes,
+    };
+  }
+
+  commitNodeDelta(delta: {
+    readonly revision: number;
+    readonly upserts: readonly { readonly uuid: string }[];
+    readonly deletes: readonly string[];
+  }): void {
+    for (const row of delta.upserts) {
+      this.#committedNodeIds.add(row.uuid);
+      const dirtyRev = this.#dirtyNodeRevisions.get(row.uuid);
+      if (dirtyRev !== undefined && dirtyRev <= delta.revision) {
+        this.#dirtyNodeRevisions.delete(row.uuid);
+      }
+    }
+    for (const rawId of delta.deletes) {
+      const id = extractNodeId(rawId);
+      this.#committedNodeIds.delete(id);
+      const dirtyRev = this.#dirtyNodeRevisions.get(id);
+      if (dirtyRev !== undefined && dirtyRev <= delta.revision) {
+        this.#dirtyNodeRevisions.delete(id);
+      }
+    }
+  }
+
+  takeNodeDelta(): ModelNodeDelta {
+    const delta = this.peekNodeDelta();
+    this.commitNodeDelta(delta);
+    return delta;
+  }
+
+  toNodeRows(): SerializedModelRow[] {
+    const graph = serializeModel(this.root);
+    return Object.values(graph.nodes);
+  }
+
+  applyNodeRows(delta: {
+    readonly rootId?: string;
+    readonly revision?: number;
+    readonly upserts: readonly SerializedModelRow[];
+    readonly deletes?: readonly string[];
+    readonly reset?: boolean;
+  }): void {
+    if (
+      delta.upserts.length === 0 &&
+      (!delta.deletes || delta.deletes.length === 0) &&
+      !delta.reset
+    ) {
+      if (delta.revision !== undefined) {
+        runInAction(() => {
+          this.revision = Math.max(this.revision, delta.revision!);
+        });
+      }
+      return;
+    }
+
+    const upsertMap = new Map<string, SerializedModelRow>();
+    for (const row of delta.upserts) {
+      upsertMap.set(row.uuid, row);
+    }
+
+    const targetRootId = delta.rootId ?? this.root?.uuid;
+
+    this.#isApplyingPatches = true;
+    try {
+      runInAction(() => {
+        if (targetRootId && upsertMap.has(targetRootId) && this.root) {
+          const rootRow = upsertMap.get(targetRootId)!;
+          const currentTag = getModelMetadata(this.root.constructor).tag;
+          if (currentTag === rootRow.tag) {
+            if (this.root.uuid !== targetRootId) {
+              this.#registry.delete(this.root.uuid);
+              this.#committedNodeIds.delete(this.root.uuid);
+              (this.root as { uuid: string }).uuid = targetRootId;
+            }
+            this.#bindSingleNode(this.root);
+          }
+        }
+
+        const created = new Set<string>();
+        const constructing = new Set<string>();
+
+        const resolveNode = (id: string): Model => {
+          const existing = this.#registry.get(id);
+          const upsertRow = upsertMap.get(id);
+          if (existing !== undefined) {
+            if (upsertRow === undefined || getModelMetadata(existing.constructor).tag === upsertRow.tag) {
+              return existing;
+            }
+            this.unregisterNode(existing);
+          }
+          if (upsertRow === undefined) {
+            throw new BrokenReferenceError(`model graph references missing node "${id}"`);
+          }
+          if (constructing.has(id)) {
+            throw new BrokenReferenceError(`ownership cycle at node "${id}"`);
+          }
+          constructing.add(id);
+          const ctor = getModelByTag(upsertRow.tag);
+          if (ctor === undefined) {
+            throw new Error(`Unknown model tag "${upsertRow.tag}"`);
+          }
+
+          const props: Record<string, unknown> = {
+            uuid: id,
+            ...upsertRow.columns,
+            ...upsertRow.state,
+          };
+          for (const [key, childId] of Object.entries(upsertRow.children)) {
+            props[key] = childId === null ? null : resolveNode(childId);
+          }
+          for (const [key, childIds] of Object.entries(upsertRow.childLists)) {
+            props[key] = childIds.map(resolveNode);
+          }
+          for (const [key, childRec] of Object.entries(upsertRow.childRecords)) {
+            props[key] = Object.fromEntries(
+              Object.entries(childRec).map(([name, childId]) => [name, resolveNode(childId)]),
+            );
+          }
+
+          const meta = getModelMetadata(ctor);
+          for (const [key, value] of Object.entries(upsertRow.state)) {
+            if (meta.stateFields.get(key)?.kind !== "list" || !Array.isArray(value)) continue;
+            props[key] = value.flatMap((item: unknown) => {
+              if (isModelPointer(item)) return [];
+              if (item !== null && typeof item === "object" && "$value" in item) return [item.$value];
+              throw new TypeError(`Invalid list entry on "${upsertRow.tag}.${key}"`);
+            });
+          }
+
+          const instance: Model = new ctor(props);
+          this.#bindSingleNode(instance);
+          created.add(id);
+          constructing.delete(id);
+          return instance;
+        };
+
+        if (targetRootId && upsertMap.has(targetRootId)) {
+          const nextRoot = resolveNode(targetRootId) as TRoot;
+          if (nextRoot !== this.root) {
+            this.root = nextRoot;
+          }
+        }
+
+        for (const id of upsertMap.keys()) {
+          resolveNode(id);
+        }
+
+        for (const row of delta.upserts) {
+          const instance = this.#registry.get(row.uuid);
+          if (!instance) continue;
+          const fields = instance as unknown as Record<string, unknown>;
+          const meta = getModelMetadata(instance.constructor);
+
+          if (created.has(row.uuid)) {
+            for (const [key, values] of Object.entries(row.state)) {
+              if (meta.stateFields.get(key)?.kind !== "list" || !Array.isArray(values)) continue;
+              const resolvedList = values.map((item: unknown) => {
+                if (isModelPointer(item)) return resolveNode(item.$model);
+                if (item !== null && typeof item === "object" && "$value" in item) return item.$value;
+                throw new TypeError(`Invalid list entry on "${row.tag}.${key}"`);
+              });
+              const targetArr = fields[key];
+              if (Array.isArray(targetArr)) {
+                reconcileArrayInPlace(targetArr, resolvedList);
+              } else {
+                fields[key] = resolvedList;
+              }
+            }
+            for (const [key, target] of Object.entries(row.refs)) {
+              fields[key] = target === null ? null : resolveNode(target);
+            }
+            for (const [key, targets] of Object.entries(row.refLists)) {
+              const resolvedRefs = targets.map(resolveNode);
+              const targetArr = fields[key];
+              if (Array.isArray(targetArr)) {
+                reconcileArrayInPlace(targetArr, resolvedRefs);
+              } else {
+                fields[key] = resolvedRefs;
+              }
+            }
+            continue;
+          }
+
+          // Reconcile existing instance in-place
+          for (const [key, col] of meta.columns.entries()) {
+            if (!Object.hasOwn(row.columns, key)) continue;
+            const rawVal = row.columns[key];
+            const modelVal = col.codec ? col.codec.toModel(rawVal) : rawVal;
+            if (!Object.is(fields[key], modelVal)) {
+              fields[key] = modelVal;
+            }
+          }
+
+          for (const [key, stateField] of meta.stateFields.entries()) {
+            switch (stateField.kind) {
+              case "scalar": {
+                if (!Object.hasOwn(row.state, key)) continue;
+                const nextVal = row.state[key];
+                if (!Object.is(fields[key], nextVal)) {
+                  fields[key] = nextVal;
+                }
+                break;
+              }
+              case "record": {
+                if (!Object.hasOwn(row.state, key)) continue;
+                const nextRec = row.state[key];
+                const targetRec = fields[key];
+                if (
+                  targetRec &&
+                  typeof targetRec === "object" &&
+                  nextRec &&
+                  typeof nextRec === "object" &&
+                  !Array.isArray(nextRec)
+                ) {
+                  const recObj = targetRec as Record<string, unknown>;
+                  const nextObj = nextRec as Record<string, unknown>;
+                  for (const k of Object.keys(recObj)) {
+                    if (!Object.hasOwn(nextObj, k)) {
+                      delete recObj[k];
+                    }
+                  }
+                  for (const [k, v] of Object.entries(nextObj)) {
+                    if (!Object.is(recObj[k], v)) {
+                      recObj[k] = v;
+                    }
+                  }
+                } else if (nextRec && typeof nextRec === "object") {
+                  fields[key] = { ...(nextRec as Record<string, unknown>) };
+                }
+                break;
+              }
+              case "list": {
+                if (!Object.hasOwn(row.state, key)) continue;
+                const values = row.state[key];
+                if (!Array.isArray(values)) continue;
+                const nextList = values.map((item: unknown) => {
+                  if (isModelPointer(item)) return resolveNode(item.$model);
+                  if (item !== null && typeof item === "object" && "$value" in item) return item.$value;
+                  throw new TypeError(`Invalid list entry on "${row.tag}.${key}"`);
+                });
+                const targetArr = fields[key];
+                if (Array.isArray(targetArr)) {
+                  reconcileArrayInPlace(targetArr, nextList);
+                } else {
+                  fields[key] = nextList;
+                }
+                break;
+              }
+              case "child": {
+                if (!Object.hasOwn(row.children, key)) continue;
+                const childId = row.children[key];
+                const nextChild = childId == null ? null : resolveNode(childId);
+                if (fields[key] !== nextChild) {
+                  fields[key] = nextChild;
+                }
+                break;
+              }
+              case "childList": {
+                if (!Object.hasOwn(row.childLists, key)) continue;
+                const childIds = row.childLists[key] ?? [];
+                const nextChildren = childIds.map(resolveNode);
+                const targetArr = fields[key];
+                if (Array.isArray(targetArr)) {
+                  reconcileArrayInPlace(targetArr, nextChildren);
+                } else {
+                  fields[key] = nextChildren;
+                }
+                break;
+              }
+              case "childRecord": {
+                if (!Object.hasOwn(row.childRecords, key)) continue;
+                const childMap = row.childRecords[key] ?? {};
+                const targetRec = fields[key];
+                if (targetRec && typeof targetRec === "object") {
+                  const recObj = targetRec as Record<string, unknown>;
+                  for (const k of Object.keys(recObj)) {
+                    if (!Object.hasOwn(childMap, k)) {
+                      delete recObj[k];
+                    }
+                  }
+                  for (const [k, childId] of Object.entries(childMap)) {
+                    const nextChild = resolveNode(childId);
+                    if (recObj[k] !== nextChild) {
+                      recObj[k] = nextChild;
+                    }
+                  }
+                } else {
+                  const built: Record<string, Model> = {};
+                  for (const [k, childId] of Object.entries(childMap)) {
+                    built[k] = resolveNode(childId);
+                  }
+                  fields[key] = built;
+                }
+                break;
+              }
+              case "ref": {
+                if (!Object.hasOwn(row.refs, key)) continue;
+                const refId = row.refs[key];
+                const nextRef = refId == null ? null : resolveNode(refId);
+                if (fields[key] !== nextRef) {
+                  fields[key] = nextRef;
+                }
+                break;
+              }
+              case "refList": {
+                if (!Object.hasOwn(row.refLists, key)) continue;
+                const refIds = row.refLists[key] ?? [];
+                const nextRefs = refIds.map(resolveNode);
+                const targetArr = fields[key];
+                if (Array.isArray(targetArr)) {
+                  reconcileArrayInPlace(targetArr, nextRefs);
+                } else {
+                  fields[key] = nextRefs;
+                }
+                break;
+              }
+            }
+          }
+        }
+
+        if (delta.deletes) {
+          for (const rawId of delta.deletes) {
+            const nodeId = extractNodeId(rawId);
+            if (nodeId === this.root.uuid) continue;
+            const existing = this.#registry.get(nodeId);
+            if (existing) {
+              this.unregisterNode(existing);
+            }
+            this.#committedNodeIds.delete(nodeId);
+          }
+        }
+
+        this.pruneUnreachableNodes();
+        this.#committedNodeIds.clear();
+        for (const id of this.#registry.keys()) {
+          this.#committedNodeIds.add(id);
+          this.#knownNodes.add(id);
+        }
+        this.#dirtyNodeRevisions.clear();
+        this.#detachedCandidates.clear();
+
+        if (delta.revision !== undefined) {
+          this.revision = delta.reset ? delta.revision : Math.max(this.revision, delta.revision);
+        }
+      });
+    } finally {
+      this.#isApplyingPatches = false;
+    }
   }
 
   onPatch(listener: (batch: ModelPatchBatch) => void): () => void {
@@ -255,6 +751,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     }
 
     this.revision++;
+    this.#dirtyNodeRevisions.set(patch.nodeId, this.revision);
     const batch: ModelPatchBatch = {
       revision: this.revision,
       patches: [patch],
@@ -262,19 +759,13 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     this.#emitBatch(batch);
   }
 
-  #emitBatch(batch: ModelPatchBatch, origin?: unknown): void {
+  #emitBatch(batch: ModelPatchBatch): void {
     for (const listener of this.#listeners) {
       listener(batch);
     }
-    if (this.#updateListeners.size > 0) {
-      const encoded = textEncoder.encode(JSON.stringify(batch));
-      for (const listener of this.#updateListeners) {
-        listener(encoded, origin);
-      }
-    }
   }
 
-  transact<T>(fn: () => T, origin?: unknown): T {
+  transact<T>(fn: () => T): T {
     this.#txDepth++;
     try {
       const result = runInAction(fn);
@@ -289,11 +780,14 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
           this.#bufferedPatches.length = 0;
           this.#metaModifiedInTx = false;
           this.revision++;
+          for (const patch of patches) {
+            this.#dirtyNodeRevisions.set(patch.nodeId, this.revision);
+          }
           const batch: ModelPatchBatch = {
             revision: this.revision,
             patches,
           };
-          this.#emitBatch(batch, origin);
+          this.#emitBatch(batch);
         }
       }
     }
@@ -309,6 +803,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
         for (const patch of batch.patches) {
           this.#applySinglePatch(patch);
         }
+        this.pruneUnreachableNodes();
         this.revision = batch.revision;
       });
     } finally {
@@ -487,6 +982,28 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     return this.getMetaMap(namespace).delete(key);
   }
 
+  exportMeta(): Record<string, Record<string, unknown>> {
+    const meta: Record<string, Record<string, unknown>> = {};
+    for (const [ns, map] of this.#meta) {
+      if (map.size > 0) {
+        meta[ns] = Object.fromEntries(map.entries());
+      }
+    }
+    return meta;
+  }
+
+  importMeta(meta: Record<string, Record<string, unknown>>): void {
+    this.#isApplyingPatches = true;
+    try {
+      this.#meta.clear();
+      for (const [ns, entries] of Object.entries(meta)) {
+        this.#meta.set(ns, this.#wrapMetaMap(new Map(Object.entries(entries))));
+      }
+    } finally {
+      this.#isApplyingPatches = false;
+    }
+  }
+
   #wrapMetaMap(raw: Map<string, unknown>): Map<string, unknown> {
     const container = this;
     return new Proxy(raw, {
@@ -545,129 +1062,53 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     return this.getMetaMap(name) as unknown as Map<string, T>;
   }
 
-  hydrateFromSnapshot(snapshot: SerializedDocument, origin?: unknown): void {
+  hydrateFromSnapshot(snapshot: SerializedDocument): void {
     const currentTag = this.root ? getModelMetadata(this.root.constructor).tag : undefined;
     if (this.revision > snapshot.revision && currentTag === snapshot.root.tag) {
       return;
     }
+    if ("nodes" in snapshot.root && snapshot.root.format === "rows-v1") {
+      if (snapshot.guid) {
+        this.guid = snapshot.guid;
+      }
+      if (snapshot.meta) {
+        this.importMeta(snapshot.meta);
+      }
+      this.applyNodeRows({
+        rootId: snapshot.root.uuid,
+        revision: snapshot.revision,
+        upserts: Object.values(snapshot.root.nodes),
+        deletes: [],
+        reset: true,
+      });
+      return;
+    }
+
     this.#isApplyingPatches = true;
     try {
       runInAction(() => {
         const nextRegistry = new Map<string, Model>();
         const nextRoot = hydrateModel<TRoot>(snapshot, nextRegistry);
-        if (this.root && this.root.constructor === nextRoot.constructor) {
-          for (const node of nextRegistry.values()) {
-            const fields = node as unknown as Record<string, unknown>;
-            for (const field of getModelMetadata(node.constructor).stateFields.values()) {
-              const value = fields[field.propertyKey];
-              if (field.kind === "ref" && value === nextRoot) fields[field.propertyKey] = this.root;
-              if ((field.kind === "refList" || field.kind === "list") && Array.isArray(value)) {
-                fields[field.propertyKey] = value.map((item: unknown) => (item === nextRoot ? this.root : item));
-              }
-            }
-          }
-          const meta = getModelMetadata(this.root.constructor);
-          (this.root as any).uuid = nextRoot.uuid;
-          for (const col of meta.columns.keys()) {
-            (this.root as any)[col] = (nextRoot as any)[col];
-          }
-          for (const [key, field] of meta.stateFields.entries()) {
-            const val = (nextRoot as any)[key];
-            if (field.kind === "list" || field.kind === "refList" || field.kind === "childList") {
-              const targetArr = (this.root as any)[key];
-              if (Array.isArray(targetArr) && Array.isArray(val)) {
-                targetArr.splice(0, targetArr.length, ...val);
-              } else {
-                (this.root as any)[key] = val;
-              }
-            } else if (field.kind === "record" || field.kind === "childRecord") {
-              const targetRec = (this.root as any)[key];
-              if (targetRec && typeof targetRec === "object" && val && typeof val === "object") {
-                for (const k of Object.keys(targetRec)) {
-                  if (!(k in val)) delete targetRec[k];
-                }
-                for (const [k, v] of Object.entries(val)) {
-                  targetRec[k] = v;
-                }
-              } else {
-                (this.root as any)[key] = val;
-              }
-            } else {
-              (this.root as any)[key] = val;
-            }
-          }
-          this.#registry.clear();
-          this.#knownNodes.clear();
-          this.registerNode(this.root);
-        } else {
-          this.root = nextRoot;
-          this.#registry.clear();
-          this.#knownNodes.clear();
-          this.registerNode(nextRoot);
-        }
-        this.guid = (snapshot as { guid?: string }).guid ?? nextRoot.uuid;
+        this.root = nextRoot;
+        this.#registry.clear();
+        this.#knownNodes.clear();
+        this.registerNode(nextRoot);
+        this.guid = snapshot.guid ?? nextRoot.uuid;
         if (snapshot.meta) {
-          this.#meta.clear();
-          for (const [ns, entries] of Object.entries(snapshot.meta)) {
-            this.#meta.set(ns, this.#wrapMetaMap(new Map(Object.entries(entries))));
-          }
+          this.importMeta(snapshot.meta);
         }
+        this.markAllNodesCommitted();
         this.revision = Math.max(this.revision, snapshot.revision);
       });
     } finally {
       this.#isApplyingPatches = false;
     }
-    if (this.#updateListeners.size > 0) {
-      const encoded = textEncoder.encode(JSON.stringify(snapshot));
-      for (const listener of this.#updateListeners) {
-        listener(encoded, origin);
-      }
-    }
-  }
-
-  encodeStateAsUpdate(): Uint8Array {
-    this.registerNode(this.root);
-    return textEncoder.encode(JSON.stringify(this.toSnapshot()));
-  }
-
-  encodeStateVector(): Uint8Array {
-    return textEncoder.encode(JSON.stringify({ guid: this.guid, revision: this.revision }));
-  }
-
-  applyUpdate(update: Uint8Array, origin?: unknown): void {
-    if (update.byteLength === 0) return;
-    if (update.byteLength === 2 && update[0] === 0 && update[1] === 0) return;
-    const text = textDecoder.decode(update);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      return;
-    }
-    if (isSerializedDocument(parsed)) {
-      this.hydrateFromSnapshot(parsed, origin);
-      return;
-    }
-    if (isModelPatchBatch(parsed)) {
-      this.applyPatchBatch(parsed);
-      if (this.#updateListeners.size > 0) {
-        for (const listener of this.#updateListeners) {
-          listener(update, origin);
-        }
-      }
-    }
   }
 
   toSnapshot(): SerializedDocument {
-    this.registerNode(this.root);
-    const meta: Record<string, Record<string, unknown>> = {};
-    for (const [ns, map] of this.#meta) {
-      if (map.size > 0) {
-        meta[ns] = Object.fromEntries(map.entries());
-      }
-    }
+    this.pruneUnreachableNodes();
+    const meta = this.exportMeta();
     const graph = serializeModel(this.root);
-    // Reconnect snapshots omit detached rows; a later attachment must introduce them again.
     this.#knownNodes.clear();
     for (const id of Object.keys(graph.nodes)) this.#knownNodes.add(id);
     return {
@@ -677,54 +1118,4 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
       ...(Object.keys(meta).length > 0 ? { meta } : {}),
     };
   }
-}
-
-export function encodeDocumentStateAsUpdate(doc: DocumentContainer<any, any>): Uint8Array {
-  return doc.encodeStateAsUpdate();
-}
-
-export function encodeDocumentStateVector(doc: DocumentContainer<any, any>): Uint8Array {
-  return doc.encodeStateVector();
-}
-
-export function applyDocumentUpdate(doc: DocumentContainer<any, any>, update: Uint8Array, origin?: unknown): void {
-  doc.applyUpdate(update, origin);
-}
-
-export function mergeDocumentUpdates(updates: readonly Uint8Array[]): Uint8Array {
-  const nonEmpty = updates.filter((u) => u.byteLength > 0 && !(u.byteLength === 2 && u[0] === 0 && u[1] === 0));
-  if (nonEmpty.length === 0) return new Uint8Array([0, 0]);
-  if (nonEmpty.length === 1) return nonEmpty[0]!;
-
-  const allPatches: ModelPatch[] = [];
-  let latestRevision = 0;
-  let latestSnapshot: SerializedDocument | null = null;
-
-  for (const update of nonEmpty) {
-    const text = textDecoder.decode(update);
-    try {
-      const parsed: unknown = JSON.parse(text);
-      if (isSerializedDocument(parsed)) {
-        latestSnapshot = parsed;
-        allPatches.length = 0;
-        latestRevision = Math.max(latestRevision, typeof parsed.revision === "number" ? parsed.revision : 0);
-      } else if (isModelPatchBatch(parsed)) {
-        allPatches.push(...parsed.patches);
-        latestRevision = Math.max(latestRevision, typeof parsed.revision === "number" ? parsed.revision : 0);
-      }
-    } catch {
-      // ignore non-JSON frame
-    }
-  }
-
-  if (latestSnapshot) {
-    if (allPatches.length === 0) {
-      return textEncoder.encode(JSON.stringify(latestSnapshot));
-    }
-    const doc = DocumentContainer.fromSnapshot(latestSnapshot);
-    doc.applyPatchBatch({ revision: latestRevision, patches: allPatches });
-    return doc.encodeStateAsUpdate();
-  }
-
-  return textEncoder.encode(JSON.stringify({ revision: latestRevision, patches: allPatches }));
 }

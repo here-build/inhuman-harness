@@ -35,8 +35,16 @@ export type {
   HarnessDrizzleTx,
   HarnessSchema,
   HarnessTableName,
+  TableRowDelta,
 } from "./sqlite-database.js";
 
 export type { UpdateLaneHub } from "./lane-server.js";
 
-export { LiveShape, createLocalShapeTransport, type LiveShapeOptions, type ShapeTransport } from "./live-shape.js";
+export {
+  LiveShape,
+  applyNodeShapeDelta,
+  createLocalShapeTransport,
+  type ElectricShapeMessage,
+  type LiveShapeOptions,
+  type ShapeTransport,
+} from "./live-shape.js";

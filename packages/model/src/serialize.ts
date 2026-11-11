@@ -20,7 +20,7 @@ export function isSerializedModelGraph(value: SerializedModel): value is Seriali
   return "format" in value && value.format === "rows-v1";
 }
 
-function isModelPointer(value: unknown): value is { readonly $model: string } {
+export function isModelPointer(value: unknown): value is { readonly $model: string } {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -30,79 +30,138 @@ function isModelPointer(value: unknown): value is { readonly $model: string } {
   );
 }
 
-export function serializeModel(root: Model, known?: ReadonlySet<string>): SerializedModelGraph {
-  const nodes: Record<string, SerializedModelRow> = {};
-  const pending = [root];
-  const seen = new Set<string>();
+export function serializeNodeRow(node: Model, onRef?: (target: Model) => void): SerializedModelRow {
+  const meta = getModelMetadata(node.constructor);
+  const fields = node as unknown as Record<string, unknown>;
   const pointer = (value: unknown): string => {
     if (!(value instanceof Model)) throw new TypeError("Model relationship requires a Model");
-    if (!seen.has(value.uuid) && !known?.has(value.uuid)) pending.push(value);
+    onRef?.(value);
     return value.uuid;
+  };
+
+  const row: SerializedModelRow = {
+    uuid: node.uuid,
+    tag: meta.tag,
+    columns: {},
+    state: {},
+    refs: {},
+    refLists: {},
+    children: {},
+    childLists: {},
+    childRecords: {},
+  };
+
+  for (const col of meta.columns.values()) {
+    const value = fields[col.propertyKey];
+    row.columns[col.propertyKey] = col.codec ? col.codec.toDb(value) : value;
+  }
+
+  for (const field of meta.stateFields.values()) {
+    const value = fields[field.propertyKey];
+    const key = field.propertyKey;
+    switch (field.kind) {
+      case "scalar":
+        row.state[key] = value;
+        break;
+      case "record":
+        row.state[key] = value && typeof value === "object" ? { ...value } : {};
+        break;
+      case "ref":
+        row.refs[key] = value instanceof Model ? pointer(value) : null;
+        break;
+      case "refList":
+        row.refLists[key] = Array.isArray(value)
+          ? value.map((item: unknown) => {
+              if (!(item instanceof Model)) throw new TypeError("Model reference requires a Model");
+              return pointer(item);
+            })
+          : [];
+        break;
+      case "child":
+        row.children[key] = value == null ? null : pointer(value);
+        break;
+      case "childList":
+        row.childLists[key] = Array.isArray(value) ? value.map(pointer) : [];
+        break;
+      case "childRecord": {
+        const children: Record<string, string> = {};
+        if (value && typeof value === "object") {
+          for (const [name, child] of Object.entries(value)) {
+            if (child != null) children[name] = pointer(child);
+          }
+        }
+        row.childRecords[key] = children;
+        break;
+      }
+      case "list":
+        row.state[key] = Array.isArray(value)
+          ? value.map((item: unknown) => (item instanceof Model ? { $model: pointer(item) } : { $value: item }))
+          : [];
+        break;
+    }
+  }
+
+  return row;
+}
+
+export function collectReachableNodes(root: Model): Map<string, Model> {
+  const reachable = new Map<string, Model>();
+  const pending: Model[] = [root];
+  const enqueue = (candidate: unknown): void => {
+    if (candidate instanceof Model && !reachable.has(candidate.uuid)) {
+      pending.push(candidate);
+    }
+  };
+
+  for (let index = 0; index < pending.length; index++) {
+    const node = pending[index];
+    if (node === undefined || reachable.has(node.uuid)) continue;
+    reachable.set(node.uuid, node);
+    const meta = getModelMetadata(node.constructor);
+    const fields = node as unknown as Record<string, unknown>;
+    for (const field of meta.stateFields.values()) {
+      const value = fields[field.propertyKey];
+      switch (field.kind) {
+        case "ref":
+        case "child":
+          enqueue(value);
+          break;
+        case "refList":
+        case "childList":
+        case "list":
+          if (Array.isArray(value)) {
+            for (const item of value) enqueue(item);
+          }
+          break;
+        case "childRecord":
+          if (value && typeof value === "object") {
+            for (const child of Object.values(value)) enqueue(child);
+          }
+          break;
+        case "scalar":
+        case "record":
+          break;
+      }
+    }
+  }
+
+  return reachable;
+}
+
+export function serializeModel(root: Model, known?: ReadonlySet<string>): SerializedModelGraph {
+  const nodes: Record<string, SerializedModelRow> = {};
+  const pending: Model[] = [root];
+  const seen = new Set<string>();
+  const onRef = (target: Model): void => {
+    if (!seen.has(target.uuid) && !known?.has(target.uuid)) {
+      pending.push(target);
+    }
   };
   for (let index = 0; index < pending.length; index++) {
     const node = pending[index];
     if (node === undefined || seen.has(node.uuid) || known?.has(node.uuid)) continue;
     seen.add(node.uuid);
-    const meta = getModelMetadata(node.constructor);
-    const fields = node as unknown as Record<string, unknown>;
-    const row: SerializedModelRow = {
-      uuid: node.uuid,
-      tag: meta.tag,
-      columns: {},
-      state: {},
-      refs: {},
-      refLists: {},
-      children: {},
-      childLists: {},
-      childRecords: {},
-    };
-    for (const col of meta.columns.values()) {
-      const value = fields[col.propertyKey];
-      row.columns[col.propertyKey] = col.codec ? col.codec.toDb(value) : value;
-    }
-    for (const field of meta.stateFields.values()) {
-      const value = fields[field.propertyKey];
-      const key = field.propertyKey;
-      switch (field.kind) {
-        case "scalar":
-          row.state[key] = value;
-          break;
-        case "record":
-          row.state[key] = value && typeof value === "object" ? { ...value } : {};
-          break;
-        case "ref":
-          row.refs[key] = value instanceof Model ? pointer(value) : null;
-          break;
-        case "refList":
-          row.refLists[key] = Array.isArray(value)
-            ? value.map((item: unknown) => {
-                if (!(item instanceof Model)) throw new TypeError("Model reference requires a Model");
-                return pointer(item);
-              })
-            : [];
-          break;
-        case "child":
-          row.children[key] = value == null ? null : pointer(value);
-          break;
-        case "childList":
-          row.childLists[key] = Array.isArray(value) ? value.map(pointer) : [];
-          break;
-        case "childRecord": {
-          const children: Record<string, string> = {};
-          if (value && typeof value === "object") {
-            for (const [name, child] of Object.entries(value)) if (child != null) children[name] = pointer(child);
-          }
-          row.childRecords[key] = children;
-          break;
-        }
-        case "list":
-          row.state[key] = Array.isArray(value)
-            ? value.map((item: unknown) => (item instanceof Model ? { $model: pointer(item) } : { $value: item }))
-            : [];
-          break;
-      }
-    }
-    nodes[node.uuid] = row;
+    nodes[node.uuid] = serializeNodeRow(node, onRef);
   }
   return { uuid: root.uuid, tag: getModelMetadata(root.constructor).tag, format: "rows-v1", nodes };
 }
@@ -161,6 +220,33 @@ function hydrateGraph(graph: SerializedModelGraph, registry: Map<string, Model>)
     for (const [key, targets] of Object.entries(row.refLists)) fields[key] = targets.map(materialize);
   }
   return root;
+}
+
+export function hydrateFromNodeRows<T extends Model>(
+  rootId: string,
+  rows: readonly SerializedModelRow[],
+  existingRegistry?: Map<string, Model>,
+): T {
+  const nodes: Record<string, SerializedModelRow> = {};
+  for (const row of rows) {
+    nodes[row.uuid] = row;
+  }
+  const rootRow = nodes[rootId];
+  if (rootRow === undefined) {
+    throw new BrokenReferenceError(`model graph is missing root node "${rootId}"`);
+  }
+  return runInAction(() => {
+    const registry = existingRegistry ?? new Map<string, Model>();
+    return hydrateGraph(
+      {
+        format: "rows-v1",
+        uuid: rootId,
+        tag: rootRow.tag,
+        nodes,
+      },
+      registry,
+    ) as T;
+  });
 }
 
 export function serializeDocument(root: Model, revision = 0): SerializedDocument {

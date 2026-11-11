@@ -1,8 +1,10 @@
-import type { InferSelectModel } from "drizzle-orm";
-import type { SQLiteTable } from "drizzle-orm/sqlite-core";
-
 import { registerModelClass } from "./metadata.js";
-import type { AbstractModelConstructor, AssertModelMatchesTable, ModelOptions } from "./types.js";
+import type {
+  AbstractModelConstructor,
+  AssertModelMatchesTable,
+  DrizzleTableLike,
+  ModelOptions,
+} from "./types.js";
 
 type HasSchemaError<T> = true extends {
   [K in keyof T]: T[K] extends { readonly __error: string } ? true : false;
@@ -11,23 +13,28 @@ type HasSchemaError<T> = true extends {
   : false;
 
 export function model<
-  TTable extends SQLiteTable | undefined = undefined,
-  const TIgnored extends readonly (TTable extends SQLiteTable ? keyof InferSelectModel<TTable> | string : string)[] =
-    readonly [],
+  TTable extends DrizzleTableLike | undefined = undefined,
+  const TIgnored extends readonly (TTable extends DrizzleTableLike
+    ? Extract<keyof TTable["$inferSelect"], string> | (string & {})
+    : string)[] = readonly [],
 >(tag: string, table?: TTable, options?: ModelOptions<TIgnored>) {
   return function <TClass extends AbstractModelConstructor>(
     target: TClass,
     _context: ClassDecoratorContext<TClass>,
-  ): [TTable] extends [SQLiteTable]
+  ): [TTable] extends [DrizzleTableLike]
     ? HasSchemaError<
-        AssertModelMatchesTable<TTable, InstanceType<TClass>, Extract<TIgnored[number], keyof InferSelectModel<TTable>>>
+        AssertModelMatchesTable<
+          TTable,
+          InstanceType<TClass>,
+          Extract<TIgnored[number], keyof TTable["$inferSelect"]>
+        >
       > extends true
       ? {
           readonly __compile_error: "Model class does not match Drizzle table";
           readonly details: AssertModelMatchesTable<
             TTable,
             InstanceType<TClass>,
-            Extract<TIgnored[number], keyof InferSelectModel<TTable>>
+            Extract<TIgnored[number], keyof TTable["$inferSelect"]>
           >;
         }
       : TClass | void

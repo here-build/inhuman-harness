@@ -12,6 +12,7 @@ interface Linkable {
     readonly isApplyingPatches?: boolean;
     recordPatch(patch: ModelPatch): void;
     registerNode(node: Model): void;
+    notifyDetached?(node: Model): void;
     serializeNode(node: Model): SerializedModelGraph;
     transact<T>(fn: () => T): T;
   };
@@ -80,6 +81,12 @@ state.ref = function stateRef<This, TValue extends Model | null>(
       if (oldVal !== value) {
         const self = this as unknown as Linkable;
         const link = self[CONTAINER_LINK];
+        if (oldVal instanceof Model) {
+          link?.notifyDetached?.(oldVal);
+        }
+        if (value instanceof Model) {
+          link?.registerNode(value);
+        }
         if (link && !link.isApplyingPatches) {
           link.recordPatch({
             op: "set",
@@ -153,10 +160,13 @@ function stateChildImpl<This, TValue extends Model | null>(
       if (oldVal !== value) {
         const self = this as unknown as Linkable;
         const link = self[CONTAINER_LINK];
+        if (oldVal instanceof Model) {
+          link?.notifyDetached?.(oldVal);
+        }
+        if (value instanceof Model) {
+          link?.registerNode(value);
+        }
         if (link && !link.isApplyingPatches) {
-          if (value) {
-            link.registerNode(value as Model);
-          }
           link.recordPatch({
             op: "set",
             nodeId: self.uuid,
@@ -192,15 +202,36 @@ function bindArrayObserver<T>(
       for (const removed of change.removed) {
         if (!remaining.has(removed)) {
           detachParent(removed);
+          if (removed instanceof Model) {
+            link?.notifyDetached?.(removed);
+          }
         }
       }
-      arr.forEach((item, idx) => attachParent(item, self, idx));
+      for (let idx = change.index; idx < arr.length; idx++) {
+        attachParent(arr[idx], self, idx);
+      }
       for (const child of change.added) {
         if (child) {
           link?.registerNode(child as unknown as Model);
         }
       }
+    } else if (kind === "refList") {
+      for (const removed of change.removed) {
+        if (removed instanceof Model) {
+          link?.notifyDetached?.(removed);
+        }
+      }
+      for (const added of change.added) {
+        if (added instanceof Model) {
+          link?.registerNode(added);
+        }
+      }
     } else if (kind === "list") {
+      for (const removed of change.removed) {
+        if (removed instanceof Model) {
+          link?.notifyDetached?.(removed);
+        }
+      }
       for (const item of change.added) {
         if (item && item instanceof Model) {
           link?.registerNode(item);
@@ -283,6 +314,16 @@ export function stateList<This, TItem>(
     },
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
+      const oldArr = getter.call(this);
+      const link = self[CONTAINER_LINK];
+      if (Array.isArray(oldArr)) {
+        const nextSet = new Set<unknown>(value);
+        for (const oldItem of oldArr) {
+          if (oldItem instanceof Model && !nextSet.has(oldItem)) {
+            link?.notifyDetached?.(oldItem);
+          }
+        }
+      }
       const obsArr = observable.array(value, {
         deep: false,
         name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,
@@ -296,7 +337,11 @@ export function stateList<This, TItem>(
 
       setter.call(this, obsArr as unknown as TItem[]);
 
-      const link = self[CONTAINER_LINK];
+      for (const item of obsArr) {
+        if (item instanceof Model) {
+          link?.registerNode(item);
+        }
+      }
       if (link && !link.isApplyingPatches) {
         link.recordPatch({
           op: "set",
@@ -345,6 +390,16 @@ export function stateRefList<This, TItem extends Model>(
     },
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
+      const oldArr = getter.call(this);
+      const link = self[CONTAINER_LINK];
+      if (Array.isArray(oldArr)) {
+        const nextSet = new Set<unknown>(value);
+        for (const oldItem of oldArr) {
+          if (oldItem instanceof Model && !nextSet.has(oldItem)) {
+            link?.notifyDetached?.(oldItem);
+          }
+        }
+      }
       const obsArr = observable.array(value, {
         deep: false,
         name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,
@@ -358,7 +413,11 @@ export function stateRefList<This, TItem extends Model>(
 
       setter.call(this, obsArr as unknown as TItem[]);
 
-      const link = self[CONTAINER_LINK];
+      for (const item of obsArr) {
+        if (item instanceof Model) {
+          link?.registerNode(item);
+        }
+      }
       if (link && !link.isApplyingPatches) {
         link.recordPatch({
           op: "set",
@@ -405,11 +464,15 @@ export function stateChildList<This, TItem extends Model>(
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
       const oldArr = getter.call(this);
+      const link = self[CONTAINER_LINK];
       const nextSet = new Set(value);
       if (Array.isArray(oldArr)) {
         for (const oldChild of oldArr) {
           if (!nextSet.has(oldChild)) {
             detachParent(oldChild);
+            if (oldChild instanceof Model) {
+              link?.notifyDetached?.(oldChild);
+            }
           }
         }
       }
@@ -427,11 +490,12 @@ export function stateChildList<This, TItem extends Model>(
 
       setter.call(this, obsArr as unknown as TItem[]);
 
-      const link = self[CONTAINER_LINK];
-      if (link && !link.isApplyingPatches) {
-        for (const child of obsArr) {
-          link.registerNode(child as unknown as Model);
+      for (const child of obsArr) {
+        if (child instanceof Model) {
+          link?.registerNode(child);
         }
+      }
+      if (link && !link.isApplyingPatches) {
         link.recordPatch({
           op: "set",
           nodeId: self.uuid,
@@ -460,10 +524,21 @@ state.childList = stateChildList;
 function bindChildRecordObserver(self: Linkable, propertyKey: string, obj: Record<string, unknown>): () => void {
   return observe(obj, (change) => {
     const link = self[CONTAINER_LINK];
-    if (change.type !== "remove") {
+    if (change.type === "remove") {
+      detachParent(change.oldValue);
+      if (change.oldValue instanceof Model) {
+        link?.notifyDetached?.(change.oldValue);
+      }
+    } else {
+      if (change.type === "update" && change.oldValue !== change.newValue) {
+        detachParent(change.oldValue);
+        if (change.oldValue instanceof Model) {
+          link?.notifyDetached?.(change.oldValue);
+        }
+      }
       attachParent(change.newValue, self, String(change.name));
-      if (change.newValue) {
-        link?.registerNode(change.newValue as Model);
+      if (change.newValue instanceof Model) {
+        link?.registerNode(change.newValue);
       }
     }
     if (!link || link.isApplyingPatches) {
@@ -509,6 +584,19 @@ export function stateChildRecord<This, TValue extends Model>(
     },
     set(this: This, value: Record<string, TValue>): void {
       const self = this as unknown as Linkable;
+      const oldObj = getter.call(this);
+      const link = self[CONTAINER_LINK];
+      const nextValues = new Set<unknown>(Object.values(value));
+      if (oldObj && typeof oldObj === "object") {
+        for (const oldChild of Object.values(oldObj)) {
+          if (!nextValues.has(oldChild)) {
+            detachParent(oldChild);
+            if (oldChild instanceof Model) {
+              link?.notifyDetached?.(oldChild);
+            }
+          }
+        }
+      }
       for (const [k, v] of Object.entries(value)) {
         attachParent(v, this, k);
       }
@@ -522,12 +610,15 @@ export function stateChildRecord<This, TValue extends Model>(
 
       setter.call(this, obsObj as unknown as Record<string, TValue>);
 
-      const link = self[CONTAINER_LINK];
+      for (const v of Object.values(obsObj)) {
+        if (v instanceof Model) {
+          link?.registerNode(v);
+        }
+      }
       if (link && !link.isApplyingPatches) {
         const serialized: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(obsObj)) {
           if (v) {
-            link.registerNode(v as unknown as Model);
             serialized[k] = link.serializeNode(v as unknown as Model);
           }
         }

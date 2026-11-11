@@ -2,7 +2,7 @@ import { action, observable } from "mobx";
 
 import { auditModelClassOnce } from "./audit.js";
 import type { ReactiveAwareness } from "./awareness.js";
-import { getModelMetadata } from "./metadata.js";
+import { getModelMetadata, getModelTag } from "./metadata.js";
 import { CONTAINER_LINK, HYDRATION_DATA } from "./symbols.js";
 import type { ModelPatch, SerializedModelGraph } from "./types.js";
 
@@ -12,11 +12,16 @@ export interface ModelContainerLink {
   readonly awareness?: ReactiveAwareness<any>;
   recordPatch(patch: ModelPatch): void;
   registerNode(node: Model): void;
+  notifyDetached?(node: Model): void;
   serializeNode(node: Model): SerializedModelGraph;
   transact<T>(fn: () => T): T;
 }
 
 export abstract class Model<TRow = any, TParent = any> {
+  static get modelName(): string {
+    return getModelTag(this) ?? "";
+  }
+
   readonly uuid: string;
   @observable.ref accessor parent: TParent | null = null;
   @observable.ref accessor parentFieldKey: string | number | null = null;
@@ -99,6 +104,56 @@ export abstract class Model<TRow = any, TParent = any> {
   }
 
   toJSON(): Record<string, unknown> {
-    return this.toRow() as Record<string, unknown>;
+    const meta = getModelMetadata(this.constructor);
+    if (meta.columns.size > 0 || meta.stateFields.size === 0) {
+      return this.toRow() as Record<string, unknown>;
+    }
+    const fields = this as unknown as Record<string, unknown>;
+    const result: Record<string, unknown> = { uuid: this.uuid };
+    for (const field of meta.stateFields.values()) {
+      const value = fields[field.propertyKey];
+      const key = field.propertyKey;
+      switch (field.kind) {
+        case "scalar":
+          result[key] = value;
+          break;
+        case "record":
+          result[key] = value && typeof value === "object" ? { ...value } : {};
+          break;
+        case "ref":
+          result[key] = value instanceof Model ? value.uuid : null;
+          break;
+        case "refList":
+          result[key] = Array.isArray(value)
+            ? value.map((item) => (item instanceof Model ? item.uuid : item))
+            : [];
+          break;
+        case "child":
+          result[key] = value instanceof Model ? value.toJSON() : null;
+          break;
+        case "childList":
+          result[key] = Array.isArray(value)
+            ? value.map((item) => (item instanceof Model ? item.toJSON() : item))
+            : [];
+          break;
+        case "childRecord":
+          result[key] =
+            value && typeof value === "object"
+              ? Object.fromEntries(
+                  Object.entries(value as Record<string, unknown>).map(([k, item]) => [
+                    k,
+                    item instanceof Model ? item.toJSON() : item,
+                  ]),
+                )
+              : {};
+          break;
+        case "list":
+          result[key] = Array.isArray(value)
+            ? value.map((item) => (item instanceof Model ? item.uuid : item))
+            : [];
+          break;
+      }
+    }
+    return result;
   }
 }

@@ -26,6 +26,12 @@ export type AwarenessUpdateChange = {
 
 export type AwarenessUpdateListener = (changed: AwarenessUpdateChange, origin?: unknown) => void;
 
+export type PresenceEntry = readonly [
+  clientId: number,
+  state: Record<string, unknown> | null,
+  clock?: number,
+];
+
 let nextAwarenessClientId = 1;
 
 function resolveClientId(input?: number | { readonly clientId?: number; readonly clientID?: number } | unknown): number {
@@ -34,7 +40,9 @@ function resolveClientId(input?: number | { readonly clientId?: number; readonly
     return input;
   }
   if (input != null && typeof input === "object") {
-    const candidate = (input as { clientId?: unknown; clientID?: unknown }).clientId ?? (input as { clientID?: unknown }).clientID;
+    const candidate =
+      (input as { clientId?: unknown; clientID?: unknown }).clientId ??
+      (input as { clientID?: unknown }).clientID;
     if (typeof candidate === "number" && Number.isFinite(candidate)) {
       if (candidate >= nextAwarenessClientId) nextAwarenessClientId = candidate + 1;
       return candidate;
@@ -219,11 +227,23 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
     }
   }
 
+  toPresenceEntries(clients: readonly number[] = [...this.meta.keys()]): PresenceEntry[] {
+    const states = this.getStates();
+    const entries: PresenceEntry[] = [];
+    for (const id of clients) {
+      const state = states.get(id) ?? null;
+      const clock = this.meta.get(id)?.clock ?? 1;
+      entries.push([id, state, clock]);
+    }
+    return entries;
+  }
+
+  applyPresenceEntries(entries: readonly PresenceEntry[], origin?: unknown): void {
+    this.applyClientEntries(entries, origin);
+  }
+
   @action
-  applyClientEntries(
-    entries: ReadonlyArray<readonly [number, Record<string, unknown> | null, number?]>,
-    origin?: unknown,
-  ): void {
+  applyClientEntries(entries: readonly PresenceEntry[], origin?: unknown): void {
     const added: number[] = [];
     const updated: number[] = [];
     const removed: number[] = [];
@@ -288,36 +308,6 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
     }
     return [...lanes];
   }
-}
-
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
-
-export function encodeAwarenessUpdate(
-  hub: ReactiveAwareness<any>,
-  clients: readonly number[] = [...hub.meta.keys()],
-): Uint8Array {
-  const states = hub.getStates();
-  const entries: Array<[number, Record<string, unknown> | null, number]> = [];
-  for (const id of clients) {
-    const state = states.get(id) ?? null;
-    const clock = hub.meta.get(id)?.clock ?? 1;
-    entries.push([id, state, clock]);
-  }
-  return textEncoder.encode(JSON.stringify({ entries }));
-}
-
-export function applyAwarenessUpdate(
-  hub: ReactiveAwareness<any>,
-  update: Uint8Array,
-  origin?: unknown,
-): void {
-  if (update.byteLength === 0) return;
-  const parsed = JSON.parse(textDecoder.decode(update)) as {
-    entries?: Array<[number, Record<string, unknown> | null, number?]>;
-  };
-  if (!Array.isArray(parsed.entries)) return;
-  hub.applyClientEntries(parsed.entries, origin);
 }
 
 type ObservableLaneBag = ReturnType<typeof observable.map<string, unknown>>;

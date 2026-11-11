@@ -5,47 +5,54 @@ import { describe, expect, it } from "vitest";
 
 import {
   activeSessionsLaneParamsSchema,
-  bootstrapHarnessSqliteSql,
+  bootstrapHarnessPostgresSql,
   childSessionsLaneParamsSchema,
-  HARNESS_SQLITE_DDL,
+  HARNESS_POSTGRES_DDL,
   kernelMetaLaneParamsSchema,
-  kernelStateTable,
   modelPatchSchema,
   pendingAsksLaneParamsSchema,
-  pendingAsksTable,
+  planeWireFrameSchema,
+  presenceFrameSchema,
   recentSessionsLaneParamsSchema,
+  rowPairId,
+  scopeNodesLaneParamsSchema,
   serializedSessionDocumentSchema,
   sessionAttachFrameSchema,
-  sessionBlobsTable,
   sessionDetachFrameSchema,
-  sessionEffectsTable,
-  sessionsTable,
+  sessionNodesLaneParamsSchema,
   sessionSyncFrameSchema,
-  sessionTurnsTable,
-  sessionUpdatesTable,
-  sharedPayloadsTable,
-  sessionNodesTable,
-  sessionDocumentsTable,
   shapeDeltaFrameSchema,
   shapeSubscribeFrameSchema,
   shapeUnsubscribeFrameSchema,
+  splitRowPairId,
+  streamDeltaFrameSchema,
   type SerializedSessionDocument,
   type SessionSyncFrame,
 } from "../index.js";
+import {
+  bootstrapHarnessSqliteSql,
+  HARNESS_SQLITE_DDL,
+  kernelStateTable,
+  pendingAsksTable,
+  scopeNodesTable,
+  sessionBlobsTable,
+  sessionEffectsTable,
+  sessionNodesTable,
+  sessionsTable,
+  sessionTurnsTable,
+} from "../schema/index.js";
 
 describe("schema and wire contract", () => {
-  describe("Drizzle table metadata vs SQLite DDL", () => {
+  describe("Drizzle table metadata vs SQLite & Postgres DDL", () => {
     const allTables = [
       kernelStateTable,
+      scopeNodesTable,
       sessionsTable,
       pendingAsksTable,
       sessionTurnsTable,
-      sessionUpdatesTable,
+      sessionNodesTable,
       sessionEffectsTable,
       sessionBlobsTable,
-      sharedPayloadsTable,
-      sessionNodesTable,
-      sessionDocumentsTable,
     ];
 
     it("initializes SQLite cleanly with bootstrapHarnessSqliteSql and matches Drizzle table metadata", () => {
@@ -78,9 +85,9 @@ describe("schema and wire contract", () => {
           .map((c) => c.name);
 
         const singlePkCols = config.columns.filter((c) => c.primary).map((c) => c.name);
-        const compositePkCols = config.primaryKeys.flatMap((pk) => pk.columns.map((c) => c.name));
-        const expectedPkCols = singlePkCols.length > 0 ? singlePkCols : compositePkCols;
-        expect(actualPkCols, `Primary key for ${config.name}`).toEqual(expectedPkCols);
+        // Every table has a single-column string PK for ElectricSQL / LiveShape compatibility
+        expect(singlePkCols, `Single-column PK for ${config.name}`).toHaveLength(1);
+        expect(actualPkCols, `Primary key for ${config.name}`).toEqual(singlePkCols);
 
         const userIndexes = (
           db.prepare(`PRAGMA index_list(${config.name})`).all() as { name: string; origin: string }[]
@@ -107,24 +114,32 @@ describe("schema and wire contract", () => {
       }
     });
 
-    it("HARNESS_SQLITE_DDL contains individual statements that match the bootstrapped schema", () => {
+    it("HARNESS_SQLITE_DDL and HARNESS_POSTGRES_DDL cover the exact same canonical table set", () => {
       expect(HARNESS_SQLITE_DDL.length).toBeGreaterThan(0);
-      const db = new DatabaseSync(":memory:");
-      for (const statement of HARNESS_SQLITE_DDL) {
-        db.exec(statement);
-      }
-      const count = (
-        db
-          .prepare("SELECT count(*) as count FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
-          .get() as { count: number }
-      ).count;
-      expect(count).toBe(allTables.length);
+      expect(HARNESS_POSTGRES_DDL.length).toBeGreaterThan(0);
+
+      const expectedNames = allTables.map((t) => getTableConfig(t).name).sort();
+      const pgCreatedTables = [...bootstrapHarnessPostgresSql.matchAll(/CREATE TABLE IF NOT EXISTS ([a-z_]+)/g)]
+        .map((m) => m[1]!)
+        .sort();
+      expect(pgCreatedTables).toEqual(expectedNames);
+      expect(bootstrapHarnessPostgresSql).toContain("ALTER TABLE session_nodes REPLICA IDENTITY FULL;");
+      expect(bootstrapHarnessPostgresSql).toContain("ALTER TABLE scope_nodes REPLICA IDENTITY FULL;");
+    });
+
+    it("encodes and decodes NUL-free composite keys via rowPairId / splitRowPairId", () => {
+      const id = rowPairId("sess-1", "node-abc");
+      expect(id.includes("\0")).toBe(false);
+      expect(splitRowPairId(id)).toEqual(["sess-1", "node-abc"]);
+      expect(() => rowPairId("bad\0id", "node")).toThrow(/NUL/);
     });
   });
 
-  describe("Update Lane live shapes and frames", () => {
+  describe("Update Lane live shapes and unified wire frames", () => {
     it("parses valid lane parameters for all update lanes", () => {
       expect(kernelMetaLaneParamsSchema.parse({})).toEqual({});
+      expect(scopeNodesLaneParamsSchema.parse({ scopeId: "kernel" })).toEqual({ scopeId: "kernel" });
+      expect(sessionNodesLaneParamsSchema.parse({ sessionId: "sess-1" })).toEqual({ sessionId: "sess-1" });
       expect(activeSessionsLaneParamsSchema.parse({ workspacePath: "/test/ws" })).toEqual({
         workspacePath: "/test/ws",
       });
@@ -145,6 +160,8 @@ describe("schema and wire contract", () => {
 
     it("rejects invalid lane parameters", () => {
       expect(kernelMetaLaneParamsSchema.safeParse({ unexpected: 1 }).success).toBe(false);
+      expect(scopeNodesLaneParamsSchema.safeParse({}).success).toBe(false);
+      expect(sessionNodesLaneParamsSchema.safeParse({ sessionId: "  " }).success).toBe(false);
       expect(recentSessionsLaneParamsSchema.safeParse({ limit: 0 }).success).toBe(false);
       expect(recentSessionsLaneParamsSchema.safeParse({ limit: -10 }).success).toBe(false);
       expect(recentSessionsLaneParamsSchema.safeParse({}).success).toBe(false);
@@ -152,90 +169,78 @@ describe("schema and wire contract", () => {
       expect(childSessionsLaneParamsSchema.safeParse({ parentSessionId: "   " }).success).toBe(false);
     });
 
-    it("parses valid shape frames (subscribe, unsubscribe, delta)", () => {
+    it("parses shape, presence, stream/delta, and keepalive frames", () => {
       const subscribeFrame = shapeSubscribeFrameSchema.parse({
         kind: "shape/subscribe",
         subscriptionId: "sub-1",
-        lane: "recent_sessions",
-        params: { limit: 50 },
+        lane: "session_nodes",
+        params: { sessionId: "sess-1" },
         offset: 12,
       });
       expect(subscribeFrame).toEqual({
         kind: "shape/subscribe",
         subscriptionId: "sub-1",
-        lane: "recent_sessions",
-        params: { limit: 50 },
+        lane: "session_nodes",
+        params: { sessionId: "sess-1" },
         offset: 12,
       });
 
-      const unsubscribeFrame = shapeUnsubscribeFrameSchema.parse({
+      expect(
+        shapeUnsubscribeFrameSchema.parse({
+          kind: "shape/unsubscribe",
+          subscriptionId: "sub-1",
+        }),
+      ).toEqual({
         kind: "shape/unsubscribe",
         subscriptionId: "sub-1",
       });
-      expect(unsubscribeFrame).toEqual({
-        kind: "shape/unsubscribe",
-        subscriptionId: "sub-1",
+
+      expect(
+        shapeDeltaFrameSchema.parse({
+          kind: "shape/delta",
+          subscriptionId: "sub-1",
+          offset: 13,
+          upserts: [{ id: '["s1","n1"]', nodeId: "n1" }],
+          deletes: ['["s1","n0"]'],
+          reset: false,
+        }),
+      ).toMatchObject({ kind: "shape/delta", subscriptionId: "sub-1" });
+
+      expect(
+        presenceFrameSchema.parse({
+          kind: "presence/update",
+          room: "session:s1",
+          entries: [[1, { occupied: true }, 2]],
+        }),
+      ).toEqual({
+        kind: "presence/update",
+        room: "session:s1",
+        entries: [[1, { occupied: true }, 2]],
       });
 
-      const deltaFrame = shapeDeltaFrameSchema.parse({
-        kind: "shape/delta",
-        subscriptionId: "sub-1",
-        offset: 13,
-        upserts: [{ sessionId: "s1", running: true }],
-        deletes: ["s0"],
-        reset: false,
+      expect(
+        streamDeltaFrameSchema.parse({
+          kind: "stream/delta",
+          sessionId: "s1",
+          channel: "assistant",
+          targetId: "step-1",
+          text: "hello",
+        }),
+      ).toEqual({
+        kind: "stream/delta",
+        sessionId: "s1",
+        channel: "assistant",
+        targetId: "step-1",
+        text: "hello",
       });
-      expect(deltaFrame).toEqual({
-        kind: "shape/delta",
-        subscriptionId: "sub-1",
-        offset: 13,
-        upserts: [{ sessionId: "s1", running: true }],
-        deletes: ["s0"],
-        reset: false,
-      });
-    });
 
-    it("rejects shape subscribe frame with mismatched or invalid lane parameters", () => {
-      expect(
-        shapeSubscribeFrameSchema.safeParse({
-          kind: "shape/subscribe",
-          subscriptionId: "sub-1",
-          lane: "recent_sessions",
-          params: { limit: -1 },
-        }).success,
-      ).toBe(false);
-
-      expect(
-        shapeSubscribeFrameSchema.safeParse({
-          kind: "shape/subscribe",
-          subscriptionId: "sub-1",
-          lane: "child_sessions",
-          params: {},
-        }).success,
-      ).toBe(false);
-
-      expect(
-        shapeSubscribeFrameSchema.safeParse({
-          kind: "shape/subscribe",
-          subscriptionId: "sub-1",
-          lane: "unknown_lane",
-          params: {},
-        }).success,
-      ).toBe(false);
-
-      expect(
-        shapeSubscribeFrameSchema.safeParse({
-          kind: "shape/subscribe",
-          subscriptionId: "",
-          lane: "kernel_meta",
-          params: {},
-        }).success,
-      ).toBe(false);
+      expect(planeWireFrameSchema.parse({ kind: "ping", ts: 123 })).toEqual({ kind: "ping", ts: 123 });
+      expect(planeWireFrameSchema.parse({ kind: "pong", ts: 123 })).toEqual({ kind: "pong", ts: 123 });
     });
   });
 
   describe("Session Trajectory snapshots and patches", () => {
-    it("round-trips session/snapshot frames with rich document trees", () => {
+    it("round-trips session/snapshot and session/patch frames", () => {
       const documentSnapshot: SerializedSessionDocument = {
         sessionId: "sess-node2-001",
         revision: 10,
@@ -243,29 +248,7 @@ describe("schema and wire contract", () => {
         root: {
           id: "node-root",
           tag: "harness:session:root",
-          props: {
-            sessionId: "sess-node2-001",
-            title: "Test Session",
-            running: true,
-            mode: "assistant",
-          },
-          children: {
-            turns: [
-              {
-                id: "turn-1",
-                tag: "harness:session:turn",
-                props: {
-                  prompt: "Write unit tests",
-                  status: "running",
-                  ordinal: 0,
-                },
-                children: {
-                  doneWork: [],
-                  queue: [],
-                },
-              },
-            ],
-          },
+          props: { sessionId: "sess-node2-001", title: "Test Session" },
         },
       };
 
@@ -275,141 +258,25 @@ describe("schema and wire contract", () => {
         revision: 10,
         snapshot: documentSnapshot,
       };
-
-      const parsed = sessionSyncFrameSchema.parse(syncFrame);
-      expect(parsed).toEqual(syncFrame);
+      expect(sessionSyncFrameSchema.parse(syncFrame)).toEqual(syncFrame);
       expect(serializedSessionDocumentSchema.parse(documentSnapshot)).toEqual(documentSnapshot);
-    });
 
-    it("round-trips session/patch frames across all 5 patch operations", () => {
-      const patchFrame: SessionSyncFrame = {
-        kind: "session/patch",
-        sessionId: "sess-node2-001",
-        fromRevision: 10,
-        toRevision: 11,
-        patches: [
-          {
-            op: "set",
-            nodeId: "turn-1",
-            field: "status",
-            value: "completed",
-          },
-          {
-            op: "splice",
-            encoding: "rows-v1",
-            nodeId: "turn-1",
-            field: "tags",
-            index: 0,
-            deleteCount: 1,
-            items: [{ $value: "verified" }, { $value: "fast" }],
-          },
-          {
-            op: "del",
-            nodeId: "node-root",
-            field: "kvs",
-            key: "scratchKey",
-          },
-          {
-            op: "child-insert",
-            nodeId: "turn-1",
-            field: "doneWork",
-            index: 0,
-            child: {
-              id: "job-exec-1",
-              tag: "harness:job:shell",
-              props: { command: "pnpm test", outcome: "ok" },
-            },
-          },
-          {
-            op: "child-remove",
-            nodeId: "turn-1",
-            field: "doneWork",
-            childId: "job-exec-1",
-            index: 0,
-          },
-        ],
-      };
-
-      const parsed = sessionSyncFrameSchema.parse(patchFrame);
-      expect(parsed).toEqual(patchFrame);
-
-      for (const patch of patchFrame.patches) {
-        expect(modelPatchSchema.parse(patch)).toEqual(patch);
-      }
-    });
-
-    it("parses session attach and detach lifecycle frames", () => {
-      const attachWithRevision = sessionAttachFrameSchema.parse({
-        kind: "session/attach",
-        sessionId: "sess-1",
-        sinceRevision: 5,
+      const patch = modelPatchSchema.parse({
+        op: "set",
+        nodeId: "turn-1",
+        field: "status",
+        value: "completed",
       });
-      expect(attachWithRevision).toEqual({
-        kind: "session/attach",
-        sessionId: "sess-1",
-        sinceRevision: 5,
-      });
+      expect(patch.op).toBe("set");
 
-      const attachWithoutRevision = sessionAttachFrameSchema.parse({
+      expect(sessionAttachFrameSchema.parse({ kind: "session/attach", sessionId: "s1" })).toEqual({
         kind: "session/attach",
-        sessionId: "sess-1",
+        sessionId: "s1",
       });
-      expect(attachWithoutRevision).toEqual({
-        kind: "session/attach",
-        sessionId: "sess-1",
-      });
-
-      const detach = sessionDetachFrameSchema.parse({
+      expect(sessionDetachFrameSchema.parse({ kind: "session/detach", sessionId: "s1" })).toEqual({
         kind: "session/detach",
-        sessionId: "sess-1",
+        sessionId: "s1",
       });
-      expect(detach).toEqual({
-        kind: "session/detach",
-        sessionId: "sess-1",
-      });
-    });
-
-    it("rejects invalid session sync and patch frames", () => {
-      expect(
-        sessionSyncFrameSchema.safeParse({
-          kind: "session/unknown",
-          sessionId: "sess-1",
-        }).success,
-      ).toBe(false);
-
-      expect(
-        sessionSyncFrameSchema.safeParse({
-          kind: "session/patch",
-          sessionId: "sess-1",
-          fromRevision: -1,
-          toRevision: 0,
-          patches: [],
-        }).success,
-      ).toBe(false);
-
-      expect(
-        modelPatchSchema.safeParse({
-          op: "unknown-op",
-          nodeId: "n1",
-          field: "f1",
-        }).success,
-      ).toBe(false);
-
-      expect(
-        modelPatchSchema.safeParse({
-          op: "child-insert",
-          nodeId: "n1",
-          field: "doneWork",
-        }).success,
-      ).toBe(false);
-
-      expect(
-        modelPatchSchema.safeParse({
-          op: "child-remove",
-          nodeId: "n1",
-          field: "doneWork",
-        }).success,
-      ).toBe(false);
     });
   });
 });

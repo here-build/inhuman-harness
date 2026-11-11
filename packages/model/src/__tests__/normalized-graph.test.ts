@@ -35,15 +35,22 @@ describe("normalized entity graph", () => {
     expect(restored.entries[1]?.history).toEqual(["note", restored.entries[0]]);
   });
 
-  it("sends only new rows in patches and preserves later mutations after replay", () => {
+  it("emits O(delta) node row upserts and converges a replica via applyNodeRows", () => {
     const root = new Root();
     const source = new DocumentContainer(root);
-    const replica = DocumentContainer.fromSnapshot(source.toSnapshot());
-    const sizes: number[] = [];
-    source.on("update", (update) => {
-      sizes.push(update.length);
-      replica.applyUpdate(update);
+    const initialDelta = source.takeNodeDelta();
+    const replica = DocumentContainer.fromNodeRows<Root>(initialDelta.upserts, {
+      rootId: initialDelta.rootId,
+      revision: initialDelta.revision,
     });
+
+    const upsertCounts: number[] = [];
+    source.onPatch(() => {
+      const delta = source.takeNodeDelta();
+      upsertCounts.push(delta.upserts.length);
+      replica.applyNodeRows(delta);
+    });
+
     let tail: Entry | null = null;
     for (let index = 0; index < 100; index++) {
       const entry: Entry = new Entry({ text: "x".repeat(100), tail, history: tail === null ? [] : [tail] });
@@ -53,14 +60,57 @@ describe("normalized entity graph", () => {
       });
       tail = entry;
     }
-    expect(Math.max(...sizes)).toBeLessThan(2500);
+
+    // Each step only serializes root + new entry (2 rows), never the whole 100-node graph!
+    expect(Math.max(...upsertCounts)).toBe(2);
     if (tail === null) throw new Error("missing tail");
+
+    const replicaLastBefore = replica.root.entries.at(-1);
     tail.text = "updated";
-    const restored = hydrateModel<Root>(replica.toSnapshot());
-    expect(restored.entries).toHaveLength(100);
-    expect(restored.entries.at(-1)?.text).toBe("updated");
-    expect(restored.entries.at(-1)?.tail).toBe(restored.entries.at(-2));
-    expect(restored.tape.at(-1)).toBe(restored.entries.at(-1));
+    // Object identity is preserved across incremental row updates
+    expect(replica.root.entries.at(-1)).toBe(replicaLastBefore);
+    expect(replica.root.entries).toHaveLength(100);
+    expect(replica.root.entries.at(-1)?.text).toBe("updated");
+    expect(replica.root.entries.at(-1)?.tail).toBe(replica.root.entries.at(-2));
+    expect(replica.root.tape.at(-1)).toBe(replica.root.entries.at(-1));
+    source.destroy();
+    replica.destroy();
+  });
+
+  it("prunes detached subtrees from #registry and emits deleted node IDs", () => {
+    const first = new Entry({ text: "first" });
+    const second = new Entry({ text: "second" });
+    const root = new Root({ entries: [first, second] });
+    const source = new DocumentContainer(root);
+    const initial = source.takeNodeDelta();
+    const replica = DocumentContainer.fromNodeRows<Root>(initial.upserts, {
+      rootId: initial.rootId,
+      revision: initial.revision,
+    });
+    expect(source.registry.size).toBe(3);
+    expect(replica.registry.size).toBe(3);
+
+    // Detach `first` completely
+    root.entries.splice(0, 1);
+    const removalDelta = source.takeNodeDelta();
+    expect(removalDelta.deletes).toEqual([first.uuid]);
+    expect(source.registry.has(first.uuid)).toBe(false);
+    expect(source.registry.size).toBe(2);
+
+    replica.applyNodeRows(removalDelta);
+    expect(replica.registry.has(first.uuid)).toBe(false);
+    expect(replica.registry.size).toBe(2);
+    expect(replica.root.entries).toHaveLength(1);
+    expect(replica.root.entries[0]?.text).toBe("second");
+
+    // Re-attaching a previously detached row re-registers and re-upserts it cleanly
+    root.entries.push(first);
+    first.text = "returned and updated";
+    const reattachDelta = source.takeNodeDelta();
+    replica.applyNodeRows(reattachDelta);
+    expect(replica.root.entries[1]).toMatchObject({ text: "returned and updated" });
+    expect(replica.registry.size).toBe(3);
+
     source.destroy();
     replica.destroy();
   });
@@ -68,8 +118,12 @@ describe("normalized entity graph", () => {
   it("replays replacement lists with model pointers", () => {
     const root = new Root();
     const source = new DocumentContainer(root);
-    const replica = DocumentContainer.fromSnapshot(source.toSnapshot());
-    source.on("update", (update) => replica.applyUpdate(update));
+    const initial = source.takeNodeDelta();
+    const replica = DocumentContainer.fromNodeRows<Root>(initial.upserts, {
+      rootId: initial.rootId,
+      revision: initial.revision,
+    });
+    source.onPatch(() => replica.applyNodeRows(source.takeNodeDelta()));
     const entry = new Entry({ text: "replacement" });
     root.tape = [entry, "literal"];
     entry.text = "updated";
@@ -89,8 +143,12 @@ describe("normalized entity graph", () => {
     const root = new LiteralList({ values: [{ $model: "literal" }, { $value: "literal" }] });
     expect(hydrateModel<LiteralList>(serializeModel(root)).values).toEqual(root.values);
     const source = new DocumentContainer(root);
-    const replica = DocumentContainer.fromSnapshot(source.toSnapshot());
-    source.on("update", (update) => replica.applyUpdate(update));
+    const initial = source.takeNodeDelta();
+    const replica = DocumentContainer.fromNodeRows<LiteralList>(initial.upserts, {
+      rootId: initial.rootId,
+      revision: initial.revision,
+    });
+    source.onPatch(() => replica.applyNodeRows(source.takeNodeDelta()));
     root.values.push({ uuid: "literal-id", tag: "literal-tag" }, { $value: "literal" });
     expect(replica.root.values).toEqual(root.values);
     root.values = [{ uuid: "other-id", tag: "other-tag" }, { $model: "literal" }];
@@ -108,20 +166,6 @@ describe("normalized entity graph", () => {
     expect(next).toBeInstanceOf(Entry);
     if (!(next instanceof Entry)) throw new Error("missing next");
     expect(next.history[0]).toBe(restored);
-  });
-
-  it("reannounces detached rows after a reconnect snapshot omitted them", () => {
-    const entry = new Entry({ text: "returned" });
-    const root = new Root({ entries: [entry] });
-    const source = new DocumentContainer(root);
-    root.entries.splice(0, 1);
-    const replica = DocumentContainer.fromSnapshot(source.toSnapshot());
-    source.on("update", (update) => replica.applyUpdate(update));
-    root.entries.push(entry);
-    entry.text = "returned and updated";
-    expect(replica.root.entries[0]).toMatchObject({ text: "returned and updated" });
-    source.destroy();
-    replica.destroy();
   });
 
   it("keeps references to the retained root shell canonical", () => {
@@ -142,8 +186,12 @@ describe("normalized entity graph", () => {
   it("introduces referenced rows and replacement child records before later mutations", () => {
     const root = new Root();
     const source = new DocumentContainer(root);
-    const replica = DocumentContainer.fromSnapshot(source.toSnapshot());
-    source.on("update", (update) => replica.applyUpdate(update));
+    const initial = source.takeNodeDelta();
+    const replica = DocumentContainer.fromNodeRows<Root>(initial.upserts, {
+      rootId: initial.rootId,
+      revision: initial.revision,
+    });
+    source.onPatch(() => replica.applyNodeRows(source.takeNodeDelta()));
     const selected = new Entry({ text: "selected" });
     root.selected = selected;
     root.references.push(selected, new Entry({ text: "reference" }));
@@ -155,6 +203,19 @@ describe("normalized entity graph", () => {
     expect(replica.root.references[0]).toBe(replica.root.selected);
     expect(replica.root.records.child).toBeInstanceOf(Entry);
     expect(replica.root.records.child.text).toBe("child updated");
+    source.destroy();
+    replica.destroy();
+  });
+
+  it("syncs structured presence entries on ReactiveAwareness without binary codecs", () => {
+    const source = new DocumentContainer(new Root(), { clientId: 101 });
+    const replica = new DocumentContainer(new Root(), { clientId: 202 });
+    source.awareness.setLocalStateField("seat", { active: true });
+    replica.awareness.applyPresenceEntries(source.awareness.toPresenceEntries());
+    expect(replica.awareness.getLane("seat", 101)).toEqual({ active: true });
+    source.awareness.setLocalState(null);
+    replica.awareness.applyPresenceEntries([[101, null]]);
+    expect(replica.awareness.getLane("seat", 101)).toBeUndefined();
     source.destroy();
     replica.destroy();
   });

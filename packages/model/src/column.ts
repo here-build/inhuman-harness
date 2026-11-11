@@ -1,10 +1,9 @@
-import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { observable } from "mobx";
 
 import { SchemaAuditError } from "./errors.js";
 import { registerColumnMetadata } from "./metadata.js";
 import { CONTAINER_LINK, HYDRATION_DATA } from "./symbols.js";
-import type { ColumnCodec, ColumnValue, ModelPatch } from "./types.js";
+import type { ColumnCodec, ColumnValue, DrizzleColumnLike, ModelPatch } from "./types.js";
 
 interface Linkable {
   readonly uuid: string;
@@ -14,7 +13,7 @@ interface Linkable {
   };
 }
 
-export function column<TCol extends SQLiteColumn, TValue = ColumnValue<TCol>>(
+export function column<TCol extends DrizzleColumnLike, TValue = ColumnValue<TCol>>(
   drizzleCol: TCol,
   codec?: ColumnCodec<ColumnValue<TCol>, TValue>,
 ) {

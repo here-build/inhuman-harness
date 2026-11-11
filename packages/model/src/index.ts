@@ -1,7 +1,5 @@
 export { auditModelClassOnce } from "./audit.js";
 export {
-  applyAwarenessUpdate,
-  encodeAwarenessUpdate,
   FieldAwareness,
   PlexusAwareness,
   ReactiveAwareness,
@@ -9,22 +7,23 @@ export {
   type AwarenessShape,
   type AwarenessUpdateChange,
   type AwarenessUpdateListener,
+  type PresenceEntry,
   type ShapeOfAwareness,
 } from "./awareness.js";
 export { column } from "./column.js";
-export {
-  applyDocumentUpdate,
-  DocumentContainer,
-  encodeDocumentStateAsUpdate,
-  encodeDocumentStateVector,
-  mergeDocumentUpdates,
-  type DocumentUpdateListener,
-} from "./container.js";
+export { DocumentContainer } from "./container.js";
 export { model } from "./decorator-model.js";
 export { BrokenReferenceError, SchemaAuditError } from "./errors.js";
 export { getModelByTag, getModelMetadata, getModelTag, resetModelRegistry } from "./metadata.js";
 export { Model, type ModelContainerLink } from "./model.js";
-export { hydrateModel, serializeDocument, serializeModel } from "./serialize.js";
+export {
+  collectReachableNodes,
+  hydrateFromNodeRows,
+  hydrateModel,
+  serializeDocument,
+  serializeModel,
+  serializeNodeRow,
+} from "./serialize.js";
 export { state } from "./state.js";
 export type {
   AssertModelMatchesTable,
@@ -33,6 +32,7 @@ export type {
   ColumnValue,
   ModelClassMetadata,
   ModelConstructor,
+  ModelNodeDelta,
   ModelOptions,
   ModelPatch,
   ModelPatchBatch,

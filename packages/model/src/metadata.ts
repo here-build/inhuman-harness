@@ -1,8 +1,7 @@
-import type { SQLiteTable } from "drizzle-orm/sqlite-core";
-
 import type {
   ClassLike,
   ColumnMetadata,
+  DrizzleTableLike,
   ModelClassMetadata,
   ModelConstructor,
   ModelOptions,
@@ -19,7 +18,7 @@ export const STATE_META_SYMBOL = Symbol("STATE_META_SYMBOL");
 const tagToConstructor = new Map<string, ModelConstructor>();
 const constructorToTag = new Map<ClassLike, string>();
 
-export function registerModelClass(tag: string, ctor: ClassLike, table?: SQLiteTable, options?: ModelOptions): void {
+export function registerModelClass(tag: string, ctor: ClassLike, table?: DrizzleTableLike, options?: ModelOptions): void {
   const existing = tagToConstructor.get(tag);
   if (existing) {
     if (existing === ctor) {
@@ -112,7 +111,7 @@ export function registerStateMetadata(context: ClassAccessorDecoratorContext, me
 export function getModelMetadata(ctor: ClassLike): ModelClassMetadata {
   const tag = constructorToTag.get(ctor) ?? "";
   const classData = (ctor as unknown as Record<symbol, unknown>)[MODEL_META_SYMBOL] as
-    { table?: SQLiteTable; ignoredColumns: Set<string> } | undefined;
+    { table?: DrizzleTableLike; ignoredColumns: Set<string> } | undefined;
 
   const columns = new Map<string, ColumnMetadata>();
   const stateFields = new Map<string, StateFieldMetadata>();

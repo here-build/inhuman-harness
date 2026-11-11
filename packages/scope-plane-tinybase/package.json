@@ -13,7 +13,11 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "src", "!**/__tests__"],
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
@@ -38,5 +42,7 @@
     "url": "https://github.com/here-build/inhuman-harness.git",
     "directory": "packages/scope-plane-tinybase"
   },
-  "browserslist": ["node >= 22"]
+  "browserslist": [
+    "node >= 22"
+  ]
 }

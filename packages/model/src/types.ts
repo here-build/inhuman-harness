@@ -1,10 +1,25 @@
-import type { InferSelectModel } from "drizzle-orm";
-import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
-
 declare global {
   interface SymbolConstructor {
     readonly metadata: unique symbol;
   }
+}
+
+export interface DrizzleTableLike<TSelect extends Record<string, any> = any> {
+  readonly $inferSelect: TSelect;
+}
+
+export interface DrizzleColumnLike<TData = any, TNotNull extends boolean = boolean> {
+  readonly name: string;
+  readonly notNull: boolean;
+  readonly dataType: string;
+  readonly columnType: string;
+  readonly primary: boolean;
+  readonly hasDefault: boolean;
+  readonly table: unknown;
+  readonly _: {
+    readonly data: TData;
+    readonly notNull: TNotNull;
+  };
 }
 
 export interface ColumnCodec<TDb, TModel = TDb> {
@@ -15,7 +30,7 @@ export interface ColumnCodec<TDb, TModel = TDb> {
 export interface ColumnMetadata {
   readonly propertyKey: string;
   readonly columnName: string;
-  readonly column: SQLiteColumn;
+  readonly column: DrizzleColumnLike;
   readonly notNull: boolean;
   readonly dataType: string;
   readonly columnType: string;
@@ -33,24 +48,24 @@ export interface StateFieldMetadata {
 
 export interface ModelClassMetadata {
   readonly tag: string;
-  readonly table?: SQLiteTable;
+  readonly table?: DrizzleTableLike;
   readonly ignoredColumns: ReadonlySet<string>;
   readonly columns: Map<string, ColumnMetadata>;
   readonly stateFields: Map<string, StateFieldMetadata>;
 }
 
 export type AssertModelMatchesTable<
-  TTable extends SQLiteTable,
+  TTable extends DrizzleTableLike,
   TInstance,
-  TExcluded extends keyof InferSelectModel<TTable> = never,
+  TExcluded extends keyof TTable["$inferSelect"] = never,
 > = {
-  [K in Exclude<keyof InferSelectModel<TTable>, TExcluded>]: K extends keyof TInstance
-    ? InferSelectModel<TTable>[K] extends TInstance[K]
+  [K in Exclude<keyof TTable["$inferSelect"], TExcluded>]: K extends keyof TInstance
+    ? TTable["$inferSelect"][K] extends TInstance[K]
       ? unknown
       : {
           readonly __error: "Property type does not match Drizzle column type";
           readonly column: K;
-          readonly expected: InferSelectModel<TTable>[K];
+          readonly expected: TTable["$inferSelect"][K];
           readonly actual: TInstance[K];
         }
     : {
@@ -129,6 +144,14 @@ export interface SerializedDocument {
   readonly meta?: Record<string, Record<string, unknown>>;
 }
 
+export interface ModelNodeDelta {
+  readonly rootId: string;
+  readonly revision: number;
+  readonly upserts: readonly SerializedModelRow[];
+  readonly deletes: readonly string[];
+  readonly reset?: boolean;
+}
+
 export interface ModelOptions<TIgnored extends readonly string[] = readonly string[]> {
   readonly ignoredColumns?: TIgnored;
 }
@@ -139,7 +162,9 @@ export type ClassLike =
 export type ModelConstructor<TModel = any> = new (...args: any[]) => TModel;
 export type AbstractModelConstructor<TModel = any> = abstract new (...args: any[]) => TModel;
 
-export type ColumnValue<TCol extends SQLiteColumn> = TCol extends { _: { data: infer TData; notNull: infer TNotNull } }
+export type ColumnValue<TCol extends DrizzleColumnLike> = TCol extends {
+  _: { data: infer TData; notNull: infer TNotNull };
+}
   ? TNotNull extends true
     ? TData
     : TData | null

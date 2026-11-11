@@ -20,9 +20,16 @@ const SCOPE_NAMES = [
   "@inhuman.tools/scope-plane-electric",
 ] as const;
 const MODEL_NAMES = [
-  "@here.build/plexus",
   "@inhuman.tools/harness-model",
   "@inhuman.tools/plexus-expectations",
+] as const;
+
+const ERASED_YJS_STACK = [
+  "yjs",
+  "y-protocols",
+  "lib0",
+  "y-websocket",
+  "@here.build/plexus",
 ] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -61,7 +68,7 @@ async function tsFiles(dir: string): Promise<string[]> {
     if (entry.name === "node_modules" || entry.name === "dist") continue;
     const path = join(dir, entry.name);
     if (entry.isDirectory()) found.push(...(await tsFiles(path)));
-    else if (entry.name.endsWith(".ts")) found.push(path);
+    else if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) found.push(path);
   }
   return found;
 }
@@ -168,6 +175,54 @@ describe("scope tree boundary", () => {
     const rootIndex = await readFile(join(repo, "packages/scope-plane/src/index.ts"), "utf8");
     if (/export\s+(?!type\b)[^;]*from\s+["']\.\/(sqlite-database|lane-server)\.js["']/.test(rootIndex)) {
       violations.push("packages/scope-plane/src/index.ts re-exports runtime SQLite modules into browser entry point");
+    }
+
+    expect(violations).toEqual([]);
+  });
+
+  it("erases yjs, y-protocols, lib0, y-websocket, and @here.build/plexus across the entire workspace", async () => {
+    const violations: string[] = [];
+    const workspaceDirs: string[] = ["."];
+
+    for (const root of ["packages", "packages-runtime", "surfaces", "plugins"]) {
+      let entries;
+      try {
+        entries = await readdir(join(repo, root), { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const rel = `${root}/${entry.name}`;
+        try {
+          await readFile(join(repo, rel, "package.json"), "utf8");
+          workspaceDirs.push(rel);
+        } catch {
+          // Non-JS directory (e.g. rust crate root without package.json)
+        }
+      }
+    }
+
+    for (const dir of workspaceDirs) {
+      const pkg = await packageManifest(dir);
+      const deps = {
+        ...depBlock(pkg, "dependencies"),
+        ...depBlock(pkg, "devDependencies"),
+        ...depBlock(pkg, "peerDependencies"),
+        ...depBlock(pkg, "optionalDependencies"),
+      };
+      for (const name of Object.keys(deps)) {
+        if (namesOf(name, ERASED_YJS_STACK) != null) {
+          violations.push(`${dir}/package.json depends on ${name}`);
+        }
+      }
+      if (dir !== ".") {
+        for (const hit of await importsUnder(dir)) {
+          if (namesOf(hit.specifier, ERASED_YJS_STACK) != null) {
+            violations.push(`${hit.file} imports ${hit.specifier}`);
+          }
+        }
+      }
     }
 
     expect(violations).toEqual([]);

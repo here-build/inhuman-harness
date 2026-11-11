@@ -5,6 +5,8 @@ import {
   createScopePlane,
   tables,
   type Cell,
+  type ElectricShapeMessage,
+  type LiveShape,
   type Row,
   type RowMatch,
   type RowPlane,
@@ -225,5 +227,31 @@ export function electricShapeFromUrl(url: string): ElectricShapes {
         onChange();
       });
     },
+  };
+}
+
+/**
+ * Bind an `@electric-sql/client` `ShapeStream` directly to a `LiveShape`
+ * (e.g. `session_nodes` with `WHERE session_id = $1` or `scope_nodes` with `WHERE scope_id = $1`).
+ */
+export function subscribeElectricLiveShape<TRow extends Record<string, unknown>, TModel = TRow>(
+  shape: LiveShape<string, TRow, TModel>,
+  options: ConstructorParameters<typeof ShapeStream<TRow>>[0],
+): () => void {
+  const abortController = new AbortController();
+  const stream = new ShapeStream<TRow>({
+    ...options,
+    signal: abortController.signal,
+    onError: (err) => {
+      shape.reportError(err);
+      return options.onError?.(err);
+    },
+  });
+  const unsub = stream.subscribe((messages) => {
+    shape.applyElectricMessages(messages as readonly ElectricShapeMessage<TRow>[]);
+  });
+  return () => {
+    unsub();
+    abortController.abort();
   };
 }

@@ -1,5 +1,45 @@
 import { z } from "zod";
 
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
+function isJsonValue(value: unknown): value is JsonValue {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return (
+    typeof value === "object" &&
+    (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null) &&
+    Object.values(value).every(isJsonValue)
+  );
+}
+
+/** Validate JSON values without rewriting object keys or Unicode escape sequences. */
+export const jsonValueSchema = z.custom<JsonValue>(isJsonValue);
+
+function recordOf<T>(entry: z.ZodType<T>): z.ZodType<Record<string, T>> {
+  return z.custom<Record<string, T>>(
+    (value) =>
+      value !== null &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.values(value).every((item: unknown) => entry.safeParse(item).success),
+  );
+}
+
+/** Self-contained `@inhuman.tools/model` `SerializedModelRow` stored in `session_nodes.row_json` and `scope_nodes.row_json`. */
+export const storedModelRowSchema = z.object({
+  uuid: z.string(),
+  tag: z.string(),
+  columns: recordOf(jsonValueSchema),
+  state: recordOf(jsonValueSchema),
+  refs: recordOf(z.string().nullable()),
+  refLists: recordOf(z.array(z.string())),
+  children: recordOf(z.string().nullable()),
+  childLists: recordOf(z.array(z.string())),
+  childRecords: recordOf(recordOf(z.string())),
+});
+export type StoredModelRow = z.infer<typeof storedModelRowSchema>;
+
 /**
  * Session Trajectory Patch & Snapshot protocol contract definitions.
  */
@@ -38,6 +78,7 @@ export const modelPatchSetSchema = z.object({
   encoding: z.literal("rows-v1").optional(),
   nodeId: z.string().trim().min(1),
   field: z.string().trim().min(1),
+  key: z.string().optional(),
   value: z.unknown(),
 });
 export type ModelPatchSet = z.infer<typeof modelPatchSetSchema>;

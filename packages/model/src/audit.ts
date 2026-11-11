@@ -1,5 +1,5 @@
-import { getTableColumns, getTableName } from "drizzle-orm";
-import { getTableConfig } from "drizzle-orm/sqlite-core";
+import { getTableColumns, getTableName, type Table } from "drizzle-orm";
+import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core";
 
 import { SchemaAuditError } from "./errors.js";
 import { getModelMetadata } from "./metadata.js";
@@ -14,12 +14,13 @@ export function auditModelClassOnce(ctor: ClassLike): void {
 
   const meta = getModelMetadata(ctor);
   if (meta.table != null) {
-    const tableConfig = getTableConfig(meta.table);
-    const tableColumns = getTableColumns(meta.table);
+    const sqliteTable = meta.table as unknown as SQLiteTable;
+    const tableConfig = getTableConfig(sqliteTable);
+    const tableColumns = getTableColumns(sqliteTable);
     const mappedColumns = new Set<string>();
 
     for (const field of meta.columns.values()) {
-      const colTableName = getTableName(field.column.table);
+      const colTableName = getTableName(field.column.table as Table);
       if (colTableName !== tableConfig.name) {
         throw new SchemaAuditError(
           `${ctor.name}.${field.propertyKey} binds column "${field.columnName}" from table "${colTableName}", expected "${tableConfig.name}"`,
