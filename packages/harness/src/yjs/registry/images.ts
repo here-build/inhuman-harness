@@ -6,6 +6,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { DocumentKind } from "@/protocol/document";
+import { DocumentContentStore } from "../content-store.js";
 
 const IMAGE_FILE = /^[0-9a-f]{64}\.yjs$/;
 
@@ -20,6 +21,7 @@ function isImageFileName(name: string): boolean {
 }
 
 export function createFsImageSource(root: string): ImageSource {
+  const content = new DocumentContentStore(root);
   return {
     root,
     async list(kind) {
@@ -34,12 +36,16 @@ export function createFsImageSource(root: string): ImageSource {
       return names.filter((name) => isImageFileName(name)).map((name) => join(dir, name));
     },
     async read(storagePath) {
-      try {
-        return await readFile(storagePath);
-      } catch (error) {
-        if (isEnoent(error)) return null;
-        throw error;
-      }
+      return content.withImageAccess(async () => {
+        let bytes: Uint8Array;
+        try {
+          bytes = await readFile(storagePath);
+        } catch (error) {
+          if (isEnoent(error)) return null;
+          throw error;
+        }
+        return content.decodeImage(bytes);
+      });
     },
   };
 }

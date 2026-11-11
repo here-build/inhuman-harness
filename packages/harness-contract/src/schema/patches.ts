@@ -35,6 +35,7 @@ export type SerializedSessionDocument = z.infer<typeof serializedSessionDocument
 
 export const modelPatchSetSchema = z.object({
   op: z.literal("set"),
+  encoding: z.literal("rows-v1").optional(),
   nodeId: z.string().trim().min(1),
   field: z.string().trim().min(1),
   value: z.unknown(),
@@ -43,6 +44,7 @@ export type ModelPatchSet = z.infer<typeof modelPatchSetSchema>;
 
 export const modelPatchSpliceSchema = z.object({
   op: z.literal("splice"),
+  encoding: z.literal("rows-v1").optional(),
   nodeId: z.string().trim().min(1),
   field: z.string().trim().min(1),
   index: z.number().int().nonnegative(),

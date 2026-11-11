@@ -1,5 +1,15 @@
+import { createHash } from "node:crypto";
 import {
   bootstrapHarnessSqliteSql,
+  sharedPayloadsTable,
+  sessionNodesTable,
+  sessionDocumentsTable,
+  packContent,
+  packedContentSchema,
+  unpackContent,
+  parseContentText,
+  storedModelRowSchema,
+  storedDocumentHeaderSchema,
   kernelStateTable,
   pendingAsksTable,
   sessionBlobsTable,
@@ -22,6 +32,7 @@ import {
   type SessionUpdateRow,
   type SessionUpdateRowInsert,
 } from "@inhuman.tools/harness-contract/schema";
+import type { SerializedDocument, SerializedModelRow } from "@inhuman.tools/model";
 import Database, { type Database as BetterSqliteDatabase, type Options as BetterSqliteOptions } from "better-sqlite3";
 import { and, asc, eq, gte } from "drizzle-orm";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
@@ -34,6 +45,9 @@ export const HARNESS_TABLE_NAMES = [
   "session_updates",
   "session_effects",
   "session_blobs",
+  "shared_payloads",
+  "session_nodes",
+  "session_documents",
 ] as const;
 
 export type HarnessTableName = (typeof HARNESS_TABLE_NAMES)[number];
@@ -46,6 +60,9 @@ export const harnessSchema = {
   sessionUpdatesTable,
   sessionEffectsTable,
   sessionBlobsTable,
+  sharedPayloadsTable,
+  sessionNodesTable,
+  sessionDocumentsTable,
 } as const;
 
 export type HarnessSchema = typeof harnessSchema;
@@ -77,6 +94,124 @@ export class HarnessDatabase implements Disposable {
     this.#sqlite.pragma("busy_timeout = 5000");
     this.#sqlite.exec(bootstrapHarnessSqliteSql);
     this.#drizzle = drizzle(this.#sqlite, { schema: harnessSchema });
+  }
+
+  storeContent(json: string): string {
+    return this.writeTransaction(["shared_payloads"], (tx) => {
+      const { packed, texts } = packContent(json, (text) =>
+        createHash("sha256").update(JSON.stringify(text)).digest("hex"),
+      );
+      for (const [hash, body] of texts)
+        tx.insert(sharedPayloadsTable)
+          .values({ hash, body: JSON.stringify(body) })
+          .onConflictDoNothing()
+          .run();
+      return JSON.stringify(packed);
+    });
+  }
+
+  readContent(json: string): string {
+    return this.#sqlite.transaction(() => {
+      const raw: unknown = JSON.parse(json);
+      if (raw === null || typeof raw !== "object" || !("format" in raw) || raw.format !== "content-v1") return json;
+      return unpackContent(packedContentSchema.parse(raw), (hash) => {
+        const row = this.#drizzle.select().from(sharedPayloadsTable).where(eq(sharedPayloadsTable.hash, hash)).get();
+        if (row === undefined || createHash("sha256").update(row.body).digest("hex") !== hash)
+          throw new Error(`Missing or corrupt shared payload: ${hash}`);
+        return parseContentText(row.body);
+      });
+    })();
+  }
+
+  storeSessionDocument(sessionId: string, snapshot: SerializedDocument, nodes: readonly SerializedModelRow[]): void {
+    if (!("nodes" in snapshot.root)) throw new TypeError("Session persistence requires a normalized graph");
+    const header = { ...snapshot, root: { ...snapshot.root, nodes: {} } };
+    const live = new Set(Object.keys(snapshot.root.nodes));
+    this.writeTransaction(["session_documents", "session_nodes", "shared_payloads"], (tx) => {
+      const headerJson = this.storeContent(JSON.stringify(header));
+      tx.insert(sessionDocumentsTable)
+        .values({ sessionId, revision: snapshot.revision, headerJson })
+        .onConflictDoUpdate({
+          target: sessionDocumentsTable.sessionId,
+          set: { revision: snapshot.revision, headerJson },
+        })
+        .run();
+      for (const row of nodes) {
+        const rowJson = this.storeContent(JSON.stringify(row));
+        tx.insert(sessionNodesTable)
+          .values({ sessionId, nodeId: row.uuid, revision: snapshot.revision, rowJson })
+          .onConflictDoUpdate({
+            target: [sessionNodesTable.sessionId, sessionNodesTable.nodeId],
+            set: { revision: snapshot.revision, rowJson },
+          })
+          .run();
+      }
+      for (const row of tx
+        .select({ nodeId: sessionNodesTable.nodeId })
+        .from(sessionNodesTable)
+        .where(eq(sessionNodesTable.sessionId, sessionId))
+        .all()) {
+        if (!live.has(row.nodeId))
+          tx.delete(sessionNodesTable)
+            .where(and(eq(sessionNodesTable.sessionId, sessionId), eq(sessionNodesTable.nodeId, row.nodeId)))
+            .run();
+      }
+      for (const row of tx
+        .select({ turnId: sessionTurnsTable.turnId })
+        .from(sessionTurnsTable)
+        .where(eq(sessionTurnsTable.sessionId, sessionId))
+        .all()) {
+        if (!live.has(row.turnId)) tx.delete(sessionTurnsTable).where(eq(sessionTurnsTable.turnId, row.turnId)).run();
+      }
+    });
+  }
+
+  loadSessionDocument(sessionId: string): SerializedDocument | undefined {
+    return this.#sqlite.transaction(() => {
+      const document = this.#drizzle
+        .select()
+        .from(sessionDocumentsTable)
+        .where(eq(sessionDocumentsTable.sessionId, sessionId))
+        .get();
+      if (document === undefined) return undefined;
+      const header = storedDocumentHeaderSchema.parse(JSON.parse(this.readContent(document.headerJson)));
+      const nodes: Record<string, SerializedModelRow> = {};
+      for (const stored of this.#drizzle
+        .select()
+        .from(sessionNodesTable)
+        .where(eq(sessionNodesTable.sessionId, sessionId))
+        .all()) {
+        const row = storedModelRowSchema.parse(JSON.parse(this.readContent(stored.rowJson)));
+        nodes[row.uuid] = row;
+      }
+      return { ...header, root: { ...header.root, nodes } };
+    })();
+  }
+
+  collectUnusedContent(): number {
+    return this.writeTransaction(["shared_payloads"], (tx) => {
+      const live = new Set<string>();
+      const encoded = [
+        ...tx.select({ json: sessionDocumentsTable.headerJson }).from(sessionDocumentsTable).all(),
+        ...tx.select({ json: sessionNodesTable.rowJson }).from(sessionNodesTable).all(),
+        ...tx.select({ json: sessionUpdatesTable.patchJson }).from(sessionUpdatesTable).all(),
+        ...tx.select({ json: sessionEffectsTable.outcomeJson }).from(sessionEffectsTable).all(),
+      ];
+      for (const { json } of encoded) {
+        const raw: unknown = JSON.parse(json);
+        if (raw !== null && typeof raw === "object" && "format" in raw && raw.format === "content-v1") {
+          for (const { hash } of packedContentSchema.parse(raw).texts) live.add(hash);
+        }
+      }
+      let removed = 0;
+      for (const row of tx.select({ hash: sharedPayloadsTable.hash }).from(sharedPayloadsTable).all()) {
+        if (!live.has(row.hash)) {
+          tx.delete(sharedPayloadsTable).where(eq(sharedPayloadsTable.hash, row.hash)).run();
+          removed++;
+        }
+      }
+      return removed;
+    });
   }
 
   get sqlite(): BetterSqliteDatabase {
@@ -192,9 +327,19 @@ export class HarnessDatabase implements Disposable {
 
   deleteSession(sessionId: string): boolean {
     return this.writeTransaction(
-      ["sessions", "pending_asks", "session_turns", "session_updates", "session_effects", "session_blobs"],
+      [
+        "sessions",
+        "pending_asks",
+        "session_turns",
+        "session_updates",
+        "session_effects",
+        "session_blobs",
+        "session_nodes",
+        "session_documents",
+      ],
       (tx) => {
         const result = tx.delete(sessionsTable).where(eq(sessionsTable.sessionId, sessionId)).run();
+        this.collectUnusedContent();
         return result.changes > 0;
       },
     );
@@ -266,21 +411,26 @@ export class HarnessDatabase implements Disposable {
   }
 
   listSessionUpdates(sessionId: string, fromRevision?: number): SessionUpdateRow[] {
-    const conditions = [eq(sessionUpdatesTable.sessionId, sessionId)];
-    if (fromRevision != null) {
-      conditions.push(gte(sessionUpdatesTable.revision, fromRevision));
-    }
-    return this.#drizzle
-      .select()
-      .from(sessionUpdatesTable)
-      .where(and(...conditions))
-      .orderBy(asc(sessionUpdatesTable.revision))
-      .all();
+    return this.#sqlite.transaction(() => {
+      const conditions = [eq(sessionUpdatesTable.sessionId, sessionId)];
+      if (fromRevision != null) {
+        conditions.push(gte(sessionUpdatesTable.revision, fromRevision));
+      }
+      return this.#drizzle
+        .select()
+        .from(sessionUpdatesTable)
+        .where(and(...conditions))
+        .orderBy(asc(sessionUpdatesTable.revision))
+        .all()
+        .map((row) => ({ ...row, patchJson: this.readContent(row.patchJson) }));
+    })();
   }
 
   insertSessionUpdate(update: SessionUpdateRowInsert): SessionUpdateRow {
-    return this.writeTransaction(["session_updates"], (tx) => {
-      tx.insert(sessionUpdatesTable).values(update).run();
+    return this.writeTransaction(["session_updates", "shared_payloads"], (tx) => {
+      tx.insert(sessionUpdatesTable)
+        .values({ ...update, patchJson: this.storeContent(update.patchJson) })
+        .run();
       const created = tx
         .select()
         .from(sessionUpdatesTable)
@@ -291,30 +441,38 @@ export class HarnessDatabase implements Disposable {
       if (!created) {
         throw new Error(`Failed to retrieve inserted session_update ${update.sessionId}:${update.revision}`);
       }
-      return created;
+      return { ...created, patchJson: this.readContent(created.patchJson) };
     });
   }
 
   getSessionEffect(sessionId: string, effectKey: string): SessionEffectRow | undefined {
-    return this.#drizzle
-      .select()
-      .from(sessionEffectsTable)
-      .where(and(eq(sessionEffectsTable.sessionId, sessionId), eq(sessionEffectsTable.effectKey, effectKey)))
-      .get();
+    return this.#sqlite.transaction(() => {
+      const row = this.#drizzle
+        .select()
+        .from(sessionEffectsTable)
+        .where(and(eq(sessionEffectsTable.sessionId, sessionId), eq(sessionEffectsTable.effectKey, effectKey)))
+        .get();
+      return row === undefined ? undefined : { ...row, outcomeJson: this.readContent(row.outcomeJson) };
+    })();
   }
 
   listSessionEffects(sessionId: string): SessionEffectRow[] {
-    return this.#drizzle
-      .select()
-      .from(sessionEffectsTable)
-      .where(eq(sessionEffectsTable.sessionId, sessionId))
-      .orderBy(asc(sessionEffectsTable.revision))
-      .all();
+    return this.#sqlite.transaction(() => {
+      return this.#drizzle
+        .select()
+        .from(sessionEffectsTable)
+        .where(eq(sessionEffectsTable.sessionId, sessionId))
+        .orderBy(asc(sessionEffectsTable.revision))
+        .all()
+        .map((row) => ({ ...row, outcomeJson: this.readContent(row.outcomeJson) }));
+    })();
   }
 
   insertSessionEffect(effect: SessionEffectRowInsert): SessionEffectRow {
-    return this.writeTransaction(["session_effects"], (tx) => {
-      tx.insert(sessionEffectsTable).values(effect).run();
+    return this.writeTransaction(["session_effects", "shared_payloads"], (tx) => {
+      tx.insert(sessionEffectsTable)
+        .values({ ...effect, outcomeJson: this.storeContent(effect.outcomeJson) })
+        .run();
       const created = tx
         .select()
         .from(sessionEffectsTable)
@@ -325,7 +483,7 @@ export class HarnessDatabase implements Disposable {
       if (!created) {
         throw new Error(`Failed to retrieve inserted session_effect ${effect.sessionId}:${effect.effectKey}`);
       }
-      return created;
+      return { ...created, outcomeJson: this.readContent(created.outcomeJson) };
     });
   }
 
@@ -354,10 +512,7 @@ export class HarnessDatabase implements Disposable {
   }
 
   listReferencedBlobIds(): string[] {
-    const rows = this.#drizzle
-      .selectDistinct({ blobId: sessionBlobsTable.blobId })
-      .from(sessionBlobsTable)
-      .all();
+    const rows = this.#drizzle.selectDistinct({ blobId: sessionBlobsTable.blobId }).from(sessionBlobsTable).all();
     return rows.map((r) => r.blobId);
   }
 

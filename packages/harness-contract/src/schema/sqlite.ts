@@ -120,6 +120,32 @@ export const sessionBlobsTable = sqliteTable(
   (t) => [primaryKey({ columns: [t.sessionId, t.blobId] }), index("idx_session_blobs_blob_id").on(t.blobId)],
 );
 
+export const sharedPayloadsTable = sqliteTable("shared_payloads", {
+  hash: text("hash").primaryKey(),
+  body: text("body").notNull(),
+});
+
+export const sessionNodesTable = sqliteTable(
+  "session_nodes",
+  {
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sessionsTable.sessionId, { onDelete: "cascade" }),
+    nodeId: text("node_id").notNull(),
+    revision: integer("revision").notNull(),
+    rowJson: text("row_json").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.sessionId, t.nodeId] })],
+);
+
+export const sessionDocumentsTable = sqliteTable("session_documents", {
+  sessionId: text("session_id")
+    .primaryKey()
+    .references(() => sessionsTable.sessionId, { onDelete: "cascade" }),
+  revision: integer("revision").notNull(),
+  headerJson: text("header_json").notNull(),
+});
+
 export type KernelStateRow = InferSelectModel<typeof kernelStateTable>;
 export type KernelStateRowInsert = InferInsertModel<typeof kernelStateTable>;
 export type KernelRow = KernelStateRow;
@@ -146,6 +172,7 @@ export type SessionBlobRow = InferSelectModel<typeof sessionBlobsTable>;
 export type SessionBlobRowInsert = InferInsertModel<typeof sessionBlobsTable>;
 
 export const HARNESS_SQLITE_DDL = [
+  `CREATE TABLE IF NOT EXISTS shared_payloads (hash TEXT PRIMARY KEY, body TEXT NOT NULL);`,
   `CREATE TABLE IF NOT EXISTS kernel_state (
   id TEXT PRIMARY KEY DEFAULT 'singleton',
   default_model TEXT NOT NULL DEFAULT '',
@@ -221,6 +248,18 @@ export const HARNESS_SQLITE_DDL = [
   PRIMARY KEY (session_id, blob_id)
 );`,
   `CREATE INDEX IF NOT EXISTS idx_session_blobs_blob_id ON session_blobs (blob_id);`,
+  `CREATE TABLE IF NOT EXISTS session_nodes (
+  session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+  node_id TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  row_json TEXT NOT NULL,
+  PRIMARY KEY (session_id, node_id)
+);`,
+  `CREATE TABLE IF NOT EXISTS session_documents (
+  session_id TEXT PRIMARY KEY REFERENCES sessions(session_id) ON DELETE CASCADE,
+  revision INTEGER NOT NULL,
+  header_json TEXT NOT NULL
+);`,
 ] as const;
 
 export const bootstrapHarnessSqliteSql = `${HARNESS_SQLITE_DDL.join("\n\n")}\n`;

@@ -12,13 +12,14 @@
  * log's prefix that still holds what the vacuum moved out.
  */
 import { randomUUID } from "node:crypto";
-import { mkdir, open, readFile, rename } from "node:fs/promises";
+import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { trace } from "@inhuman.tools/harness-diagnostics";
 import { applyDocumentUpdate, DocumentContainer, encodeDocumentStateAsUpdate } from "@inhuman.tools/model";
 
 import { GenericRoot } from "./generic-root.js";
+import { DocumentContentStore } from "./content-store.js";
 
 import {
   documentImageSegments,
@@ -87,9 +88,12 @@ export class DocumentImageStore {
   readonly #root: string;
   readonly #writes = new Map<string, Promise<void>>();
   readonly #sizes = new Map<string, LogSize>();
+  readonly #content: DocumentContentStore;
+  #maintenance: Promise<void> | null = null;
 
   constructor(root: string) {
     this.#root = root;
+    this.#content = new DocumentContentStore(root);
   }
 
   get root(): string {
@@ -102,6 +106,10 @@ export class DocumentImageStore {
 
   /** The merged document update, or undefined when the file is missing. */
   async read(key: DocumentKey): Promise<Uint8Array | undefined> {
+    return this.#content.withImageAccess(() => this.#read(key));
+  }
+
+  async #read(key: DocumentKey): Promise<Uint8Array | undefined> {
     let bytes: Buffer;
     try {
       bytes = await readFile(this.pathFor(key));
@@ -116,14 +124,15 @@ export class DocumentImageStore {
       for (let index = 0; index < updates.length; index += 1) {
         const update = updates[index];
         if (update == null) continue;
-        applyDocumentUpdate(doc, update);
+        applyDocumentUpdate(doc, await this.#content.decode(update));
         // One long replay used to freeze the process: the session socket
         // never opened, and the client gave up at the sync timeout.
         if ((index & 31) === 31) await yieldMacrotask();
       }
       const merged = encodeDocumentStateAsUpdate(doc);
-      this.#sizes.set(slotOf(key), { logBytes: bytes.byteLength, snapshotBytes: merged.byteLength });
-      if (updates.length > 1 && bytes.byteLength > merged.byteLength) {
+      const storedBytes = this.#content.encodedSize(merged);
+      this.#sizes.set(slotOf(key), { logBytes: bytes.byteLength, snapshotBytes: storedBytes });
+      if (updates.length > 1 && bytes.byteLength > storedBytes) {
         await this.#compactSnapshot(key, merged);
       }
       return merged;
@@ -139,7 +148,11 @@ export class DocumentImageStore {
   async #compactSnapshot(key: DocumentKey, merged: Uint8Array): Promise<void> {
     const slot = slotOf(key);
     if (this.#writes.has(slot)) return;
-    const run = this.#writeSnapshot(key, merged);
+    const maintenance = this.#maintenance;
+    const run =
+      maintenance === null
+        ? this.#writeSnapshot(key, merged)
+        : maintenance.then(() => this.#writeSnapshot(key, merged));
     const tracked = run.then(
       () => undefined,
       () => undefined,
@@ -160,19 +173,27 @@ export class DocumentImageStore {
   }
 
   async #writeSnapshot(key: DocumentKey, merged: Uint8Array): Promise<void> {
+    return this.#content.withImageAccess(() => this.#writeSnapshotNow(key, merged));
+  }
+
+  async #writeSnapshotNow(key: DocumentKey, merged: Uint8Array): Promise<void> {
     const path = this.pathFor(key);
     const tmp = `${path}.${randomUUID()}.tmp`;
     await mkdir(dirname(path), { recursive: true });
-    const entry = encodeLogEntry(merged);
-    const handle = await open(tmp, "w", 0o600);
+    const entry = encodeLogEntry(await this.#content.encode(merged));
     try {
-      await handle.writeFile(entry);
-      await handle.sync();
+      const handle = await open(tmp, "w", 0o600);
+      try {
+        await handle.writeFile(entry);
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      await rename(tmp, path);
     } finally {
-      await handle.close();
+      await unlink(tmp).catch(() => undefined);
     }
-    await rename(tmp, path);
-    this.#sizes.set(slotOf(key), { logBytes: entry.byteLength, snapshotBytes: merged.byteLength });
+    this.#sizes.set(slotOf(key), { logBytes: entry.byteLength, snapshotBytes: entry.byteLength - 4 });
   }
 
   #outgrows(key: DocumentKey, image: Uint8Array): boolean {
@@ -197,7 +218,9 @@ export class DocumentImageStore {
     };
     const slot = slotOf(captured.checkpoint.key);
     const previous = this.#writes.get(slot);
-    const persist = (): Promise<FlushResult> => this.#persist(captured);
+    const maintenance = this.#maintenance;
+    const persist = (): Promise<FlushResult> =>
+      maintenance === null ? this.#persist(captured) : maintenance.then(() => this.#persist(captured));
     const run = previous == null ? persist() : previous.then(persist, persist);
     const tracked = run.then(
       () => undefined,
@@ -211,16 +234,39 @@ export class DocumentImageStore {
     return run;
   }
 
+  async collectContentGarbage(): Promise<number> {
+    const pending = [...this.#writes.values()];
+    const previous = this.#maintenance;
+    const run = Promise.all([...pending, ...(previous === null ? [] : [previous])]).then(() =>
+      this.#content.collectGarbage(),
+    );
+    const barrier = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.#maintenance = barrier;
+    try {
+      return await run;
+    } finally {
+      if (this.#maintenance === barrier) this.#maintenance = null;
+    }
+  }
+
   async #persist(request: ImageFlushRequest): Promise<FlushResult> {
+    return this.#content.withImageAccess(() => this.#persistNow(request));
+  }
+
+  async #persistNow(request: ImageFlushRequest): Promise<FlushResult> {
     const { checkpoint, image, snapshot, force, runtimeGeneration, connectionEpoch } = request;
     const key = checkpoint.key;
     try {
-      if (snapshot != null && (force === true || this.#outgrows(key, image))) {
+      const stored = await this.#content.encode(image);
+      if (snapshot != null && (force === true || this.#outgrows(key, stored))) {
         await this.#writeSnapshot(key, snapshot());
       } else {
-        const entryBytes = await appendLogEntry(this.pathFor(key), image);
+        const entryBytes = await appendLogEntry(this.pathFor(key), stored);
         const size = this.#sizes.get(slotOf(key));
-        if (size == null) this.#sizes.set(slotOf(key), { logBytes: entryBytes, snapshotBytes: image.byteLength });
+        if (size == null) this.#sizes.set(slotOf(key), { logBytes: entryBytes, snapshotBytes: stored.byteLength });
         else size.logBytes += entryBytes;
       }
     } catch (error) {

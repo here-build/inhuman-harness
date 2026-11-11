@@ -23,6 +23,9 @@ import {
   sessionSyncFrameSchema,
   sessionTurnsTable,
   sessionUpdatesTable,
+  sharedPayloadsTable,
+  sessionNodesTable,
+  sessionDocumentsTable,
   shapeDeltaFrameSchema,
   shapeSubscribeFrameSchema,
   shapeUnsubscribeFrameSchema,
@@ -40,6 +43,9 @@ describe("schema and wire contract", () => {
       sessionUpdatesTable,
       sessionEffectsTable,
       sessionBlobsTable,
+      sharedPayloadsTable,
+      sessionNodesTable,
+      sessionDocumentsTable,
     ];
 
     it("initializes SQLite cleanly with bootstrapHarnessSqliteSql and matches Drizzle table metadata", () => {
@@ -290,11 +296,12 @@ describe("schema and wire contract", () => {
           },
           {
             op: "splice",
+            encoding: "rows-v1",
             nodeId: "turn-1",
             field: "tags",
             index: 0,
             deleteCount: 1,
-            items: ["verified", "fast"],
+            items: [{ $value: "verified" }, { $value: "fast" }],
           },
           {
             op: "del",

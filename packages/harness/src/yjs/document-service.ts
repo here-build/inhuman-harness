@@ -162,6 +162,10 @@ export class DocumentService {
     return this.#registry.inventoryErrors();
   }
 
+  collectContentGarbage(): Promise<number> {
+    return this.#store.collectContentGarbage();
+  }
+
   checkpoint(key: DocumentKey): DocumentCheckpoint | undefined {
     const replica = this.#replicas.get(keyId(key));
     if (replica == null) return undefined;
