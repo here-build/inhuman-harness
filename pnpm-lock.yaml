@@ -1192,9 +1192,6 @@ importers:
       eslint:
         specifier: 10.13.0
         version: 10.13.0(jiti@2.7.0)
-      lib0:
-        specifier: 0.2.119
-        version: 0.2.119
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -1204,15 +1201,6 @@ importers:
       ws:
         specifier: ^8.22.0
         version: 8.22.0
-      y-protocols:
-        specifier: 1.0.7
-        version: 1.0.7(yjs@13.6.33)
-      y-websocket:
-        specifier: 3.1.0
-        version: 3.1.0(yjs@13.6.33)
-      yjs:
-        specifier: 13.6.33
-        version: 13.6.33
 
   packages/env-capability-module-prompt:
     dependencies:
@@ -1611,9 +1599,6 @@ importers:
       '@inhuman.tools/statusline':
         specifier: workspace:^
         version: link:../../packages-statusline/statusline
-      drizzle-orm:
-        specifier: 0.44.5
-        version: 0.44.5(@opentelemetry/api@1.9.0)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
       mobx:
         specifier: 6.16.1
         version: 6.16.1
@@ -1744,9 +1729,6 @@ importers:
       '@inhuman.tools/harness-peer':
         specifier: workspace:*
         version: link:../harness-peer
-      '@inhuman.tools/model':
-        specifier: workspace:*
-        version: link:../model
       jose:
         specifier: ^6.2.13
         version: 6.2.13
@@ -1839,9 +1821,6 @@ importers:
       '@here.build/arrival-provenance':
         specifier: ^0.10.0
         version: 0.10.0(patch_hash=29bcb4763a47fc19cc589969f7c6bf57442c0d208b4fb3b6f710abf99e9ef632)(typescript@6.0.3)
-      '@here.build/plexus':
-        specifier: ^0.9.6
-        version: 0.9.6(lib0@0.2.119)(mobx@6.16.1)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)
       '@inhuman.tools/harness-commons':
         specifier: workspace:^
         version: link:../harness-commons
@@ -1857,9 +1836,6 @@ importers:
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@24.19.2)(happy-dom@21.0.4)(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
-      yjs:
-        specifier: 13.6.33
-        version: 13.6.33
 
   packages/harness-sdk:
     dependencies:
@@ -2275,7 +2251,7 @@ importers:
         version: link:../scope-plane
       tinybase:
         specifier: 10.0.1
-        version: 10.0.1(better-sqlite3@13.0.3)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(ws@8.22.0)(yjs@13.6.33)(zod@4.6.7)
+        version: 10.0.1(better-sqlite3@13.0.3)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(ws@8.22.0)(zod@4.6.7)
     devDependencies:
       '@-internal-/eslint-configs':
         specifier: workspace:*
@@ -2382,9 +2358,6 @@ importers:
       '@-internal-/eslint-configs':
         specifier: workspace:*
         version: link:../../internal/eslint-config
-      '@here.build/plexus':
-        specifier: ^0.9.6
-        version: 0.9.6(lib0@0.2.119)(mobx@6.16.1)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)
       '@inhuman.tools/harness-model':
         specifier: workspace:^
         version: link:../../packages/harness-model
@@ -3076,9 +3049,6 @@ packages:
   '@here.build/arrival-env@0.10.2':
     resolution: {integrity: sha512-2QWcmFhH/X0jTHIYc8nPlx7ECuotkAo0A/tTGc7dx6Se6aXjIzZmNY0UQiETqfs0SVLO6cU+rMc44WElldH+Lw==}
 
-  '@here.build/arrival-env@0.9.0':
-    resolution: {integrity: sha512-kP0W/CjxVMW7PS+OseLIdCudp3lygCuM5MDfruti0jlz1PaKd3dSsx7XAH3MVTJFX5yAS8qOlQoHf4bMvVWNgg==}
-
   '@here.build/arrival-modules@0.10.0':
     resolution: {integrity: sha512-7ZbKdu2Afft04N6xG0qoULa1BqiEv+aseXVEvdmDQPGd767oRJnHgoebbKpuXm1/UMF8SXCXu8nFqippJq0G+w==}
     peerDependencies:
@@ -3117,27 +3087,11 @@ packages:
       mobx:
         optional: true
 
-  '@here.build/collections@0.9.0':
-    resolution: {integrity: sha512-8u0Zk8xhjsyIbT0IpgRLfYkx2kbhWk9NnyuW+R3CPTveHX59EGYO4lOE/n5tHh24eEltAII5X7L7s1UxFm0RTg==}
-    peerDependencies:
-      mobx: 6.16.1
-    peerDependenciesMeta:
-      mobx:
-        optional: true
-
   '@here.build/error-invariant@0.9.0':
     resolution: {integrity: sha512-NeNBJvp2BLDFDQuSE14TdZGRcKLLQyPr5nhZYnJRfXYRdvdU0jST63nUbiQTGkxLWbq1j0YzKSHKFvGIffF6zA==}
 
   '@here.build/lexical-namer@0.9.0':
     resolution: {integrity: sha512-OLaTeD3JvLDrU0rpRPySpdcztm2x14Zaf8JcKoE8xN+kwzzoHh1oavss963tVJi4uu1EtYukDrMpKZ/meiW9Og==}
-
-  '@here.build/plexus@0.9.6':
-    resolution: {integrity: sha512-A8ozJDDzkkPjo06cmygGRqirFwFxULwEqVvimEDZ7UqlH5ZkH+wtZfXBhLrT8CmDvowiyEiuVGVrYSxA13ujmQ==}
-    peerDependencies:
-      lib0: ^0.2.119
-      mobx: 6.16.1
-      y-protocols: ^1.0.7
-      yjs: ^13.6.33
 
   '@hono/node-server@2.1.5':
     resolution: {integrity: sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q==}
@@ -5902,9 +5856,6 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
-  isomorphic.js@0.2.5:
-    resolution: {integrity: sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw==}
-
   iterator.prototype@1.1.5:
     resolution: {integrity: sha512-H0dkQoCa3b2VEeKQBOxFph+JAbcrQdE7KC0UkqwpLmv2EC4P41QXP+rqo9wYodACiG5/WM5s9oDApTU8utwj9g==}
     engines: {node: '>= 0.4'}
@@ -5968,11 +5919,6 @@ packages:
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
-
-  lib0@0.2.119:
-    resolution: {integrity: sha512-vh+TiejVy8Xm+hCdnRfn9BthGNvNUZdEXltNjVZL3TzRIKP3s1lnQh8pWd/Q0wCgY0FPAGVVjFF4ZiHUV3LFgA==}
-    engines: {node: '>=16'}
-    hasBin: true
 
   lightningcss-android-arm64@1.32.0:
     resolution: {integrity: sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==}
@@ -6382,11 +6328,6 @@ packages:
   nanoid@3.3.20:
     resolution: {integrity: sha512-uKdg2G3GNCKQn9byYOpxbGqrT2fGO5KRt5J/8b3pok8rT6qxGWF6hxMyJiEYtAf+FVyYuD9hRaDqX5uPFYJ4ZQ==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
-  nanoid@5.1.16:
-    resolution: {integrity: sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ==}
-    engines: {node: ^18 || >=20}
     hasBin: true
 
   nanoid@6.0.2:
@@ -7216,10 +7157,6 @@ packages:
     resolution: {integrity: sha512-NoSdpq/WEiAg5sjmBkmV/hfxv6HJH4NqPNrqjtSO5CwRmpsDfaf4begxW34KdJykH/l1yHtwBWQkCRdoXO8mPA==}
     engines: {node: '>=20'}
 
-  type-fest@5.4.4:
-    resolution: {integrity: sha512-JnTrzGu+zPV3aXIUhnyWJj4z/wigMsdYajGLIYakqyOW1nPllzXEJee0QQbHj+CTIQtXGlAjuK0UY+2xTyjVAw==}
-    engines: {node: '>=20'}
-
   type-is@2.1.0:
     resolution: {integrity: sha512-faYHw0anBbc/kWF3zFTEnxSFOAGUX9GFbOBthvDdLsIlEoWOFOtS0zgCiQYwIskL9iGXZL3kAXD8OoZ4GmMATA==}
     engines: {node: '>= 18'}
@@ -7525,18 +7462,6 @@ packages:
   xstate@5.33.3:
     resolution: {integrity: sha512-AnDRjS/GyKHmbA1PyhVCYBqYsA7EGe3KGgeD0ht3NFsXzoz7leX/HQDFX9QlHFJ/ltLHPsgChJYwPzRvB/0b4g==}
 
-  y-protocols@1.0.7:
-    resolution: {integrity: sha512-YSVsLoXxO67J6eE/nV4AtFtT3QEotZf5sK5BHxFBXso7VDUT3Tx07IfA6hsu5Q5OmBdMkQVmFZ9QOA7fikWvnw==}
-    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
-    peerDependencies:
-      yjs: ^13.0.0
-
-  y-websocket@3.1.0:
-    resolution: {integrity: sha512-ZNzwH84Ysxv7zjpFNZHjTJvrBZgcAqMljTe+6zrWciAML9LQ18aVylyPNH9faxCXqEOV8I0JY4TGtrIHFX+Xwg==}
-    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
-    peerDependencies:
-      yjs: ^13.5.6
-
   yallist@3.1.1:
     resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
 
@@ -7544,10 +7469,6 @@ packages:
     resolution: {integrity: sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==}
     engines: {node: '>= 14.6'}
     hasBin: true
-
-  yjs@13.6.33:
-    resolution: {integrity: sha512-q/UYvr1gOk4XII+Cu1CW2dINjYqJJFifTzogEaIARznrvX7uOlHsdTEXcnOBMuIsrCGEEKdNxi74kyMLZlKVfw==}
-    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
 
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
@@ -7963,8 +7884,6 @@ snapshots:
 
   '@here.build/arrival-env@0.10.2': {}
 
-  '@here.build/arrival-env@0.9.0': {}
-
   '@here.build/arrival-modules@0.10.0(@here.build/arrival@0.10.3(typescript@6.0.3))(handlebars@4.7.10)(yaml@2.9.1)':
     dependencies:
       '@here.build/arrival': 0.10.3(typescript@6.0.3)
@@ -8017,27 +7936,11 @@ snapshots:
     optionalDependencies:
       mobx: 6.16.1
 
-  '@here.build/collections@0.9.0(mobx@6.16.1)':
-    optionalDependencies:
-      mobx: 6.16.1
-
   '@here.build/error-invariant@0.9.0': {}
 
   '@here.build/lexical-namer@0.9.0':
     dependencies:
       tiny-invariant: 1.3.3
-
-  '@here.build/plexus@0.9.6(lib0@0.2.119)(mobx@6.16.1)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)':
-    dependencies:
-      '@here.build/arrival-env': 0.9.0
-      '@here.build/collections': 0.9.0(mobx@6.16.1)
-      lib0: 0.2.119
-      mobx: 6.16.1
-      nanoid: 5.1.16
-      tiny-invariant: 1.3.3
-      type-fest: 5.4.4
-      y-protocols: 1.0.7(yjs@13.6.33)
-      yjs: 13.6.33
 
   '@hono/node-server@2.1.5(hono@4.13.13)':
     dependencies:
@@ -10711,8 +10614,6 @@ snapshots:
 
   isexe@2.0.0: {}
 
-  isomorphic.js@0.2.5: {}
-
   iterator.prototype@1.1.5:
     dependencies:
       define-data-property: 1.1.4
@@ -10775,10 +10676,6 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
-
-  lib0@0.2.119:
-    dependencies:
-      isomorphic.js: 0.2.5
 
   lightningcss-android-arm64@1.32.0:
     optional: true
@@ -11344,8 +11241,6 @@ snapshots:
   mustache@4.2.0: {}
 
   nanoid@3.3.20: {}
-
-  nanoid@5.1.16: {}
 
   nanoid@6.0.2: {}
 
@@ -12220,13 +12115,12 @@ snapshots:
 
   tiny-invariant@1.3.3: {}
 
-  tinybase@10.0.1(better-sqlite3@13.0.3)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(ws@8.22.0)(yjs@13.6.33)(zod@4.6.7):
+  tinybase@10.0.1(better-sqlite3@13.0.3)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(ws@8.22.0)(zod@4.6.7):
     optionalDependencies:
       better-sqlite3: 13.0.3
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
       ws: 8.22.0
-      yjs: 13.6.33
       zod: 4.6.7
 
   tinybench@6.2.2: {}
@@ -12296,10 +12190,6 @@ snapshots:
       prelude-ls: 1.2.1
 
   type-fest@5.10.0:
-    dependencies:
-      tagged-tag: 1.0.0
-
-  type-fest@5.4.4:
     dependencies:
       tagged-tag: 1.0.0
 
@@ -12624,24 +12514,9 @@ snapshots:
 
   xstate@5.33.3: {}
 
-  y-protocols@1.0.7(yjs@13.6.33):
-    dependencies:
-      lib0: 0.2.119
-      yjs: 13.6.33
-
-  y-websocket@3.1.0(yjs@13.6.33):
-    dependencies:
-      lib0: 0.2.119
-      y-protocols: 1.0.7(yjs@13.6.33)
-      yjs: 13.6.33
-
   yallist@3.1.1: {}
 
   yaml@2.9.1: {}
-
-  yjs@13.6.33:
-    dependencies:
-      lib0: 0.2.119
 
   yocto-queue@0.1.0: {}
 

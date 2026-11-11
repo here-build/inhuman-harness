@@ -6,24 +6,17 @@
  *   1. **Pure chunking pass-through** — two `ChunkedWebSocket`s connected
  *      via a Node `ws` server. Send a 5 MB random buffer in each
  *      direction; assert byte-identical delivery.
- *   2. **y-websocket + yjs full sync** — `WebsocketProvider` on the
- *      client with `ChunkedWebSocket` as `WebSocketPolyfill`; minimal
- *      yjs server using `ChunkedWebSocket` server-wrap mode. Pre-seed
- *      the server doc with > 1 MB of CRDT state, connect, assert client
- *      doc converges.
+ *   2. **UTF-8 JSON reactivity plane (`shape/delta` + JSON-RPC)** —
+ *      `ChunkedWebSocket` client connected to `ChunkedDOTransport` server
+ *      exchanging > 1.5 MB JSON text frames in both directions.
  *   3. **Reset marker recovery** — server "forgets" mid-batch (we wipe
  *      its wrapper map manually); client sends another message; verify
  *      client receives the reset, drops in-flight state, and the next
  *      protocol-level resync converges.
  */
 
-import * as decoding from "lib0/decoding";
-import * as encoding from "lib0/encoding";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketServer, type RawData, type WebSocket as WSWebSocket } from "ws";
-import * as syncProtocol from "y-protocols/sync";
-import { WebsocketProvider } from "y-websocket";
-import * as Y from "yjs";
 
 import { ChunkedDOTransport } from "../ChunkedDOTransport.js";
 import { ChunkedWebSocket } from "../ChunkedWebSocket.js";
@@ -82,18 +75,18 @@ function normalizeWsMessage(data: RawData, isBinary: boolean): ArrayBuffer | str
   }
   if (Array.isArray(data)) {
     // `ws` may deliver fragmented binary as Buffer[].
-    const total = data.reduce((sum, b: any) => sum + (b as Uint8Array).byteLength, 0);
+    const total = data.reduce((sum, b) => sum + (b instanceof Uint8Array ? b.byteLength : 0), 0);
     const out = new Uint8Array(total);
     let off = 0;
     for (const b of data) {
-      const v = b instanceof Uint8Array ? b : new Uint8Array(b as ArrayBufferLike);
+      const v = b instanceof Uint8Array ? b : new Uint8Array(b);
       out.set(v, off);
       off += v.byteLength;
     }
     return out.buffer;
   }
   // other ArrayBufferLike
-  const buf = new Uint8Array(data as ArrayBufferLike);
+  const buf = new Uint8Array(data);
   const out = new ArrayBuffer(buf.byteLength);
   new Uint8Array(out).set(buf);
   return out;
@@ -110,7 +103,7 @@ describe("ChunkedWebSocket round-trip — raw bytes", () => {
       wss.on("connection", (rawWs: WSWebSocket) => {
         const wrapped = new ChunkedWebSocket(rawWs);
         wrapped.addEventListener("message", (e) => {
-          resolve(e.data as ArrayBuffer);
+          if (typeof e.data !== "string") resolve(e.data);
         });
         rawWs.on("message", (data, isBinary) => wrapped.feed(normalizeWsMessage(data, isBinary)));
       });
@@ -158,11 +151,7 @@ describe("ChunkedWebSocket round-trip — raw bytes", () => {
 
     const clientReceived = new Promise<ArrayBuffer>((resolve) => {
       client.addEventListener("message", (e) => {
-        const data = e.data; // typed ArrayBuffer
-        // Skip the reset marker sent by the server-wrap construction
-        // (delivered as a string text frame, filtered out by the chunk
-        // handler — we should only see the binary payload).
-        resolve(data as ArrayBuffer);
+        if (typeof e.data !== "string") resolve(e.data);
       });
     });
 
@@ -183,7 +172,7 @@ describe("ChunkedWebSocket round-trip — raw bytes", () => {
       wss.on("connection", (rawWs: WSWebSocket) => {
         const wrapped = new ChunkedWebSocket(rawWs);
         wrapped.addEventListener("message", (e) => {
-          resolve(e.data as ArrayBuffer);
+          if (typeof e.data !== "string") resolve(e.data);
         });
         rawWs.on("message", (data, isBinary) => {
           frameCount += 1;
@@ -210,140 +199,117 @@ describe("ChunkedWebSocket round-trip — raw bytes", () => {
   });
 });
 
-// ── 2. y-websocket + yjs initial sync of a > 1 MB doc ────────────────
+// ── 2. UTF-8 JSON reactivity plane (> 1 MB shape/delta & JSON-RPC) ────
 
-/**
- * Minimal yjs sync handler — reads the message-type byte, dispatches
- * to `y-protocols/sync` for sync messages, broadcasts updates back.
- * Self-contained (no `y-websocket-server` dep).
- */
-function attachYjsServer(rawWs: WSWebSocket, serverDoc: Y.Doc, transport: ChunkedDOTransport<WSWebSocket>): void {
-  const onUpdate = (update: Uint8Array, origin: unknown) => {
-    if (origin === rawWs) return;
-    const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, 0); // MESSAGE_SYNC
-    syncProtocol.writeUpdate(encoder, update);
-    transport.send(rawWs, encoding.toUint8Array(encoder).buffer as ArrayBuffer);
-  };
-  serverDoc.on("update", onUpdate);
-  rawWs.on("close", () => {
-    serverDoc.off("update", onUpdate);
-    transport.detach(rawWs);
-  });
-  rawWs.on("message", (data, isBinary) => transport.onRawMessage(rawWs, normalizeWsMessage(data, isBinary)));
-}
-
-function processYjsAppMessage(
-  serverDoc: Y.Doc,
-  ws: unknown,
-  transport: ChunkedDOTransport<any>,
-  data: ArrayBuffer | string,
-) {
-  if (typeof data === "string") return;
-  const decoder = decoding.createDecoder(new Uint8Array(data));
-  const encoder = encoding.createEncoder();
-  const messageType = decoding.readVarUint(decoder);
-  if (messageType !== 0) return; // only sync in this test
-  encoding.writeVarUint(encoder, 0);
-  syncProtocol.readSyncMessage(decoder, encoder, serverDoc, ws);
-  if (encoding.length(encoder) > 1) {
-    transport.send(ws as any, encoding.toUint8Array(encoder).buffer as ArrayBuffer);
-  }
-}
-
-describe("ChunkedWebSocket round-trip — yjs sync via y-websocket", () => {
-  it("syncs a > 1 MB initial state from server doc to client", async () => {
+describe("ChunkedWebSocket round-trip — UTF-8 JSON reactivity plane", () => {
+  it("delivers a > 1.5 MB shape/delta snapshot from ChunkedDOTransport to client intact", async () => {
     const { wss, port, close } = await makeServer();
     cleanups.push(close);
 
-    const serverDoc = new Y.Doc();
-    // Pre-populate with > 1 MB of CRDT state. A long Y.Text with ~2M
-    // characters + structural overhead easily clears the workerd limit.
-    const serverText = serverDoc.getText("scratch");
-    const block = "x".repeat(10_000);
-    serverDoc.transact(() => {
-      for (let i = 0; i < 250; i++) serverText.insert(serverText.length, block);
+    const largeRowJson = JSON.stringify({
+      uuid: "root-1",
+      tag: "harness:session:root",
+      fields: {
+        sessionId: "s1",
+        transcript: "x".repeat(1_800_000),
+      },
     });
-    expect(Y.encodeStateAsUpdate(serverDoc).byteLength).toBeGreaterThan(1_500_000);
+    const snapshotFrame = JSON.stringify({
+      kind: "shape/delta",
+      subscriptionId: "sub-1",
+      offset: 1,
+      reset: true,
+      upserts: [{ id: "s1\troot-1", isRoot: true, revision: 1, rowJson: largeRowJson }],
+      deletes: [],
+    });
+    expect(Buffer.byteLength(snapshotFrame, "utf8")).toBeGreaterThan(1_800_000);
 
     let serverTransport!: ChunkedDOTransport<WSWebSocket>;
-    const connected = new Promise<void>((resolve) => {
-      wss.on("connection", (rawWs: WSWebSocket) => {
-        serverTransport = new ChunkedDOTransport<WSWebSocket>((ws, data) =>
-          processYjsAppMessage(serverDoc, ws, serverTransport, data),
-        );
-        attachYjsServer(rawWs, serverDoc, serverTransport);
-        resolve();
+    wss.on("connection", (rawWs: WSWebSocket) => {
+      serverTransport = new ChunkedDOTransport<WSWebSocket>((ws, data) => {
+        if (typeof data !== "string") return;
+        const parsed = JSON.parse(data) as { kind?: string; subscriptionId?: string };
+        if (parsed.kind === "shape/subscribe" && parsed.subscriptionId === "sub-1") {
+          serverTransport.send(ws, snapshotFrame);
+        }
+      });
+      rawWs.on("close", () => serverTransport.detach(rawWs));
+      rawWs.on("message", (data, isBinary) => serverTransport.onRawMessage(rawWs, normalizeWsMessage(data, isBinary)));
+    });
+
+    const client = new ChunkedWebSocket(`ws://127.0.0.1:${port}`);
+    cleanups.push(() => client.close());
+    await new Promise<void>((resolve) => client.addEventListener("open", () => resolve()));
+
+    const receivedDelta = new Promise<string>((resolve) => {
+      client.addEventListener("message", (e) => {
+        if (typeof e.data === "string") resolve(e.data);
       });
     });
 
-    const clientDoc = new Y.Doc();
-    const provider = new WebsocketProvider(`ws://127.0.0.1:${port}`, "room", clientDoc, {
-      WebSocketPolyfill: ChunkedWebSocket as any,
-      connect: true,
-    });
-    cleanups.push(() => provider.destroy());
+    client.send(
+      JSON.stringify({
+        kind: "shape/subscribe",
+        subscriptionId: "sub-1",
+        lane: "session_nodes",
+        params: { sessionId: "s1" },
+      }),
+    );
 
-    await connected;
-    // y-websocket emits a `sync` event after the initial syncStep1/2
-    // round-trip when both ends have converged.
-    await new Promise<void>((resolve) => {
-      provider.once("sync", () => resolve());
-    });
-
-    const clientText = clientDoc.getText("scratch");
-    expect(clientText.length).toBe(serverText.length);
-    // Spot-check the content rather than full equality — comparing two
-    // 2.5 M-char strings node-side is slow and the lengths match
-    // (CRDT-reassembled positions are deterministic).
-    expect(clientText.toString().slice(0, 1000)).toBe(serverText.toString().slice(0, 1000));
-    expect(clientText.toString().slice(-1000)).toBe(serverText.toString().slice(-1000));
+    const rawDelta = await receivedDelta;
+    expect(rawDelta.length).toBe(snapshotFrame.length);
+    const decoded = JSON.parse(rawDelta) as {
+      kind: string;
+      subscriptionId: string;
+      upserts: Array<{ rowJson: string }>;
+    };
+    expect(decoded.kind).toBe("shape/delta");
+    expect(decoded.subscriptionId).toBe("sub-1");
+    expect(decoded.upserts[0]?.rowJson.length).toBe(largeRowJson.length);
   });
 
-  it("syncs a > 1 MB client-originated update to the server", async () => {
+  it("delivers a > 1.5 MB client-originated JSON-RPC request to ChunkedDOTransport intact", async () => {
     const { wss, port, close } = await makeServer();
     cleanups.push(close);
 
-    const serverDoc = new Y.Doc();
     let serverTransport!: ChunkedDOTransport<WSWebSocket>;
-
-    wss.on("connection", (rawWs: WSWebSocket) => {
-      serverTransport = new ChunkedDOTransport<WSWebSocket>((ws, data) =>
-        processYjsAppMessage(serverDoc, ws, serverTransport, data),
-      );
-      attachYjsServer(rawWs, serverDoc, serverTransport);
+    const serverGotPromptLen = new Promise<number>((resolve) => {
+      wss.on("connection", (rawWs: WSWebSocket) => {
+        serverTransport = new ChunkedDOTransport<WSWebSocket>((ws, data) => {
+          if (typeof data !== "string") return;
+          const req = JSON.parse(data) as { id: number; params: { prompt: string } };
+          resolve(req.params.prompt.length);
+          serverTransport.send(ws, JSON.stringify({ jsonrpc: "2.0", id: req.id, result: { ok: true } }));
+        });
+        rawWs.on("close", () => serverTransport.detach(rawWs));
+        rawWs.on("message", (data, isBinary) =>
+          serverTransport.onRawMessage(rawWs, normalizeWsMessage(data, isBinary)),
+        );
+      });
     });
 
-    const clientDoc = new Y.Doc();
-    const provider = new WebsocketProvider(`ws://127.0.0.1:${port}`, "room", clientDoc, {
-      WebSocketPolyfill: ChunkedWebSocket as any,
-      connect: true,
-    });
-    cleanups.push(() => provider.destroy());
+    const client = new ChunkedWebSocket(`ws://127.0.0.1:${port}`);
+    cleanups.push(() => client.close());
+    await new Promise<void>((resolve) => client.addEventListener("open", () => resolve()));
 
-    await new Promise<void>((resolve) => provider.once("sync", () => resolve()));
-
-    // Now the client makes a > 1 MB change and we wait for the server
-    // doc to reflect it.
-    const clientText = clientDoc.getText("scratch");
-    const block = "y".repeat(10_000);
-    clientDoc.transact(() => {
-      for (let i = 0; i < 250; i++) clientText.insert(clientText.length, block);
+    const replyReceived = new Promise<string>((resolve) => {
+      client.addEventListener("message", (e) => {
+        if (typeof e.data === "string") resolve(e.data);
+      });
     });
 
-    // Wait for server doc to catch up.
-    const targetLen = clientText.length;
-    const serverText = serverDoc.getText("scratch");
-    await new Promise<void>((resolve) => {
-      const tick = () => {
-        if (serverText.length >= targetLen) return resolve();
-        setTimeout(tick, 25);
-      };
-      tick();
-    });
+    const hugePrompt = "y".repeat(1_800_000);
+    client.send(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 7,
+        method: "turn",
+        params: { prompt: hugePrompt },
+      }),
+    );
 
-    expect(serverText.length).toBe(targetLen);
-    expect(serverText.toString().slice(-1000)).toBe(clientText.toString().slice(-1000));
+    expect(await serverGotPromptLen).toBe(hugePrompt.length);
+    expect(JSON.parse(await replyReceived)).toEqual({ jsonrpc: "2.0", id: 7, result: { ok: true } });
   });
 });
 
@@ -375,7 +341,7 @@ describe("ChunkedWebSocket round-trip — hibernation recovery", () => {
     // crafted start marker over the raw socket from the server side.
     // After the reset arrives the client should drop this state.
     const startMarker = `y-pk-batch#${JSON.stringify({ id: "fake", type: "start", size: 9_999_999, count: 99 })}`;
-    (serverWs as unknown as { send: (d: string) => void }).send(startMarker);
+    serverWs.send(startMarker);
 
     // Give it a beat to land.
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -389,8 +355,7 @@ describe("ChunkedWebSocket round-trip — hibernation recovery", () => {
       // onmessage (it filters reset markers internally), so we patch a
       // listener onto the raw inner socket via reflection — purely a
       // test affordance.
-
-      const inner = (client as any).inner as WebSocket;
+      const inner = Reflect.get(client, "inner") as WebSocket;
       const orig = inner.onmessage;
       inner.onmessage = (ev: MessageEvent) => {
         if (typeof ev.data === "string" && ev.data === "y-pk-reset") resolve();

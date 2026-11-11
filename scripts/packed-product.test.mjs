@@ -7,8 +7,6 @@ import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import * as serverFx from "./packed-product/fixtures/harness-server.mjs";
-import * as yjsFx from "./packed-product/fixtures/harness-yjs-server.mjs";
-import * as runtimeServerFx from "./packed-product/fixtures/harness-runtime-server.mjs";
 import * as webFx from "./packed-product/fixtures/harness-provider-web.mjs";
 import * as restFx from "./packed-product/fixtures/rest.mjs";
 
@@ -96,7 +94,7 @@ function packList(packageDir) {
 }
 
 test("public client barrels do not load composition or providers", () => {
-  const forbidden = [...restFx.barrelForbidden, runtimeServerFx.barrelForbidden, serverFx.compositionNeedle];
+  const forbidden = [...restFx.barrelForbidden, serverFx.compositionNeedle];
   const barrels = [join(ROOT, serverFx.barrel), ...restFx.barrels.map((rel) => join(ROOT, rel))];
   const hits = [];
   for (const barrel of barrels) {
@@ -165,21 +163,6 @@ test("packed product files include bins, exports, and shipped assets", () => {
   const cliPacked = packList(cli.dir);
   for (const required of restFx.cli.packedIncludes) {
     assert.ok(cliPacked.includes(required), restFx.cli.packMissing);
-  }
-
-  // A fused package is no longer its own directory. The harness fixture covers the fused package.
-  const yjs = byName.get(yjsFx.packageName);
-  if (yjs) {
-    assert.equal(yjs.manifest.bin?.[yjsFx.binName], yjsFx.binPath);
-    for (const file of yjsFx.filesInclude) assert.ok(yjs.manifest.files.includes(file));
-    for (const key of yjsFx.exportPaths) assert.ok(yjs.manifest.exports[key]);
-  }
-
-  const runtimeServer = byName.get(runtimeServerFx.packageName);
-  if (runtimeServer) {
-    for (const file of runtimeServerFx.filesInclude) assert.ok(runtimeServer.manifest.files.includes(file));
-    for (const key of runtimeServerFx.exportPaths) assert.ok(runtimeServer.manifest.exports[key]);
-    assert.equal(runtimeServer.manifest.bin, undefined);
   }
 
   const hypervisor = byName.get(restFx.hypervisor.packageName);

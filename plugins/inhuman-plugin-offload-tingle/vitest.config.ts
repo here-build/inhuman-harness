@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 // hosted-extraction.test.ts boots the daemon from the core's source, which still says `@/`.
 import { vitestAliases } from "../../packages/harness/scripts/src-alias.mjs";
 
-const dedupe = ["mobx", "@here.build/plexus"];
+const dedupe = ["mobx"];
 
 export default defineConfig({
   resolve: { alias: vitestAliases(), dedupe },

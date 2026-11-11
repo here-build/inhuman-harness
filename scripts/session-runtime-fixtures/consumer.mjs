@@ -17,7 +17,7 @@ import { bundledCompactProgram } from "@inhuman.tools/turn/resources";
 import { reaction } from "mobx";
 
 const fixture = JSON.parse(readFileSync(new URL("./kley-0.1-session.json", import.meta.url), "utf8"));
-const runtime = SessionRuntime.restore(fixture.sessionId, Buffer.from(fixture.state, "base64"), { kind: "memory" });
+const runtime = SessionRuntime.restore(fixture.sessionId, fixture.state, { kind: "memory" });
 const oldTurn = runtime.root.head;
 assert.ok(oldTurn instanceof SessionTurn);
 assert.deepEqual({
@@ -79,10 +79,10 @@ const effectPort = {
 const outcome = await runtime.effect("installed-effect", "read", "{}", effectPort, (result) => {
   if (result.kind === "success") runtime.root.applyKvs([{ form: "kv-set", key: "receipt", value: result.payload }]);
 });
-const checkpoint = runtime.checkpoint();
+const restoreState = runtime.exportRestoreState();
 await runtime[Symbol.asyncDispose]();
 runtime.session.destroy();
-const restored = SessionRuntime.restore(fixture.sessionId, checkpoint.state, { kind: "memory" });
+const restored = SessionRuntime.restore(fixture.sessionId, restoreState, { kind: "memory" });
 restored.recover();
 restored.activate();
 assert.deepEqual(await restored.effect("installed-effect", "read", "{}", effectPort, () => {

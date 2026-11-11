@@ -1,7 +1,6 @@
 {
   "name": "@inhuman.tools/plugin-offload-tingle",
   "version": "0.0.1",
-  "private": true,
   "description": "Cited project memory. Writer and scout behaviors, with an optional SQLite MCP adapter.",
   "type": "module",
   "exports": {
@@ -34,7 +33,6 @@
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
-    "@here.build/plexus": "^0.9.6",
     "@inhuman.tools/harness-model": "workspace:^",
     "@inhuman.tools/plexus-expectations": "workspace:^",
     "mobx": "6.16.1",
@@ -53,5 +51,8 @@
     "url": "https://github.com/here-build/inhuman-harness.git",
     "directory": "plugins/inhuman-plugin-offload-tingle"
   },
-  "browserslist": ["node >= 22"]
+  "browserslist": ["node >= 22"],
+  "publishConfig": {
+    "access": "public"
+  }
 }
