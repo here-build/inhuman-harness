@@ -1,42 +1,37 @@
 import type { RegionGraph } from "@here.build/arrival-provenance";
 import { ChunkedWebSocket } from "@inhuman.tools/chunked-websocket/client";
-import type { KernelRow, PendingAskRow, SessionSummaryRow } from "@inhuman.tools/harness-contract";
+import type { KernelRow, PendingAskRow, SessionSummaryRow, ShapeDeltaFrame } from "@inhuman.tools/harness-contract";
 import type { WorkflowFrame } from "@inhuman.tools/harness-model/session";
 import {
-  applyUpdate,
   bindJsonRpc,
-  bindProviderAwareness,
+  bindRoomAwareness,
   createDoc,
-  decodeShapeFrame,
-  destroyProvider,
-  detachProtocolAwareness,
+  destroyRoomConnection,
+  detachLocalPresence,
   KERNEL_DOC_GUID,
   KernelPlexus,
   ProjectPlexus,
   publishRevalidationDemand,
+  RoomConnection,
   SessionPlexus,
   waitForSync,
-  WebsocketProvider,
   type Doc,
   type JsonRpcPort,
 } from "@inhuman.tools/harness-peer";
 import { LiveShape } from "@inhuman.tools/scope-plane";
 import { comparer, observable, reaction, runInAction } from "mobx";
 
-import { cacheKey, CACHE_ORIGIN, guardProvider, writeBehind, type DocCache, type Writer } from "./doc-cache.js";
 import { appLocation, type AppLocation } from "./location.js";
 import { bindRelayFrames, isRefusal, linkForClose, startPing } from "./remote.js";
 import type { RouteTarget } from "../shell/path.js";
 import { type Feed, foldFrame } from "../workflow/feed.js";
 
 type Held = {
-  readonly provider: WebsocketProvider;
+  readonly connection: RoomConnection;
   readonly doc: Doc;
   stop: () => void;
   /** The kernel room's JSON-RPC port; the only way a tab without a session writes to the daemon. */
   rpc?: JsonRpcPort;
-  /** The cache's write side; released with the room. */
-  cache?: Writer;
   /** Remote keepalive; stops with the room. */
   stopPing?: () => void;
 };
@@ -100,7 +95,7 @@ export class Dial {
   readonly kernelMeta = new LiveShape<string, KernelRow>((row) => row.id);
   readonly activeSessions = new LiveShape<string, SessionSummaryRow>((row) => row.sessionId);
   readonly recentSessions = new LiveShape<string, SessionSummaryRow>((row) => row.sessionId);
-  readonly pendingAsks = new LiveShape<string, PendingAskRow>((row) => row.id);
+  readonly pendingAsks = new LiveShape<string, PendingAskRow>((row) => row.id ?? row.jobId);
   readonly childSessions = new Map<string, LiveShape<string, SessionSummaryRow>>();
 
   #generation = 0;
@@ -109,21 +104,19 @@ export class Dial {
   /** Set when a staged first message is sent. Consumed only after a matching successful attachment. */
   #mintId: string | null = null;
   #mintGeneration = 0;
-  readonly #cache: DocCache | null;
   readonly #rooms = new Map<string, Held>();
   readonly #projects = new Map<string, ProjectPlexus>();
   readonly #sessions = new Map<string, Session>();
   /** The last relay close code each room's socket saw, cleared when it connects. */
-  readonly #closeCodes = new WeakMap<WebsocketProvider, number>();
+  readonly #closeCodes = new WeakMap<RoomConnection, number>();
   readonly where: AppLocation;
 
   /**
-   * `cache` keeps each room's document on the device so a redial fetches only the delta.
    * `where` says whether rooms are reached through the relay; the default is a local daemon at `origin`.
    */
   constructor(
     readonly origin: string,
-    options: { readonly cache?: DocCache; readonly where?: AppLocation } = {},
+    options: { readonly where?: AppLocation } = {},
   ) {
     this.where = options.where ?? {
       remote: false,
@@ -132,7 +125,6 @@ export class Dial {
       basepath: undefined,
       fileUrl: (path) => `/file?path=${encodeURIComponent(path)}`,
     };
-    this.#cache = options.cache ?? null;
   }
 
   /**
@@ -157,7 +149,7 @@ export class Dial {
     const room = await this.#connect("session", { sessionId }, doc, () => signal?.aborted === true, signal);
     if (room == null) throw new Error("Peek cancelled.");
     const plexus = SessionPlexus.connect(room.doc);
-    room.stop = bindProviderAwareness(plexus.awareness, room.provider);
+    room.stop = bindRoomAwareness(plexus.awareness, room.connection);
     return { plexus, release: () => this.#destroyRoom(room) };
   }
 
@@ -180,7 +172,7 @@ export class Dial {
       mine.addEventListener("message", (event) => {
         let frame: WorkflowFrame;
         try {
-          frame = JSON.parse(event.data as string) as WorkflowFrame;
+          frame = JSON.parse(String(event.data)) as WorkflowFrame;
         } catch {
           return;
         }
@@ -311,7 +303,7 @@ export class Dial {
     if (room == null) return null;
     staged.rooms.set("kernel", room);
     const plexus = KernelPlexus.connect(room.doc);
-    const stopAwareness = bindProviderAwareness(plexus.awareness, room.provider);
+    const stopAwareness = bindRoomAwareness(plexus.awareness, room.connection);
     const stopProjects = reaction(
       () => Object.keys(plexus.root.projects),
       () => {
@@ -319,43 +311,49 @@ export class Dial {
       },
       { equals: comparer.structural },
     );
+
+    const stopLanes = [
+      room.connection.subscribeLane(
+        { subscriptionId: "dial:kernel_meta", lane: "kernel_meta", params: {} },
+        (delta) => this.kernelMeta.applyDelta(delta),
+      ),
+      room.connection.subscribeLane(
+        { subscriptionId: "dial:active_sessions", lane: "active_sessions", params: {} },
+        (delta) => this.activeSessions.applyDelta(delta),
+      ),
+      room.connection.subscribeLane(
+        { subscriptionId: "dial:recent_sessions", lane: "recent_sessions", params: { limit: 100 } },
+        (delta) => this.recentSessions.applyDelta(delta),
+      ),
+      room.connection.subscribeLane(
+        { subscriptionId: "dial:pending_asks", lane: "pending_asks", params: {} },
+        (delta) => this.pendingAsks.applyDelta(delta),
+      ),
+    ];
+
+    const handleChildShape = (frame: ShapeDeltaFrame): void => {
+      const prefix = "dial:child_sessions:";
+      if (!frame.subscriptionId.startsWith(prefix)) return;
+      const parentId = frame.subscriptionId.slice(prefix.length);
+      if (!parentId) return;
+      runInAction(() => {
+        let childShape = this.childSessions.get(parentId);
+        if (!childShape) {
+          childShape = new LiveShape<string, SessionSummaryRow>((row) => row.sessionId);
+          this.childSessions.set(parentId, childShape);
+        }
+        childShape.applyDelta(frame);
+      });
+    };
+    room.connection.on("shape", handleChildShape);
+
     room.stop = () => {
+      room.connection.off("shape", handleChildShape);
+      for (const stopLane of stopLanes) stopLane();
       stopProjects();
       stopAwareness();
     };
-    room.rpc = bindJsonRpc(room.provider);
-
-    const handleShapeBytes = (bytes: unknown): void => {
-      if (!(bytes instanceof Uint8Array)) return;
-      const decoded = decodeShapeFrame(bytes);
-      if (!decoded || typeof decoded !== "object") return;
-      const frame = decoded as Record<string, unknown>;
-      const lane = String(frame.lane ?? frame.topic ?? frame.channel ?? frame.name ?? "");
-      runInAction(() => {
-        if (lane === "kernel-meta" || lane === "kernel_meta") {
-          this.kernelMeta.applyFrame(frame);
-        } else if (lane === "sessions:active" || lane === "active_sessions") {
-          this.activeSessions.applyFrame(frame);
-        } else if (lane === "sessions:recent" || lane === "recent_sessions") {
-          this.recentSessions.applyFrame(frame);
-        } else if (lane === "asks:pending" || lane === "pending_asks") {
-          this.pendingAsks.applyFrame(frame);
-        } else if (lane === "sessions:children" || lane === "child_sessions") {
-          const parentId = String(
-            frame.parentSessionId ?? (frame.params as Record<string, unknown> | undefined)?.parentSessionId ?? "",
-          );
-          if (parentId) {
-            let childShape = this.childSessions.get(parentId);
-            if (!childShape) {
-              childShape = new LiveShape<string, SessionSummaryRow>((row) => row.sessionId);
-              this.childSessions.set(parentId, childShape);
-            }
-            childShape.applyFrame(frame);
-          }
-        }
-      });
-    };
-    room.provider.on("shape", handleShapeBytes);
+    room.rpc = bindJsonRpc(room.connection);
 
     return plexus;
   }
@@ -405,8 +403,8 @@ export class Dial {
       if (room == null) return null;
       staged.rooms.set(`session:${sessionId}`, room);
       const plexus = SessionPlexus.connect(room.doc);
-      const rpc = bindJsonRpc(room.provider);
-      room.stop = bindProviderAwareness(plexus.awareness, room.provider);
+      const rpc = bindJsonRpc(room.connection);
+      room.stop = bindRoomAwareness(plexus.awareness, room.connection);
       held = { plexus, rpc };
       staged.sessions.set(sessionId, held);
     }
@@ -423,92 +421,47 @@ export class Dial {
 
   /**
    * Connects one room.
-   *
-   * A route change while connecting abandons the staged room and the dial tries again (return `"restart"`).
-   * A cache that was superset of the daemon is stale; the cache is dropped and the room starts over clean.
    * `stale()` says another route change made this attempt obsolete; the room is destroyed immediately.
    */
   async #connect(
-    room: string,
+    roomName: string,
     params: Readonly<Record<string, string>>,
     doc: Doc,
     stale: () => boolean,
     signal?: AbortSignal,
     timeoutMs = 8_000,
   ): Promise<Held | null> {
-    const key = cacheKey(this.origin, room, params);
-    for (;;) {
-      const reading = this.#cache;
-      const connected = await this.#connectOnce(room, params, doc, reading, key, stale, signal, timeoutMs);
-      if (connected !== "restart") return connected;
+    if (stale()) {
+      doc.destroy();
+      return null;
     }
-  }
-
-  async #connectOnce(
-    roomName: string,
-    params: Readonly<Record<string, string>>,
-    doc: Doc,
-    reading: DocCache | null,
-    key: string,
-    stale: () => boolean,
-    signal: AbortSignal | undefined,
-    timeoutMs: number,
-  ): Promise<Held | null | "restart"> {
-    const cache = this.#cache;
-    let loaded: readonly Uint8Array[] = [];
-    if (reading != null) {
-      try {
-        loaded = (await reading.load(key)) ?? [];
-        // A superseded attach should not pay to apply tens of megabytes.
-        if (stale()) {
-          doc.destroy();
-          return null;
-        }
-        for (const update of loaded) applyUpdate(doc, update, CACHE_ORIGIN);
-      } catch {
-        // An unreadable cache is no cache.
-        cache?.drop(key);
-        loaded = [];
-        doc.destroy();
-        doc = createDoc({ guid: doc.guid });
-      }
-      if (stale()) {
-        doc.destroy();
-        return null;
-      }
-    }
-    // The default redial: before sync a failure destroys the provider; after it, a drop reconnects.
     const remote = this.where.remote;
-    const provider = new WebsocketProvider(this.origin, roomName, doc, {
-      params,
-      disableBc: true,
+    const connection = new RoomConnection(this.origin, roomName, doc, {
+      params: { ...params },
       ...(remote ? { WebSocketPolyfill: ChunkedWebSocket as unknown as typeof WebSocket, shouldReconnect } : {}),
     });
-    provider.disconnectBc = () => undefined;
-    detachProtocolAwareness(provider);
+    detachLocalPresence(connection);
     let stopPing: (() => void) | undefined;
     const seen: { closed: { code: number; reason: string } | null } = { closed: null };
     if (remote) {
-      bindRelayFrames(provider);
-      stopPing = startPing(provider);
-      provider.on("connection-close", (event) => {
+      bindRelayFrames(connection);
+      stopPing = startPing(connection);
+      connection.on("connection-close", (event: CloseEvent | null) => {
         if (event == null) return;
         seen.closed = { code: event.code, reason: event.reason };
-        this.#closeCodes.set(provider, event.code);
+        this.#closeCodes.set(connection, event.code);
         this.#relink();
       });
-      provider.on("status", (event: { status: string }) => {
+      connection.on("status", (event: { status: string }) => {
         if (event.status === "connected") seen.closed = null;
       });
     }
-    const writer = cache == null ? undefined : writeBehind(cache, key, doc, loaded, provider);
     let destroyed = false;
     const destroy = (): void => {
       if (destroyed) return;
       destroyed = true;
       stopPing?.();
-      writer?.abandon();
-      destroyProvider(provider);
+      destroyRoomConnection(connection);
       doc.destroy();
     };
     let rejectAbort!: (error: Error) => void;
@@ -519,33 +472,12 @@ export class Dial {
       destroy();
       rejectAbort(new Error("Connection cancelled."));
     };
-    let restart = false;
-    if (cache != null) {
-      guardProvider(
-        provider,
-        doc,
-        loaded.length > 0,
-        () => provider.synced,
-        (afterSync) => {
-          if (afterSync) {
-            // A redial found the daemon behind the doc. The doc stays; the next launch starts clean.
-            writer?.abandon();
-            cache.drop(key);
-            return;
-          }
-          restart = true;
-          destroy();
-          rejectAbort(new Error("Cache is stale."));
-        },
-      );
-    }
     signal?.addEventListener("abort", cancel, { once: true });
     try {
       if (signal?.aborted) cancel();
-      await Promise.race([waitForSync(provider, roomName, timeoutMs), aborted]);
+      await Promise.race([waitForSync(connection, roomName, timeoutMs), aborted]);
     } catch (error) {
       destroy();
-      if (restart) return "restart";
       // The relay said why the socket never synced.
       const said = seen.closed;
       const link = said == null ? null : linkForClose(said.code, said.reason, false);
@@ -557,24 +489,24 @@ export class Dial {
       destroy();
       return null;
     }
-    writer?.synced();
-    provider.on("status", () => this.#relink());
+    connection.on("status", () => this.#relink());
     // A permanent close ends the redial; the room is gone until a retry attaches again.
-    provider.on("closed", (event) => {
-      if ([...this.#rooms.values()].some((room) => room.provider === provider)) {
-        const link = remote ? linkForClose(event.code, event.reason, false) : null;
+    connection.on("closed", (event: { code?: number; reason?: string } | undefined) => {
+      if ([...this.#rooms.values()].some((room) => room.connection === connection)) {
+        const link =
+          remote && typeof event?.code === "number" ? linkForClose(event.code, event.reason ?? "", false) : null;
         runInAction(() => {
           this.link = link ?? { kind: "unreachable" };
         });
       }
     });
-    return { provider, doc, stop: () => undefined, cache: writer, stopPing };
+    return { connection, doc, stop: () => undefined, stopPing };
   }
 
   /** Any held room that wants its socket and lacks it: the line is down and redialing. */
   #relink(): void {
-    const down = [...this.#rooms.values()].filter((room) => room.provider.shouldConnect && !room.provider.wsconnected);
-    const offline = down.some((room) => this.#closeCodes.get(room.provider) === 4503);
+    const down = [...this.#rooms.values()].filter((room) => room.connection.shouldConnect && !room.connection.wsconnected);
+    const offline = down.some((room) => this.#closeCodes.get(room.connection) === 4503);
     const here = this.link?.kind;
     runInAction(() => {
       if (down.length > 0 && (here == null || here === "reconnecting" || here === "offline")) {
@@ -587,8 +519,7 @@ export class Dial {
     room.rpc?.rejectAll(new Error("room closed"));
     room.stopPing?.();
     room.stop();
-    room.cache?.release(true);
-    destroyProvider(room.provider);
+    destroyRoomConnection(room.connection);
     room.doc.destroy();
   }
 

@@ -5,7 +5,7 @@
  */
 export type AppLocation = {
   readonly remote: boolean;
-  /** Room socket origin, as `WebsocketProvider` takes it: it appends `/<room>?<params>`. */
+  /** Room socket origin, as `RoomConnection` takes it: it appends `/<room>?<params>`. */
   readonly roomOrigin: string;
   /** Where plain HTTP calls to the daemon (`/sessions/...`) are rooted, without a trailing slash. */
   readonly httpBase: string;

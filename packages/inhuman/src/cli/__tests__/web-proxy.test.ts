@@ -6,7 +6,7 @@ import { listenWebApp } from "@inhuman.tools/harness";
 import { HarnessDaemon } from "@inhuman.tools/harness/testkit";
 import { KERNEL_DOC_GUID, KernelPlexus } from "@inhuman.tools/harness-model";
 import "@inhuman.tools/harness-model/register";
-import { createDoc, detachProtocolAwareness, waitForSync, WebsocketProvider } from "@inhuman.tools/harness-peer";
+import { createDoc, detachLocalPresence, RoomConnection, waitForSync } from "@inhuman.tools/harness-peer";
 import { Client } from "@inhuman.tools/harness-sdk";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -27,14 +27,12 @@ describe("web-app proxy", () => {
     await daemon.listen();
     const app = await listenWebApp({ sockPath: daemonSocketPath(kernel), port: 0 });
     const doc = createDoc({ guid: KERNEL_DOC_GUID });
-    const provider = new WebsocketProvider(`ws://127.0.0.1:${app.port}`, "kernel", doc, {
-      disableBc: true,
+    const connection = new RoomConnection(`ws://127.0.0.1:${app.port}`, "kernel", doc, {
       shouldReconnect: () => false,
     });
-    provider.disconnectBc = () => undefined;
-    detachProtocolAwareness(provider);
+    detachLocalPresence(connection);
     try {
-      await waitForSync(provider, "kernel", 8000);
+      await waitForSync(connection, "kernel", 8000);
       const plexus = KernelPlexus.connect(doc);
       expect(plexus.doc.guid).toBe(KERNEL_DOC_GUID);
       expect(daemon.server.endpoint()).toMatch(/daemon\.sock$/);
@@ -42,7 +40,7 @@ describe("web-app proxy", () => {
       expect(unix.plexus.doc.guid).toBe(KERNEL_DOC_GUID);
       plexus.destroy();
     } finally {
-      provider.destroy();
+      connection.destroy();
       doc.destroy();
       await app.close();
       await daemon[Symbol.asyncDispose]();

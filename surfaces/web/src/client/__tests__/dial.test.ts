@@ -7,39 +7,48 @@ type FakeDoc = {
   readonly guid: string;
   readonly isDestroyed: boolean;
   destroy(): void;
-  on(event: string, fn: (...args: unknown[]) => void): void;
-  off(event: string, fn: (...args: unknown[]) => void): void;
 };
 
-type FakeProvider = {
-  readonly roomName: string;
+type FakeConnection = {
+  readonly roomname: string;
   readonly doc: FakeDoc;
   readonly params: Record<string, string>;
   shouldConnect: boolean;
   wsconnected: boolean;
+  subscribeLane: ReturnType<typeof vi.fn>;
+  on(event: string, fn: (...args: unknown[]) => void): void;
+  off(event: string, fn: (...args: unknown[]) => void): void;
   emit(event: string, ...args: unknown[]): void;
 };
 
 const peer = vi.hoisted(() => {
-  const providers: FakeProvider[] = [];
+  const connections: FakeConnection[] = [];
 
-  class FakeWebsocketProvider {
-    disconnectBc = () => undefined;
+  class FakeRoomConnection {
     readonly params: Record<string, string>;
     shouldConnect = true;
     wsconnected = true;
+    subscribeLane = vi.fn(() => () => undefined);
     readonly #listeners = new Map<string, ((...args: unknown[]) => void)[]>();
     constructor(
       _origin: string,
-      readonly roomName: string,
+      readonly roomname: string,
       readonly doc: FakeDoc,
-      options: { params: Record<string, string> },
+      options: { params?: Record<string, string> } = {},
     ) {
-      this.params = options.params;
-      providers.push(this);
+      this.params = options.params ?? {};
+      connections.push(this);
     }
     on(event: string, listener: (...args: unknown[]) => void): void {
       this.#listeners.set(event, [...(this.#listeners.get(event) ?? []), listener]);
+    }
+    off(event: string, listener: (...args: unknown[]) => void): void {
+      const prev = this.#listeners.get(event);
+      if (!prev) return;
+      this.#listeners.set(
+        event,
+        prev.filter((item) => item !== listener),
+      );
     }
     emit(event: string, ...args: unknown[]): void {
       for (const listener of this.#listeners.get(event) ?? []) listener(...args);
@@ -58,19 +67,17 @@ const peer = vi.hoisted(() => {
       destroy() {
         isDestroyed = true;
       },
-      on() {},
-      off() {},
     };
   };
 
   return {
     waitForSync: vi.fn<() => Promise<void>>(),
-    destroyProvider: vi.fn(),
+    destroyRoomConnection: vi.fn(),
     sessionRoot: vi.fn(() => ({
       path: "/workspace",
       agent: { spec: { recipeScope: "project" } },
     })),
-    providers,
+    connections,
     /** The kernel's glance rows. By default it lists every session a test opens. */
     kernelSessions: new Proxy({}, { get: () => ({}) }) as Record<string, unknown>,
     publish: vi.fn(),
@@ -81,7 +88,7 @@ const peer = vi.hoisted(() => {
       lost: false,
     })),
     createDoc: vi.fn(createDoc),
-    WebsocketProvider: FakeWebsocketProvider,
+    RoomConnection: FakeRoomConnection,
   };
 });
 
@@ -90,7 +97,7 @@ vi.mock("@inhuman.tools/harness-peer", () => ({
   KernelPlexus: { connect: vi.fn(() => ({ awareness: {}, root: { projects: {}, sessions: peer.kernelSessions } })) },
   ProjectPlexus: {
     connect: vi.fn(() => {
-      const opened = [...peer.providers].reverse().find((provider) => provider.roomName === "project");
+      const opened = [...peer.connections].reverse().find((conn) => conn.roomname === "project");
       return { root: { path: opened?.params.path ?? "" } };
     }),
   },
@@ -99,14 +106,12 @@ vi.mock("@inhuman.tools/harness-peer", () => ({
   },
   bindJsonRpc: peer.bindJsonRpc,
   publishRevalidationDemand: peer.publish,
-  bindProviderAwareness: vi.fn(() => vi.fn()),
-  detachProtocolAwareness: vi.fn(),
-  destroyProvider: peer.destroyProvider,
+  bindRoomAwareness: vi.fn(() => vi.fn()),
+  detachLocalPresence: vi.fn(),
+  destroyRoomConnection: peer.destroyRoomConnection,
   waitForSync: peer.waitForSync,
-  decodeShapeFrame: vi.fn(() => null),
-  applyUpdate: vi.fn(),
   createDoc: peer.createDoc,
-  WebsocketProvider: peer.WebsocketProvider,
+  RoomConnection: peer.RoomConnection,
 }));
 
 function deferred() {
@@ -160,21 +165,21 @@ function projectRoot(path: string) {
   return { path, agent: { spec: { recipeScope: "project" } } };
 }
 
-function latestProvider() {
-  return peer.providers[peer.providers.length - 1]!;
+function latestConnection() {
+  return peer.connections[peer.connections.length - 1]!;
 }
 
-function expectAlive(providers: typeof peer.providers) {
-  for (const provider of providers) {
-    expect(peer.destroyProvider).not.toHaveBeenCalledWith(provider);
-    expect(provider.doc.isDestroyed).toBe(false);
+function expectAlive(connections: typeof peer.connections) {
+  for (const connection of connections) {
+    expect(peer.destroyRoomConnection).not.toHaveBeenCalledWith(connection);
+    expect(connection.doc.isDestroyed).toBe(false);
   }
 }
 
 describe("Dial kernel port and demand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    peer.providers.length = 0;
+    peer.connections.length = 0;
     peer.waitForSync.mockReset().mockResolvedValue(undefined);
     peer.kernelSessions = new Proxy({}, { get: () => ({}) });
   });
@@ -183,10 +188,10 @@ describe("Dial kernel port and demand", () => {
     const dial = new Dial("ws://localhost");
     expect(dial.kernelRpc).toBeNull();
     await dial.follow({ kind: "kernel" });
-    const kernelProvider = peer.providers.find((provider) => provider.roomName === "kernel");
-    expect(kernelProvider).toBeDefined();
+    const kernelConnection = peer.connections.find((conn) => conn.roomname === "kernel");
+    expect(kernelConnection).toBeDefined();
     expect(peer.bindJsonRpc).toHaveBeenCalledTimes(1);
-    expect(peer.bindJsonRpc).toHaveBeenCalledWith(kernelProvider);
+    expect(peer.bindJsonRpc).toHaveBeenCalledWith(kernelConnection);
     const port = dial.kernelRpc;
     expect(port).toBe(peer.bindJsonRpc.mock.results[0]?.value);
     expect(dial.sessionRpc).toBeNull();
@@ -232,7 +237,7 @@ describe("Dial kernel port and demand", () => {
 describe("Dial attachment safety", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    peer.providers.length = 0;
+    peer.connections.length = 0;
     peer.waitForSync.mockReset().mockResolvedValue(undefined);
     peer.sessionRoot.mockReset().mockImplementation(() => projectRoot("/workspace"));
     peer.kernelSessions = new Proxy({}, { get: () => ({}) });
@@ -273,7 +278,7 @@ describe("Dial attachment safety", () => {
     const dial = await attachedDial();
     const old = published(dial);
     const oldRpc = dial.sessionRpc!;
-    const projectProvider = peer.providers.find((provider) => provider.roomName === "project")!;
+    const projectConnection = peer.connections.find((conn) => conn.roomname === "project")!;
     const sync = holdNextSync();
 
     const following = dial.follow(target("new"));
@@ -284,7 +289,7 @@ describe("Dial attachment safety", () => {
     expectRetained(dial, old);
     await dial.sessionRpc?.request("session.send", { text: "not for the old session" });
     expect(oldRpc.request).not.toHaveBeenCalled();
-    expectAlive(peer.providers);
+    expectAlive(peer.connections);
 
     sync.resolve();
     await following;
@@ -293,8 +298,8 @@ describe("Dial attachment safety", () => {
     expect(dial.sessionRpc).not.toBe(oldRpc);
     expect(dial.sessionRpc).not.toBeNull();
     expect(dial.project).toBe(old.project);
-    expectAlive([projectProvider]);
-    expect(peer.providers.filter((provider) => provider.roomName === "project")).toHaveLength(1);
+    expectAlive([projectConnection]);
+    expect(peer.connections.filter((conn) => conn.roomname === "project")).toHaveLength(1);
     expect(dial.link).toBeNull();
   });
 
@@ -306,7 +311,7 @@ describe("Dial attachment safety", () => {
     const next = target("unavailable");
     const following = dial.follow(next);
     await sync.started;
-    const failed = latestProvider();
+    const failed = latestConnection();
     sync.reject(new Error("socket refused"));
 
     await expect(following).resolves.toBeUndefined();
@@ -315,7 +320,7 @@ describe("Dial attachment safety", () => {
     expect(dial.attaching).toBe(false);
     expect(dial.link).toEqual({ kind: "unanswered" });
     expect(oldRpc.request).not.toHaveBeenCalled();
-    expect(peer.destroyProvider).toHaveBeenCalledExactlyOnceWith(failed);
+    expect(peer.destroyRoomConnection).toHaveBeenCalledExactlyOnceWith(failed);
     expect(failed.doc.isDestroyed).toBe(true);
 
     const retrySync = holdNextSync();
@@ -334,27 +339,27 @@ describe("Dial attachment safety", () => {
   it("does not publish a loose project session until its project attaches, and cleans both on failure", async () => {
     const dial = await attachedDial();
     const old = published(dial);
-    const oldProviders = [...peer.providers];
+    const oldConnections = [...peer.connections];
     peer.sessionRoot.mockReturnValueOnce(projectRoot("/other"));
     peer.waitForSync.mockResolvedValueOnce(undefined);
     const projectSync = holdNextSync();
     const following = dial.follow({ kind: "session", sessionId: "other" });
     await projectSync.started;
-    const failedProject = latestProvider();
-    const stagedSession = peer.providers.find((provider) => provider.params.sessionId === "other")!;
+    const failedProject = latestConnection();
+    const stagedSession = peer.connections.find((conn) => conn.params.sessionId === "other")!;
     expect(failedProject.params).toEqual({ path: "/other" });
     expectRetained(dial, old);
     expect(dial.attaching).toBe(true);
-    expectAlive(oldProviders);
+    expectAlive(oldConnections);
     projectSync.reject(new Error("project unavailable"));
     await following;
     expectRetained(dial, old);
     expect(dial.attaching).toBe(false);
     expect(dial.link).not.toBeNull();
-    expectAlive(oldProviders);
-    for (const provider of [failedProject, stagedSession]) {
-      expect(peer.destroyProvider).toHaveBeenCalledWith(provider);
-      expect(provider.doc.isDestroyed).toBe(true);
+    expectAlive(oldConnections);
+    for (const conn of [failedProject, stagedSession]) {
+      expect(peer.destroyRoomConnection).toHaveBeenCalledWith(conn);
+      expect(conn.doc.isDestroyed).toBe(true);
     }
   });
 
@@ -380,7 +385,7 @@ describe("Dial attachment safety", () => {
       const olderSync = holdNextSync();
       const older = dial.follow(target("older"));
       await olderSync.started;
-      const olderProvider = latestProvider();
+      const olderConnection = latestConnection();
       const newerSync = holdNextSync();
       const newer = dial.follow(target("newer"));
       await newerSync.started;
@@ -391,7 +396,7 @@ describe("Dial attachment safety", () => {
       expect(dial.attaching).toBe(true);
       expectRetained(dial, old);
       expect(dial.link).toBeNull();
-      expect(olderProvider.doc.isDestroyed).toBe(true);
+      expect(olderConnection.doc.isDestroyed).toBe(true);
 
       newerSync.resolve();
       await newer;
@@ -411,12 +416,12 @@ describe("Dial attachment safety", () => {
       const olderSync = holdNextSync();
       const older = dial.follow(target("older", "/other"));
       await olderSync.started;
-      const stagedProviders = peer.providers.slice(-2);
+      const stagedConnections = peer.connections.slice(-2);
       await dial.follow(target("newer"));
       const current = published(dial);
       const rpc = dial.sessionRpc;
-      const currentProviders = peer.providers.filter(
-        (provider) => provider.params.sessionId === "newer" || provider.params.path === "/workspace",
+      const currentConnections = peer.connections.filter(
+        (conn) => conn.params.sessionId === "newer" || conn.params.path === "/workspace",
       );
       if (outcome === "resolve") olderSync.resolve();
       else olderSync.reject(new Error("stale project failed"));
@@ -425,8 +430,8 @@ describe("Dial attachment safety", () => {
       expect(dial.sessionRpc).toBe(rpc);
       expect(dial.attaching).toBe(false);
       expect(dial.link).toBeNull();
-      expectAlive(currentProviders);
-      for (const provider of stagedProviders) expect(provider.doc.isDestroyed).toBe(true);
+      expectAlive(currentConnections);
+      for (const conn of stagedConnections) expect(conn.doc.isDestroyed).toBe(true);
     },
   );
 
@@ -465,7 +470,7 @@ describe("Dial attachment safety", () => {
   it("reattaches fresh rooms when switching away and back, without minting on reload", async () => {
     const dial = await attachedDial();
     const old = published(dial);
-    const oldSession = peer.providers.find((provider) => provider.roomName === "session")!;
+    const oldSession = peer.connections.find((conn) => conn.roomname === "session")!;
     await dial.follow({ kind: "kernel" });
     expect(dial.project).toBeNull();
     expect([...dial.projects.keys()]).toEqual(["/workspace"]);
@@ -474,13 +479,13 @@ describe("Dial attachment safety", () => {
     const sync = holdNextSync();
     const following = dial.follow(target("old"));
     await sync.started;
-    expect(latestProvider().params).toEqual({ sessionId: "old" });
+    expect(latestConnection().params).toEqual({ sessionId: "old" });
     expect(dial.attaching).toBe(true);
     sync.resolve();
     await following;
     expect(dial.project).toBe(old.project);
     expect(dial.session).not.toBe(old.session);
-    expectAlive(peer.providers.slice(-1));
+    expectAlive(peer.connections.slice(-1));
     expect(peer.waitForSync).toHaveBeenCalledTimes(4);
   });
 
@@ -496,10 +501,10 @@ describe("Dial attachment safety", () => {
       expect(dial.link).toEqual({ kind: "unreachable" });
       expect(dial.sessionRpc).toBeNull();
       await dial.follow(dial.requestedTarget);
-      const attempts = peer.providers.filter((provider) => provider.params.sessionId === "minted");
+      const attempts = peer.connections.filter((conn) => conn.params.sessionId === "minted");
       expect(attempts).toHaveLength(2);
-      for (const provider of attempts) {
-        expect(provider.params).toEqual({ sessionId: "minted", path: "/mint-project" });
+      for (const conn of attempts) {
+        expect(conn.params).toEqual({ sessionId: "minted", path: "/mint-project" });
       }
       expect(dial.target).toBe(next);
       expect(dial.sessionRpc).not.toBeNull();
@@ -517,7 +522,7 @@ describe("Dial attachment safety", () => {
     await following;
     await dial.follow({ kind: "kernel" });
     await dial.follow(target(preparedId));
-    const attempts = peer.providers.filter((provider) => provider.params.sessionId === preparedId);
+    const attempts = peer.connections.filter((conn) => conn.params.sessionId === preparedId);
     expect(attempts.at(-1)!.params).toEqual({ sessionId: preparedId, path: "/workspace" });
   });
 
@@ -526,7 +531,7 @@ describe("Dial attachment safety", () => {
     async (scope) => {
       const dial = await attachedDial();
       const old = published(dial);
-      const oldProviders = [...peer.providers];
+      const oldConnections = [...peer.connections];
       peer.sessionRoot.mockReturnValueOnce({
         path: scope === "empty path" ? "" : "/other",
         agent: { spec: { recipeScope: scope === "global" ? "global" : "project" } },
@@ -537,9 +542,9 @@ describe("Dial attachment safety", () => {
       expect(dial.requestedTarget).toBe(next);
       expect(dial.attaching).toBe(false);
       expect(dial.link).toMatchObject({ kind: "elsewhere", sessionId: "mismatch" });
-      expectAlive(oldProviders);
-      expect(peer.providers).toHaveLength(oldProviders.length + 1);
-      expect(latestProvider().doc.isDestroyed).toBe(true);
+      expectAlive(oldConnections);
+      expect(peer.connections).toHaveLength(oldConnections.length + 1);
+      expect(latestConnection().doc.isDestroyed).toBe(true);
     },
   );
 
@@ -549,58 +554,58 @@ describe("Dial attachment safety", () => {
     await dial.follow(target("old", "/wrong"));
     expectRetained(dial, old);
     expect(dial.link).toEqual({ kind: "elsewhere", sessionId: "old", path: "/workspace" });
-    expectAlive(peer.providers);
+    expectAlive(peer.connections);
   });
 
   it.each(["resolve", "reject"] as const)("aborts during sync promptly and ignores later %s", async (outcome) => {
     const dial = await attachedDial();
     const old = published(dial);
-    const oldProviders = [...peer.providers];
+    const oldConnections = [...peer.connections];
     const controller = new AbortController();
     const sync = holdNextSync();
     const following = dial.follow(target("cancelled"), controller.signal);
     await sync.started;
-    const pending = latestProvider();
+    const pending = latestConnection();
     controller.abort();
     expect(pending.doc.isDestroyed).toBe(true);
     expect(dial.attaching).toBe(false);
     expect(dial.link).toEqual({ kind: "cancelled" });
     expectRetained(dial, old);
     await following;
-    expectAlive(oldProviders);
+    expectAlive(oldConnections);
     if (outcome === "resolve") sync.resolve();
     else sync.reject(new Error("late failure"));
     await Promise.resolve();
     expectRetained(dial, old);
     expect(dial.link).toEqual({ kind: "cancelled" });
-    expect(peer.destroyProvider).toHaveBeenCalledExactlyOnceWith(pending);
+    expect(peer.destroyRoomConnection).toHaveBeenCalledExactlyOnceWith(pending);
   });
 
   it("aborts the staged session and pending project without touching committed rooms", async () => {
     const dial = await attachedDial();
     const old = published(dial);
-    const oldProviders = [...peer.providers];
+    const oldConnections = [...peer.connections];
     peer.sessionRoot.mockReturnValueOnce(projectRoot("/other"));
     peer.waitForSync.mockResolvedValueOnce(undefined);
     const sync = holdNextSync();
     const controller = new AbortController();
     const following = dial.follow(target("cancelled", "/other"), controller.signal);
     await sync.started;
-    const staged = peer.providers.slice(-2);
+    const staged = peer.connections.slice(-2);
     controller.abort();
-    for (const provider of staged) {
-      expect(provider.doc.isDestroyed).toBe(true);
-      expect(peer.destroyProvider).toHaveBeenCalledWith(provider);
+    for (const conn of staged) {
+      expect(conn.doc.isDestroyed).toBe(true);
+      expect(peer.destroyRoomConnection).toHaveBeenCalledWith(conn);
     }
     await following;
     expectRetained(dial, old);
-    expectAlive(oldProviders);
+    expectAlive(oldConnections);
     expect(dial.attaching).toBe(false);
     sync.resolve();
     await Promise.resolve();
     expectRetained(dial, old);
     expect(dial.link).toEqual({ kind: "cancelled" });
-    expect(peer.destroyProvider).toHaveBeenCalledTimes(2);
+    expect(peer.destroyRoomConnection).toHaveBeenCalledTimes(2);
   });
 
   it.each(["pending", "committed"])("aborting an old attempt cannot change a newer %s attachment", async (stage) => {
@@ -609,7 +614,7 @@ describe("Dial attachment safety", () => {
     const olderSync = holdNextSync();
     const older = dial.follow(target("older"), controller.signal);
     await olderSync.started;
-    const olderProvider = latestProvider();
+    const olderConnection = latestConnection();
     const newerSync = holdNextSync();
     const newer = dial.follow(target("newer"));
     await newerSync.started;
@@ -625,7 +630,7 @@ describe("Dial attachment safety", () => {
     expect(dial.sessionRpc).toBe(rpc);
     expect(dial.attaching).toBe(stage === "pending");
     expect(dial.link).toBeNull();
-    expect(olderProvider.doc.isDestroyed).toBe(true);
+    expect(olderConnection.doc.isDestroyed).toBe(true);
     olderSync.resolve();
     newerSync.resolve();
     await newer;
@@ -636,15 +641,15 @@ describe("Dial attachment safety", () => {
   it("does not open rooms for an already aborted attempt", async () => {
     const dial = await attachedDial();
     const old = published(dial);
-    const oldProviders = [...peer.providers];
+    const oldConnections = [...peer.connections];
     const controller = new AbortController();
     controller.abort();
     await dial.follow(target("cancelled"), controller.signal);
     expectRetained(dial, old);
     expect(dial.attaching).toBe(false);
     expect(dial.link).toEqual({ kind: "cancelled" });
-    expect(peer.providers).toEqual(oldProviders);
-    expectAlive(oldProviders);
+    expect(peer.connections).toEqual(oldConnections);
+    expectAlive(oldConnections);
   });
 
   it("removes abort listeners after success and failure", async () => {
@@ -681,7 +686,7 @@ describe("Dial attachment safety", () => {
     const held = dial.projects.get("/other");
     await dial.follow(target("alpha", "/workspace"));
     expect(dial.projects.get("/other")).toBe(held);
-    expect(peer.destroyProvider).not.toHaveBeenCalled();
+    expect(peer.destroyRoomConnection).not.toHaveBeenCalled();
   });
 
   it("auto-attaches newly added projects when kernel.root.projects updates over the transport channel", async () => {
@@ -705,12 +710,12 @@ describe("Dial attachment safety", () => {
     const dial = await attachedDial();
     dial.prepareMint("new");
     await dial.follow(target("new"));
-    const minted = peer.providers.find((provider) => provider.params.sessionId === "new")!;
+    const minted = peer.connections.find((conn) => conn.params.sessionId === "new")!;
     expect(minted.params).toEqual({ sessionId: "new", path: "/workspace" });
     await dial.follow({ kind: "kernel" });
     await dial.follow(target("new"));
-    expect(latestProvider().roomName).toBe("session");
-    const reloaded = peer.providers.filter((provider) => provider.params.sessionId === "new")[1]!;
+    expect(latestConnection().roomname).toBe("session");
+    const reloaded = peer.connections.filter((conn) => conn.params.sessionId === "new")[1]!;
     expect(reloaded.params).toEqual({ sessionId: "new" });
   });
 
@@ -749,7 +754,7 @@ describe("Dial attachment safety", () => {
 
   it("says reconnecting while a held room redials, and clears once every room is back", async () => {
     const dial = await attachedDial();
-    const session = peer.providers.find((provider) => provider.roomName === "session")!;
+    const session = peer.connections.find((conn) => conn.roomname === "session")!;
     session.wsconnected = false;
     session.emit("status");
     expect(dial.link).toEqual({ kind: "reconnecting" });
@@ -764,7 +769,7 @@ describe("Dial attachment safety", () => {
 
   it("ignores a room it already let go", async () => {
     const dial = await attachedDial();
-    const old = peer.providers.find((provider) => provider.params.sessionId === "old")!;
+    const old = peer.connections.find((conn) => conn.params.sessionId === "old")!;
     await dial.follow(target("next"));
     old.shouldConnect = false;
     old.wsconnected = false;

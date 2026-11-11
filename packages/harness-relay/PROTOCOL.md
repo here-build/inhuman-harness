@@ -1,6 +1,6 @@
 # Node protocol (daemon connector <-> relay)
 
-For the connector (phase 3b). Everything below is implemented in `src/machine-do.ts`; `src/tunnel/protocol.ts` has the control frame types.
+For the connector (phase 3b). Everything below is implemented in `src/machine-do.ts` and `src/plane.ts`; `src/tunnel/protocol.ts` has the control frame types.
 
 ## Sockets
 
@@ -46,9 +46,8 @@ If the control socket drops, every call riding it fails; the relay does not retr
 ## Room sockets
 
 - Path: `/d/<id>/room` + the daemon's upgrade path and query (`/kernel`, `/project?path=...`, `/session?...`). Other paths are closed `4400`.
-- Room identity: path plus query sorted by name. `/session?sessionId=s&path=p` and `/session?path=p&sessionId=s` are one room. `/session?sessionId=s` and `/session?sessionId=s&path=p` are two (separate caches in the relay, same document on the daemon).
-- Bridge raw frames both ways between this socket and the daemon socket. Do not parse them. Binary: Yjs sync, awareness, query-awareness. Text: JSON-RPC responses (below).
-- The relay speaks first: sync step 1 from its (empty at first) document. Answer it like any y-websocket peer. The daemon's own step 1 gets a step 2 back.
+- Room identity: path plus query sorted by name. `/session?sessionId=s&path=p` and `/session?path=p&sessionId=s` are one room. `/session?sessionId=s` and `/session?sessionId=s&path=p` are two.
+- Bridge UTF-8 text frames both ways between this socket and the daemon socket: reactivity plane JSON frames (`shape/*`, `presence/*`, `stream/delta`, `ping`/`pong`) and JSON-RPC 2.0 frames. Drop daemon `{"kind":"ping"}` keepalives at the connector so idle browsers do not wake the Durable Object.
 - Close the room socket when the daemon socket closes. Pass the cause in the close code:
   - daemon refused the upgrade (404 / 400 / 500): close `4000 + status` (`4404`, `4400`, `4500`) with a short reason. The relay forwards that code and reason to the browsers.
   - anything else: any code; browsers get `4504`.
@@ -68,12 +67,12 @@ If the control socket drops, every call riding it fails; the relay does not retr
 
 The daemon sees one socket per room, so the relay rewrites request ids: `"<clientTag>:<original id as JSON>"`, with `clientTag` 12 hex characters per browser socket. `7` becomes `"3fa9c1d02b7e:7"`, `"a:b"` becomes `"3fa9c1d02b7e:\"a:b\""`, `null` becomes `"3fa9c1d02b7e:null"`. The daemon must echo the id it received (it does). Responses are routed back by prefix and the original id is restored. A frame without `id` is a notification: forwarded untouched from a browser, broadcast to every browser in the room from the daemon. The daemon sends no requests on this channel today; a frame with `method` is broadcast as is. Malformed JSON and invalid requests are answered by the relay and never reach the daemon. With no room socket, a call fails at once with error `-32000 machine offline`.
 
-## Awareness
+## Shape Subscriptions (`LiveShape`)
 
-Frames are relayed byte for byte, never applied by the relay. The relay tracks the client ids each browser announced; when that browser closes it sends the daemon an awareness update removing them (state `null`, clock + 1). When a browser joins and the room socket exists, the relay sends the daemon an awareness query (type byte `3`) so the daemon's snapshot reaches the newcomer. The daemon's 10 s query keepalive is forwarded to the browsers (it keeps their y-websocket 30 s watchdog alive). It also wakes the Durable Object every 10 s while a browser is attached, so the target is: the connector drops the daemon's keepalive frames, and the web app in remote mode sends `" ping"` every 10 s instead (the edge answers, and any text frame feeds the watchdog).
+The relay is stateless across Durable Object hibernation: it holds no in-memory document state. Instead, each browser attachment persists its active `shape/subscribe` descriptors (`subs`). The relay prefixes `subscriptionId` with `<clientTag>:` when forwarding `shape/subscribe` and `shape/unsubscribe` to the daemon room socket, and strips the prefix when routing `shape/delta` back to the subscribing browser. When a room socket connects (or reconnects after hibernation), the relay replays all active browser `shape/subscribe` frames to the daemon. Forged `shape/delta` frames from browsers are dropped; clients write exclusively through JSON-RPC.
 
-## Documents
+## Presence (`presence/*`)
 
-One in-memory `Y.Doc` per room in the relay, no storage. A browser's sync step 1 is held until the daemon has answered the relay's step 1, so a browser is never told it is synced against an empty cache. After a Durable Object wake the document is empty; the relay sends step 1 to every socket in the room and the replicas refill it. Rooms are server-authoritative, like the daemon's own: only the daemon's updates are applied and fanned out. A browser's sync step 2 and updates are dropped; clients write through JSON-RPC.
+Presence frames (`presence/update`, `presence/state`, `presence/query`) are UTF-8 JSON text frames carrying `[clientId, state | null, clock?]` entry tuples. The relay tracks `[clientId, clock]` pairs per browser attachment; when a browser disconnects, the relay synthesizes a `presence/update` removal (`[clientId, null, clock + 1]`) to the daemon and peer browsers in the room. When a browser joins and the room socket is open, `presence/query` is forwarded so the daemon's presence state reaches the newcomer.
 
 The daemon sees one connection per room, not one per browser. Its per-connection cleanup (aborting in-flight calls and parked UI on close) runs when the room socket closes, not when a single browser leaves, and a parked UI form can be resolved from any browser in the room. Acceptable while every browser in a room is the same owner.

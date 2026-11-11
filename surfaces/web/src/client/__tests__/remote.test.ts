@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { WebsocketProvider } from "@inhuman.tools/harness-peer";
+import type { RoomConnection } from "@inhuman.tools/harness-peer";
 
 import { isRefusal, linkForClose, PING, PING_MS, startPing } from "../remote.js";
 
@@ -32,21 +32,21 @@ describe("startPing", () => {
   it("pings the current socket every 10 s while open, until stopped", () => {
     vi.useFakeTimers();
     const sent: string[] = [];
-    const provider = { ws: { readyState: 1, send: (text: string) => sent.push(text) } } as unknown as WebsocketProvider;
-    const stop = startPing(provider);
+    const connection = { ws: { readyState: 1, send: (text: string) => sent.push(text) } } as unknown as RoomConnection;
+    const stop = startPing(connection);
     vi.advanceTimersByTime(PING_MS * 2);
     expect(sent).toEqual([PING, PING]);
-    (provider.ws as unknown as { readyState: number }).readyState = 0;
+    (connection.ws as unknown as { readyState: number }).readyState = 0;
     vi.advanceTimersByTime(PING_MS);
     expect(sent).toHaveLength(2);
     stop();
-    (provider.ws as unknown as { readyState: number }).readyState = 1;
+    (connection.ws as unknown as { readyState: number }).readyState = 1;
     vi.advanceTimersByTime(PING_MS * 3);
     expect(sent).toHaveLength(2);
   });
   it("skips while there is no socket", () => {
     vi.useFakeTimers();
-    const stop = startPing({ ws: null } as unknown as WebsocketProvider);
+    const stop = startPing({ ws: null } as unknown as RoomConnection);
     expect(() => vi.advanceTimersByTime(PING_MS)).not.toThrow();
     stop();
   });

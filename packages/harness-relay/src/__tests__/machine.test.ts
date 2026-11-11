@@ -3,13 +3,12 @@ import { describe, expect, it } from "vitest";
 
 import { buildDevCredential } from "../auth/dev.js";
 import { handle } from "../index.js";
+import { readPresenceEntries } from "../plane.js";
 import { machineStub, userStub } from "../stubs.js";
-import { DEV_SECRET, ORIGIN, testEnv, uniqueSub } from "./helpers.js";
-import { awarenessFrame, Peer, YPeer } from "./peers.js";
-import { readAwarenessFrame } from "../sync/awareness.js";
-import { MESSAGE_QUERY_AWARENESS } from "../sync/constants.js";
 import { decodeServerFrame, encodeChunk, encodeNodeFrame, type ReqFrame } from "../tunnel/protocol.js";
 import { TunnelServer } from "../tunnel/server.js";
+import { DEV_SECRET, ORIGIN, testEnv, uniqueSub } from "./helpers.js";
+import { BrowserPlanePeer, DaemonPlanePeer, Peer, presenceFrame } from "./peers.js";
 
 const OK = "ok@example.com";
 const devBearer = (sub: string) => `Bearer ${buildDevCredential(DEV_SECRET, sub, OK)}`;
@@ -30,16 +29,20 @@ async function dial(path: string, headers: Record<string, string>): Promise<WebS
 const control = async (sub: string, id: string) =>
   new Peer(await dial(`/d/${id}/control?name=box`, { authorization: devBearer(sub) }));
 const daemonRoom = async (sub: string, id: string, rest: string) =>
-  new YPeer(await dial(`/d/${id}/room${rest}`, { authorization: devBearer(sub) }));
+  new DaemonPlanePeer(await dial(`/d/${id}/room${rest}`, { authorization: devBearer(sub) }));
 const browserRoom = async (sub: string, id: string, rest: string) =>
-  new YPeer(await dial(`/m/${id}/room${rest}`, { cookie: devCookie(sub) }));
+  new BrowserPlanePeer(await dial(`/m/${id}/room${rest}`, { cookie: devCookie(sub) }));
 
 /** The fake daemon answers every request with its method, under the id it was given. */
-function answerRpc(daemon: YPeer, seen: string[] = [], result: (method: string) => unknown = (m) => ({ echo: m })) {
+function answerRpc(
+  daemon: DaemonPlanePeer,
+  seen: string[] = [],
+  result: (method: string) => unknown = (m) => ({ echo: m }),
+) {
   daemon.handle((f) => {
     if (typeof f !== "string") return false;
-    const req = JSON.parse(f) as { id?: string | number; method: string };
-    if (req.id === undefined) return false;
+    const req = JSON.parse(f) as { jsonrpc?: string; id?: string | number; method?: string };
+    if (req.jsonrpc !== "2.0" || req.id === undefined || typeof req.method !== "string") return false;
     seen.push(String(req.id));
     daemon.send(JSON.stringify({ jsonrpc: "2.0", id: req.id, result: result(req.method) }));
     return true;
@@ -51,30 +54,31 @@ const rpc = (id: unknown, method: string) => JSON.stringify({ jsonrpc: "2.0", id
 const isOpen = (f: unknown): f is string => typeof f === "string" && f.includes('"t":"open"');
 
 describe("rooms", () => {
-  it("opens the room on demand, replays the exact path, and keeps browser writes out of the doc", async () => {
+  it("opens the room on demand, replays subscriptions, and drops forged browser deltas", async () => {
     const { sub, id } = fresh();
     const ctl = await control(sub, id);
     const browser = await browserRoom(sub, id, "/session?sessionId=s1&path=%2Fwork");
     const open = JSON.parse(await ctl.take(isOpen, "open frame")) as unknown;
     expect(open).toEqual({ t: "open", room: "/session?sessionId=s1&path=%2Fwork" });
 
-    // The daemon fills the doc; until then the browser is not told it is synced.
+    // Until the daemon connects and answers shape/subscribe, the browser is not synced.
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(browser.synced).toBe(false);
 
     // Same room, query in another order.
     const daemon = await daemonRoom(sub, id, "/session?path=%2Fwork&sessionId=s1");
-    daemon.doc.getMap("m").set("fromDaemon", 1);
+    await daemon.until(() => daemon.subscribes >= 1, "replayed shape/subscribe at daemon");
+    daemon.setState("fromDaemon", 1);
     await browser.until(
-      () => browser.synced && browser.doc.getMap("m").get("fromDaemon") === 1,
+      () => browser.synced && browser.state.get("fromDaemon") === 1,
       "daemon state in browser",
     );
-    // Clients write through RPC; a stray browser edit reaches neither the relay doc nor the daemon.
-    browser.doc.getMap("m").set("fromBrowser", 2);
-    daemon.doc.getMap("m").set("again", 3);
-    await browser.until(() => browser.doc.getMap("m").get("again") === 3, "live daemon edit");
+    // Clients write through RPC; a forged browser shape/delta reaches neither peers nor daemon.
+    browser.forgeDelta("fromBrowser", 2);
+    daemon.setState("again", 3);
+    await browser.until(() => browser.state.get("again") === 3, "live daemon edit");
     await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(daemon.doc.getMap("m").get("fromBrowser")).toBeUndefined();
+    expect(daemon.state.get("fromBrowser")).toBeUndefined();
     for (const p of [browser, daemon, ctl]) p.close();
   });
 
@@ -90,7 +94,7 @@ describe("rooms", () => {
     for (const p of [a, b, c, ctl]) p.close();
   });
 
-  it("routes RPC by client tag and broadcasts notifications", async () => {
+  it("routes RPC and shape subscriptions by client tag and broadcasts notifications", async () => {
     const { sub, id } = fresh();
     const ctl = await control(sub, id);
     const b1 = await browserRoom(sub, id, "/kernel");
@@ -98,7 +102,9 @@ describe("rooms", () => {
     await ctl.take(isOpen, "open");
     const daemon = await daemonRoom(sub, id, "/kernel");
     const seen = answerRpc(daemon);
-    await b1.until(() => b1.synced, "b1 synced");
+    await b1.until(() => b1.synced && b2.synced, "b1 & b2 synced");
+    // Both browsers used subscriptionId "sub-1"; daemon saw two distinct tagged subscriptions.
+    expect(daemon.subscriptions.size).toBe(2);
 
     b1.send(rpc(1, "from-b1"));
     b2.send(rpc(1, "from-b2"));
@@ -152,7 +158,7 @@ describe("rooms", () => {
     for (const p of [b, daemon, ctl]) p.close();
   });
 
-  it("relays awareness untouched and tells the daemon when a browser leaves", async () => {
+  it("relays presence untouched and unsubscribes + removes presence when a browser leaves", async () => {
     const { sub, id } = fresh();
     const ctl = await control(sub, id);
     const b1 = await browserRoom(sub, id, "/kernel");
@@ -161,27 +167,29 @@ describe("rooms", () => {
     const daemon = await daemonRoom(sub, id, "/kernel");
     await b1.until(() => b1.synced && b2.synced, "synced");
 
-    const frame = awarenessFrame(42, 3, { cursor: 1 });
+    const frame = presenceFrame(42, 3, { cursor: 1 });
     b1.send(frame);
-    const atDaemon = await daemon.until(() => daemon.awareness[0], "awareness at daemon");
-    expect([...atDaemon]).toEqual([...frame]);
-    await b2.until(() => b2.awareness[0], "awareness at other browser");
-    expect(b1.awareness).toHaveLength(0);
+    const atDaemon = await daemon.until(() => daemon.presence[0], "presence at daemon");
+    expect(atDaemon).toEqual(JSON.parse(frame));
+    await b2.until(() => b2.presence[0], "presence at other browser");
+    expect(b1.presence).toHaveLength(0);
 
-    // Daemon awareness reaches every browser.
-    const back = awarenessFrame(7, 1, { seat: "kernel" });
+    // Daemon presence reaches every browser.
+    const back = presenceFrame(7, 1, { seat: "kernel" });
     daemon.send(back);
-    await b1.until(() => b1.awareness[0], "daemon awareness at b1");
-    await b2.until(() => b2.awareness.length > 1, "daemon awareness at b2");
+    await b1.until(() => b1.presence[0], "daemon presence at b1");
+    await b2.until(() => b2.presence.length > 1, "daemon presence at b2");
 
-    daemon.awareness.length = 0;
+    daemon.presence.length = 0;
     b1.close();
-    const removal = await daemon.until(() => daemon.awareness[0], "removal at daemon");
-    expect(readAwarenessFrame(removal)).toEqual([{ id: 42, clock: 4, removed: true }]);
+    const removal = await daemon.until(() => daemon.presence[0], "removal at daemon");
+    expect(readPresenceEntries(removal.entries)).toEqual([{ id: 42, clock: 4, removed: true }]);
+    await daemon.until(() => daemon.unsubscribes === 1, "unsubscribe at daemon on browser close");
+    expect(daemon.subscriptions.size).toBe(1);
     for (const p of [b2, daemon, ctl]) p.close();
   });
 
-  it("asks the daemon for awareness when a browser joins and forwards the daemon keepalive", async () => {
+  it("asks the daemon for presence when a browser joins and forwards daemon ping keepalives", async () => {
     const { sub, id } = fresh();
     const ctl = await control(sub, id);
     const first = await browserRoom(sub, id, "/kernel");
@@ -190,10 +198,9 @@ describe("rooms", () => {
     await first.until(() => first.synced, "synced");
     const before = daemon.queries;
     const late = await browserRoom(sub, id, "/kernel");
-    await daemon.until(() => daemon.queries > before, "awareness query");
-    const keepalive = new Uint8Array([MESSAGE_QUERY_AWARENESS]);
-    daemon.send(keepalive);
-    await late.until(() => late.queries > 0, "keepalive at browser");
+    await daemon.until(() => daemon.queries > before, "presence query");
+    daemon.send('{"kind":"ping"}');
+    await late.until(() => late.pings > 0, "keepalive at browser");
     for (const p of [first, late, daemon, ctl]) p.close();
   });
 
@@ -266,26 +273,27 @@ describe("rooms", () => {
     expect((await daemon.closedWith()).reason).toBe("machine offline");
   });
 
-  it("re-asks for state when a room's document is recreated (hibernation wake)", async () => {
+  it("replays browser shape subscriptions and presence query on hibernation wake", async () => {
     const { sub, id } = fresh();
     const ctl = await control(sub, id);
     const b = await browserRoom(sub, id, "/kernel");
     await ctl.take(isOpen, "open");
     const daemon = await daemonRoom(sub, id, "/kernel");
-    daemon.doc.getMap("m").set("k", "v");
-    await b.until(() => b.doc.getMap("m").get("k") === "v", "state");
-    // What a wake leaves behind: sockets kept, memory gone.
+    daemon.setState("k", "v");
+    await b.until(() => b.state.get("k") === "v", "state");
+    // What a wake leaves behind: sockets + serialized attachments kept, in-memory rooms map cleared.
     await runInDurableObject(machineStub(env, sub, id), (instance: unknown) => {
       (instance as { rooms: Map<string, unknown> }).rooms.clear();
     });
-    const asked = { b: b.step1s, daemon: daemon.step1s };
-    // The next frame wakes the room: everyone is asked for state again.
-    b.send(awarenessFrame(1, 1, {}));
-    await daemon.until(() => daemon.step1s > asked.daemon, "step 1 at daemon");
-    await b.until(() => b.step1s > asked.b, "step 1 at browser");
-    // The daemon's answer refilled the room, so a browser joining now gets the state.
+    const askedSubs = daemon.subscribes;
+    const askedQueries = daemon.queries;
+    daemon.setState("k2", "v2");
+    // The next frame wakes the room: stored browser subscriptions and presence query are replayed to daemon.
+    b.send(presenceFrame(1, 1, {}));
+    await daemon.until(() => daemon.subscribes > askedSubs && daemon.queries > askedQueries, "replayed after wake");
+    await b.until(() => b.state.get("k2") === "v2", "resynced state after wake");
     const late = await browserRoom(sub, id, "/kernel");
-    await late.until(() => late.doc.getMap("m").get("k") === "v", "state after wake");
+    await late.until(() => late.state.get("k") === "v" && late.state.get("k2") === "v2", "state for late browser");
     for (const p of [b, late, daemon, ctl]) p.close();
   });
 
@@ -424,7 +432,7 @@ describe("TunnelServer", () => {
     expect(tunnel.inflight).toBe(0);
   });
 
-  it("ignores frames for calls it does not know", () => {
+  it("ignores frames for calls it does not know", async () => {
     const tunnel = new TunnelServer(() => undefined);
     tunnel.onText(encodeNodeFrame({ t: "end", id: 99 }));
     tunnel.onBinary(encodeChunk(99, new Uint8Array(1)));

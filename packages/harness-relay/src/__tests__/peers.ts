@@ -1,21 +1,13 @@
 import { handleChunked, sendChunked } from "@inhuman.tools/chunked-websocket";
-import { DocumentContainer } from "@inhuman.tools/model";
-
-import { RelayRoomRoot } from "../room-model.js";
-
-import { MESSAGE_AWARENESS, MESSAGE_SYNC } from "../sync/constants.js";
-import {
-  encodeDocUpdate,
-  encodeSyncStep1,
-  handleSyncFrame,
-  peekFrame,
-  SYNC_STEP1,
-  SYNC_STEP2,
-} from "../sync/protocol.js";
-
-const textEncoder = new TextEncoder();
 
 export type Frame = string | Uint8Array;
+
+export function presenceFrame(id: number, clock: number, state: Record<string, unknown> | null): string {
+  return JSON.stringify({
+    kind: "presence/update",
+    entries: [[id, state, clock]],
+  });
+}
 
 /** A socket the test drives: chunked framing in and out, application frames queued. */
 export class Peer {
@@ -45,7 +37,7 @@ export class Peer {
     this.wake();
   }
 
-  private wake(): void {
+  protected wake(): void {
     for (const w of this.waiters) w();
   }
 
@@ -109,70 +101,159 @@ export class Peer {
   }
 }
 
-/** A y-websocket-style replica: says step 1 on open, answers the peer's, relays its own edits. */
-export class YPeer extends Peer {
-  readonly doc: DocumentContainer<RelayRoomRoot> & {
-    getMap(name: string): {
-      get(key: string): unknown;
-      set(key: string, value: unknown): void;
-    };
-  };
-  /** Sync step 2 arrived: the peer answered our step 1. */
+/** Browser-side reactivity plane peer: subscribes to a shape on open, tracks deltas and presence. */
+export class BrowserPlanePeer extends Peer {
+  readonly state = new Map<string, unknown>();
   synced = false;
-  awareness: Uint8Array[] = [];
-  queries = 0;
-  /** Sync step 1 frames received from the peer. */
-  step1s = 0;
+  presence: Array<Record<string, unknown>> = [];
+  pings = 0;
 
-  constructor(ws: WebSocket) {
+  constructor(ws: WebSocket, readonly subscriptionId = "sub-1") {
     super(ws);
-    const rawDoc = new DocumentContainer(new RelayRoomRoot());
-    this.doc = Object.assign(rawDoc, {
-      getMap: (_name: string) => ({
-        get: (key: string): unknown => (rawDoc.root as RelayRoomRoot).m[key],
-        set: (key: string, value: unknown): void => {
-          rawDoc.transact(() => {
-            (rawDoc.root as RelayRoomRoot).m = {
-              ...(rawDoc.root as RelayRoomRoot).m,
-              [key]: value,
-            };
-          });
-        },
-      }),
+    this.handle((f) => {
+      if (typeof f !== "string") return false;
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(f) as Record<string, unknown>;
+      } catch {
+        return false;
+      }
+      if (typeof parsed.kind !== "string") return false;
+      switch (parsed.kind) {
+        case "shape/delta": {
+          if (parsed.reset === true) this.state.clear();
+          if (Array.isArray(parsed.upserts)) {
+            for (const row of parsed.upserts) {
+              if (row && typeof row === "object" && "key" in row) {
+                const r = row as { key: string; value: unknown };
+                this.state.set(r.key, r.value);
+              }
+            }
+          }
+          if (Array.isArray(parsed.deletes)) {
+            for (const key of parsed.deletes) {
+              if (typeof key === "string") this.state.delete(key);
+            }
+          }
+          if (parsed.upToDate === true) this.synced = true;
+          return true;
+        }
+        case "presence/update":
+        case "presence/state":
+          this.presence.push(parsed);
+          return true;
+        case "ping":
+          this.pings++;
+          return true;
+        case "pong":
+          return true;
+        default:
+          return false;
+      }
     });
 
-    this.handle((f) => {
-      if (typeof f === "string") return false;
-      const head = peekFrame(f);
-      if (head.type === MESSAGE_SYNC) {
-        if (head.sync === SYNC_STEP2) this.synced = true;
-        if (head.sync === SYNC_STEP1) this.step1s++;
-        const reply = handleSyncFrame(f, this.doc, "remote");
-        if (reply !== null) this.send(reply);
-        return true;
-      }
-      if (head.type === MESSAGE_AWARENESS) {
-        this.awareness.push(f);
-        return true;
-      }
-      if (head.type === 3) {
-        this.queries++;
-        return true;
-      }
-      return false;
-    });
-    this.doc.on("update", (update: Uint8Array, origin: unknown) => {
-      if (origin !== "remote") this.send(encodeDocUpdate(update));
-    });
-    this.send(encodeSyncStep1(this.doc));
+    this.send(
+      JSON.stringify({
+        kind: "shape/subscribe",
+        subscriptionId: this.subscriptionId,
+        lane: "scope_nodes",
+        params: { scopeId: "kernel" },
+      }),
+    );
+  }
+
+  /** Attempt an unauthorized client-side shape/delta write (must be dropped by relay). */
+  forgeDelta(key: string, value: unknown): void {
+    this.send(
+      JSON.stringify({
+        kind: "shape/delta",
+        subscriptionId: this.subscriptionId,
+        lane: "scope_nodes",
+        offset: 999,
+        reset: false,
+        upserts: [{ key, value }],
+        deletes: [],
+        upToDate: true,
+      }),
+    );
   }
 }
 
-/** Awareness frame (type byte included) for one client. */
-export function awarenessFrame(id: number, clock: number, stateVal: unknown): Uint8Array {
-  const payload = textEncoder.encode(JSON.stringify({ entries: [[id, stateVal, clock]] }));
-  const frame = new Uint8Array(1 + payload.byteLength);
-  frame[0] = MESSAGE_AWARENESS;
-  frame.set(payload, 1);
-  return frame;
+/** Daemon-side reactivity plane peer: serves SQLite shape subscriptions and records presence/queries. */
+export class DaemonPlanePeer extends Peer {
+  readonly state = new Map<string, unknown>();
+  readonly subscriptions = new Map<string, string>();
+  subscribes = 0;
+  unsubscribes = 0;
+  queries = 0;
+  presence: Array<Record<string, unknown>> = [];
+  private offset = 0;
+
+  constructor(ws: WebSocket) {
+    super(ws);
+    this.handle((f) => {
+      if (typeof f !== "string") return false;
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(f) as Record<string, unknown>;
+      } catch {
+        return false;
+      }
+      if (typeof parsed.kind !== "string") return false;
+      switch (parsed.kind) {
+        case "shape/subscribe": {
+          const subId = String(parsed.subscriptionId ?? "");
+          const lane = String(parsed.lane ?? "scope_nodes");
+          this.subscribes++;
+          this.subscriptions.set(subId, lane);
+          this.send(
+            JSON.stringify({
+              kind: "shape/delta",
+              subscriptionId: subId,
+              lane,
+              offset: this.offset,
+              reset: true,
+              upserts: [...this.state.entries()].map(([key, value]) => ({ key, value })),
+              deletes: [],
+              upToDate: true,
+            }),
+          );
+          return true;
+        }
+        case "shape/unsubscribe": {
+          const subId = String(parsed.subscriptionId ?? "");
+          this.unsubscribes++;
+          this.subscriptions.delete(subId);
+          return true;
+        }
+        case "presence/update":
+          this.presence.push(parsed);
+          return true;
+        case "presence/query":
+          this.queries++;
+          return true;
+        default:
+          return false;
+      }
+    });
+  }
+
+  setState(key: string, value: unknown): void {
+    this.offset++;
+    this.state.set(key, value);
+    for (const [subId, lane] of this.subscriptions) {
+      this.send(
+        JSON.stringify({
+          kind: "shape/delta",
+          subscriptionId: subId,
+          lane,
+          offset: this.offset,
+          reset: false,
+          upserts: [{ key, value }],
+          deletes: [],
+          upToDate: true,
+        }),
+      );
+    }
+  }
 }

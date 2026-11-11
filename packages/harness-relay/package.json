@@ -17,7 +17,6 @@
   "dependencies": {
     "@inhuman.tools/chunked-websocket": "workspace:*",
     "@inhuman.tools/harness-peer": "workspace:*",
-    "@inhuman.tools/model": "workspace:*",
     "jose": "^6.2.13"
   },
   "devDependencies": {

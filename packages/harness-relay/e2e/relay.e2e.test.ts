@@ -90,12 +90,11 @@ describe("relay chain", () => {
       await room.synced();
       const plexus = SessionPlexus.connect(room.doc);
       expect(plexus.root.path).toBe(stack.project);
-      let updates = 0;
-      room.doc.on("update", () => (updates += 1));
+      const revBefore = room.doc.revision;
       const result = await room.call("eval", { requestId: randomUUID(), expr: "(+ 1 2)", policy: "auto" });
       expect(result).toMatchObject({ ok: true });
-      // The program's turn is written by the daemon and arrives as a Yjs update.
-      await until("daemon update", () => updates > 0);
+      // The program's turn is written by the daemon into SQLite and arrives as a shape/delta update.
+      await until("daemon update", () => room.doc.revision > revBefore || plexus.root.head != null);
     }));
 
   it("4. two clients in one room get their own responses", () =>

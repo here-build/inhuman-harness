@@ -5,8 +5,8 @@ use qd::state::shapes::{
     KernelRow, LiveShape, PendingAskKind, PendingAskRow, SessionSummaryRow, ShapeFrame,
 };
 use qd::state::sync::{
-    decode_wire_frame, encode_wire_frame, RpcNotification, RpcRequest, RpcResponse, WireFrame,
-    MESSAGE_AWARENESS, MESSAGE_QUERY_AWARENESS, MESSAGE_SHAPE, MESSAGE_SYNC,
+    decode_wire_frame, encode_wire_frame, JsonRpcFrame, PlaneFrame, PresenceEntry, RpcNotification,
+    RpcRequest, RpcResponse, StreamChannel, SyncCodecError, WireFrame, EDGE_PING_FRAME,
 };
 
 #[test]
@@ -196,55 +196,103 @@ fn test_session_document_state_patch_application() {
 
 #[test]
 fn test_wire_frame_codec() {
-    // 1. Sync frame
-    let sync_frame = WireFrame::Sync(vec![1, 2, 3, 4]);
-    let sync_bytes = encode_wire_frame(&sync_frame);
-    assert_eq!(sync_bytes[0], MESSAGE_SYNC);
-    let decoded_sync = decode_wire_frame(&sync_bytes).expect("decodes sync");
-    assert_eq!(decoded_sync, sync_frame);
+    // 1. Shape subscribe & delta frames
+    let sub_frame = WireFrame::Plane(PlaneFrame::ShapeSubscribe {
+        subscription_id: "sub-1".into(),
+        lane: "session_nodes".into(),
+        params: serde_json::json!({ "sessionId": "s1" }),
+        offset: Some(0),
+    });
+    let sub_bytes = encode_wire_frame(&sub_frame).expect("encodes shape/subscribe");
+    assert_eq!(sub_bytes[0], b'{');
+    let decoded_sub = decode_wire_frame(&sub_bytes).expect("decodes shape/subscribe");
+    assert_eq!(decoded_sub, sub_frame);
 
-    // 2. Awareness frame
-    let awareness_frame = WireFrame::Awareness(vec![10, 20]);
-    let awareness_bytes = encode_wire_frame(&awareness_frame);
-    assert_eq!(awareness_bytes[0], MESSAGE_AWARENESS);
-    let decoded_awareness = decode_wire_frame(&awareness_bytes).expect("decodes awareness");
-    assert_eq!(decoded_awareness, awareness_frame);
+    let mut row = serde_json::Map::new();
+    row.insert("id".into(), serde_json::json!("s1:root"));
+    row.insert("revision".into(), serde_json::json!(3));
+    let delta_frame = WireFrame::Plane(PlaneFrame::ShapeDelta {
+        subscription_id: "sub-1".into(),
+        offset: 3,
+        upserts: vec![row],
+        deletes: vec!["s1:old".into()],
+        reset: Some(true),
+    });
+    let delta_bytes = encode_wire_frame(&delta_frame).expect("encodes shape/delta");
+    assert_eq!(decode_wire_frame(&delta_bytes).expect("decodes shape/delta"), delta_frame);
 
-    // 3. Query awareness frame
-    let query_frame = WireFrame::QueryAwareness;
-    let query_bytes = encode_wire_frame(&query_frame);
-    assert_eq!(query_bytes, vec![MESSAGE_QUERY_AWARENESS]);
-    let decoded_query = decode_wire_frame(&query_bytes).expect("decodes query awareness");
-    assert_eq!(decoded_query, query_frame);
+    // 2. Presence update, state, and query frames (2-tuple and 3-tuple entries)
+    let mut seat = serde_json::Map::new();
+    seat.insert("client".into(), serde_json::json!("tui"));
+    let presence_frame = WireFrame::Plane(PlaneFrame::PresenceUpdate {
+        room: Some("session:s1".into()),
+        entries: vec![
+            PresenceEntry::new(101, Some(seat), Some(4)),
+            PresenceEntry::new(102, None, None),
+        ],
+    });
+    let presence_bytes = encode_wire_frame(&presence_frame).expect("encodes presence/update");
+    let presence_str = std::str::from_utf8(&presence_bytes).unwrap();
+    assert!(presence_str.contains("[101,{\"client\":\"tui\"},4]"));
+    assert!(presence_str.contains("[102,null]"));
+    assert_eq!(
+        decode_wire_frame(&presence_bytes).expect("decodes presence/update"),
+        presence_frame
+    );
 
-    // 4. Shape frame
-    let shape_frame = WireFrame::Shape(vec![0xaa, 0xbb]);
-    let shape_bytes = encode_wire_frame(&shape_frame);
-    assert_eq!(shape_bytes[0], MESSAGE_SHAPE);
-    let decoded_shape = decode_wire_frame(&shape_bytes).expect("decodes shape");
-    assert_eq!(decoded_shape, shape_frame);
+    let query_frame = WireFrame::Plane(PlaneFrame::PresenceQuery { room: None });
+    let query_bytes = encode_wire_frame(&query_frame).expect("encodes presence/query");
+    assert_eq!(decode_wire_frame(&query_bytes).expect("decodes presence/query"), query_frame);
 
-    // 5. JSON-RPC request frame
+    // 3. Ephemeral mid-round stream/delta frame
+    let stream_frame = WireFrame::Plane(PlaneFrame::StreamDelta {
+        session_id: "s1".into(),
+        channel: StreamChannel::Assistant,
+        target_id: "msg-1".into(),
+        text: Some("hello".into()),
+        thought: None,
+        tail: None,
+        byte_offset: None,
+        done: Some(false),
+    });
+    let stream_bytes = encode_wire_frame(&stream_frame).expect("encodes stream/delta");
+    assert_eq!(
+        decode_wire_frame(&stream_bytes).expect("decodes stream/delta"),
+        stream_frame
+    );
+
+    // 4. Edge keepalives (" ping" / " pong") and JSON ping/pong
+    let edge_ping = encode_wire_frame(&WireFrame::EdgePing).expect("encodes edge ping");
+    assert_eq!(edge_ping, EDGE_PING_FRAME.as_bytes());
+    assert_eq!(
+        decode_wire_frame(&edge_ping).expect("decodes edge ping"),
+        WireFrame::EdgePing
+    );
+
+    // 5. JSON-RPC request, response, and notification frames
     let req = RpcRequest::new(1, "session/ask/answer", serde_json::json!({ "approved": true }));
-    let req_json = serde_json::to_string(&req).unwrap();
-    let rpc_frame = WireFrame::JsonRpc(req_json.clone());
-    let rpc_bytes = encode_wire_frame(&rpc_frame);
-    assert_eq!(rpc_bytes[0], b'{');
-    let decoded_rpc = decode_wire_frame(&rpc_bytes).expect("decodes json-rpc");
-    if let WireFrame::JsonRpc(decoded_json) = decoded_rpc {
-        let parsed: RpcRequest = serde_json::from_str(&decoded_json).unwrap();
-        assert_eq!(parsed.method, "session/ask/answer");
-        assert_eq!(parsed.id, 1);
-    } else {
-        panic!("Expected JsonRpc frame");
-    }
+    let rpc_req = WireFrame::JsonRpc(JsonRpcFrame::Request(req));
+    let rpc_bytes = encode_wire_frame(&rpc_req).expect("encodes json-rpc request");
+    assert_eq!(decode_wire_frame(&rpc_bytes).expect("decodes json-rpc request"), rpc_req);
 
-    // 6. JSON-RPC response and notification
     let resp = RpcResponse::ok(1, serde_json::json!({ "status": "ok" }));
-    let resp_str = serde_json::to_string(&resp).unwrap();
-    assert!(resp_str.contains("\"result\":{\"status\":\"ok\"}"));
+    let rpc_resp = WireFrame::JsonRpc(JsonRpcFrame::Response(resp));
+    let resp_bytes = encode_wire_frame(&rpc_resp).expect("encodes json-rpc response");
+    assert_eq!(decode_wire_frame(&resp_bytes).expect("decodes json-rpc response"), rpc_resp);
 
     let notif = RpcNotification::new("session/turn/stream", serde_json::json!({ "chunk": "hi" }));
-    let notif_str = serde_json::to_string(&notif).unwrap();
-    assert!(notif_str.contains("\"method\":\"session/turn/stream\""));
+    let rpc_notif = WireFrame::JsonRpc(JsonRpcFrame::Notification(notif));
+    let notif_bytes = encode_wire_frame(&rpc_notif).expect("encodes json-rpc notification");
+    assert_eq!(
+        decode_wire_frame(&notif_bytes).expect("decodes json-rpc notification"),
+        rpc_notif
+    );
+
+    // 6. Error handling on empty / binary / invalid frames
+    assert!(matches!(decode_wire_frame(&[]), Err(SyncCodecError::EmptyPayload)));
+    assert!(matches!(decode_wire_frame(&[0xff, 0xfe]), Err(SyncCodecError::Utf8Error(_))));
+    assert!(matches!(
+        decode_wire_frame(b"{\"unrelated\":true}"),
+        Err(SyncCodecError::UnrecognizedFrame)
+    ));
 }

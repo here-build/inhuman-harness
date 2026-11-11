@@ -1,24 +1,24 @@
-//! Wire frame codec and JSON-RPC 2.0 framing for daemon communication.
+//! UTF-8 JSON reactivity plane (`shape/*`, `presence/*`, `stream/delta`, `ping`/`pong`)
+//! and JSON-RPC 2.0 wire frame codec for daemon communication.
 
-use serde::{Deserialize, Serialize};
+use serde::de::{self, SeqAccess, Visitor};
+use serde::ser::SerializeSeq;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
-pub const MESSAGE_SYNC: u8 = 0;
-pub const MESSAGE_AWARENESS: u8 = 1;
-pub const MESSAGE_QUERY_AWARENESS: u8 = 3;
-pub const MESSAGE_SHAPE: u8 = 4;
-pub const TAG_JSON_RPC: u8 = 0x7b; // ASCII '{'
+pub const EDGE_PING_FRAME: &str = " ping";
+pub const EDGE_PONG_FRAME: &str = " pong";
 
 #[derive(Debug, Error)]
 pub enum SyncCodecError {
     #[error("Empty wire payload")]
     EmptyPayload,
-    #[error("Unknown wire message type: {0:#04x}")]
-    UnknownMessageType(u8),
-    #[error("Invalid UTF-8 in JSON-RPC frame: {0}")]
+    #[error("Invalid UTF-8 in wire frame: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
+    #[error("Unrecognized wire frame envelope")]
+    UnrecognizedFrame,
 }
 
 /// JSON-RPC 2.0 Request
@@ -32,7 +32,11 @@ pub struct RpcRequest {
 }
 
 impl RpcRequest {
-    pub fn new(id: impl Into<serde_json::Value>, method: impl Into<String>, params: serde_json::Value) -> Self {
+    pub fn new(
+        id: impl Into<serde_json::Value>,
+        method: impl Into<String>,
+        params: serde_json::Value,
+    ) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
             id: id.into(),
@@ -111,57 +115,249 @@ impl RpcNotification {
     }
 }
 
-/// Top-level wire frames exchanged across the plane transport.
+/// Parsed JSON-RPC 2.0 envelope.
 #[derive(Debug, Clone, PartialEq)]
-pub enum WireFrame {
-    Sync(Vec<u8>),
-    Awareness(Vec<u8>),
-    QueryAwareness,
-    Shape(Vec<u8>),
-    JsonRpc(String),
+pub enum JsonRpcFrame {
+    Request(RpcRequest),
+    Response(RpcResponse),
+    Notification(RpcNotification),
 }
 
-/// Decode raw wire bytes into a WireFrame.
+/// Ephemeral presence entry tuple `[clientId, state | null, clock?]`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PresenceEntry {
+    pub client_id: i64,
+    pub state: Option<serde_json::Map<String, serde_json::Value>>,
+    pub clock: Option<u64>,
+}
+
+impl PresenceEntry {
+    pub fn new(
+        client_id: i64,
+        state: Option<serde_json::Map<String, serde_json::Value>>,
+        clock: Option<u64>,
+    ) -> Self {
+        Self {
+            client_id,
+            state,
+            clock,
+        }
+    }
+}
+
+impl Serialize for PresenceEntry {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let len = if self.clock.is_some() { 3 } else { 2 };
+        let mut seq = serializer.serialize_seq(Some(len))?;
+        seq.serialize_element(&self.client_id)?;
+        seq.serialize_element(&self.state)?;
+        if let Some(clock) = self.clock {
+            seq.serialize_element(&clock)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for PresenceEntry {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct PresenceVisitor;
+
+        impl<'de> Visitor<'de> for PresenceVisitor {
+            type Value = PresenceEntry;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a 2- or 3-element presence tuple [clientId, state, clock?]")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let client_id: i64 = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let state: Option<serde_json::Map<String, serde_json::Value>> = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let clock: Option<u64> = seq.next_element()?;
+                Ok(PresenceEntry {
+                    client_id,
+                    state,
+                    clock,
+                })
+            }
+        }
+
+        deserializer.deserialize_seq(PresenceVisitor)
+    }
+}
+
+/// Ephemeral mid-round streaming channel.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum StreamChannel {
+    Assistant,
+    Shell,
+}
+
+/// Unified UTF-8 JSON reactivity plane frames (`shape/*`, `presence/*`, `stream/delta`, `ping`/`pong`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind")]
+pub enum PlaneFrame {
+    #[serde(rename = "shape/subscribe")]
+    ShapeSubscribe {
+        #[serde(rename = "subscriptionId")]
+        subscription_id: String,
+        lane: String,
+        #[serde(default = "empty_json_object")]
+        params: serde_json::Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        offset: Option<u64>,
+    },
+    #[serde(rename = "shape/unsubscribe")]
+    ShapeUnsubscribe {
+        #[serde(rename = "subscriptionId")]
+        subscription_id: String,
+    },
+    #[serde(rename = "shape/delta")]
+    ShapeDelta {
+        #[serde(rename = "subscriptionId")]
+        subscription_id: String,
+        offset: u64,
+        #[serde(default)]
+        upserts: Vec<serde_json::Map<String, serde_json::Value>>,
+        #[serde(default)]
+        deletes: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reset: Option<bool>,
+    },
+    #[serde(rename = "presence/update")]
+    PresenceUpdate {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
+        entries: Vec<PresenceEntry>,
+    },
+    #[serde(rename = "presence/state")]
+    PresenceState {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
+        entries: Vec<PresenceEntry>,
+    },
+    #[serde(rename = "presence/query")]
+    PresenceQuery {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
+    },
+    #[serde(rename = "stream/delta")]
+    StreamDelta {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        channel: StreamChannel,
+        #[serde(rename = "targetId")]
+        target_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        thought: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tail: Option<String>,
+        #[serde(rename = "byteOffset", skip_serializing_if = "Option::is_none")]
+        byte_offset: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        done: Option<bool>,
+    },
+    #[serde(rename = "ping")]
+    Ping {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ts: Option<f64>,
+    },
+    #[serde(rename = "pong")]
+    Pong {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ts: Option<f64>,
+    },
+}
+
+fn empty_json_object() -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
+}
+
+/// Top-level UTF-8 text frames exchanged across the plane transport.
+#[derive(Debug, Clone, PartialEq)]
+pub enum WireFrame {
+    Plane(PlaneFrame),
+    JsonRpc(JsonRpcFrame),
+    EdgePing,
+    EdgePong,
+}
+
+/// Decode a UTF-8 text wire payload into a typed [`WireFrame`].
 pub fn decode_wire_frame(bytes: &[u8]) -> Result<WireFrame, SyncCodecError> {
     if bytes.is_empty() {
         return Err(SyncCodecError::EmptyPayload);
     }
 
-    match bytes[0] {
-        MESSAGE_SYNC => Ok(WireFrame::Sync(bytes[1..].to_vec())),
-        MESSAGE_AWARENESS => Ok(WireFrame::Awareness(bytes[1..].to_vec())),
-        MESSAGE_QUERY_AWARENESS => Ok(WireFrame::QueryAwareness),
-        MESSAGE_SHAPE => Ok(WireFrame::Shape(bytes[1..].to_vec())),
-        TAG_JSON_RPC => {
-            let json_str = std::str::from_utf8(bytes)?;
-            Ok(WireFrame::JsonRpc(json_str.to_string()))
-        }
-        other => Err(SyncCodecError::UnknownMessageType(other)),
+    let text = std::str::from_utf8(bytes)?;
+    if text == EDGE_PING_FRAME || text.trim() == "ping" {
+        return Ok(WireFrame::EdgePing);
     }
+    if text == EDGE_PONG_FRAME || text.trim() == "pong" {
+        return Ok(WireFrame::EdgePong);
+    }
+
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return Err(SyncCodecError::EmptyPayload);
+    }
+
+    let value: serde_json::Value = serde_json::from_str(trimmed)?;
+    let Some(obj) = value.as_object() else {
+        return Err(SyncCodecError::UnrecognizedFrame);
+    };
+
+    if obj.contains_key("kind") {
+        let plane: PlaneFrame = serde_json::from_value(value)?;
+        return Ok(WireFrame::Plane(plane));
+    }
+
+    if obj.get("jsonrpc").and_then(serde_json::Value::as_str) == Some("2.0") {
+        if obj.contains_key("method") {
+            if obj.contains_key("id") {
+                let req: RpcRequest = serde_json::from_value(value)?;
+                return Ok(WireFrame::JsonRpc(JsonRpcFrame::Request(req)));
+            }
+            let notif: RpcNotification = serde_json::from_value(value)?;
+            return Ok(WireFrame::JsonRpc(JsonRpcFrame::Notification(notif)));
+        }
+        if obj.contains_key("id") && (obj.contains_key("result") || obj.contains_key("error")) {
+            let resp: RpcResponse = serde_json::from_value(value)?;
+            return Ok(WireFrame::JsonRpc(JsonRpcFrame::Response(resp)));
+        }
+    }
+
+    Err(SyncCodecError::UnrecognizedFrame)
 }
 
-/// Encode a WireFrame into wire protocol bytes.
-pub fn encode_wire_frame(frame: &WireFrame) -> Vec<u8> {
+/// Encode a [`WireFrame`] into UTF-8 wire bytes.
+pub fn encode_wire_frame(frame: &WireFrame) -> Result<Vec<u8>, SyncCodecError> {
+    let text = encode_wire_text(frame)?;
+    Ok(text.into_bytes())
+}
+
+/// Encode a [`WireFrame`] into a UTF-8 wire text string.
+pub fn encode_wire_text(frame: &WireFrame) -> Result<String, SyncCodecError> {
     match frame {
-        WireFrame::Sync(payload) => {
-            let mut out = Vec::with_capacity(1 + payload.len());
-            out.push(MESSAGE_SYNC);
-            out.extend_from_slice(payload);
-            out
-        }
-        WireFrame::Awareness(payload) => {
-            let mut out = Vec::with_capacity(1 + payload.len());
-            out.push(MESSAGE_AWARENESS);
-            out.extend_from_slice(payload);
-            out
-        }
-        WireFrame::QueryAwareness => vec![MESSAGE_QUERY_AWARENESS],
-        WireFrame::Shape(payload) => {
-            let mut out = Vec::with_capacity(1 + payload.len());
-            out.push(MESSAGE_SHAPE);
-            out.extend_from_slice(payload);
-            out
-        }
-        WireFrame::JsonRpc(text) => text.as_bytes().to_vec(),
+        WireFrame::Plane(plane) => Ok(serde_json::to_string(plane)?),
+        WireFrame::JsonRpc(JsonRpcFrame::Request(req)) => Ok(serde_json::to_string(req)?),
+        WireFrame::JsonRpc(JsonRpcFrame::Response(resp)) => Ok(serde_json::to_string(resp)?),
+        WireFrame::JsonRpc(JsonRpcFrame::Notification(notif)) => Ok(serde_json::to_string(notif)?),
+        WireFrame::EdgePing => Ok(EDGE_PING_FRAME.to_string()),
+        WireFrame::EdgePong => Ok(EDGE_PONG_FRAME.to_string()),
     }
 }

@@ -10,9 +10,9 @@ pub use shapes::{
     KernelRow, LiveShape, PendingAskKind, PendingAskRow, SessionSummaryRow, ShapeFrame, ShapeOp,
 };
 pub use sync::{
-    decode_wire_frame, encode_wire_frame, RpcError, RpcNotification, RpcRequest, RpcResponse,
-    SyncCodecError, WireFrame, MESSAGE_AWARENESS, MESSAGE_QUERY_AWARENESS, MESSAGE_SHAPE,
-    MESSAGE_SYNC, TAG_JSON_RPC,
+    decode_wire_frame, encode_wire_frame, encode_wire_text, JsonRpcFrame, PlaneFrame,
+    PresenceEntry, RpcError, RpcNotification, RpcRequest, RpcResponse, StreamChannel,
+    SyncCodecError, WireFrame, EDGE_PING_FRAME, EDGE_PONG_FRAME,
 };
 pub use ui::{
     auth_line, best_model, build_compact_surface, build_connect_surface, build_mcp_surface,

@@ -1,26 +1,25 @@
 import { ChunkedDOTransport } from "@inhuman.tools/chunked-websocket/server";
-import { DocumentContainer } from "@inhuman.tools/model";
 import { DurableObject } from "cloudflare:workers";
 
 import { CLOSE_BAD_ROOM, CLOSE_OFFLINE, CLOSE_REPLACED, CLOSE_ROOM_CLOSED, isConnectorCode } from "./close-codes.js";
-import { RelayRoomRoot } from "./room-model.js";
+import {
+  encodePresenceRemoval,
+  encodeTaggedSubscribe,
+  encodeTaggedUnsubscribe,
+  PRESENCE_QUERY_TEXT,
+  routeBrowserPlane,
+  routeDaemonPlane,
+  type AnnouncedPresence,
+  type PresenceClient,
+  type StoredSubscription,
+} from "./plane.js";
 import { newClientTag, parseRoom, roomKey, tagKey } from "./room.js";
 import { noDaemonReply, restoreResponse, rewriteRequest } from "./rpc.js";
 import { userStub } from "./stubs.js";
-import { encodeAwarenessRemoval, readAwarenessFrame, type AwarenessClient } from "./sync/awareness.js";
-import { MESSAGE_AWARENESS, MESSAGE_QUERY_AWARENESS, MESSAGE_SHAPE, MESSAGE_SYNC } from "./sync/constants.js";
-import {
-  encodeDocUpdate,
-  encodeSyncStep1,
-  handleSyncFrame,
-  peekFrame,
-  SYNC_STEP1,
-  SYNC_STEP2,
-} from "./sync/protocol.js";
 import { encodeServerFrame, PING, PONG } from "./tunnel/protocol.js";
 import { TunnelServer } from "./tunnel/server.js";
 
-/** The last browser left: keep the daemon room socket and the doc this long in case a tab reloads. */
+/** The last browser left: keep the daemon room socket this long in case a tab reloads. */
 const DEFAULT_ROOM_GRACE_MS = 30_000;
 /** The control socket is gone: keep daemon room sockets this long in case the connector reconnects. */
 const DEFAULT_CONTROL_GRACE_MS = 60_000;
@@ -29,6 +28,7 @@ const OPEN_DEBOUNCE_MS = 10_000;
 /** Structured-clone attachments are capped at 2 KiB. */
 const ATTACHMENT_BUDGET = 1800;
 const MAX_AWARENESS_CLIENTS = 24;
+const MAX_SUBSCRIPTIONS = 16;
 
 interface ControlAttachment {
   role: "control";
@@ -47,28 +47,19 @@ interface DaemonAttachment {
 interface BrowserAttachment {
   role: "browser";
   room: string;
-  /** Random per socket; prefixes its JSON-RPC ids. */
+  /** Random per socket; prefixes its JSON-RPC ids and shape subscriptionIds. */
   clientTag: string;
-  /** Awareness clients this socket announced: [id, latest clock]. */
+  /** Presence clients this socket announced: [id, latest clock]. */
   aw: [number, number][];
+  /** Active shape subscriptions announced by this socket (hibernation-safe). */
+  subs: StoredSubscription[];
 }
 type Attachment = ControlAttachment | DaemonAttachment | BrowserAttachment;
 
-/** One room: memory only, rebuilt after hibernation. */
+/** Per-room in-memory marker; cleared when the DO hibernates so wake re-syncs open sockets. */
 interface Room {
-  doc: DocumentContainer<RelayRoomRoot>;
-  /** The daemon answered our sync step 1 in this lifetime, so the doc holds its state. Browsers wait for it. */
-  ready: boolean;
-  /** Browser step 1 frames held until `ready`. */
-  parked: Map<WebSocket, Uint8Array>;
+  active: boolean;
 }
-
-const QUERY_AWARENESS = new Uint8Array([MESSAGE_QUERY_AWARENESS]);
-
-const toBuffer = (u8: Uint8Array): ArrayBuffer =>
-  u8.byteOffset === 0 && u8.byteLength === u8.buffer.byteLength
-    ? (u8.buffer as ArrayBuffer)
-    : (u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer);
 
 const offline = (): Response =>
   new Response(
@@ -81,8 +72,9 @@ const offline = (): Response =>
 
 /**
  * One per (sub, machineId). Holds the daemon's control socket (presence and the HTTP tunnel), and
- * per room the daemon's room socket plus any browsers, with one in-memory Y.Doc each. Documents never
- * touch storage; the daemon stays the source of truth. Close codes and framing: PROTOCOL.md.
+ * per room the daemon's room socket plus any browsers, routing UTF-8 JSON reactivity plane frames
+ * (`shape/*`, `presence/*`, `stream/delta`, `ping`/`pong`) and JSON-RPC envelopes. The daemon's
+ * SQLite database stays the sole source of truth. Close codes and framing: PROTOCOL.md.
  */
 export class MachineDO extends DurableObject<Env> {
   private readonly rooms = new Map<string, Room>();
@@ -208,20 +200,21 @@ export class MachineDO extends DurableObject<Env> {
       return new Response(null, { status: 101, webSocket: client });
     }
 
-    const existed = this.rooms.has(key);
     if (role === "daemon") {
       // A redialing connector supersedes its stale room socket.
       for (const old of this.ctx.getWebSockets(`daemon:${tagKey(key)}`)) old.close(CLOSE_REPLACED, "replaced");
     }
     this.ctx.acceptWebSocket(server, [`${role}:${tagKey(key)}`]);
+    this.rooms.set(key, { active: true });
     if (role === "daemon") {
+      const browsers = this.browserSockets(key);
       const att: DaemonAttachment = { role, room: original };
-      if (this.browserSockets(key).length === 0) att.idleSince = Date.now();
+      if (browsers.length === 0) att.idleSince = Date.now();
       server.serializeAttachment(att);
       this.opening.delete(key);
-      const room = this.room(key);
-      room.ready = false;
-      if (existed) this.sendStep1(server, room);
+      if (browsers.length > 0) {
+        this.replayBrowserStateToDaemon(server, browsers);
+      }
       if (att.idleSince !== undefined) await this.scheduleAlarm(att.idleSince + this.roomGrace());
     } else {
       server.serializeAttachment({
@@ -229,51 +222,51 @@ export class MachineDO extends DurableObject<Env> {
         room: original,
         clientTag: newClientTag(),
         aw: [],
+        subs: [],
       } satisfies BrowserAttachment);
-      const room = this.room(key);
-      if (existed) this.sendStep1(server, room);
       const daemon = this.daemonSocket(key);
       if (daemon === undefined) {
         this.requestOpen(original, key);
       } else {
         this.clearIdle(daemon);
-        // The daemon sent its awareness snapshot to the relay once; ask again so this browser gets it.
-        this.send(daemon, QUERY_AWARENESS);
+        // Ask the daemon for its current presence snapshot so the newly joined browser receives it.
+        this.send(daemon, PRESENCE_QUERY_TEXT);
       }
     }
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  private room(key: string): Room {
-    let room = this.rooms.get(key);
-    if (room === undefined) {
-      const created: Room = { doc: new DocumentContainer(new RelayRoomRoot()), ready: false, parked: new Map() };
-      room = created;
-      this.rooms.set(key, created);
-      created.doc.on("update", (update: Uint8Array, origin: unknown) => {
-        const frame = encodeDocUpdate(update);
-        for (const ws of this.roomSockets(key)) if (ws !== origin) this.send(ws, frame);
-      });
-      // Fresh doc with sockets already attached means we woke from hibernation: ask everyone for state.
-      for (const ws of this.roomSockets(key)) this.sendStep1(ws, created);
+  private ensureRoom(key: string): void {
+    if (this.rooms.has(key)) return;
+    this.rooms.set(key, { active: true });
+    // Woke from hibernation with live sockets: re-establish active subscriptions and presence with daemon.
+    const daemon = this.daemonSocket(key);
+    const browsers = this.browserSockets(key);
+    if (daemon !== undefined && browsers.length > 0) {
+      this.replayBrowserStateToDaemon(daemon, browsers);
     }
-    return room;
+  }
+
+  private replayBrowserStateToDaemon(daemon: WebSocket, browsers: readonly WebSocket[]): void {
+    for (const browser of browsers) {
+      const att = attachmentOf(browser);
+      if (att?.role !== "browser") continue;
+      for (const sub of att.subs) {
+        this.send(daemon, encodeTaggedSubscribe(att.clientTag, sub));
+      }
+    }
+    this.send(daemon, PRESENCE_QUERY_TEXT);
   }
 
   private dropRoom(key: string): void {
     if (this.daemonSocket(key) !== undefined || this.browserSockets(key).length > 0) return;
-    this.rooms.get(key)?.doc.destroy();
     this.rooms.delete(key);
   }
 
-  private sendStep1(ws: WebSocket, room: Room): void {
-    this.send(ws, encodeSyncStep1(room.doc));
-  }
-
-  private send(ws: WebSocket, data: Uint8Array | string): void {
+  private send(ws: WebSocket, text: string): void {
     if (ws.readyState !== WebSocket.OPEN) return;
     try {
-      this.transport.send(ws, typeof data === "string" ? data : toBuffer(data));
+      this.transport.send(ws, text);
     } catch {
       // Closing under us; its close event cleans up.
     }
@@ -319,107 +312,85 @@ export class MachineDO extends DurableObject<Env> {
     }
     const key = roomKey(att.room);
     if (key === null) return;
-    const room = this.room(key);
-    if (typeof data === "string") {
-      if (att.role === "browser") this.browserText(ws, att, key, data);
-      else this.daemonText(key, data);
-      return;
-    }
-    this.binary(ws, att, key, room, new Uint8Array(data));
+    this.ensureRoom(key);
+    // Room traffic is strictly UTF-8 JSON text; legacy binary frames are dropped.
+    if (typeof data !== "string") return;
+    if (att.role === "browser") this.browserText(ws, att, key, data);
+    else this.daemonText(key, data);
   }
 
-  private binary(
-    ws: WebSocket,
-    att: DaemonAttachment | BrowserAttachment,
-    key: string,
-    room: Room,
-    frame: Uint8Array,
-  ): void {
-    let head: { type: number; sync: number };
-    try {
-      head = peekFrame(frame);
-    } catch {
-      return;
+  private persistAttachment(ws: WebSocket, att: BrowserAttachment): void {
+    while (att.subs.length > MAX_SUBSCRIPTIONS) att.subs.shift();
+    att.aw = att.aw.slice(-MAX_AWARENESS_CLIENTS);
+    while ((att.aw.length > 0 || att.subs.length > 0) && JSON.stringify(att).length > ATTACHMENT_BUDGET) {
+      if (att.aw.length >= att.subs.length && att.aw.length > 0) att.aw.shift();
+      else if (att.subs.length > 0) att.subs.shift();
+      else break;
     }
-    const fromBrowser = att.role === "browser";
-    switch (head.type) {
-      case MESSAGE_SYNC: {
-        // The daemon's rooms are server-authoritative: clients write through RPC, and their step 2 / updates are dropped.
-        if (fromBrowser && head.sync !== SYNC_STEP1) return;
-        // A browser told "synced" by a doc the daemon has not filled yet would render an empty kernel.
-        if (fromBrowser && head.sync === SYNC_STEP1 && !room.ready) {
-          room.parked.set(ws, frame);
-          return;
-        }
-        let reply: Uint8Array | null = null;
-        try {
-          reply = handleSyncFrame(frame, room.doc, ws);
-        } catch (error) {
-          // eslint-disable-next-line no-console -- relay diagnostics, visible in `wrangler tail`
-          console.warn("[relay] bad sync frame:", error instanceof Error ? error.message : error);
-          return;
-        }
-        if (reply !== null) this.send(ws, reply);
-        if (!fromBrowser && head.sync === SYNC_STEP2 && !room.ready) {
-          room.ready = true;
-          for (const [parked, step1] of room.parked) {
-            if (parked.readyState !== WebSocket.OPEN) continue;
-            const answer = handleSyncFrame(step1, room.doc, parked);
-            if (answer !== null) this.send(parked, answer);
-          }
-          room.parked.clear();
-        }
-        return;
-      }
-      case MESSAGE_AWARENESS: {
-        // Relayed verbatim; applying it here would impose y-websocket semantics on the daemon's seats.
-        if (att.role === "browser") this.trackAwareness(ws, att, frame);
-        for (const other of this.roomSockets(key)) if (other !== ws) this.send(other, frame);
-        return;
-      }
-      case MESSAGE_QUERY_AWARENESS: {
-        // Browser: ask the daemon for its snapshot. Daemon: its 10 s keepalive, which keeps browser watchdogs quiet.
-        if (fromBrowser) {
-          const daemon = this.daemonSocket(key);
-          if (daemon !== undefined) this.send(daemon, frame);
-        } else {
-          for (const b of this.browserSockets(key)) this.send(b, frame);
-        }
-        return;
-      }
-      case MESSAGE_SHAPE: {
-        if (fromBrowser) {
-          const daemon = this.daemonSocket(key);
-          if (daemon !== undefined) this.send(daemon, frame);
-        } else {
-          for (const b of this.browserSockets(key)) this.send(b, frame);
-        }
-        return;
-      }
-      default:
-        return;
-    }
-  }
-
-  private trackAwareness(ws: WebSocket, att: BrowserAttachment, frame: Uint8Array): void {
-    let entries: ReturnType<typeof readAwarenessFrame>;
-    try {
-      entries = readAwarenessFrame(frame);
-    } catch {
-      return;
-    }
-    if (entries.length === 0) return;
-    const clients = new Map<number, number>(att.aw);
-    for (const e of entries) {
-      if (e.removed) clients.delete(e.id);
-      else clients.set(e.id, e.clock);
-    }
-    att.aw = [...clients].slice(-MAX_AWARENESS_CLIENTS);
-    while (att.aw.length > 0 && JSON.stringify(att).length > ATTACHMENT_BUDGET) att.aw.shift();
     ws.serializeAttachment(att);
   }
 
+  private trackPresence(ws: WebSocket, att: BrowserAttachment, entries: readonly AnnouncedPresence[]): void {
+    if (entries.length === 0) return;
+    const clients = new Map<number, number>(att.aw);
+    for (const entry of entries) {
+      if (entry.removed) clients.delete(entry.id);
+      else clients.set(entry.id, entry.clock);
+    }
+    att.aw = [...clients];
+    this.persistAttachment(ws, att);
+  }
+
+  private recordSubscription(ws: WebSocket, att: BrowserAttachment, sub: StoredSubscription): void {
+    const next = att.subs.filter((existing) => existing.id !== sub.id);
+    next.push(sub);
+    att.subs = next;
+    this.persistAttachment(ws, att);
+  }
+
+  private removeSubscription(ws: WebSocket, att: BrowserAttachment, subscriptionId: string): void {
+    const next = att.subs.filter((existing) => existing.id !== subscriptionId);
+    if (next.length === att.subs.length) return;
+    att.subs = next;
+    this.persistAttachment(ws, att);
+  }
+
   private browserText(ws: WebSocket, att: BrowserAttachment, key: string, text: string): void {
+    const plane = routeBrowserPlane(text, att.clientTag);
+    switch (plane.kind) {
+      case "drop":
+        return;
+      case "reply":
+        this.send(ws, plane.text);
+        return;
+      case "subscribe": {
+        this.recordSubscription(ws, att, plane.sub);
+        const daemon = this.daemonSocket(key);
+        if (daemon !== undefined) this.send(daemon, plane.daemonText);
+        return;
+      }
+      case "unsubscribe": {
+        this.removeSubscription(ws, att, plane.subscriptionId);
+        const daemon = this.daemonSocket(key);
+        if (daemon !== undefined) this.send(daemon, plane.daemonText);
+        return;
+      }
+      case "presence-update": {
+        this.trackPresence(ws, att, plane.entries);
+        for (const other of this.roomSockets(key)) {
+          if (other !== ws) this.send(other, plane.text);
+        }
+        return;
+      }
+      case "presence-query": {
+        const daemon = this.daemonSocket(key);
+        if (daemon !== undefined) this.send(daemon, plane.text);
+        return;
+      }
+      case "not-plane":
+        break;
+    }
+
     const out = rewriteRequest(text, att.clientTag);
     if (out.kind === "drop") return;
     if (out.kind === "reply") {
@@ -436,6 +407,22 @@ export class MachineDO extends DurableObject<Env> {
   }
 
   private daemonText(key: string, text: string): void {
+    const plane = routeDaemonPlane(text);
+    if (plane.kind !== "not-plane") {
+      if (plane.kind === "drop") return;
+      const browsers = this.browserSockets(key);
+      if (plane.kind === "broadcast") {
+        for (const b of browsers) this.send(b, plane.text);
+        return;
+      }
+      const owner = browsers.find((b) => {
+        const a = attachmentOf(b);
+        return a?.role === "browser" && a.clientTag === plane.clientTag;
+      });
+      if (owner !== undefined) this.send(owner, plane.text);
+      return;
+    }
+
     const out = restoreResponse(text);
     if (out.kind === "drop") return;
     const browsers = this.browserSockets(key);
@@ -471,11 +458,18 @@ export class MachineDO extends DurableObject<Env> {
     const key = roomKey(att.room);
     if (key === null) return;
     if (att.role === "browser") {
-      this.rooms.get(key)?.parked.delete(ws);
       const daemon = this.daemonSocket(key);
-      // The daemon's awareness would keep this browser's cursors for good: remove them like y-websocket's server does.
-      if (daemon !== undefined && att.aw.length > 0)
-        this.send(daemon, encodeAwarenessRemoval(att.aw as AwarenessClient[]));
+      if (daemon !== undefined) {
+        for (const sub of att.subs) {
+          this.send(daemon, encodeTaggedUnsubscribe(att.clientTag, sub.id));
+        }
+      }
+      if (att.aw.length > 0) {
+        const removal = encodePresenceRemoval(att.aw as PresenceClient[]);
+        for (const peer of this.roomSockets(key)) {
+          if (peer !== ws) this.send(peer, removal);
+        }
+      }
       if (daemon !== undefined && this.browserSockets(key).every((b) => b === ws)) {
         const d = attachmentOf(daemon);
         if (d?.role === "daemon") {
@@ -491,8 +485,6 @@ export class MachineDO extends DurableObject<Env> {
     if (this.ctx.getWebSockets(`daemon:${tagKey(key)}`).some((w) => w !== ws && w.readyState === WebSocket.OPEN))
       return;
     this.opening.delete(key);
-    const room = this.rooms.get(key);
-    if (room !== undefined) room.ready = false;
     // A connector reports a refused upgrade in its own code; anything else is a plain room loss.
     const browserCode = isConnectorCode(code) ? code : CLOSE_ROOM_CLOSED;
     for (const b of this.browserSockets(key)) b.close(browserCode, (reason || "daemon room closed").slice(0, 120));
@@ -551,8 +543,6 @@ export class MachineDO extends DurableObject<Env> {
       }
       ws.close(1000, att.lostAt === undefined ? "idle" : "machine offline");
       if (key !== null) {
-        const room = this.rooms.get(key);
-        room?.doc.destroy();
         this.rooms.delete(key);
       }
     }

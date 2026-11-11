@@ -1,24 +1,23 @@
 /**
  * A client that behaves like the web app in remote mode (`harness-web-app/src/client/dial.ts`):
- * y-websocket over `ChunkedWebSocket`, relay text frames wrapped, a 10 s `" ping"`, JSON-RPC on the room.
+ * `RoomConnection` over `ChunkedWebSocket`, a 10 s `" ping"`, and JSON-RPC on the room.
  * Node's WebSocket takes a `Cookie` and an `Origin` header, which a real browser sets itself.
  */
 import { ChunkedWebSocket } from "@inhuman.tools/chunked-websocket/client";
 import {
   bindJsonRpc,
   bindTextFrames,
-  destroyProvider,
-  detachProtocolAwareness,
+  destroyRoomConnection,
+  detachLocalPresence,
+  KernelPlexus,
+  ProjectPlexus,
+  RoomConnection,
+  SessionPlexus,
   waitForSync,
-  WebsocketProvider,
   type JsonRpcPort,
 } from "@inhuman.tools/harness-peer";
-import { DocumentContainer, Model, model } from "@inhuman.tools/model";
 
 import { DEV_SECRET } from "./stack.js";
-
-@model("harness:relay:e2e-root")
-class E2eRoot extends Model {}
 
 export type Closed = { code: number; reason: string };
 
@@ -29,10 +28,10 @@ export class Room {
   readonly #ping: NodeJS.Timeout;
 
   constructor(
-    readonly provider: WebsocketProvider,
-    readonly doc: DocumentContainer,
+    readonly provider: RoomConnection,
+    readonly doc: RoomConnection["doc"],
   ) {
-    detachProtocolAwareness(provider);
+    detachLocalPresence(provider);
     bindTextFrames(provider, () => undefined);
     this.rpc = bindJsonRpc(provider);
     provider.on("connection-close", (event: CloseEvent | null) => {
@@ -55,7 +54,7 @@ export class Room {
   destroy(): void {
     clearInterval(this.#ping);
     this.rpc.rejectAll(new Error("room closed"));
-    destroyProvider(this.provider);
+    destroyRoomConnection(this.provider);
     this.doc.destroy();
   }
 }
@@ -89,8 +88,8 @@ export class Browser {
     return (await res.json()) as Array<{ machineId: string; name: string; online: boolean }>;
   }
 
-  /** The app's `new WebsocketProvider(roomOrigin, roomName, doc, { params, WebSocketPolyfill })`. */
-  room(machineId: string, name: string, params: Record<string, string> = {}, guid?: string): Room {
+  /** The app's `new RoomConnection(roomOrigin, roomName, doc, { params, WebSocketPolyfill })`. */
+  room(machineId: string, name: string, params: Record<string, string> = {}, _guid?: string): Room {
     const origin = this.base.replace(/^http/, "ws");
     const cookie = this.cookie;
     const sameOrigin = this.base;
@@ -99,9 +98,19 @@ export class Browser {
         super(String(url), { headers: { Cookie: cookie, Origin: sameOrigin } });
       }
     }
-    const doc = new DocumentContainer(new E2eRoot(), guid === undefined ? {} : { guid });
-    const provider = new WebsocketProvider(`${origin}/m/${machineId}/room`, name, doc, {
+    const doc =
+      name === "kernel"
+        ? KernelPlexus.bootstrap().doc
+        : name === "project"
+          ? ProjectPlexus.create(params.path ?? "").doc
+          : SessionPlexus.create(params.sessionId ?? "e2e", params.path ?? "").doc;
+    const provider = new RoomConnection(`${origin}/m/${machineId}/room`, name, doc, {
       params,
+      ...(name === "kernel"
+        ? { scopeId: "kernel" }
+        : name === "project"
+          ? { scopeId: `project:${params.path ?? ""}` }
+          : { sessionId: params.sessionId }),
       WebSocketPolyfill: CookieSocket as unknown as typeof WebSocket,
     });
     const room = new Room(provider, doc);

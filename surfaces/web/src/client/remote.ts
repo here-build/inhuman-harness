@@ -1,4 +1,4 @@
-import { bindTextFrames, type WebsocketProvider } from "@inhuman.tools/harness-peer";
+import { bindTextFrames, type RoomConnection } from "@inhuman.tools/harness-peer";
 
 import type { Link } from "./dial.js";
 
@@ -7,17 +7,16 @@ export const PING = " ping";
 export const PING_MS = 10_000;
 
 /**
- * Text frames reach y-websocket as an empty binary message unless wrapped. Wraps every room socket
- * so the relay's `" pong"` is swallowed and still feeds y-websocket's 30 s watchdog.
+ * Wraps the room connection's text-frame stream so relay keepalive frames are observed cleanly.
  */
-export function bindRelayFrames(provider: WebsocketProvider): void {
-  bindTextFrames(provider, () => undefined);
+export function bindRelayFrames(connection: RoomConnection): void {
+  bindTextFrames(connection, () => undefined);
 }
 
 /** Pings the room's current socket every 10 s; returns the stop. */
-export function startPing(provider: WebsocketProvider): () => void {
+export function startPing(connection: RoomConnection): () => void {
   const timer = setInterval(() => {
-    const ws = provider.ws;
+    const ws = connection.ws;
     if (ws?.readyState === 1) ws.send(PING);
   }, PING_MS);
   return () => clearInterval(timer);

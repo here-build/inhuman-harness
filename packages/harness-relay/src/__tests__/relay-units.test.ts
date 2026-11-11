@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  encodePresenceRemoval,
+  readPresenceEntries,
+  routeBrowserPlane,
+  routeDaemonPlane,
+} from "../plane.js";
 import { parseRoom, roomKey, tagKey } from "../room.js";
 import { restoreResponse, rewriteRequest } from "../rpc.js";
-import { awarenessFrame } from "./peers.js";
-import { encodeAwarenessRemoval, readAwarenessFrame } from "../sync/awareness.js";
 
 describe("room keys", () => {
   it("sorts the query and keeps the original", () => {
@@ -58,18 +62,72 @@ describe("rpc id rewriting", () => {
   });
 });
 
-describe("awareness codec", () => {
-  it("reads announced clients and builds a removal one clock ahead", () => {
-    expect(readAwarenessFrame(awarenessFrame(42, 3, { a: 1 }))).toEqual([{ id: 42, clock: 3, removed: false }]);
-    expect(readAwarenessFrame(awarenessFrame(42, 4, null))).toEqual([{ id: 42, clock: 4, removed: true }]);
-    expect(
-      readAwarenessFrame(
-        encodeAwarenessRemoval([
-          [1, 5],
-          [2, 9],
-        ]),
-      ),
-    ).toEqual([
+describe("plane routing and presence codec", () => {
+  const tag = "abcdef012345";
+
+  it("rewrites shape/subscribe and restores shape/delta subscriptionId per clientTag", () => {
+    const sub = routeBrowserPlane(
+      JSON.stringify({
+        kind: "shape/subscribe",
+        subscriptionId: "sub:colon",
+        lane: "session_nodes",
+        params: { sessionId: "s1" },
+        offset: 4,
+      }),
+      tag,
+    );
+    expect(sub.kind).toBe("subscribe");
+    if (sub.kind !== "subscribe") throw new Error("expected subscribe");
+    expect(JSON.parse(sub.daemonText)).toEqual({
+      kind: "shape/subscribe",
+      subscriptionId: `${tag}:sub:colon`,
+      lane: "session_nodes",
+      params: { sessionId: "s1" },
+      offset: 4,
+    });
+
+    const delta = routeDaemonPlane(
+      JSON.stringify({
+        kind: "shape/delta",
+        subscriptionId: `${tag}:sub:colon`,
+        lane: "session_nodes",
+        offset: 5,
+        reset: false,
+        upserts: [{ id: "1" }],
+        deletes: [],
+        upToDate: true,
+      }),
+    );
+    expect(delta.kind).toBe("to");
+    if (delta.kind !== "to") throw new Error("expected targeted delta");
+    expect(delta.clientTag).toBe(tag);
+    expect(JSON.parse(delta.text)).toMatchObject({
+      kind: "shape/delta",
+      subscriptionId: "sub:colon",
+      offset: 5,
+    });
+  });
+
+  it("drops browser-forged shape/delta and presence/state while answering ping", () => {
+    expect(routeBrowserPlane('{"kind":"shape/delta","subscriptionId":"s1"}', tag)).toEqual({ kind: "drop" });
+    expect(routeBrowserPlane('{"kind":"presence/state","entries":[]}', tag)).toEqual({ kind: "drop" });
+    expect(routeBrowserPlane('{"kind":"ping","ts":99}', tag)).toEqual({
+      kind: "reply",
+      text: '{"kind":"pong","ts":99}',
+    });
+  });
+
+  it("reads announced presence entries and builds a removal one clock ahead", () => {
+    expect(readPresenceEntries([[42, { a: 1 }, 3]])).toEqual([{ id: 42, clock: 3, removed: false }]);
+    expect(readPresenceEntries([[42, null, 4]])).toEqual([{ id: 42, clock: 4, removed: true }]);
+    const removal = JSON.parse(
+      encodePresenceRemoval([
+        [1, 5],
+        [2, 9],
+      ]),
+    ) as { kind: string; entries: unknown };
+    expect(removal.kind).toBe("presence/update");
+    expect(readPresenceEntries(removal.entries)).toEqual([
       { id: 1, clock: 6, removed: true },
       { id: 2, clock: 10, removed: true },
     ]);

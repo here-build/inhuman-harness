@@ -242,7 +242,7 @@ describe("model picker shared-control migration parity", () => {
     const openrouter = wire(
       "openrouter",
       "OpenRouter",
-      ["nvidia/nemotron-3.5-super", "nvidia/nemotron-3.5-super:free", "cohere/command-a:batch"],
+      ["nvidia/nemotron-3.5-super", "nvidia/nemotron-3.5-super:free", "cohere/command-a:nitro"],
       false,
       {
         modelNames: {
@@ -252,7 +252,7 @@ describe("model picker shared-control migration parity", () => {
         modelPricing: {
           "nvidia/nemotron-3.5-super": { cacheRead: 0.1, prompt: 1, completion: 10 },
           "nvidia/nemotron-3.5-super:free": { prompt: 0, completion: 0 },
-          "cohere/command-a:batch": { prompt: 2.5, completion: 10 },
+          "cohere/command-a:nitro": { prompt: 2.5, completion: 10 },
         },
       },
     );
@@ -278,7 +278,7 @@ describe("model picker shared-control migration parity", () => {
     expect(rows).toEqual([
       { title: "Nemotron 3.5 Super", badges: [], pricing: "$0.1/$1/$10" },
       { title: "Nemotron 3.5 Super", badges: ["free"], pricing: "free" },
-      { title: "Command-A", badges: ["batch"], pricing: "$2.5/$10" },
+      { title: "Command-A", badges: ["nitro"], pricing: "$2.5/$10" },
     ]);
   });
 
