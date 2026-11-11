@@ -1,5 +1,10 @@
 # Exemplar packs
 
+`inhuman-plugin-file-runtime` (`@inhuman.tools/plugin-file-runtime`) is an
+embedding SDK prototype for transcript file environments and Microsandbox
+execution. It has a runnable host example; it is not a CLI-installable behavior
+pack. See its [integration guide](inhuman-plugin-file-runtime/README.md).
+
 ## Integrations
 
 | Dir | Package | Integration |
