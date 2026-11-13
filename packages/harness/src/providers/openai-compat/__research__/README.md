@@ -35,3 +35,28 @@ that the model mishandled elision. This suite does not retry them automatically.
 
 A pass measures these scenarios on the selected model and provider. It is not a
 general proof that models will never imitate markers or make unsupported claims.
+
+For budget investigations, `ELISION_EVAL_REASONING` selects the production
+reasoning dialect (for example `none`). `ELISION_EVAL_SEED` makes the synthetic
+source reproducible, and `ELISION_EVAL_REPORT_DIR` saves per-case JSON containing
+token counts, response sizes, recall ranges, tool outcomes, and the final report.
+These reports exclude source text, reasoning text, arguments, and credentials.
+Use the same seed when comparing reasoning settings.
+
+The 8192-token limit belongs to this evaluation. The production chat actor does
+not currently set `max_tokens`; an evaluation budget failure alone does not show
+that production imposes the same limit.
+
+In a Qwen4-Max-Preview investigation on 2026-11-13, both modes recalled the full
+5816-character original argument JSON. With the same source and 8192-token cap,
+default thinking spent 6354 tokens on reasoning in the write round and returned
+truncated write arguments. Explicit `none` produced a complete write using 2863
+output tokens and verified the exact 5663-byte file. These are individual runs;
+default thinking also passed in another run, and rate limits interrupted others.
+The experiment identifies budget pressure, not a guarantee about model behavior.
+
+The investigation also found that `qwencloudapi.com` was absent from provider
+recognition, so explicit reasoning settings had no Qwen request fields. The host
+regression now covers the Token Plan and regional endpoints plus a spoof suffix.
+See the [official endpoint](https://docs.qwencloud.com/token-plan/personal/token-plan-personal-quickstart)
+and [Qwen4 output-budget notes](https://docs.qwencloud.com/developer-guides/getting-started/latest-model).

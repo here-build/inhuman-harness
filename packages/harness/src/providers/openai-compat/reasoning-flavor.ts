@@ -77,6 +77,8 @@ export function reasoningFlavorFromBaseUrl(baseUrl: string): ReasoningFlavor {
   if (host === "api.groq.com" || host.endsWith(".groq.com")) return "groq";
   if (
     host.includes("dashscope") ||
+    host === "qwencloudapi.com" ||
+    host.endsWith(".qwencloudapi.com") ||
     host === "portal.qwen.ai" ||
     host.endsWith(".qwen.ai") ||
     host === "api.siliconflow.com" ||

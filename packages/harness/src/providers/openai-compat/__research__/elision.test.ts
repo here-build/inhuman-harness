@@ -1,9 +1,19 @@
-import { randomBytes } from "node:crypto";
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { prompt } from "@inhuman.tools/harness-commons";
+import { REASONING_EFFORTS } from "@inhuman.tools/harness-contract";
 import {
   CompletionExpectation,
   CompletionJob,
@@ -23,9 +33,16 @@ import { readConnectionSecrets } from "@/server/secrets";
 import { bindSessionCatalog, KernelToolCatalog } from "@/tool-catalog";
 
 import { viewWire, type ChatMessage } from "../actor.js";
+import { usageLedger } from "../model-catalog.js";
+import { reasoningDialectFor, reasoningFlavorFromBaseUrl } from "../reasoning-flavor.js";
 
 const connection = process.env.ELISION_EVAL_CONNECTION;
 const model = process.env.ELISION_EVAL_MODEL;
+const effort = z
+  .enum(REASONING_EFFORTS)
+  .nullable()
+  .parse(process.env.ELISION_EVAL_REASONING ?? null);
+const seed = process.env.ELISION_EVAL_SEED ?? randomBytes(16).toString("hex");
 const configSchema = z.object({
   connections: z.record(z.string(), z.unknown()),
 });
@@ -50,6 +67,7 @@ const responseSchema = z.object({
     .min(1),
 });
 const argsSchema = z.record(z.string(), z.unknown());
+const providerErrorSchema = z.object({ error: z.object({ code: z.union([z.string(), z.number()]).optional() }) });
 const finalSchema = z.object({
   file: z.literal("plan.md"),
   source: z.enum(["generated", "recovered-original", "literal-quotation"]),
@@ -59,7 +77,8 @@ const marker = "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]";
 const quotation = `# History marker syntax\n\nAn example, quoted intentionally:\n\n\`${marker}\`\n`;
 const original = `# Prior plan\n${Array.from(
   { length: 120 },
-  (_, i) => `Step ${i}: ${randomBytes(6).toString("hex")} inspect, update, verify.\n`,
+  (_, i) =>
+    `Step ${i}: ${createHash("sha256").update(`${seed}:${i}`).digest("hex").slice(0, 12)} inspect, update, verify.\n`,
 ).join("")}`;
 const cases = [
   {
@@ -94,6 +113,11 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
       const configured = config.connections[connection];
       if (configured === undefined) throw new Error(`No configured connection ${connection}`);
       const settings = connectionSchema.parse(configured);
+      const dialect = reasoningDialectFor(reasoningFlavorFromBaseUrl(settings.settings.baseUrl), effort, {
+        api: "chat",
+        model,
+        hasTools: true,
+      });
       const apiKey = readConnectionSecrets(kernel, connection).apiKey;
       const root = realpathSync(mkdtempSync(join(tmpdir(), "elision-behavior-")));
       const catalog = new KernelToolCatalog();
@@ -126,6 +150,12 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
           throw error;
         }
       };
+      const evidence: Array<{ name: string; args: Record<string, unknown>; ok: boolean }> = [];
+      const recallRanges: Array<{ start: number; end: number; total: number }> = [];
+      const measurements: unknown[] = [];
+      let finalReport: z.infer<typeof finalSchema> | null = null;
+      let passed = false;
+      let transportFailure: { status: number; retryAfter: string | null; code: string | number | null } | null = null;
       try {
         writeFileSync(join(root, "prior.md"), original);
         expect((await execute("read_file", { path: "prior.md" })).ok).toBe(true);
@@ -177,26 +207,55 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
         });
         next.enqueue(new CompletionJob({ expectation: tip }));
         stampRetentionClock(tip, 2000);
-        const messages: ChatMessage[] = [...viewWire(tip)];
+        const messages: ChatMessage[] = [...viewWire(tip, { dialect })];
         expect(messages.flatMap((message) => message.tool_calls ?? [])).toHaveLength(0);
         expect(JSON.stringify(messages)).toContain("History abbreviation");
         expect(JSON.stringify(messages)).not.toContain('"content":"[elided:');
-        const evidence: Array<{ name: string; args: Record<string, unknown>; ok: boolean }> = [];
-        const recallRanges: Array<{ start: number; end: number; total: number }> = [];
-        let finalReport: z.infer<typeof finalSchema> | null = null;
         for (let round = 0; round < 8; round++) {
           const response = await fetch(`${settings.settings.baseUrl.replace(/\/$/, "")}/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) },
-            body: JSON.stringify({ model, messages, tools, stream: false, temperature: 0, max_tokens: 8192 }),
+            body: JSON.stringify({
+              model,
+              messages,
+              tools,
+              stream: false,
+              temperature: 0,
+              max_tokens: 8192,
+              ...dialect.body,
+            }),
             signal: AbortSignal.timeout(120_000),
           });
-          if (!response.ok) throw new Error(`Live provider returned HTTP ${response.status}`);
-          const choice = responseSchema.parse(await response.json()).choices[0];
+          if (!response.ok) {
+            const parsed = providerErrorSchema.safeParse(await response.json().catch(() => null));
+            transportFailure = {
+              status: response.status,
+              retryAfter: response.headers.get("retry-after"),
+              code: parsed.success ? (parsed.data.error.code ?? null) : null,
+            };
+            throw new Error(`Live provider failure: ${JSON.stringify(transportFailure)}`);
+          }
+          const raw: unknown = await response.json();
+          const choice = responseSchema.parse(raw).choices[0];
           const answer = choice.message;
+          const metrics = {
+            round: round + 1,
+            finishReason: choice.finish_reason,
+            contentChars: answer.content?.length ?? 0,
+            reasoningChars: answer.reasoning_content?.length ?? 0,
+            calls:
+              answer.tool_calls?.map((call) => ({
+                name: call.function.name,
+                argumentChars: call.function.arguments.length,
+              })) ?? [],
+            usage: usageLedger(raw),
+          };
+          measurements.push(metrics);
+          // eslint-disable-next-line no-console -- diagnostic counts only, no request or response bodies
+          console.log({ case: id, effort, ...metrics });
           if (choice.finish_reason === "length")
             throw new Error(
-              `Provider exhausted the output budget on round ${round + 1}; tools: ${evidence.map((call) => `${call.name}:${call.ok}`).join(", ")}; recall ranges: ${JSON.stringify(recallRanges)}`,
+              `Provider exhausted the output budget: ${JSON.stringify(metrics)}; tools: ${evidence.map((call) => `${call.name}:${call.ok}`).join(", ")}; recall ranges: ${JSON.stringify(recallRanges)}`,
             );
           messages.push({
             role: "assistant",
@@ -272,6 +331,7 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
               ),
             ).toBe(true);
         }
+        passed = true;
         // eslint-disable-next-line no-console -- live evaluation evidence, never credentials or document bodies
         console.log({
           case: id,
@@ -281,9 +341,39 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
           finalReport,
         });
       } finally {
-        plexus.destroy();
-        catalog[Symbol.dispose]();
-        rmSync(root, { recursive: true, force: true });
+        try {
+          const reportDir = process.env.ELISION_EVAL_REPORT_DIR;
+          if (reportDir !== undefined) {
+            mkdirSync(reportDir, { recursive: true });
+            writeFileSync(
+              join(reportDir, `${id}-${effort ?? "default"}.json`),
+              JSON.stringify(
+                {
+                  case: id,
+                  model,
+                  effort,
+                  flavor: dialect.flavor,
+                  reasoningBody: dialect.body,
+                  seed,
+                  sourceSha256: createHash("sha256").update(original).digest("hex"),
+                  passed,
+                  measurements,
+                  recallRanges,
+                  tools: evidence.map((call) => ({ name: call.name, ok: call.ok })),
+                  artifactBytes: existsSync(join(root, "plan.md")) ? statSync(join(root, "plan.md")).size : null,
+                  finalReport,
+                  transportFailure,
+                },
+                null,
+                2,
+              ),
+            );
+          }
+        } finally {
+          plexus.destroy();
+          catalog[Symbol.dispose]();
+          rmSync(root, { recursive: true, force: true });
+        }
       }
     },
     600_000,

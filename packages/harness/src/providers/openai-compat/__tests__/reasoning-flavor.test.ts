@@ -3,6 +3,16 @@ import { describe, expect, it } from "vitest";
 import { reasoningDialectFor, reasoningFlavorFromBaseUrl } from "../reasoning-flavor.js";
 
 describe("reasoning flavor", () => {
+  it("recognizes the configured Qwen token-plan endpoint and sends thinking controls", () => {
+    const flavor = reasoningFlavorFromBaseUrl("https://token-plan.maas.qwencloudapi.com/compatible-mode/v1");
+    expect(flavor).toBe("qwen");
+    expect(reasoningFlavorFromBaseUrl("https://ap-southeast-1.maas.qwencloudapi.com/compatible-mode/v1")).toBe("qwen");
+    expect(reasoningFlavorFromBaseUrl("https://qwencloudapi.com.example.invalid/v1")).toBe("none");
+    expect(
+      reasoningDialectFor(flavor, "none", { api: "chat", model: "qwen4-max-preview", hasTools: true }).body,
+    ).toEqual({ enable_thinking: false });
+  });
+
   it("keys flavor off host; loopback is none", () => {
     expect({
       grok: reasoningFlavorFromBaseUrl("https://api.x.ai/v1"),
