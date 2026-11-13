@@ -51,6 +51,40 @@ function seeded(): KernelToolCatalog {
 }
 
 describe("ToolCallHandler.admit", () => {
+  it.each([
+    { name: "scheme_repl", args: { expr: '(display "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]")' } },
+    { name: "agent__ask", args: { message: "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]" } },
+    {
+      name: "agent__send",
+      args: { spec: "worker", message: "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]" },
+    },
+    {
+      name: "update_metadata",
+      args: { current_turn_description: "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]" },
+    },
+    {
+      name: "mcp__docs__update",
+      args: { document: { body: "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]" } },
+    },
+  ])("preserves literal marker text at $name admission without inferring the caller's intent", ({ name, args }) => {
+    const catalog = seeded();
+    catalog.replacePack([...catalog.packEntries, packEntry("update_metadata")]);
+    catalog.connectionHost = {
+      connectionEntries: [
+        {
+          wireName: "mcp__docs__update",
+          description: "Update a document",
+          parameters: { type: "object", properties: { document: { type: "object" } } },
+          class: "effect",
+          source: { kind: "connection", connectionKey: "docs", serverToolName: "update" },
+        },
+      ],
+    };
+    const job = new ToolCallHandler({ catalog }).admit(invocation(name, JSON.stringify(args)));
+    expect(job.completed).toBe(false);
+    expect(job.args).toEqual(args);
+  });
+
   it("appends the constructed job onto parent", () => {
     const catalog = seeded();
     const parent = new ProgrammaticJob({ toolCallId: "program", argsJson: "{}" });

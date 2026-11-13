@@ -10,6 +10,13 @@ import {
 
 import { BACKGROUND_TOOL, IN_FLIGHT_TOOL } from "./observations.js";
 import { refOfNode } from "./retention/render.js";
+import {
+  MODEL_OMISSION_GUIDANCE,
+  modelCallSummary,
+  projectModelArguments,
+  type ModelArguments,
+} from "./model-arguments.js";
+import { parseJobStamp } from "./retention/stamp.js";
 import { squeezeObservation, squeezeProgrammaticText, squeezeToolCall } from "./squeeze.js";
 
 export const OMITTED_PROGRAM = { description: "Delegated work; enclosing program source omitted." };
@@ -61,13 +68,15 @@ export function spawnHistoryText(root: ToolCallJob | ProgrammaticJob): string | 
     const args =
       job instanceof AgentCallJob ? spawnDescriptionArgs(job) : isProgramEnvelope(job) ? OMITTED_PROGRAM : job.args;
     const ref = refOfNode(job);
-    const argText = squeezeObservation({
-      to: "compact",
-      payload: args,
-      persistable: true,
-      ...(ref === undefined ? {} : { recallRef: `${ref}#args` }),
-      name,
-    });
+    const argsRef = `${ref ?? "job:?"}#args`;
+    const argumentsView: ModelArguments =
+      job instanceof AgentCallJob || isProgramEnvelope(job)
+        ? { kind: "omitted", ref: argsRef, summary: args ?? {} }
+        : projectModelArguments(args ?? {}, argsRef, parseJobStamp(job.retentionJson)?.args?.minChars ?? 2000);
+    const argText =
+      argumentsView.kind === "omitted"
+        ? modelCallSummary({ id: job.toolCallId, name, arguments: argumentsView })
+        : `Original arguments: ${argumentsView.json}`;
     const programText = job instanceof ProgrammaticJob ? job.resultText() : "";
     const result = !job.completed
       ? job.background
@@ -87,7 +96,7 @@ export function spawnHistoryText(root: ToolCallJob | ProgrammaticJob): string | 
   const ref = refOfNode(root);
   return squeezeObservation({
     to: "compact",
-    payload: `${identities}\n\n${receipts}`,
+    payload: `${MODEL_OMISSION_GUIDANCE}\n\n${identities}\n\n${receipts}`,
     persistable: true,
     ...(ref === undefined ? {} : { recallRef: ref }),
     name: root instanceof ToolCallJob ? root.name : root.toolName,

@@ -16,6 +16,10 @@ export function overwriteExistingDoor(pathText: string): string {
   return `write_file: ${pathText} exists — ${OVERWRITE_EXISTING_DOOR}`;
 }
 
+export function elidedArgumentRef(text: string): string | null {
+  return /^\[elided: \d+ lines, [\d.]+ [A-Z]+ — recall (job:[\w?-]+#args)\]$/.exec(text.trim())?.[1] ?? null;
+}
+
 /** True only for boolean true or the string "true". Missing / false → door on exist. */
 export function overwriteExistingOf(args: unknown): boolean {
   const parsed = z

@@ -11,7 +11,7 @@ import {
 import { expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
-import { projectHistory, type HistoryMessage } from "../../context/history.js";
+import { projectModelHistory, type HistoryMessage } from "../../context/history.js";
 import { admitTurn } from "../../session/commands.js";
 import { bindSessionCatalog, KernelToolCatalog } from "../../tool-catalog/catalog.js";
 import { ToolCallHandler } from "../../tool-runtime/handler.js";
@@ -80,7 +80,7 @@ it("admits a supplied tool and waits for its actual receipt before the successor
     resolvers: {
       completion: async (job) => {
         const expectation = job.expectation;
-        requests.push([...projectHistory(expectation)]);
+        requests.push([...projectModelHistory(expectation)]);
         if (requests.length === 1)
           expectation.responseCalls.push(responseCall("echo-1", "echo", '{"message":"hello"}'));
         else expectation.responseText = "The host echoed hello.";

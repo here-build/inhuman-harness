@@ -2,7 +2,13 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import { SessionPlexus, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { SQUEEZE_COMPACT_CHARS, SQUEEZE_MICRO_MIN_CHARS, squeezeToolCall, toolCallRepresentation } from "../index.js";
+import {
+  SQUEEZE_COMPACT_CHARS,
+  SQUEEZE_MICRO_MIN_CHARS,
+  squeezeToolCall,
+  toolCallRepresentation,
+  projectModelToolText,
+} from "../index.js";
 
 function tool(text: string, extra?: { regenerateable?: boolean; name?: string }): SystemToolJob {
   return new SystemToolJob({
@@ -33,6 +39,32 @@ const POINTER = /;;full response: context_recall \{"ref":"job:[^"]+"\}/;
 const pointerOf = (text: string) => text.replace(POINTER, ";;full response: {recall}");
 
 const over = "x".repeat(SQUEEZE_COMPACT_CHARS + 50);
+
+it("user detail keeps original arguments while model compaction uses omission metadata", () => {
+  const content = "PRIVATE_FILE_CONTENT ".repeat(500);
+  const call = homed(
+    new SystemToolJob({
+      toolCallId: "write",
+      name: "write_file",
+      argsJson: JSON.stringify({ path: "plan.md", content }),
+      completed: true,
+      outcomeJson: JSON.stringify({ ok: true, text: "created plan.md" }),
+    }),
+    "audience-split",
+  );
+  const original = call.args;
+  const detail = toolCallRepresentation(call);
+  const model = projectModelToolText(call);
+  expect(detail.args).toContain(content);
+  expect(model).toContain("Historical tool call write: write_file");
+  expect(model).toContain('"field":"content"');
+  expect(model).toContain("context_recall");
+  expect(model).not.toContain("PRIVATE_FILE_CONTENT");
+  expect(model).not.toContain("[elided:");
+  expect(model).toContain("created plan.md");
+  expect(call.args).toEqual(original);
+  expect(toolCallRepresentation(call)).toEqual(detail);
+});
 const atMicro = "y".repeat(SQUEEZE_MICRO_MIN_CHARS);
 const below = "short-ok";
 const reduced = `${over.slice(0, SQUEEZE_COMPACT_CHARS)}…(+50 chars)`;

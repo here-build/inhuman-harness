@@ -1,5 +1,5 @@
 import invariant from "tiny-invariant";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -58,6 +58,108 @@ describe("builtin effect bodies", () => {
       ok: false,
       text: expect.stringMatching(/overwriteExisting/),
     });
+  });
+
+  it.each(["docs/plan.md", "note.txt"])(
+    "write_file rejects a replayed history placeholder without mutating %s, then accepts actual content",
+    async (target) => {
+      const placeholder = "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]";
+      const refused = await run(
+        "write_file",
+        { path: target, content: `\n${placeholder}\n`, overwriteExisting: true },
+        root,
+      );
+      expect(refused).toMatchObject({ ok: false, code: "elided_content" });
+      expect(refused.text).toContain("context_recall");
+      expect(refused.text).toContain("da78b0b5#args");
+      expect(refused.text).toContain("generate");
+      if (target === "note.txt") {
+        expect(readFileSync(path.join(root, target), "utf8")).toBe("alpha\nbeta\nalpha\n");
+      } else {
+        expect(existsSync(path.join(root, "docs"))).toBe(false);
+      }
+      const recovered = await run(
+        "write_file",
+        { path: target, content: "The actual plan.\n", overwriteExisting: true },
+        root,
+      );
+      expect(recovered.ok).toBe(true);
+      expect(readFileSync(path.join(root, target), "utf8")).toBe("The actual plan.\n");
+    },
+  );
+
+  it("write_file preserves elision examples embedded in real documents", async () => {
+    const content = "Example of a history marker:\n[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]\n";
+    const result = await run("write_file", { path: "example.md", content }, root);
+    expect(result.ok).toBe(true);
+    expect(readFileSync(path.join(root, "example.md"), "utf8")).toBe(content);
+  });
+
+  it("write_file preserves mixed text literally rather than inferring whether a marker is intentional", async () => {
+    const content = "# Implementation plan\n\n[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]\n";
+    const result = await run(
+      "write_file",
+      {
+        path: "plan.md",
+        content,
+      },
+      root,
+    );
+    expect(result.ok).toBe(true);
+    expect(readFileSync(path.join(root, "plan.md"), "utf8")).toBe(content);
+  });
+
+  it("edit_file can intentionally insert a literal marker into a document", async () => {
+    const result = await run(
+      "edit_file",
+      {
+        path: "note.txt",
+        old_string: "beta",
+        new_string: "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]",
+      },
+      root,
+    );
+    expect({ ok: result.ok, content: readFileSync(path.join(root, "note.txt"), "utf8") }).toEqual({
+      ok: true,
+      content: "alpha\n[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]\nalpha\n",
+    });
+  });
+
+  it("edit_file refuses an elided match with recovery guidance", async () => {
+    const result = await run(
+      "edit_file",
+      {
+        path: "note.txt",
+        old_string: "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]",
+        new_string: "the actual replacement",
+      },
+      root,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("elided_match");
+    expect(result.text).toMatch(/elision|abbreviat/i);
+    expect(result.text).toContain("context_recall");
+    expect(readFileSync(path.join(root, "note.txt"), "utf8")).toBe("alpha\nbeta\nalpha\n");
+  });
+
+  it("shell writes literal marker text when explicitly supplied in a script", async () => {
+    const result = await run(
+      "shell",
+      { command: "printf '%s' '[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]' > plan.md" },
+      root,
+    );
+    expect(result.ok).toBe(true);
+    expect(readFileSync(path.join(root, "plan.md"), "utf8")).toBe(
+      "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]",
+    );
+  });
+
+  it("edit_file can replace an actual marker already present in the file", async () => {
+    const marker = "[elided: 182 lines, 18.6 KB — recall job:da78b0b5#args]";
+    writeFileSync(path.join(root, "note.txt"), marker);
+    const result = await run("edit_file", { path: "note.txt", old_string: marker, new_string: "recovered text" }, root);
+    expect(result.ok).toBe(true);
+    expect(readFileSync(path.join(root, "note.txt"), "utf8")).toBe("recovered text");
   });
 
   it("path confinement throws before the body writes outside the root", async () => {

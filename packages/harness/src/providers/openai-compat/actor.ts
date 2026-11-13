@@ -51,7 +51,7 @@ import invariant from "tiny-invariant";
 import {
   approvalNoteMessagesOf as contextApprovalNotes,
   notificationMessagesOf as contextNotifications,
-  projectHistory,
+  projectModelHistory,
   selectCompletionTools,
   steerMessagesOf as contextSteers,
   type HistoryMessage,
@@ -334,7 +334,7 @@ export function* viewWire(
   const catalog = completionCatalogOf(tip.plexus?.root);
   const root = tip.plexus?.root;
   const sessionId = root instanceof SessionRoot ? root.sessionId : "";
-  for (const message of projectHistory(tip, {
+  for (const message of projectModelHistory(tip, {
     catalog,
     echoEmptyThought: echo === "always",
     readBlob: readBlobReported,

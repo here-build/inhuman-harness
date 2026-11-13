@@ -91,6 +91,7 @@ export default defineConfig({
           restoreMocks: true,
           include: [
             "../../packages-runtime/turn/src/policy-processor/__research__/**/*.test.ts",
+            "src/providers/openai-compat/__research__/**/*.test.ts",
           ],
           fileParallelism: false,
           testTimeout: 10_800_000,

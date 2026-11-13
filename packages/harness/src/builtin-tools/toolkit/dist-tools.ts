@@ -28,7 +28,7 @@ import { errnoCode } from "../errno.js";
 import { namedBotsHome } from "../named-bots-home.js";
 import { MAX_FILE_READ_BYTES, MAX_FILE_WRITE_BYTES } from "./bounds.js";
 import { finderFor } from "./finder.js";
-import { overwriteExistingDoor, overwriteExistingOf, priorTextSync } from "./write-gate.js";
+import { elidedArgumentRef, overwriteExistingDoor, overwriteExistingOf, priorTextSync } from "./write-gate.js";
 import { toolResultSchema, toolResultShape } from "../schemas/tool-result.js";
 
 export { ToolError } from "@inhuman.tools/turn/tool-runtime";
@@ -42,6 +42,7 @@ type DistContext = {
 
 export interface ToolResult {
   readonly ok: boolean;
+  readonly code?: string;
   /** Door / dist string payload. Structured results use `value`; paint is squeeze. */
   readonly text?: string;
   readonly value?: unknown;
@@ -55,6 +56,7 @@ export function asToolResult(out: unknown): ToolResult {
   if (!parsed.success) return { ok: true, value: out };
   return {
     ok: parsed.data.ok,
+    ...(typeof parsed.data.code === "string" ? { code: parsed.data.code } : {}),
     ...(typeof parsed.data.text === "string" ? { text: parsed.data.text } : {}),
     ...(out !== null && typeof out === "object" && "value" in out ? { value: parsed.data.value } : {}),
     ...(out !== null && typeof out === "object" && "json" in out ? { json: parsed.data.json } : {}),
@@ -113,7 +115,11 @@ const fffSearchInput = z.object({
 });
 const writeFileInput = z.object({
   path: z.string().describe("File path, relative to the project root."),
-  content: z.string().describe("The file's complete new contents."),
+  content: z
+    .string()
+    .describe(
+      "The file's complete new contents. History elision markers are abbreviations, not file contents; recover or generate the actual text before writing.",
+    ),
   overwriteExisting: optionalBool(
     "Set true to replace an existing file. Omit or false when the path must be new — a write to an existing path fails and names this flag.",
   ),
@@ -498,6 +504,14 @@ async function fffSearchTool(args: FffSearchInput, context: DistContext): Promis
 async function writeFileTool(args: WriteFileInput, context: DistContext): Promise<ToolResult> {
   const asWritten = args.path;
   const content = args.content;
+  const elisionRef = elidedArgumentRef(content);
+  if (elisionRef !== null) {
+    return {
+      ok: false,
+      code: "elided_content",
+      text: `write_file: content contains only a history elision marker, not the file's actual text. No file was changed. 1. Call context_recall with ${JSON.stringify({ ref: elisionRef })} and page through the original args. 2. Retry write_file with the actual content. If that ref is unknown or unreachable, generate the requested content instead; do not invent a ref or copy the marker.`,
+    };
+  }
   const size = Buffer.byteLength(content, "utf8");
   if (size > MAX_FILE_WRITE_BYTES) {
     return {
@@ -581,6 +595,14 @@ async function editFileTool(args: EditFileInput, context: DistContext): Promise<
     context.onPriorContent?.(before);
     const occurrences = before.split(oldString).length - 1;
     if (occurrences === 0) {
+      const elisionRef = elidedArgumentRef(oldString);
+      if (elisionRef !== null) {
+        return {
+          ok: false,
+          code: "elided_match",
+          text: `edit_file: old_string looks like a history elision marker and does not occur in ${asWritten}. No file was changed. 1. Call read_file for ${JSON.stringify({ path: asWritten })} to get the current text. 2. If you need the original call's arguments, call context_recall with ${JSON.stringify({ ref: elisionRef })} and page through them; an unknown ref cannot recover content. 3. Retry edit_file with the exact current text as old_string and the actual replacement as new_string.`,
+        };
+      }
       return {
         ok: false,
         text: `edit_file: that exact text does not appear in ${asWritten}. The file may have changed since you read it — read it again and quote the current text, including whitespace.`,

@@ -20,7 +20,7 @@ import { bindBlobReader, type CompleteRequest, type CompleteResult } from "@inhu
 import { bindBlobWriter } from "@inhuman.tools/turn/tool-runtime";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { historyBehind, keepFloors, projectHistory, sliceCompactEat, Transcript } from "@/context";
+import { historyBehind, keepFloors, projectModelHistory, sliceCompactEat, Transcript } from "@/context";
 
 import { ambientCutoff, startAmbientCompact } from "../ambient-compact.js";
 import { promptMessageOf } from "../prompt-message-of.js";
@@ -145,7 +145,7 @@ describe("the summarizer's prefix", () => {
         inflight: new Map(),
         complete: (req: CompleteRequest): Promise<CompleteResult> => {
           const user = req.round.promptMessages[1]!;
-          const wire = [...projectHistory(req.round, { readBlob: (sha256) => objects.get(sha256)?.bytes ?? null })];
+          const wire = [...projectModelHistory(req.round, { readBlob: (sha256) => objects.get(sha256)?.bytes ?? null })];
           live.push({
             grew: serializedBytes(plexus) - before,
             user: user.body.kind,

@@ -162,7 +162,7 @@ describe("tape projection", () => {
       view.render(createElement(FilePreviewProvider, { resetKey: "s" }, createElement(Tape)));
     });
     seen.texts = [];
-    const projectTurn = vi.spyOn(tapeRead, "projectTurn");
+    const projectUserTurn = vi.spyOn(tapeRead, "projectUserTurn");
 
     await act(async () => {
       runInAction(() => {
@@ -174,6 +174,6 @@ describe("tape projection", () => {
     expect(container.textContent).toContain("old");
     expect(container.textContent).toContain("stable");
     expect(seen.texts).toEqual(["growing more"]);
-    expect(projectTurn.mock.calls.map((call) => call[0])).toEqual([newer]);
+    expect(projectUserTurn.mock.calls.map((call) => call[0])).toEqual([newer]);
   });
 });

@@ -56,7 +56,7 @@ import {
   MessageChunk,
   payloadSuffix,
   textOfCell,
-  toolCallRepresentation,
+  projectModelToolText,
   Transcript,
   type EatCell,
 } from "../context/index.js";
@@ -323,8 +323,7 @@ export const compactReducerCapability = EnvCapability.define("harness/compact", 
                   if (scheme !== undefined) {
                     return `[scheme ${scheme.toolCallId}]\n${scheme.expr}\n${scheme.resultText()}`.trim();
                   }
-                  const painted = toolCallRepresentation(cell);
-                  return `[${painted.name} ${painted.id}]\n${painted.args}\n${painted.result}`.trim();
+                  return projectModelToolText(cell);
                 }
                 if (cell instanceof ProgrammaticJob) {
                   return `[scheme ${cell.toolCallId}]\n${cell.expr}\n${cell.resultText()}`.trim();

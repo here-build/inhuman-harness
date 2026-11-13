@@ -29,7 +29,7 @@ import {
 import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
 import { describe, expect, it } from "vitest";
 
-import { projectHistory } from "@/context";
+import { projectModelHistory } from "@/context";
 
 import { vacuumDatabaseBlobs, vacuumSession, type BlobPut } from "../vacuum.js";
 
@@ -360,8 +360,8 @@ describe("vacuumSession", () => {
     try {
       const bucket = memoryBucket();
       vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
-      const rows = [...projectHistory(summarizer, { readBlob: bucket.read })];
-      const headOnly = [...projectHistory(summarizer)];
+      const rows = [...projectModelHistory(summarizer, { readBlob: bucket.read })];
+      const headOnly = [...projectModelHistory(summarizer)];
       expect({
         whole: rows.map((row) => (row.content === TRANSCRIPT ? "TRANSCRIPT" : row.content)),
         headOnly: headOnly.map((row) => String(row.content).length),

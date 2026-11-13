@@ -6,7 +6,7 @@
  */
 import { CompletionExpectation, latestCompactCutoff, owningTurn } from "@inhuman.tools/harness-model/session";
 
-import { projectHistory } from "../history.js";
+import { projectModelHistory } from "../history.js";
 import type { StepConfig } from "./schema.js";
 import { parseClock, policyOfTurn, type ClockReason, type RetentionClock } from "./view.js";
 
@@ -78,8 +78,8 @@ export function stampRetentionClock(tip: CompletionExpectation, now: number = Da
     freedTokens: () => {
       const held = spine[priorPos];
       if (held === undefined) return 0;
-      const before = tokensOf(projectHistory(tip, { clockAt: held }));
-      const after = tokensOf(projectHistory(tip, { clockAt: tip }));
+      const before = tokensOf(projectModelHistory(tip, { clockAt: held }));
+      const after = tokensOf(projectModelHistory(tip, { clockAt: tip }));
       return Math.max(0, before - after);
     },
   });

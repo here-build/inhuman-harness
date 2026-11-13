@@ -2,6 +2,7 @@ import { z } from "@inhuman.tools/plugin-sdk";
 
 export const toolResultSchema = z.object({
   ok: z.boolean(),
+  code: z.string().optional(),
   text: z.string().optional(),
   value: z.unknown().optional(),
   json: z.unknown().optional(),
@@ -10,6 +11,7 @@ export const toolResultSchema = z.object({
 
 export const toolResultShape = z.object({
   ok: z.boolean(),
+  code: z.string().optional(),
   text: z.unknown().optional(),
   value: z.unknown().optional(),
   json: z.unknown().optional(),

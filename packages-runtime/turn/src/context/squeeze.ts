@@ -22,6 +22,8 @@ import { toSExprString, toSExprStringWithElisions } from "@here.build/arrival-se
 import { ProgrammaticJob, ToolCallJob, type ToolCallRepresentation } from "@inhuman.tools/harness-model/session";
 
 import { humanSize, refOfNode } from "./retention/render.js";
+import { MODEL_OMISSION_GUIDANCE, modelCallSummary, projectModelArguments } from "./model-arguments.js";
+import { parseJobStamp, WRITE_ARG_TOOLS } from "./retention/stamp.js";
 
 export type SqueezeTo = "compact" | "micro";
 
@@ -215,4 +217,19 @@ export function toolCallRepresentation(tool: ToolCallJob): ToolCallRepresentatio
     args: tool.invocation(),
     result: paintObservation(liftToolImages(tool.observationPayload()).payload),
   };
+}
+
+/** Model-facing compaction text uses the same omission semantics as completion history. */
+export function projectModelToolText(tool: ToolCallJob): string {
+  const ref = `${refOfNode(tool) ?? "job:?"}#args`;
+  const args = tool.args ?? {};
+  const argumentsView = WRITE_ARG_TOOLS.has(tool.name)
+    ? projectModelArguments(args, ref, parseJobStamp(tool.retentionJson)?.args?.minChars ?? 2000)
+    : ({ kind: "complete", json: JSON.stringify(args) } as const);
+  const call = { id: tool.toolCallId, name: tool.name, arguments: argumentsView };
+  const invocation =
+    argumentsView.kind === "omitted"
+      ? `${MODEL_OMISSION_GUIDANCE}\n${modelCallSummary({ ...call, arguments: argumentsView })}`
+      : `[Historical tool call ${call.id}: ${call.name}]\nOriginal arguments: ${argumentsView.json}`;
+  return `${invocation}\nObserved result:\n${squeezeToolCall(tool, "compact")}`;
 }

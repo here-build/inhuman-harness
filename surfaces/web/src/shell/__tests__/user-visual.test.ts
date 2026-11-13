@@ -9,7 +9,7 @@ import { runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { groupBeats } from "../tape-beats.js";
-import { projectTurn, type TapeCell } from "../tape-read.js";
+import { projectUserTurn, type TapeCell } from "../tape-read.js";
 
 const request = vi.hoisted(() =>
   vi.fn<(method: string, params: unknown) => Promise<unknown>>(async () => ({ ok: true })),
@@ -81,15 +81,15 @@ describe("picture cells", () => {
     runInAction(() => {
       pictured.visuals = [shot];
     });
-    expect(projectTurn(pictured, "/work/project").filter((cell) => cell.kind === "user")).toEqual([
+    expect(projectUserTurn(pictured, "/work/project").filter((cell) => cell.kind === "user")).toEqual([
       { kind: "user", id: `${pictured.uuid}:user`, text: "", visuals: [shot] },
     ]);
     const spoken = seat("hello");
-    expect(projectTurn(spoken, "/work/project").find((cell) => cell.kind === "user")).toMatchObject({
+    expect(projectUserTurn(spoken, "/work/project").find((cell) => cell.kind === "user")).toMatchObject({
       text: "hello",
       visuals: [],
     });
-    expect(projectTurn(seat(""), "/work/project").some((cell) => cell.kind === "user")).toBe(false);
+    expect(projectUserTurn(seat(""), "/work/project").some((cell) => cell.kind === "user")).toBe(false);
   });
 
   it("paints the identity line and a data url from turn/visual", async () => {

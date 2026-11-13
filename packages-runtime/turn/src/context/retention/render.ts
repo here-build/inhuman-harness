@@ -155,23 +155,3 @@ export function textRemainder(leave: Leave, kind: string, text: string): string 
   if (leave === "summary") return `${oneLine(text, 200)} [${kind} elided, ${text.length} chars]`;
   return `${text.slice(0, leave.head)} [${kind} elided, ${text.length} chars]`;
 }
-
-/** Large string fields of a call's arguments become a stub; the JSON stays valid. */
-export function elideArgs(
-  args: Readonly<Record<string, unknown>>,
-  ref: string,
-  minChars: number,
-): { readonly json: string; readonly elided: boolean } {
-  const out: Record<string, unknown> = {};
-  let elided = false;
-  const total = JSON.stringify(args).length;
-  for (const [key, value] of Object.entries(args)) {
-    if (total >= minChars && typeof value === "string" && value.length > 200) {
-      out[key] = `[elided: ${lineCount(value)} lines, ${humanSize(value.length)} — recall ${ref}]`;
-      elided = true;
-    } else {
-      out[key] = value;
-    }
-  }
-  return { json: JSON.stringify(out), elided };
-}

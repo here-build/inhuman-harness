@@ -20,6 +20,37 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { applyCompact } from "../../session/index.js";
 import { stampCompactInputs } from "../compact-floors.js";
 import { historyBehind, textOfCell, Transcript } from "../index.js";
+import { spawnHistoryText } from "../spawn-history.js";
+
+it("a dozen delegated identities share one advisory and leave room for every receipt", () => {
+  const children = Array.from({ length: 12 }, (_, i) => {
+    const child = new AgentCallJob({
+      toolCallId: `agent-${i}`,
+      name: "agent__ask",
+      argsJson: JSON.stringify({ message: "private brief", description: `Inspect module ${i}` }),
+      completed: true,
+    });
+    child.outcomeSnap = { ok: true, value: `receipt-${i}` };
+    return child;
+  });
+  const program = new ProgrammaticJob({
+    toolCallId: "program",
+    argsJson: '{"expr":"(delegate)"}',
+    children,
+    completed: true,
+  });
+  const plexus = SessionPlexus.create("compact-many-agents");
+  onTestFinished(() => plexus.destroy());
+  plexus.root.head = turnWith([program]);
+  const text = spawnHistoryText(program) ?? "";
+  expect(text.length).toBeLessThanOrEqual(5300);
+  expect(text.match(/History abbreviation/g)).toHaveLength(1);
+  for (let i = 0; i < children.length; i++) {
+    expect(text).toContain(`Inspect module ${i}`);
+    expect(text).toContain(`receipt-${i}`);
+  }
+  expect(text).not.toContain("private brief");
+});
 
 /** `n` rounds where each completion carries the cells before it, as production does. */
 function rounds(n: number): unknown[] {
@@ -215,6 +246,8 @@ it.each(["direct", "program", "wrapper"])(
         ].filter((receipt) => text.includes(receipt)),
         readPath: text.includes("src/module.ts"),
         context: text.includes("SILENT_CONTEXT"),
+        omission: text.includes("History abbreviation, not literal file content or executable arguments."),
+        recovery: text.includes("context_recall"),
       };
     }
     const expected = {
@@ -237,6 +270,8 @@ it.each(["direct", "program", "wrapper"])(
               ],
       readPath: shape !== "direct",
       context: false,
+      omission: true,
+      recovery: true,
     };
     expect({ projected, stored: [program.expr, sibling.expr, child.speech] }).toEqual({
       projected: { "chunk-text": expected, summarizer: expected },

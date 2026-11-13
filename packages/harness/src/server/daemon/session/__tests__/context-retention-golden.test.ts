@@ -12,6 +12,7 @@
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
+  AgentCallJob,
   CompletionJob,
   FileMutateToolJob,
   MCPToolJob,
@@ -37,7 +38,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import {
   historyBehind,
   policyOfTurn,
-  projectHistory,
+  projectModelHistory,
   stampJobRetention,
   stampRetentionClock,
   turnRetentionJson,
@@ -45,7 +46,7 @@ import {
   type HistoryMessage,
   type HistoryUserPart,
 } from "@/context";
-
+import { viewWire } from "@/providers/openai-compat/actor";
 
 const PIC = (id: string): UserVisualIdentity => ({
   id,
@@ -113,7 +114,7 @@ class Fixture {
     if (spec.systemNote !== undefined) completion.systemNote = prompt.system`${spec.systemNote}`;
     turn.enqueue(new CompletionJob({ expectation: completion }));
     stampRetentionClock(completion, spec.now ?? this.clock);
-    const rows = [...projectHistory(completion, { readVisual })];
+    const rows = [...projectModelHistory(completion, { readVisual })];
     this.requests.set(label, rows);
     this.completions.set(label, completion);
     // The model answers; its calls become tool jobs admitted onto the tape.
@@ -345,17 +346,155 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     expect(t2r1).toContain("use pnpm");
   });
 
-  it("G12/N3: a large write's arguments are stubbed after the turn, still valid JSON, still answered", () => {
+  it("abbreviated write history explicitly warns against replaying placeholders as new content", () => {
+    const f = build();
+    const projected = text(f.requests.get("T3R1")!);
+    expect(projected).toMatch(/history.{0,80}abbreviat|abbreviat.{0,80}history/i);
+    expect(projected).toMatch(/do not (copy|replay)|not (literal|executable|file content)/i);
+  });
+
+  it("mixed native and abbreviated calls keep exact wire args and adjacent native results", () => {
+    const f = new Fixture();
+    const first = f.mint("write and inspect");
+    const writeArgs = JSON.stringify({ path: "plan.md", content: KB(6, "w") });
+    const readArgs = JSON.stringify({ path: "existing.md" });
+    f.round("mixed", first, {
+      calls: [
+        {
+          name: "write_file",
+          args: writeArgs,
+          job: new FileMutateToolJob({
+            toolCallId: "write",
+            name: "write_file",
+            argsJson: writeArgs,
+            completed: true,
+            outcomeJson: '{"ok":true,"text":"created plan.md"}',
+          }),
+        },
+        {
+          name: "read_file",
+          args: readArgs,
+          job: sys("read", "read_file", readArgs, { ok: true, text: "existing content" }),
+        },
+      ],
+    });
+    f.round("next", f.mint("continue"));
+    const tip = f.completions.get("next");
+    expect(tip).toBeDefined();
+    if (tip === undefined) throw new Error("fixture did not create next completion");
+    const wire = [...viewWire(tip)];
+    const caller = wire.findIndex((row) => row.tool_calls?.some((call) => call.id === "read"));
+    expect(caller).toBeGreaterThanOrEqual(0);
+    expect(wire[caller].tool_calls).toEqual([
+      { id: "read", type: "function", function: { name: "read_file", arguments: readArgs } },
+    ]);
+    expect(wire[caller + 1]).toMatchObject({ role: "tool", tool_call_id: "read", content: "existing content" });
+    expect(wire.some((row) => row.tool_call_id === "write")).toBe(false);
+    expect(wire.flatMap((row) => row.tool_calls ?? []).some((call) => call.id === "write")).toBe(false);
+    expect(JSON.stringify(wire)).toContain("Historical tool result write");
+    expect(JSON.stringify(wire)).not.toContain("[elided:");
+  });
+
+  it("all projected job and visual references remain recoverable after elision", () => {
+    const f = build();
+    const refs = new Set(
+      [...f.requests.values()].flatMap((rows) =>
+        [...JSON.stringify(rows).matchAll(/\b(?:job:[\w-]+(?:#args)?|visual:[\w-]+)/g)].map((hit) => hit[0]),
+      ),
+    );
+    expect(refs.size).toBeGreaterThan(5);
+    for (const ref of refs) {
+      expect(recallContext(f.plexus.root, { ref }), ref).toMatchObject({ ok: true });
+    }
+  });
+
+  it("nested program and tool argument references resolve inside the reachable turn only", () => {
+    const f = new Fixture();
+    const first = f.mint("delegate and write");
+    const writeArgs = { path: "plan.md", content: KB(6, "w") };
+    const write = sys("inner-write", "write_file", JSON.stringify(writeArgs), { ok: true, text: "created plan.md" });
+    const agent = new AgentCallJob({
+      toolCallId: "worker",
+      name: "agent__ask",
+      argsJson: '{"message":"private brief","description":"Inspect module"}',
+    });
+    const nested = new ProgrammaticJob({
+      toolCallId: "nested",
+      argsJson: '{"expr":"(nested-program)"}',
+      children: [write, agent],
+      completed: true,
+    });
+    const outer = new ProgrammaticJob({
+      toolCallId: "outer",
+      argsJson: '{"expr":"(outer-program)"}',
+      children: [nested],
+      completed: true,
+    });
+    const wrapper = sys("wrapper", "scheme_repl", '{"expr":"(wrapper-program)"}', { ok: true, text: "done" });
+    wrapper.registerJob(outer);
+    stampJobRetention(write, policyOfTurn(first));
+    f.round("work", first, { calls: [{ job: wrapper, name: "scheme_repl", args: JSON.stringify(wrapper.args) }] });
+    const projected = f.round("next", f.mint("continue"));
+    const rendered = JSON.stringify(projected);
+    for (const job of [wrapper, outer, nested, write, agent]) {
+      const ref = `job:${job.uuid.slice(0, 8)}#args`;
+      expect(rendered).toContain(ref);
+      const recalled = recallContext(f.plexus.root, { ref });
+      expect(recalled.ok, ref).toBe(true);
+      expect(String(recalled.value)).toContain(JSON.stringify(job.args).slice(0, 100));
+    }
+    f.plexus.root.head = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [] });
+    expect(recallContext(f.plexus.root, { ref: `job:${nested.uuid.slice(0, 8)}#args` }).ok).toBe(false);
+  });
+
+  it.each(["write_file", "edit_file"])(
+    "%s argument elision preserves stored args and supports complete paged recovery",
+    (name) => {
+      const f = new Fixture();
+      const first = f.mint("change the file");
+      const args =
+        name === "write_file"
+          ? { path: "file.ts", content: KB(12, "w") }
+          : { path: "file.ts", old_string: KB(6, "o"), new_string: KB(12, "n") };
+      const argsJson = JSON.stringify(args);
+      const job = new FileMutateToolJob({
+        toolCallId: "mutation",
+        name,
+        argsJson,
+        outcomeJson: JSON.stringify({ ok: true, text: "changed file.ts" }),
+        completed: true,
+      });
+      f.round("before", first, { calls: [{ job, name, args: argsJson }] });
+      const next = f.mint("continue");
+      const after = f.round("after", next);
+      expect(JSON.stringify(after)).toContain("Historical tool call mutation");
+      expect(JSON.stringify(after)).not.toContain("[elided:");
+      expect(job.args).toEqual(args);
+      const ref = `job:${job.uuid.slice(0, 8)}#args`;
+      let recovered = "";
+      for (let offset = 0; offset < argsJson.length; offset += 5000) {
+        const page = recallContext(f.plexus.root, { ref, offset, length: 5000 });
+        expect(page.ok).toBe(true);
+        const rendered = String(page.value);
+        recovered += rendered.slice(rendered.indexOf("\n") + 1);
+      }
+      expect(recovered).toBe(argsJson);
+    },
+  );
+
+  it("G12/N3: a large write becomes a historical record, never fabricated native arguments", () => {
     const f = build();
     const within = f.requests.get("T2R3")!;
     const after = f.requests.get("T3R1")!;
     const callOf = (rows: readonly HistoryMessage[]) =>
       rows.flatMap((row) => row.toolCalls ?? []).find((call) => call.name === "write_file")!;
     expect(callOf(within).argsJson.length).toBeGreaterThan(6000);
-    const stubbed = JSON.parse(callOf(after).argsJson) as Record<string, string>;
-    expect(stubbed.path).toBe("src/new.ts");
-    expect(stubbed.content).toMatch(/^\[elided: 1 lines, 6\.0 KB — recall job:[\w-]+#args\]$/);
-    expect(after.some((row) => row.role === "tool" && row.toolCallId === "wf1")).toBe(true);
+    expect(callOf(after)).toBeUndefined();
+    expect(after.some((row) => row.role === "tool" && row.toolCallId === "wf1")).toBe(false);
+    const record = after.flatMap((row) => (typeof row.content === "string" ? [row.content] : [])).join("\n");
+    expect(record).toContain('"retained":{"path":"src/new.ts"}');
+    expect(record).toContain('"omitted":[{"field":"content","characters":6144,"lines":1}]');
+    expect(record).toContain("[Historical tool result wf1: write_file]\nwrote src/new.ts");
   });
 
   it("G13/F5: a huge program result is capped in its turn and keeps a head plus a stub after it", () => {
@@ -421,7 +560,7 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
   it("G8: a restart re-projects byte-identically, and later config edits do not reach old turns", () => {
     const f = build();
     const tip = f.completions.get("T3R3")!;
-    const before = JSON.stringify([...projectHistory(tip, { readVisual })]);
+    const before = JSON.stringify([...projectModelHistory(tip, { readVisual })]);
     const stamped = f.turns.map((turn) => turn.retentionJson);
 
     // Config and kv change after the fact: new turns see it, old turns do not.
@@ -430,7 +569,7 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     });
     expect(changed).not.toBe(stamped[0]);
     expect([...f.turns.map((turn) => turn.retentionJson)]).toEqual(stamped);
-    expect(JSON.stringify([...projectHistory(tip, { readVisual })])).toBe(before);
+    expect(JSON.stringify([...projectModelHistory(tip, { readVisual })])).toBe(before);
 
     // Rehydrate the document into a fresh plexus.
     const reborn = SessionPlexus.fromNodeRows(f.plexus.doc.toNodeRows(), {
@@ -440,7 +579,7 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     onTestFinished(() => reborn.destroy());
     const rebornTip = reborn.loadEntity(tip.uuid);
     expect(rebornTip).toBeInstanceOf(CompletionExpectation);
-    expect(JSON.stringify([...projectHistory(rebornTip as CompletionExpectation, { readVisual })])).toBe(before);
+    expect(JSON.stringify([...projectModelHistory(rebornTip as CompletionExpectation, { readVisual })])).toBe(before);
   });
 
   it("G9: a settings change affects only turns minted after it", () => {
@@ -489,8 +628,8 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
         "assistant calls[web_search({}), mcp__github__search_issues({})]: null",
         "tool#w1: [web_search elided: "zod", 2 urls: https://a.dev, https://b.dev — recall job:REF]",
         "tool#m1: [mcp__github__search_issues elided: 9.0 KB — recall job:REF]",
-        "assistant calls[write_file({"path":"src/new.ts","content":"[elided: 1 lines, 6.0 KB — r)]: null",
-        "tool#wf1: wrote src/new.ts",
+        "assistant: History abbreviation, not literal file content or executable arguments. Do not copy or replay these summaries ",
+        "user: [Historical tool result wf1: write_file]⏎wrote src/new.ts",
         "assistant calls[scheme_repl({})]: null",
         "tool#p1: pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
         "user: one more thing | [Image #1: image/png, 100x50] | <image pic-c>",

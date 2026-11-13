@@ -20,7 +20,9 @@ export {
   squeezeToolCall,
   toolImagesOf,
   toolCallRepresentation,
+  projectModelToolText,
 } from "./squeeze.js";
+export { projectModelArguments, modelCallSummary, type ModelArguments, type ModelToolCall } from "./model-arguments.js";
 export * from "./retention/index.js";
 export { usesGenericSilentProjection } from "./delivery.js";
 export { selectCompletionTools } from "./tools.js";
@@ -30,6 +32,6 @@ export {
   type HistoryMessage,
   type HistoryUserPart,
   notificationMessagesOf,
-  projectHistory,
+  projectModelHistory,
   steerMessagesOf,
 } from "./history.js";

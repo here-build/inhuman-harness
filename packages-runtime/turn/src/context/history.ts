@@ -35,7 +35,13 @@ import invariant from "tiny-invariant";
 
 import { usesGenericSilentProjection } from "./delivery.js";
 import { BACKGROUND_TOOL, IN_FLIGHT_TOOL, NO_TOOLS_SYSTEM } from "./observations.js";
-import { elideArgs, refOfNode, textRemainder, toolRemainder, visualRef, type StubFacts } from "./retention/render.js";
+import { refOfNode, textRemainder, toolRemainder, visualRef, type StubFacts } from "./retention/render.js";
+import {
+  MODEL_OMISSION_GUIDANCE,
+  modelCallSummary,
+  projectModelArguments,
+  type ModelToolCall,
+} from "./model-arguments.js";
 import { effectiveRule, kindRule } from "./retention/resolve.js";
 import { parseJobStamp } from "./retention/stamp.js";
 import { buildView, horizonExpired, newestOf, type RetentionView, type ViewOptions } from "./retention/view.js";
@@ -548,40 +554,49 @@ function historyToolCall(
   job: ToolCallJob | ProgrammaticJob | undefined,
   producer: CompletionExpectation,
   ctx: Projection,
-): HistoryToolCall {
+): ModelToolCall {
   const base = { id: call.toolCallId, name: call.name };
   const args = call.args ?? {};
+  const ref = `${job === undefined ? "job:?" : (refOfNode(job) ?? "job:?")}#args`;
   // The worker retains its complete brief. The caller's very next model input
   // gets only its description and identity, even while the spawn is running.
   if (job instanceof AgentCallJob) {
-    return { ...base, argsJson: JSON.stringify(spawnDescriptionArgs(job)) };
+    return { ...base, arguments: { kind: "omitted", ref, summary: spawnDescriptionArgs(job) } };
   }
   if (job instanceof ProgrammaticJob || job instanceof ToolCallJob) {
     const operations = spawnProgramOperations(job);
     if (operations !== null) {
       return {
         ...base,
-        argsJson: JSON.stringify({
-          ...OMITTED_PROGRAM,
-          operations: operations.map((operation) =>
-            isProgramEnvelope(operation)
-              ? {
-                  id: operation.toolCallId,
-                  name: operation instanceof ToolCallJob ? operation.name : operation.toolName,
-                  argsJson: JSON.stringify(OMITTED_PROGRAM),
-                }
-              : historyToolCall(
-                  {
-                    toolCallId: operation.toolCallId,
+        arguments: {
+          kind: "omitted",
+          ref,
+          summary: {
+            ...OMITTED_PROGRAM,
+            operations: operations.map((operation) =>
+              isProgramEnvelope(operation)
+                ? {
+                    id: operation.toolCallId,
                     name: operation instanceof ToolCallJob ? operation.name : operation.toolName,
-                    args: operation.args,
-                  },
-                  operation,
-                  producer,
-                  ctx,
-                ),
-          ),
-        }),
+                    arguments: {
+                      kind: "omitted",
+                      ref: `${refOfNode(operation) ?? "job:?"}#args`,
+                      summary: OMITTED_PROGRAM,
+                    },
+                  }
+                : historyToolCall(
+                    {
+                      toolCallId: operation.toolCallId,
+                      name: operation instanceof ToolCallJob ? operation.name : operation.toolName,
+                      args: operation.args,
+                    },
+                    operation,
+                    producer,
+                    ctx,
+                  ),
+            ),
+          },
+        },
       };
     }
   }
@@ -593,10 +608,9 @@ function historyToolCall(
     consumer !== null &&
     horizonExpired(stamp.args.keep, ctx.view, { consumer, owner: producer })
   ) {
-    const elided = elideArgs(args, `${refOfNode(job) ?? "job:?"}#args`, stamp.args.minChars);
-    if (elided.elided) return { ...base, argsJson: elided.json };
+    return { ...base, arguments: projectModelArguments(args, ref, stamp.args.minChars) };
   }
-  return { ...base, argsJson: JSON.stringify(args) };
+  return { ...base, arguments: { kind: "complete", json: JSON.stringify(args) } };
 }
 
 function thinkingExpired(completion: CompletionExpectation, ctx: Projection): boolean {
@@ -616,14 +630,22 @@ function* emitCompletionOnTape(completion: CompletionExpectation, ctx: Projectio
       ctx,
     ),
   );
-  const calls = stored.filter((call) => !round.suppressed.has(call.id));
-  const allSuppressed = stored.length > 0 && calls.length === 0;
+  const visible = stored.filter((call) => !round.suppressed.has(call.id));
+  const calls: HistoryToolCall[] = [];
+  const summaries: string[] = [];
+  for (const call of visible) {
+    if (call.arguments.kind === "complete") calls.push({ id: call.id, name: call.name, argsJson: call.arguments.json });
+    else summaries.push(modelCallSummary({ ...call, arguments: call.arguments }));
+  }
+  const allSuppressed = stored.length > 0 && visible.length === 0;
+  if (summaries.length > 0) summaries.unshift(MODEL_OMISSION_GUIDANCE);
+  const responseText = [completion.responseText, ...summaries].filter((part) => part !== "").join("\n\n");
   const dropThinking = thinkingExpired(completion, ctx);
   const sameEndpoint = completion.connectionId === ctx.view.tip.connectionId && completion.model === ctx.view.tip.model;
   const thought = dropThinking ? "" : completion.responseThought;
   const encrypted = dropThinking || !sameEndpoint ? "" : (completion.responseReasoningEncrypted?.trim() ?? "");
   if (
-    completion.responseText !== "" ||
+    responseText !== "" ||
     calls.length > 0 ||
     thought !== "" ||
     encrypted !== "" ||
@@ -633,7 +655,7 @@ function* emitCompletionOnTape(completion: CompletionExpectation, ctx: Projectio
     prior.push({
       role: "assistant",
       // Strict OpenAI-compatible providers reject null content without tool calls.
-      content: completion.responseText === "" ? (calls.length > 0 ? null : "") : completion.responseText,
+      content: responseText === "" ? (calls.length > 0 ? null : "") : responseText,
       ...(calls.length > 0 ? { toolCalls: calls } : {}),
       thought,
       ...(encrypted === "" ? {} : { thoughtEncrypted: encrypted }),
@@ -641,13 +663,22 @@ function* emitCompletionOnTape(completion: CompletionExpectation, ctx: Projectio
   }
   // A tool row answers a call in this same projection, or it is not emitted: no orphan results.
   const imageRows: HistoryMessage[] = [];
-  for (const call of calls) {
+  const historicalRows: HistoryMessage[] = [];
+  // Native results answer exact native calls. Abbreviated calls and results are historical text.
+  for (const call of visible) {
     const job = byId.get(call.id);
-    prior.push({
-      role: "tool",
-      toolCallId: call.id,
-      content: job === undefined ? IN_FLIGHT_TOOL : toolContent(job, round.silent.has(call.id), completion, ctx),
-    });
+    const content = job === undefined ? IN_FLIGHT_TOOL : toolContent(job, round.silent.has(call.id), completion, ctx);
+    if (call.arguments.kind === "complete")
+      prior.push({
+        role: "tool",
+        toolCallId: call.id,
+        content,
+      });
+    else
+      historicalRows.push({
+        role: "user",
+        content: `[Historical tool result ${call.id}: ${call.name}]\n${typeof content === "string" ? content : JSON.stringify(content)}`,
+      });
     if (job instanceof ToolCallJob && job.completed) {
       const row = toolImageRow(
         job,
@@ -659,7 +690,7 @@ function* emitCompletionOnTape(completion: CompletionExpectation, ctx: Projectio
       if (recalled !== null) imageRows.push(recalled);
     }
   }
-  prior.push(...imageRows);
+  prior.push(...historicalRows, ...imageRows);
   for (const row of prior) yield row;
 }
 
@@ -669,7 +700,7 @@ function dialectOf(tip: CompletionExpectation, given: string | undefined): strin
 }
 
 /** History before vendor wire encoding. */
-export function* projectHistory(
+export function* projectModelHistory(
   tip: CompletionExpectation,
   options: ProjectHistoryOptions = {},
 ): Generator<HistoryMessage> {

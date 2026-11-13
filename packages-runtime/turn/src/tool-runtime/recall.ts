@@ -25,12 +25,18 @@ function reachableTurns(root: SessionRoot): SessionTurn[] {
 
 function reachableJobs(root: SessionRoot): Array<ToolCallJob | ProgrammaticJob> {
   const out: Array<ToolCallJob | ProgrammaticJob> = [];
+  const seen = new Set<ToolCallJob | ProgrammaticJob>();
+  const visit = (job: ToolCallJob | ProgrammaticJob): void => {
+    if (seen.has(job)) return;
+    seen.add(job);
+    out.push(job);
+    for (const child of job.children) {
+      if (child instanceof ToolCallJob || child instanceof ProgrammaticJob) visit(child);
+    }
+  };
   for (const turn of reachableTurns(root)) {
     for (const cell of reactChunks(turn)) {
-      if (cell instanceof ToolCallJob) out.push(cell);
-      else if (cell instanceof ProgrammaticJob) {
-        out.push(cell, ...cell.toolCalls);
-      }
+      if (cell instanceof ToolCallJob || cell instanceof ProgrammaticJob) visit(cell);
     }
   }
   return out;

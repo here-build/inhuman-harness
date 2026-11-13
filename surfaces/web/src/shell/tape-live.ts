@@ -2,7 +2,7 @@ import type { SessionTurn } from "@inhuman.tools/harness-model";
 import { comparer, computed, type IComputedValue } from "mobx";
 
 import { type AgentMark, groupBeats, type ProgressMark, type TapeBeat } from "./tape-beats.js";
-import { projectTurn } from "./tape-read.js";
+import { projectUserTurn } from "./tape-read.js";
 
 export type BeatOutline = {
   readonly id: string;
@@ -26,7 +26,7 @@ const lives = new WeakMap<SessionTurn, TurnLive>();
 function turnLive(turn: SessionTurn, projectPath: string): TurnLive {
   const existing = lives.get(turn);
   if (existing?.path === projectPath) return existing;
-  const beats = computed(() => groupBeats(projectTurn(turn, projectPath)), { name: "turnBeats" });
+  const beats = computed(() => groupBeats(projectUserTurn(turn, projectPath)), { name: "turnBeats" });
   // A token changes response text but not beat identity, marks, or thought presence.
   // Object.is would treat each new outline array as a change and re-render every other beat.
   const outline = computed(

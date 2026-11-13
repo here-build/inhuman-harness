@@ -12,9 +12,41 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { reduceSession, type FileFact, type SessionEvent } from "../session-reducer.js";
-import { tapeCells, type TapeCell } from "../tape-read.js";
+import { tapeCells, projectUserTurn, type TapeCell } from "../tape-read.js";
 
 type Mutation = Extract<FileFact, { kind: "mutation" }>;
+
+it("user turn projection keeps the complete diff despite model argument retention", () => {
+  const content = "full user-visible file contents\n".repeat(300);
+  const job = new FileMutateToolJob({
+    name: "write_file",
+    argsJson: JSON.stringify({ path: "plan.md", content }),
+    existed: false,
+    completed: true,
+    outcomeJson: '{"ok":true}',
+    retentionJson: JSON.stringify({
+      kind: "tool.write",
+      keep: ["compaction"],
+      leave: "stub",
+      minChars: 800,
+      args: { keep: ["round"], leave: "stub", minChars: 2000 },
+    }),
+  });
+  const root = new SessionRoot({ sessionId: "user-projection", path: "/work" });
+  const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], doneWork: [job] });
+  turn.pushChild(job);
+  root.head = turn;
+  const plexus = SessionPlexus.bootstrap(root);
+  try {
+    expect(diffs(projectUserTurn(turn, root.path))[0]).toMatchObject({
+      body: { kind: "diff", path: "plan.md", newText: content },
+    });
+    expect(job.args).toEqual({ path: "plan.md", content });
+  } finally {
+    plexus.destroy();
+  }
+});
+
 function edit(
   id: string,
   prior: string | null,

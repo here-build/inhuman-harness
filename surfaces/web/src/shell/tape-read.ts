@@ -160,7 +160,7 @@ export function userPictureLine(index: number, visual: UserVisualIdentity): stri
  * One turn, reduced on its own. A later turn starts from a cleared file map.
  * `blobs` serves the text a file mutation's prior keeps in a blob; omitted, the dial's seated cache does.
  */
-export function projectTurn(turn: SessionTurn, projectPath: string, blobs?: BlobPeek): TapeCell[] {
+export function projectUserTurn(turn: SessionTurn, projectPath: string, blobs?: BlobPeek): TapeCell[] {
   const cells: SessionEvent[] = [{ kind: "turn", id: turn.uuid }];
   const prompt = String(turn.prompt).trim();
   const visuals = turn.visuals;
@@ -257,7 +257,7 @@ export function projectTurn(turn: SessionTurn, projectPath: string, blobs?: Blob
 }
 
 export function tapeCells(root: SessionRoot, blobs?: BlobPeek): TapeCell[] {
-  return turnsOldestFirst(root).flatMap((turn) => projectTurn(turn, root.path, blobs));
+  return turnsOldestFirst(root).flatMap((turn) => projectUserTurn(turn, root.path, blobs));
 }
 
 /** Metadata annotates its round. Task and goal transitions come from plugin state in sessionBeats. */

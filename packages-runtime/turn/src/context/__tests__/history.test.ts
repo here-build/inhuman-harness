@@ -26,7 +26,13 @@ import {
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { CONTEXT_NEED_REMINDER } from "../../session/side-channel-reminder.js";
-import { BACKGROUND_TOOL, IN_FLIGHT_TOOL, NO_TOOLS_SYSTEM, projectHistory, type HistoryMessage } from "../index.js";
+import {
+  BACKGROUND_TOOL,
+  IN_FLIGHT_TOOL,
+  NO_TOOLS_SYSTEM,
+  projectModelHistory,
+  type HistoryMessage,
+} from "../index.js";
 
 function nativeCalls(...rows: Array<[id: string, name: string, args?: string]>) {
   return rows.map(([id, name, args]) => responseCall(id, name, args ?? "{}"));
@@ -126,10 +132,10 @@ function history(
     });
   mount(turn, ...cells);
   plexus.root.head = turn;
-  return [...projectHistory(tip, { echoEmptyThought: extra?.echoEmptyThought })];
+  return [...projectModelHistory(tip, { echoEmptyThought: extra?.echoEmptyThought })];
 }
 
-describe("projectHistory", () => {
+describe("projectModelHistory", () => {
   it.each([
     {
       name: "assistant tool_calls plus matching role:tool",
@@ -330,7 +336,7 @@ describe("projectHistory", () => {
       queue: [new TurnPromptChunk(), new CompletionJob({ expectation: tip })],
     });
     const rows = [
-      ...projectHistory(tip, {
+      ...projectModelHistory(tip, {
         readVisual: (id) => (id === "pic-5" ? new Uint8Array([1, 2, 3]) : null),
       }),
     ];
@@ -399,7 +405,7 @@ it("isolated assistant examples carry empty thought for the actor to encode", ()
     promptMessages: messages.map((row) => new PromptMessage(row)),
   });
   round.responseThought = "not authored reasoning";
-  expect([...projectHistory(round)]).toEqual([messages[0], { ...messages[1], thought: "" }, messages[2]]);
+  expect([...projectModelHistory(round)]).toEqual([messages[0], { ...messages[1], thought: "" }, messages[2]]);
 });
 
 it("echoes encrypted reasoning only when connectionId and model match the tip while keeping plain thought", () => {
@@ -468,7 +474,7 @@ describe("bodies stored beside the document", () => {
     const asked: string[] = [];
     const serve = reader({ [SHA]: FULL });
     const rows = [
-      ...projectHistory(summarizer(), {
+      ...projectModelHistory(summarizer(), {
         readBlob: (sha256) => {
           asked.push(sha256);
           return serve(sha256);
@@ -486,9 +492,9 @@ describe("bodies stored beside the document", () => {
 
   it("projects the head when the reader is missing, when it has nothing, and when it holds another blob", () => {
     const headOnly = [
-      [...projectHistory(summarizer())],
-      [...projectHistory(summarizer(), { readBlob: () => null })],
-      [...projectHistory(summarizer(), { readBlob: reader({ [OTHER]: "unrelated" }) })],
+      [...projectModelHistory(summarizer())],
+      [...projectModelHistory(summarizer(), { readBlob: () => null })],
+      [...projectModelHistory(summarizer(), { readBlob: reader({ [OTHER]: "unrelated" }) })],
     ].map((rows) => rows.map((row) => row.content));
     const system = "Fold this conversation prefix into a snapshot.";
     expect(headOnly).toEqual([
@@ -505,7 +511,7 @@ describe("bodies stored beside the document", () => {
       completionMode: "isolated",
       promptMessages: [new PromptMessage({ role: "user", content: "short" })],
     });
-    const rows = [...projectHistory(round, { readBlob: (sha256) => (asked.push(sha256), null) })];
+    const rows = [...projectModelHistory(round, { readBlob: (sha256) => (asked.push(sha256), null) })];
     expect({ rows: rows.map((row) => row.content), asked }).toEqual({ rows: ["short"], asked: [] });
   });
 
@@ -518,7 +524,7 @@ describe("bodies stored beside the document", () => {
         new PromptMessage({ role: "user", content: text.slice(0, 512), contentBlobJson: storedBody(SHA, text) }),
       ],
     });
-    const row = [...projectHistory(round, { readBlob: reader({ [SHA]: text }) })].at(0);
+    const row = [...projectModelHistory(round, { readBlob: reader({ [SHA]: text }) })].at(0);
     expect(row?.content === text).toBe(true);
   });
 
@@ -539,7 +545,7 @@ describe("bodies stored beside the document", () => {
     mount(turn, prior, tip);
     plexus.root.head = turn;
     const users = (readBlob?: (sha256: string) => Uint8Array | null) =>
-      [...projectHistory(tip, readBlob === undefined ? {} : { readBlob })]
+      [...projectModelHistory(tip, readBlob === undefined ? {} : { readBlob })]
         .filter((row) => row.role === "user")
         .map((row) => row.content);
     expect({
@@ -563,7 +569,9 @@ describe("bodies stored beside the document", () => {
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`q`, queue: [] });
     mount(turn, tip);
     plexus.root.head = turn;
-    const user = [...projectHistory(tip, { readBlob: reader({ [SHA]: FULL }) })].find((row) => row.role === "user");
+    const user = [...projectModelHistory(tip, { readBlob: reader({ [SHA]: FULL }) })].find(
+      (row) => row.role === "user",
+    );
     expect(user?.content === `first\n\n${FULL}`).toBe(true);
   });
 });
@@ -597,22 +605,16 @@ describe("spawn briefs in caller history", () => {
         agent,
         completion("next"),
       ]);
-      const call = output.flatMap((row) => row.toolCalls ?? []).find((row) => row.id === "spawn-1")!;
-      expect({
-        call: { ...call, argsJson: JSON.parse(call.argsJson) },
-        receipt: output.find((row) => row.toolCallId === "spawn-1")?.content,
-        leaked: JSON.stringify(output).includes(brief),
-        workerSpeech: agent.speech,
-      }).toEqual({
-        call: {
-          id: "spawn-1",
-          name: "agent__ask",
-          argsJson: { description: "Fix draft recovery.", spec: "implementer", workerSessionId: "worker-1" },
-        },
-        receipt,
-        leaked: false,
-        workerSpeech: brief,
-      });
+      const text = output.flatMap((row) => (typeof row.content === "string" ? [row.content] : [])).join("\n");
+      expect(output.flatMap((row) => row.toolCalls ?? []).some((call) => call.id === "spawn-1")).toBe(false);
+      expect(output.some((row) => row.toolCallId === "spawn-1")).toBe(false);
+      expect(text).toContain("[Historical tool call spawn-1: agent__ask]");
+      expect(text).toContain('"description":"Fix draft recovery."');
+      expect(text).toContain('"spec":"implementer"');
+      expect(text).toContain('"workerSessionId":"worker-1"');
+      expect(text).toContain(`[Historical tool result spawn-1: agent__ask]\n${receipt}`);
+      expect(text).not.toContain(brief);
+      expect(agent.speech).toBe(brief);
     },
   );
 
@@ -646,45 +648,18 @@ describe("spawn briefs in caller history", () => {
         wrapper,
         completion("next"),
       ]);
-      const call = output.flatMap((row) => row.toolCalls ?? []).find((row) => row.id === "wrapped")!;
-      const args = JSON.parse(call.argsJson);
-      expect({
-        call: {
-          id: call.id,
-          name: call.name,
-          args: {
-            ...args,
-            operations: args.operations.map((row: { id: string; name: string; argsJson: string }) => ({
-              ...row,
-              argsJson: JSON.parse(row.argsJson),
-            })),
-          },
-        },
-        receipt: output.find((row) => row.toolCallId === "wrapped")?.content,
-        leaked: JSON.stringify(output).includes(brief),
-        stored: [program.expr, nested.expr],
-      }).toEqual({
-        call: {
-          id: "wrapped",
-          name: "scheme_repl",
-          args: {
-            ...omitted,
-            operations: [
-              { id: "program", name: "scheme_repl", argsJson: omitted },
-              { id: "nested", name: "scheme_repl", argsJson: omitted },
-              {
-                id: "spawn",
-                name: "agent__ask",
-                argsJson: { description: "Fix draft recovery.", spec: "implementer", workerSessionId: "worker-1" },
-              },
-              { id: "read", name: "read_file", argsJson: { path: "src/chat.ts" } },
-            ],
-          },
-        },
-        receipt: background ? BACKGROUND_TOOL : "mixed program failed after read",
-        leaked: false,
-        stored: [expr, expr],
-      });
+      const text = output.flatMap((row) => (typeof row.content === "string" ? [row.content] : [])).join("\n");
+      expect(output.flatMap((row) => row.toolCalls ?? []).some((call) => call.id === "wrapped")).toBe(false);
+      expect(text).toContain("[Historical tool call wrapped: scheme_repl]");
+      expect(text).toContain(omitted.description);
+      for (const id of ["program", "nested", "spawn", "read"]) expect(text).toContain(`"id":"${id}"`);
+      expect(text).toContain('"workerSessionId":"worker-1"');
+      expect(text).toContain(JSON.stringify({ kind: "complete", json: JSON.stringify({ path: "src/chat.ts" }) }));
+      expect(text).toContain(
+        `[Historical tool result wrapped: scheme_repl]\n${background ? BACKGROUND_TOOL : "mixed program failed after read"}`,
+      );
+      expect(text).not.toContain(brief);
+      expect([program.expr, nested.expr]).toEqual([expr, expr]);
     },
   );
 
@@ -710,12 +685,11 @@ describe("spawn briefs in caller history", () => {
       completion("middle"),
       completion("next"),
     ]);
-    const call = output.flatMap((row) => row.toolCalls ?? []).find((row) => row.id === "mixed")!;
-    expect({
-      body: call.argsJson.includes("LONG_WRITE_BODY"),
-      path: call.argsJson.includes("src/chat.ts"),
-      source: call.argsJson.includes(brief),
-    }).toEqual({ body: false, path: true, source: false });
+    const text = JSON.stringify(output);
+    expect(text.includes("LONG_WRITE_BODY")).toBe(false);
+    expect(text.includes("src/chat.ts")).toBe(true);
+    expect(text.includes(brief)).toBe(false);
+    expect(text).not.toContain("[elided:");
   });
 
   it("keeps ordinary program source when no spawn was executed", () => {

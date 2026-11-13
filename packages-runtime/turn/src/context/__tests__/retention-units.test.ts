@@ -11,7 +11,8 @@ import {
   sessionRetentionLayer,
   type StepFacts,
 } from "../retention/index.js";
-import { elideArgs, textRemainder, toolRemainder, type StubFacts } from "../retention/render.js";
+import { textRemainder, toolRemainder, type StubFacts } from "../retention/render.js";
+import { projectModelArguments } from "../model-arguments.js";
 
 describe("G10: narrowing algebra", () => {
   it("combines conditions as whichever comes first", () => {
@@ -180,12 +181,15 @@ describe("remainders are deterministic", () => {
     expect(textRemainder("stub", "steer", "hello")).toBe("[steer elided: 5 chars]");
   });
 
-  it("elided arguments stay valid JSON and keep short fields", () => {
-    const out = elideArgs({ path: "a.ts", content: "x".repeat(3000) }, "job:abcd1234#args", 2000);
-    expect(JSON.parse(out.json)).toEqual({
-      path: "a.ts",
-      content: "[elided: 1 lines, 2.9 KB — recall job:abcd1234#args]",
+  it("omitted model arguments are metadata, never fabricated executable JSON", () => {
+    const args = { path: "a.ts", content: "x".repeat(3000) };
+    expect(projectModelArguments(args, "job:abcd1234#args", 2000)).toEqual({
+      kind: "omitted",
+      ref: "job:abcd1234#args",
+      summary: { retained: { path: "a.ts" }, omitted: [{ field: "content", characters: 3000, lines: 1 }] },
     });
-    expect(elideArgs({ path: "a.ts", content: "x".repeat(300) }, "r", 2000).elided).toBe(false);
+    expect(args.content).toBe("x".repeat(3000));
+    const short = { path: "a.ts", content: "x".repeat(300) };
+    expect(projectModelArguments(short, "r", 2000)).toEqual({ kind: "complete", json: JSON.stringify(short) });
   });
 });
