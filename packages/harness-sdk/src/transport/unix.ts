@@ -1,11 +1,6 @@
 import { IncomingMessage } from "node:http";
 
-import {
-  destroyRoomConnection,
-  detachLocalPresence,
-  RoomConnection,
-  waitForSync,
-} from "@inhuman.tools/harness-peer";
+import { destroyRoomConnection, detachLocalPresence, RoomConnection, waitForSync } from "@inhuman.tools/harness-peer";
 import type { DocumentContainer } from "@inhuman.tools/model";
 import { WebSocket } from "ws";
 

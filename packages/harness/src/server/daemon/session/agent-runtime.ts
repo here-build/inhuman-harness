@@ -479,6 +479,16 @@ export async function executeBotCall(job: BotCallJob, host: AgentRuntimeHost): P
   }
   const installed = meta == null ? undefined : host.kernel.catalog.pluginInstall.plugins.get(meta.pluginName);
   const tool = installed == null ? undefined : botCallToolOf(installed, job.name);
+  if (meta != null && installed != null && tool == null) {
+    // Error-as-door: name what is available so the caller can correct the call.
+    const available =
+      installed.definition.tools
+        .filter((t) => t.type === "bot-call")
+        .map((t) => t.name)
+        .join(", ") || "(none)";
+    sealCall(job, "unknown_tool", `Unknown tool "${job.name}". Available tools in "${meta.pluginName}": ${available}.`);
+    return;
+  }
   const invocationScoped =
     installed?.definition.bots.some((bot) => bot.name === recipe.spec.name && bot.recipeScope === "invocation") ===
     true;
@@ -510,7 +520,7 @@ export async function executeBotCall(job: BotCallJob, host: AgentRuntimeHost): P
     const args = job.args ?? {};
     const ctx = pluginCallContextOf(host.caller, job);
     const lifetime = tool?.lifetime === "turn" ? "turn" : "call";
-    const parsedInput = tool?.input.parse(args) ?? args;
+    const parsedInput = tool != null ? tool.input.parse(args) : args;
     prepared =
       tool?.type === "bot-call"
         ? (tool.prepare?.(

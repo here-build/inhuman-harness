@@ -8,6 +8,7 @@ import {
   JSON_RPC_METHOD_NOT_FOUND,
   JSON_RPC_PARSE_ERROR,
 } from "@/protocol/rpc";
+
 import { RpcMethodNotFound } from "../../contract.js";
 import { serveJsonRpc, type RpcApplication, type RpcRequestIdentity } from "../jsonrpc.js";
 import type { PlaneSocket } from "../plane.js";
