@@ -38,6 +38,8 @@ class ConnectedDial {
   session: {
     root: {
       uuid: string;
+      activity: { readonly kind: "idle" };
+      autoModeProblems: Record<string, string>;
       sessionId: string;
       head: object | null;
       findRunningTurn: () => null;
@@ -46,6 +48,8 @@ class ConnectedDial {
   } | null = {
     root: {
       uuid: "root:fresh",
+      activity: { kind: "idle" },
+      autoModeProblems: {},
       sessionId: "fresh",
       head: null,
       findRunningTurn: () => null,

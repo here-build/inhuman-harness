@@ -2,6 +2,7 @@
  * The sessions the stories open. Each is built from the same jobs a real
  * turn holds, so the tape projects it exactly as it projects a live room.
  */
+import { CompletionExpectation, CompletionJob } from "@inhuman.tools/harness-model";
 import type { SessionPlexus } from "@inhuman.tools/harness-peer";
 
 import { runWorkflow, WORKFLOWS, WorkflowClock, type WorkflowRun } from "./workflow-world.js";
@@ -382,6 +383,42 @@ export const running = () =>
       },
     ],
   });
+
+export function retrying(): SessionPlexus {
+  const expectation = new CompletionExpectation({ connectionId: "grok", model: "grok-4.7" });
+  expectation.stampRetryLimits({ maxMs: 0, maxAttempts: 15, backgroundMaxAttempts: 0 });
+  for (let at = 0; at < 3; at += 1)
+    expectation.recordAttemptFailure("The model connection timed out. Check the connection, then resume if it stops.");
+  expectation.retryUntilMs = Date.now() + 30_000;
+  return session({
+    id: "retrying",
+    turns: [{ prompt: "Continue the architecture audit", work: [new CompletionJob({ expectation })], live: true }],
+  });
+}
+
+export function autoUnavailable(): SessionPlexus {
+  const open = retrying();
+  open.root.permissionMode = "auto";
+  open.root.kvs.judgeConnection = "grok";
+  open.root.kvs.judgeModel = "grok-4.7";
+  open.root.autoModeProblems["grok\ngrok-4.7"] = "The judge service returned HTTP 503.";
+  return open;
+}
+
+export function agentActivity() {
+  const worker = autoUnavailable();
+  const parent = session({
+    id: "agent-activity",
+    turns: [
+      {
+        prompt: "Investigate the runtime with an explorer",
+        work: [agent("explore", "Inspect the runtime lifecycle", { worker: worker.root.sessionId, live: true })],
+        live: true,
+      },
+    ],
+  });
+  return { parent, worker };
+}
 
 /**
  * Agents across their lives. Two sent to the background come back a turn and

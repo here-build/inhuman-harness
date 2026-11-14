@@ -13,8 +13,8 @@ import {
 } from "./provider-list.js";
 import { useDial } from "../client/context.js";
 import { Button } from "../components/ui/button.js";
-import { glyph } from "../components/ui/glyph.js";
 import { FieldInput, Label, SearchField } from "../components/ui/form-controls.js";
+import { glyph } from "../components/ui/glyph.js";
 
 type Panel = { readonly start: ConnectStart; readonly key: string } | { readonly landing: true } | null;
 

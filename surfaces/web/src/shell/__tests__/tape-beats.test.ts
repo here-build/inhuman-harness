@@ -11,7 +11,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { schemeExprReady, schemeExprSettled } from "../scheme-unwrap.js";
-import { groupBeats } from "../tape-beats.js";
+import { agentSpans, groupBeats } from "../tape-beats.js";
 import { metadataMark, tapeCells, type TapeCell } from "../tape-read.js";
 
 describe("progress marks", () => {
@@ -284,3 +284,36 @@ function face(cell: TapeCell): string {
   if (cell.kind === "tool") return `tool:${cell.summary}`;
   return cell.kind;
 }
+
+describe("agent spans", () => {
+  const agent = (id: string, background: boolean, live: boolean) => ({ id, background, live });
+
+  it("closes a waited call in its own round and holds a live one open", () => {
+    const spans = agentSpans([
+      { agents: [agent("waited", false, false), agent("out", true, true)], settles: [] },
+      { agents: [], settles: [] },
+    ]);
+    expect(spans[0].agentSpans).toEqual([
+      { id: "waited", lastRow: 1 },
+      { id: "out", lastRow: null },
+    ]);
+  });
+
+  it("closes a background call at the round that claimed its result", () => {
+    const spans = agentSpans([
+      { agents: [agent("bg", true, false)], settles: [] },
+      { agents: [], settles: [] },
+      { agents: [], settles: ["bg"] },
+    ]);
+    expect(spans[0].agentSpans).toEqual([{ id: "bg", lastRow: 3 }]);
+  });
+
+  it("never closes a span above its spawn when the settle is recorded first", () => {
+    const spans = agentSpans([
+      { agents: [], settles: ["bg"] },
+      { agents: [agent("bg", true, false)], settles: [] },
+    ]);
+    // The settle landed on row 1, before the spawn on row 2: clamp to the spawn.
+    expect(spans[1].agentSpans).toEqual([{ id: "bg", lastRow: 2 }]);
+  });
+});

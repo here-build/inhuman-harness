@@ -152,10 +152,14 @@ export function agentSpans<T extends { readonly agents: readonly AgentMark[]; re
   }
   return beats.map((beat, index) => {
     const row = index + 1;
-    const spans = beat.agents.map((agent): AgentSpan => ({
-      id: agent.id,
-      lastRow: !agent.background && !agent.live ? row : (settledAt.get(agent.id) ?? null),
-    }));
+    const spans = beat.agents.map((agent): AgentSpan => {
+      if (!agent.background && !agent.live) return { id: agent.id, lastRow: row };
+      const settled = settledAt.get(agent.id);
+      // A notification can be claimed before the round that spawned the call is
+      // recorded (id reuse, out-of-order settle). Never close a span above its
+      // spawn: that would invert the slot's top/bottom anchors.
+      return { id: agent.id, lastRow: settled == null ? null : Math.max(row, settled) };
+    });
     return { ...beat, agentSpans: spans };
   });
 }

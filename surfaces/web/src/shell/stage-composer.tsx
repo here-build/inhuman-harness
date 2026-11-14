@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { reasoningEffortOf, sessionMintPermissionMode, type ReasoningEffort } from "@inhuman.tools/harness-model";
+import { sessionMintPermissionMode, type ReasoningEffort } from "@inhuman.tools/harness-model";
 import { IconCornerDownLeft } from "@tabler/icons-react";
 import { useRouter } from "@tanstack/react-router";
 import { observer } from "mobx-react-lite";
-import { Button as MenuButton } from "react-aria-components";
 
 import { connectPort } from "./connect-step.js";
 import { cloneDraftPicture } from "./draft-slot.js";
@@ -16,7 +15,6 @@ import {
   mintedReasoningEffort,
   queueSession,
   stageOf,
-  stagedAgents,
   subscribeStageFocus,
   type StagedPermission,
 } from "./new-session.js";
@@ -30,7 +28,6 @@ import { ReasoningEffortPicker } from "./reasoning-effort.js";
 import { SkillSlashMenu } from "./skill-slash-menu.js";
 import { useSkillSlash } from "./use-skill-slash.js";
 import { useDial } from "../client/context.js";
-import { Menu, MenuItem, MenuTrigger, NativePopover } from "../components/ui/anchored.js";
 import { Button } from "../components/ui/button.js";
 import { fieldGlyph } from "../components/ui/glyph.js";
 import { Textarea } from "../components/ui/input.js";
@@ -39,8 +36,8 @@ const fieldActionClass =
   "absolute right-2 bottom-2 inline-flex size-8 min-h-0 p-0 items-center justify-center rounded-sm text-ink hover:bg-hover disabled:opacity-40 pointer-coarse:right-1 pointer-coarse:bottom-1 pointer-coarse:size-12";
 
 /**
- * The project page before a session exists. The field, model, agent, and
- * permission stay here. Send mints the session and carries them over.
+ * The project page before a session exists. The field, model, and permission
+ * stay here. Send mints the session on the default face and carries them over.
  */
 export const StageComposer = observer(function StageComposerView({ path }: { readonly path: string }) {
   const dial = useDial();
@@ -65,12 +62,7 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
   const seeded = mintedModel(dial.kernel?.root.kvs, held?.kvs);
   const shown = stage.model ?? seeded;
   const wires = completionWires(dial.kernel?.root.connections);
-  const agents = stagedAgents(dial.kernel?.root.bots, held?.bots);
-  const agentOptions =
-    stage.agent !== "" && !agents.some((row) => row.name === stage.agent) ? [{ name: stage.agent }, ...agents] : agents;
-  const agentLabel = stage.agent === "" ? "Default" : stage.agent;
   const seedEffort = mintedReasoningEffort(dial.kernel?.root.kvs, held?.kvs);
-  const stagedAgentEffort = reasoningEffortOf(agents.find((row) => row.name === stage.agent)?.face.reasoningEffort);
   const seedPermission = sessionMintPermissionMode(
     dial.kernel?.root.defaultPermissionMode ?? "",
     held?.defaultPermissionMode ?? "",
@@ -104,12 +96,6 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
     stage.status = "";
     refresh();
   };
-  const chooseAgent = (name: string): void => {
-    stage.agent = name;
-    stage.revision += 1;
-    stage.status = "";
-    refresh();
-  };
   const choosePermission = (mode: StagedPermission): void => {
     stage.permission = mode;
     stage.revision += 1;
@@ -133,7 +119,7 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
       prompt,
       pictures,
       model: stage.model,
-      agent: stage.agent,
+      agent: "",
       permission: stage.permission,
       reasoningEffort: stage.reasoningEffort,
     });
@@ -256,45 +242,18 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
               onLook={(connectionIds, driverNames) => dial.look(connectionIds, driverNames)}
             />
           )}
-          <MenuTrigger>
-            <MenuButton className="agent-trigger touch-target" aria-label={`Agent: ${agentLabel}`}>
-              <span className={stage.agent === "" ? "label" : "tracking-normal [font-variant-caps:normal]"}>
-                {agentLabel}
-              </span>
-            </MenuButton>
-            <NativePopover style={{ positionArea: "top span-left" }}>
-              <Menu
-                aria-label="Agent"
-                selectionMode="single"
-                disallowEmptySelection
-                selectedKeys={new Set([stage.agent])}
-                onAction={(key) => {
-                  if (key === "" || agentOptions.some((row) => row.name === key)) chooseAgent(String(key));
-                }}
-              >
-                <MenuItem id="" shouldCloseOnSelect>
-                  Default
-                </MenuItem>
-                {agentOptions.map((row) => (
-                  <MenuItem key={row.name} id={row.name} textValue={row.name} shouldCloseOnSelect>
-                    <span className="tracking-normal [font-variant-caps:normal]">{row.name}</span>
-                  </MenuItem>
-                ))}
-              </Menu>
-            </NativePopover>
-          </MenuTrigger>
           <ReasoningEffortPicker
             model={shown}
             wires={wires}
             staged={stage.reasoningEffort}
             seed={seedEffort}
-            agentEffort={stagedAgentEffort}
+            agentEffort={null}
             disabled={blocked}
             onStage={chooseEffort}
           />
-          <PermissionMode staged={stage.permission} seed={seedPermission} onStage={choosePermission} />
         </div>
       </div>
+      <PermissionMode staged={stage.permission} seed={seedPermission} onStage={choosePermission} />
     </form>
   );
 });

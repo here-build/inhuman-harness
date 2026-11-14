@@ -153,8 +153,7 @@ async function pageHandler(pages: "none" | "vite" | "static", options: ListenWeb
                   next();
                   return;
                 }
-                const roots =
-                  typeof options.fileRoots === "function" ? options.fileRoots() : (options.fileRoots ?? []);
+                const roots = typeof options.fileRoots === "function" ? options.fileRoots() : (options.fileRoots ?? []);
                 void sendProjectFile(roots, request, response);
               });
             },

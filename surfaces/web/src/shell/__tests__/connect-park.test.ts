@@ -47,7 +47,9 @@ describe("park bodies", () => {
   });
 
   it("paints only web links", async () => {
-    expect(await parsePark(encodeUiDefinition({ kind: "open-url", url: "javascript:alert(1)", description: "x" }))).toEqual({
+    expect(
+      await parsePark(encodeUiDefinition({ kind: "open-url", url: "javascript:alert(1)", description: "x" })),
+    ).toEqual({
       kind: "unknown",
     });
     expect(await parsePark(JSON.stringify({ kind: "open-url", description: "no link" }))).toEqual({ kind: "unknown" });

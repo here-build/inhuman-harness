@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { FileMutateToolJob, SessionTurn, ToolCallJob } from "@inhuman.tools/harness-model";
+import { CLASS_LABELS, FileMutateToolJob, SessionTurn, ToolCallJob, isAtTip } from "@inhuman.tools/harness-model";
 import { ToolBodyView } from "@inhuman.tools/harness-transcript";
-import { IconCornerDownLeft, IconPlayerStopFilled } from "@tabler/icons-react";
+import { IconCornerDownLeft, IconPlayerPlayFilled, IconPlayerStopFilled } from "@tabler/icons-react";
 import { observer } from "mobx-react-lite";
 
 import { AckBlock } from "./ack-block.js";
@@ -21,6 +21,7 @@ import { PictureChips } from "./picture-chips.js";
 import { adoptPictureFiles, clipboardImageFiles, turnVisualPayload } from "./picture-draft.js";
 import { PictureDrop } from "./picture-drop.js";
 import { ReasoningEffortPicker } from "./reasoning-effort.js";
+import { SessionStatus } from "./session-status.js";
 import { SkillSlashMenu } from "./skill-slash-menu.js";
 import { StageComposer } from "./stage-composer.js";
 import { toolSummary } from "./tape-read.js";
@@ -231,6 +232,16 @@ const SessionComposer = observer(function SessionComposerView({
   const restoreId =
     episodeHead instanceof SessionTurn && session != null ? restoreTarget(episodeHead, session.root.tip) : null;
   const canRestore = restoreId != null && !unavailable && !covered && live == null && !state.sending;
+  // An interrupted head at the tip: Enter on an empty draft resumes the loop, as in the TUI.
+  const canResume =
+    !hasBody &&
+    !unavailable &&
+    !covered &&
+    live == null &&
+    !state.sending &&
+    episodeHead instanceof SessionTurn &&
+    episodeHead.lastTurnIncomplete &&
+    isAtTip(episodeHead, session.root.tip);
   const slash = useSkillSlash({
     scope: session?.root.uuid ?? "",
     rows: session?.root.skills ?? [],
@@ -288,6 +299,23 @@ const SessionComposer = observer(function SessionComposerView({
     }
   }
 
+  async function resume(): Promise<void> {
+    const rpc = dial.sessionRpc;
+    if (session == null || dial.session !== session || rpc == null || !canResume) return;
+    state.sending = true;
+    state.status = "";
+    refresh();
+    try {
+      const result = await rpc.request("turn", { prompt: "", kind: "continue" });
+      if (!isOk(result)) state.status = "Resume was not accepted.";
+    } catch (error) {
+      state.status = error instanceof Error ? error.message : "Could not resume the turn.";
+    } finally {
+      state.sending = false;
+      refresh();
+    }
+  }
+
   async function stop(): Promise<void> {
     const rpc = dial.sessionRpc;
     const turn = session?.root.findRunningTurn() ?? null;
@@ -337,6 +365,25 @@ const SessionComposer = observer(function SessionComposerView({
     refresh();
   }
 
+  /**
+   * Allow this call, and from now on let the judge decide every call of its classes (here: this
+   * session, or every session in the project). The override goes in first so the next call sees it.
+   */
+  async function writeAlwaysAuto(scope: "session" | "project"): Promise<void> {
+    const rpc = dial.sessionRpc;
+    if (deciding.current || unavailable || rpc == null || dial.session !== session || ask == null) return;
+    const classes = ask instanceof ToolCallJob ? ask.policyClasses : [];
+    if (classes.length === 0) return;
+    try {
+      for (const id of classes) await rpc.request("policy/class-mode", { class: id, mode: "auto", scope });
+    } catch (error) {
+      state.status = error instanceof Error ? error.message : "Could not change the class mode.";
+      refresh();
+      return;
+    }
+    await writeApprove(true);
+  }
+
   async function choose(next: ModelChoice): Promise<void> {
     const rpc = dial.sessionRpc;
     const open = session;
@@ -376,7 +423,8 @@ const SessionComposer = observer(function SessionComposerView({
     if (slash.onKeyDown(event)) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (!covered) void send();
+      if (canResume) void resume();
+      else if (!covered) void send();
     }
     if (event.key === "Escape" && canStop) {
       event.preventDefault();
@@ -400,6 +448,8 @@ const SessionComposer = observer(function SessionComposerView({
   const kind = ask == null ? "ask" : promptKind(ask);
   const copy = ackCopy(kind, ask?.policyResult === "deny");
   const choices = ask == null || kind === "ask" ? [] : storeChoices(ask.ackOptions, { bot: botSession(dial) });
+  // Offered on a plain ask that the floor classed; an acknowledgement is a flag, not a class mode.
+  const alwaysAutoClasses = ask instanceof ToolCallJob && kind === "ask" ? ask.policyClasses : [];
   decideRef.current = (allow) => {
     void writeApprove(allow);
   };
@@ -436,6 +486,7 @@ const SessionComposer = observer(function SessionComposerView({
     >
       <div className="composer-column">
         {dial.kernel == null ? null : <LinkNotice />}
+        <SessionStatus session={session?.root ?? null} />
         <output
           id={noticeId}
           className={notice === "" ? "block text-sm text-muted" : "mb-2 block text-sm text-muted"}
@@ -511,6 +562,28 @@ const SessionComposer = observer(function SessionComposerView({
                 </Button>
               </div>
             </div>
+            {alwaysAutoClasses.length === 0 ? null : (
+              <div className="always-auto" role="group" aria-label="Always auto">
+                <span className="text-muted">
+                  Allow, then let auto decide every “
+                  {alwaysAutoClasses.map((id) => CLASS_LABELS[id].toLowerCase()).join(", ")}” call:
+                </span>
+                <Button
+                  variant="secondary"
+                  disabled={unavailable || !armed}
+                  onClick={() => void writeAlwaysAuto("session")}
+                >
+                  Always auto · this session
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={unavailable || !armed}
+                  onClick={() => void writeAlwaysAuto("project")}
+                >
+                  Always auto · this project
+                </Button>
+              </div>
+            )}
           </section>
         ) : null}
         {/* The draft stays mounted. While the cover is up it is inert, so a key meant for the draft cannot land in it. */}
@@ -538,7 +611,11 @@ const SessionComposer = observer(function SessionComposerView({
               className="composer-draft rounded-none border-0 bg-transparent px-4 py-3 pr-12 text-base pointer-coarse:py-4 pointer-coarse:pr-14"
               disabled={session == null}
               placeholder={
-                session?.root.head == null ? "Ask or describe a change · / for skills" : "Message · / for skills"
+                canResume
+                  ? "Interrupted · Enter to resume, or type a message"
+                  : session?.root.head == null
+                    ? "Ask or describe a change · / for skills"
+                    : "Message · / for skills"
               }
               rows={1}
               value={state.draft}
@@ -568,6 +645,18 @@ const SessionComposer = observer(function SessionComposerView({
                 }}
               >
                 <IconCornerDownLeft {...fieldGlyph} aria-hidden />
+              </Button>
+            ) : null}
+            {canResume ? (
+              <Button
+                variant="ghost"
+                type="button"
+                aria-label="Resume interrupted turn"
+                title="Resume interrupted turn"
+                className={fieldActionClass}
+                onClick={() => void resume()}
+              >
+                <IconPlayerPlayFilled {...glyph} aria-hidden />
               </Button>
             ) : null}
             {showStop ? (
@@ -610,10 +699,10 @@ const SessionComposer = observer(function SessionComposerView({
               agentEffort={session.root.agent?.spec?.reasoningEffort ?? null}
               disabled={unavailable || state.choosing}
             />
-            <PermissionMode />
           </div>
         </div>
       )}
+      {session == null ? null : <PermissionMode />}
     </form>
   );
 });

@@ -149,7 +149,7 @@ export class Dial {
     const doc = createDoc({ guid: `harness:session:${sessionId}` });
     const room = await this.#connect("session", { sessionId }, doc, () => signal?.aborted === true, signal);
     if (room == null) throw new Error("Peek cancelled.");
-    const plexus = SessionPlexus.connect(room.doc);
+    const plexus = SessionPlexus.connect(room.doc, { readOnly: true });
     room.stop = bindRoomAwareness(plexus.awareness, room.connection);
     return { plexus, release: () => this.#destroyRoom(room) };
   }
@@ -307,7 +307,7 @@ export class Dial {
     const room = await this.#connect("kernel", {}, doc, stale, signal);
     if (room == null) return null;
     staged.rooms.set("kernel", room);
-    const plexus = KernelPlexus.connect(room.doc);
+    const plexus = KernelPlexus.connect(room.doc, { readOnly: true });
     const stopAwareness = bindRoomAwareness(plexus.awareness, room.connection);
     const stopProjects = reaction(
       () => Object.keys(plexus.root.projects),
@@ -374,7 +374,7 @@ export class Dial {
     const room = await this.#connect("project", { path }, doc, stale, signal);
     if (room == null) return null;
     staged.rooms.set(`project:${path}`, room);
-    const plexus = ProjectPlexus.connect(room.doc);
+    const plexus = ProjectPlexus.connect(room.doc, { readOnly: true });
     staged.projects.set(path, plexus);
     return plexus;
   }
@@ -406,7 +406,7 @@ export class Dial {
       );
       if (room == null) return null;
       staged.rooms.set(`session:${sessionId}`, room);
-      const plexus = SessionPlexus.connect(room.doc);
+      const plexus = SessionPlexus.connect(room.doc, { readOnly: true });
       const rpc = bindJsonRpc(room.connection);
       room.stop = bindRoomAwareness(plexus.awareness, room.connection);
       held = { plexus, rpc };

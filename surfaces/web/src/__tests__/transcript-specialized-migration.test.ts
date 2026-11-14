@@ -2,8 +2,9 @@
 
 import { act, createElement as h } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { FailureOutcome } from "@inhuman.tools/harness-model";
-import { userEvent, within } from "storybook/test";
+import { FailureOutcome, SuccessfulOutcome } from "@inhuman.tools/harness-model";
+import { runInAction } from "mobx";
+import { userEvent, waitFor, within } from "storybook/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Tape } from "../../../../packages/harness-transcript/src/tape.js";
@@ -92,14 +93,16 @@ async function fixture(withAgent = false, cancelled = false) {
         ]
       : [{ prompt: "Worker Message", work: [] }],
   });
-  const call = agent("MixedCase Reviewer", "Review this change", { worker: worker.root.sessionId });
+  const call = agent("MixedCase Reviewer", "Review this change", {
+    worker: worker.root.sessionId,
+    ...(withAgent ? { background: false, live: true } : {}),
+  });
   if (cancelled) {
     call.args = {
       spec: "MixedCase Reviewer",
       message: "Exact delegated instruction.\n".repeat(100),
       description: "Inspect the cancellation boundary. Internal description detail stays out of the note.",
     };
-    call.outcome = new FailureOutcome({ code: "cancelled", message: "The parent finished." });
   }
   destroyWorker = () => worker.destroy();
   const open = session({
@@ -107,6 +110,7 @@ async function fixture(withAgent = false, cancelled = false) {
     turns: [
       {
         prompt: "Inspect the files",
+        live: withAgent,
         work: withAgent
           ? [call]
           : [
@@ -135,7 +139,7 @@ async function fixture(withAgent = false, cancelled = false) {
       }),
     ),
   );
-  return { worker };
+  return { worker, open, call };
 }
 
 function button(name: string | RegExp) {
@@ -300,12 +304,27 @@ describe("specialized transcript controls", () => {
   });
 
   it("shows cancellation and actual activity before a long brief, preserving exact copy and later messages", async () => {
-    await fixture(true, true);
+    const { open, call } = await fixture(true, true);
     vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) {
       this.open = true;
     });
     const copied = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
-    const note = button(/MixedCase Reviewer/);
+    await waitFor(() => {
+      expect(within(document.body).getByRole("button", { name: /MixedCase Reviewer/ }).dataset.state).toBe("live");
+    });
+    await interact(() =>
+      runInAction(() => {
+        call.outcome = new FailureOutcome({ code: "cancelled", message: "The parent finished." });
+        call.cancelled = true;
+        call.completed = true;
+        if (open.root.head != null) open.root.head.reducerExited = true;
+      }),
+    );
+    const note = await waitFor(() => {
+      const buttonEl = within(document.body).getByRole("button", { name: /MixedCase Reviewer/ });
+      expect(buttonEl.dataset.state).toBe("cancelled");
+      return buttonEl;
+    });
     expect(note.textContent).toContain("Inspect the cancellation boundary.");
     expect(note.textContent).not.toContain("Exact delegated instruction.");
     expect(note.textContent).not.toContain("Internal description detail");
@@ -335,7 +354,7 @@ describe("specialized transcript controls", () => {
   });
 
   it("opens an agent through keyboard semantics and releases only after native close animation settles", async () => {
-    const { worker } = await fixture(true);
+    const { worker, open, call } = await fixture(true);
     const release = vi.fn();
     const peek = vi.spyOn(dial, "peek").mockResolvedValue({ plexus: worker, release });
     vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) {
@@ -345,7 +364,21 @@ describe("specialized transcript controls", () => {
       this.open = false;
       this.dispatchEvent(new Event("close"));
     });
-    const note = button(/MixedCase Reviewer/);
+    await waitFor(() => {
+      expect(within(document.body).getByRole("button", { name: /MixedCase Reviewer/ }).dataset.state).toBe("live");
+    });
+    await interact(() =>
+      runInAction(() => {
+        call.outcome = new SuccessfulOutcome({ valueJson: JSON.stringify("done") });
+        call.completed = true;
+        if (open.root.head != null) open.root.head.reducerExited = true;
+      }),
+    );
+    const note = await waitFor(() => {
+      const buttonEl = within(document.body).getByRole("button", { name: /MixedCase Reviewer/ });
+      expect(buttonEl.dataset.state).toBe("ok");
+      return buttonEl;
+    });
     expect(note.classList.contains("agent-note")).toBe(true);
     expect(note.querySelector(".agent-name")!.classList.contains("label")).toBe(false);
     expect(note.querySelector(".mono")).toBeNull();

@@ -8,6 +8,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -24,6 +25,7 @@ import { isWorkflowLeafMeta } from "@inhuman.tools/harness-model/session";
 import { IconBinaryTree2, IconInfoCircle, IconLoader2, IconX } from "@tabler/icons-react";
 import { observer } from "mobx-react-lite";
 import { createPortal } from "react-dom";
+import { toast, Toaster } from "sonner";
 
 import { glanceOf, LOOK_VERB, lookSentences, sessionBeats } from "./session-beats.js";
 import { useDial } from "../../../surfaces/web/src/client/context.js";
@@ -41,6 +43,7 @@ import { projectNames } from "../../../surfaces/web/src/shell/path.js";
 import { readStoredVisual } from "../../../surfaces/web/src/shell/picture-draft.js";
 import { fileFace, readListParts, searchLabels } from "../../../surfaces/web/src/shell/read-line.js";
 import { ShellTerm } from "../../../surfaces/web/src/shell/shell-term.js";
+import { SessionStatus } from "../../../surfaces/web/src/shell/session-status.js";
 import {
   type AgentSpan,
   agentSpans,
@@ -74,6 +77,9 @@ import { WorkflowGraph } from "../../../surfaces/web/src/workflow/workflow-graph
 
 /** The session whose tape this is. A program's graph is addressed by it. */
 const SessionIdContext = createContext("");
+
+/** Measure before paint on the client; a no-op useEffect on the server (no warning). */
+const useIsomorphicLayoutEffect = typeof document !== "undefined" ? useLayoutEffect : useEffect;
 
 class CellFence extends Component<{ readonly children: ReactNode }, { readonly failed: boolean }> {
   override state = { failed: false };
@@ -652,6 +658,15 @@ function AuxiliaryPreview({ children }: { readonly children: ReactNode }) {
       if (closeTimer.current != null) clearTimeout(closeTimer.current);
     };
   }, []);
+  // The popup mirrors the source for sighted hover; the source keeps the ids the
+  // beat's aria-labelledby points at. Drop the mirror's copies so no id is doubled.
+  useIsomorphicLayoutEffect(() => {
+    if (!openPreview) return;
+    ref.current
+      ?.querySelector(".auxiliary-popup")
+      ?.querySelectorAll("[id]")
+      .forEach((node) => node.removeAttribute("id"));
+  }, [openPreview, children]);
   return (
     <div
       ref={ref}
@@ -687,6 +702,9 @@ function AuxiliaryPreview({ children }: { readonly children: ReactNode }) {
 
 function TitleNote({ beat }: { readonly beat: Pick<TapeBeat, "id" | "mark"> }) {
   if (beat.mark == null) return null;
+  // A mark with no title, description, or items is an empty lane artifact: a
+  // padded, bordered aside with nothing in it. Render nothing instead.
+  if (beat.mark.title === "" && beat.mark.description === "" && beat.mark.items.length === 0) return null;
   const titled = beat.mark.title !== "";
   return (
     <aside className="progress-mark side-note">
@@ -716,13 +734,20 @@ function ThoughtNotes({ beat }: { readonly beat: TapeBeat }) {
   const ref = useRef<HTMLDivElement>(null);
   const [wide, setWide] = useState(true);
   const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const container = ref.current?.closest(".tape");
-    if (container == null || typeof ResizeObserver === "undefined") return;
+    if (container == null) return;
+    const measure = (width: number): void => {
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setWide(width > 52 * rem);
+    };
+    // Measure before the first paint so a narrow page never flashes the fold open.
+    const initialWidth = container.getBoundingClientRect().width;
+    if (initialWidth > 0) measure(initialWidth);
+    if (typeof ResizeObserver === "undefined") return;
     const resizeObserver = new ResizeObserver(([entry]) => {
       if (entry == null) return;
-      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      setWide(entry.contentRect.width > 52 * rem);
+      measure(entry.contentRect.width);
     });
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
@@ -760,29 +785,28 @@ function AgentNote({ cell, glance }: { readonly cell: AgentCell; readonly glance
   const [peeking, setPeeking] = useState(false);
   return (
     <>
-      <AuxiliaryPreview>
-        <Button
-          variant="content"
-          type="button"
-          className="agent-note"
-          data-state={face.state}
-          aria-haspopup="dialog"
-          // A call the daemon has not interned yet has no session to open.
-          disabled={cell.sessionId === ""}
-          onPress={() => setPeeking(true)}
-        >
-          <span className="agent-who">
-            <span className="agent-name">{face.name}</span>
-            {face.model === "" ? null : <span className="text-muted">{naturalName(face.model)}</span>}
+      {/* No hover preview: a dock toast sits in a transformed Sonner box, and a click already opens the peek. */}
+      <Button
+        variant="content"
+        type="button"
+        className="agent-note"
+        data-state={face.state}
+        aria-haspopup="dialog"
+        // A call the daemon has not interned yet has no session to open.
+        disabled={cell.sessionId === ""}
+        onPress={() => setPeeking(true)}
+      >
+        <span className="agent-who">
+          <span className="agent-name">{face.name}</span>
+          {face.model === "" ? null : <span className="text-muted">{naturalName(face.model)}</span>}
+        </span>
+        <span className="agent-task">{face.task}</span>
+        {face.status === "" ? null : (
+          <span className="agent-status">
+            <span>{face.status}</span>
           </span>
-          <span className="agent-task">{face.task}</span>
-          {face.status === "" ? null : (
-            <span className="agent-status">
-              <span>{face.status}</span>
-            </span>
-          )}
-        </Button>
-      </AuxiliaryPreview>
+        )}
+      </Button>
       {/* Out of the lane: a note's slot is a positioned, click-through box, and its anchors are the page's. */}
       {peeking ? createPortal(<AgentPeek cell={cell} onClose={() => setPeeking(false)} />, document.body) : null}
     </>
@@ -918,9 +942,16 @@ const AgentPeek = observer(function AgentPeekView({
         </>
       }
       title={face.task}
-      status={cell.outcome === "ok" || cell.detail == null ? face.status : `${face.status}: ${cell.detail}`}
+      status={
+        cell.outcome === "live" && root != null && root.activity.kind !== "idle"
+          ? ""
+          : cell.outcome === "ok" || cell.detail == null
+            ? face.status
+            : `${face.status}: ${cell.detail}`
+      }
       onClose={onClose}
     >
+      <SessionStatus session={root} />
       <div ref={tape} className="tape agent-peek-tape" tabIndex={-1}>
         <div className="transcript">
           {cell.detail == null || cell.outcome !== "ok" ? null : (
@@ -1063,6 +1094,66 @@ function ModelNote({ span, wire }: { readonly span: ModelSpan; readonly wire: st
   );
 }
 
+const AGENT_DOCK = "agents";
+/** How long a call that came back while watched keeps its note, so the outcome reads. */
+const SETTLED_LINGER_MS = 8000;
+
+type DockedAgent = { readonly id: string; readonly live: boolean; readonly render: () => ReactNode };
+
+/**
+ * Spawned agents as a toast stack held open at the lower right. A call still out
+ * keeps its toast; one that comes back while watched lingers, then leaves. Calls
+ * that settled before this mount never show. The note renders itself live, so a
+ * toast is pushed only when it appears or settles.
+ */
+function AgentDock({ agents }: { readonly agents: readonly DockedAgent[] }) {
+  const docked = useRef(new Map<string, boolean>());
+  useEffect(() => {
+    const present = new Set<string>();
+    for (const agent of agents) {
+      present.add(agent.id);
+      const was = docked.current.get(agent.id);
+      if (was === agent.live || (was === undefined && !agent.live)) continue;
+      docked.current.set(agent.id, agent.live);
+      toast.custom(() => <>{agent.render()}</>, {
+        id: agent.id,
+        toasterId: AGENT_DOCK,
+        dismissible: false,
+        duration: agent.live ? Infinity : SETTLED_LINGER_MS,
+      });
+    }
+    for (const id of docked.current.keys()) {
+      if (present.has(id)) continue;
+      toast.dismiss(id);
+      docked.current.delete(id);
+    }
+  });
+  useEffect(() => {
+    const ids = docked.current;
+    return () => {
+      for (const id of ids.keys()) toast.dismiss(id);
+      ids.clear();
+    };
+  }, []);
+  return (
+    <Toaster
+      id={AGENT_DOCK}
+      className="agent-dock"
+      // Sonner sets its own width inline; the tape decides this one.
+      style={{ "--width": "var(--dock-width)" } as CSSProperties}
+      position="bottom-right"
+      expand
+      visibleToasts={Number.MAX_SAFE_INTEGER}
+      gap={8}
+      // The lane's foot: level with the model note's rest on the other side.
+      offset={{ right: "1rem", bottom: "var(--model-rest)" }}
+      mobileOffset={{ right: "1rem", bottom: "var(--model-rest)" }}
+      toastOptions={{ unstyled: true, className: "agent-toast" }}
+      containerAriaLabel="Agents"
+    />
+  );
+}
+
 /**
  * The panes own annotation order; only the center column sizes the timeline.
  * The left lane holds two kinds at once: progress holds to the top of its
@@ -1073,8 +1164,11 @@ function TimelineLayout<T extends TimelineItem>({
   renderBeat,
   nameWire,
   live,
+  dock = false,
 }: {
   readonly beats: readonly T[];
+  /** Spawned agents go to the dock at the window's lower right. A peeked timeline has none. */
+  readonly dock?: boolean;
   /** `agent` names the call; the other parts are the beat's own. */
   readonly renderBeat: (beat: T, part: BeatPart, agent?: string) => ReactNode;
   readonly nameWire: (connection: string) => string;
@@ -1107,69 +1201,16 @@ function TimelineLayout<T extends TimelineItem>({
       </li>
     );
   });
-  // Agents rest at the end of their span and hold to the bottom, stacked by level.
-  // The group is only a box on a narrow page, where a round's agents follow it.
-  // Agents that ended in one round rest together at its end; every agent still out
-  // shares the tape's end, so they are one stack held to the bottom.
-  const rests = new Map<string, { key: string; from: number; end: number | null; members: [T, string][] }>();
-  for (const beat of beats) {
-    for (const span of beat.agentSpans) {
-      const key = span.lastRow == null ? "out" : String(span.lastRow);
-      const rest = rests.get(key) ?? { key, from: beat.row, end: span.lastRow, members: [] };
-      rest.members.push([beat, span.id]);
-      rests.set(key, rest);
-    }
-  }
-  const stacks = [...rests.values()].sort((a, b) => (a.end ?? Infinity) - (b.end ?? Infinity));
-  const thoughtRows = beats.filter((beat) => beat.thoughts.length > 0).map((beat) => beat.row);
-  const after = (anchor: string): string => `calc(anchor(${anchor} bottom) + var(--note-gap))`;
-  const floorOf = (floors: readonly string[]): string =>
-    floors.length === 0 ? "0px" : floors.length === 1 ? floors[0] : `max(${floors.join(", ")})`;
-  // A rest clears the reasoning and the stack above it, so no two notes share one.
-  const stackFloor = (index: number): string => {
-    const stack = stacks[index];
-    const row = thoughtRows.findLast((at) => at >= stack.from && at <= (stack.end ?? beats.length));
-    const floors = [
-      ...(row === undefined ? [] : [after(`--right-note-${row}`)]),
-      ...(index === 0 ? [] : [after(`--agents-${stacks[index - 1].key}`)]),
-    ];
-    return floorOf(floors);
-  };
-  const thoughtFloor = (row: number, previous: number | null): string => {
-    const stack = stacks.findLast((item) => item.end != null && item.end < row);
-    const floors = [
-      ...(previous == null ? [] : [after(`--right-note-${previous}`)]),
-      ...(stack == null || (previous != null && stack.end! < previous) ? [] : [after(`--agents-${stack.key}`)]),
-    ];
-    return floorOf(floors);
-  };
-  const agents = stacks.map(
-    (stack, index) =>
-      [
-        // Rest order: a stack rests at its round's bottom, after the reasoning that opens that round.
-        (stack.end ?? Infinity) * 2 + 1,
-        <li
-          className="annotation-slot side-right agent-slot"
-          data-out={stack.end == null ? "" : undefined}
-          key={`agents:${stack.key}`}
-          style={
-            {
-              "--beat-row": stack.end ?? beats.length,
-              "--beat-anchor": `--beat-${stack.from}`,
-              "--note-anchor": `--agents-${stack.key}`,
-              "--previous-note": stackFloor(index),
-              "--annotation-end": stack.end == null ? "0px" : `anchor(--beat-${stack.end} bottom)`,
-            } as CSSProperties
-          }
-        >
-          <div className="agent-stack side-note">
-            {stack.members.map(([beat, id]) => (
-              <Fragment key={id}>{renderBeat(beat, "agent", id)}</Fragment>
-            ))}
-          </div>
-        </li>,
-      ] as const,
-  );
+  // Agents leave the lanes for the dock. A span with no closing round is a call still out.
+  const agents = dock
+    ? beats.flatMap((beat) =>
+        beat.agentSpans.map((span) => ({
+          id: span.id,
+          live: span.lastRow == null,
+          render: () => renderBeat(beat, "agent", span.id),
+        })),
+      )
+    : [];
   const pane = (side: "left" | "right") => {
     const notes = beats.filter((beat) => (side === "left" ? beat.mark != null : beat.thoughts.length > 0));
     return (
@@ -1178,39 +1219,30 @@ function TimelineLayout<T extends TimelineItem>({
         aria-label={side === "left" ? "Progress annotations" : "Reasoning annotations"}
       >
         <ol className="side-notes" role="list">
-          {/* An anchor resolves only for notes after it, so the right lane lists in rest order. */}
-          {[
-            ...notes.map((beat, index) => {
-              const previous = index === 0 ? null : notes[index - 1];
-              const end = side === "left" ? beat.titleEnd : beat.thoughtsEnd;
-              return [
-                beat.row * 2,
-                <li
-                  className={`annotation-slot side-${side}`}
-                  key={beat.id}
-                  style={
-                    {
-                      "--beat-row": beat.row,
-                      "--beat-anchor": `--beat-${beat.row}`,
-                      "--note-anchor": `--${side}-note-${beat.row}`,
-                      "--previous-note":
-                        side === "right"
-                          ? thoughtFloor(beat.row, previous?.row ?? null)
-                          : previous == null
-                            ? "0px"
-                            : `calc(anchor(--${side}-note-${previous.row} bottom) + var(--note-gap))`,
-                      "--annotation-end": end > beats.length ? "0px" : `anchor(--beat-${end} top)`,
-                    } as CSSProperties
-                  }
-                >
-                  {renderBeat(beat, side === "left" ? "title" : "thoughts")}
-                </li>,
-              ] as const;
-            }),
-            ...(side === "left" ? [] : agents),
-          ]
-            .sort((a, b) => a[0] - b[0])
-            .map(([, node]) => node)}
+          {notes.map((beat, index) => {
+            const previous = index === 0 ? null : notes[index - 1];
+            const end = side === "left" ? beat.titleEnd : beat.thoughtsEnd;
+            return (
+              <li
+                className={`annotation-slot side-${side}`}
+                key={beat.id}
+                style={
+                  {
+                    "--beat-row": beat.row,
+                    "--beat-anchor": `--beat-${beat.row}`,
+                    "--note-anchor": `--${side}-note-${beat.row}`,
+                    "--previous-note":
+                      previous == null
+                        ? "0px"
+                        : `calc(anchor(--${side}-note-${previous.row} bottom) + var(--note-gap))`,
+                    "--annotation-end": end > beats.length ? "0px" : `anchor(--beat-${end} top)`,
+                  } as CSSProperties
+                }
+              >
+                {renderBeat(beat, side === "left" ? "title" : "thoughts")}
+              </li>
+            );
+          })}
           {side === "left" ? models : null}
         </ol>
       </aside>
@@ -1225,6 +1257,7 @@ function TimelineLayout<T extends TimelineItem>({
       </div>
       {pane("left")}
       {pane("right")}
+      {dock ? <AgentDock agents={agents} /> : null}
     </div>
   );
 }
@@ -1285,6 +1318,7 @@ export function BeatTimeline({
         ),
       )}
       nameWire={(connection) => connection}
+      dock
       renderBeat={(beat, part, agent) =>
         part === "agent" ? (
           <AgentNote cell={beat.agents.find((item) => item.id === agent)!} glance={null} />
@@ -1382,9 +1416,11 @@ function SessionTimeline({
   live,
   onOpen,
   delegatedBriefId,
+  dock = false,
 }: {
   readonly beats: ReturnType<typeof sessionBeats>;
   readonly root: SessionRoot;
+  readonly dock?: boolean;
   readonly live?: { readonly model: string; readonly connection: string };
   readonly delegatedBriefId?: string;
   readonly onOpen: (file: OpenFile) => void;
@@ -1396,6 +1432,7 @@ function SessionTimeline({
         beats={beats}
         nameWire={(connection) => wireName(dial.kernel?.root.connections[connection], connection)}
         {...(live == null ? {} : { live })}
+        dock={dock}
         renderBeat={(beat, part, agent) => (
           // A beat that cannot render costs that beat, not the session.
           <CellFence>
@@ -1463,6 +1500,7 @@ export const Tape = observer(function TapeView() {
         <SessionTimeline
           beats={laid}
           live={{ model: kvs.model ?? "", connection: kvs.connection ?? "" }}
+          dock
           onOpen={preview.open}
           root={root}
         />

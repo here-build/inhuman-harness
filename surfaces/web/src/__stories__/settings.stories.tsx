@@ -91,11 +91,27 @@ async function open(canvasElement: HTMLElement, section: string) {
   return within(canvas.getByRole("dialog", { name: section }));
 }
 
-/** Models only. Each row is a switch; MCP servers live on their own page. */
+/** All connections: models and MCP servers on one card list. */
 export const Connections: Story = {
   args: { stage },
   play: async ({ canvasElement }) => {
     const dialog = await open(canvasElement, "Connections");
+    await expect(dialog.getByText("ChatGPT")).toBeVisible();
+    await expect(dialog.getByText("Sentry")).toBeVisible();
+    await expect(dialog.getByText("6 connections.")).toBeVisible();
+    await expect(dialog.queryByText("Always allowed")).toBeNull();
+    const enabled = dialog.getAllByRole("checkbox", { name: "Enabled" })[0]!;
+    await expect(enabled).toBeChecked();
+    await userEvent.click(enabled);
+    await expect(enabled).not.toBeChecked();
+  },
+};
+
+/** Models only. Each row is a switch; MCP servers live on their own page. */
+export const Models: Story = {
+  args: { stage },
+  play: async ({ canvasElement }) => {
+    const dialog = await open(canvasElement, "Models");
     await expect(dialog.getByText("ChatGPT")).toBeVisible();
     await expect(dialog.queryByText("Sentry")).toBeNull();
     await expect(dialog.queryByText("Always allowed")).toBeNull();

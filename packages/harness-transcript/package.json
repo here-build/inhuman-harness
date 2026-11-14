@@ -23,7 +23,8 @@
     "react": "^19.3.1",
     "react-aria-components": "^1.22.1",
     "react-dom": "^19.3.1",
-    "remend": "^1.4.0"
+    "remend": "^1.4.0",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
@@ -38,7 +39,14 @@
   },
   "license": "MIT",
   "browserslist": {
-    "browser": ["last 2 chrome versions", "last 2 firefox versions", "last 2 safari versions", "ios_saf >= 16.4"],
-    "node": ["node >= 22"]
+    "browser": [
+      "last 2 chrome versions",
+      "last 2 firefox versions",
+      "last 2 safari versions",
+      "ios_saf >= 16.4"
+    ],
+    "node": [
+      "node >= 22"
+    ]
   }
 }

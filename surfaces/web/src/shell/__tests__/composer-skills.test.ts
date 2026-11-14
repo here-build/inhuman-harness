@@ -54,6 +54,8 @@ class SkillDial {
     return {
       root: {
         uuid: `root-${id}`,
+        activity: { kind: "idle" as const },
+        autoModeProblems: {},
         sessionId: id,
         path: "/work",
         head: null,

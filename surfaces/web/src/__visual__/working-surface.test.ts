@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -47,7 +47,7 @@ async function renderedApproval(chrome: string, profile: string, url: string, na
     socket = new WebSocket(pages.find((page) => page.type === "page")!.webSocketDebuggerUrl);
     const connection = socket;
     await new Promise<void>((resolve, reject) => {
-      connection.onopen = () => resolve();
+      connection.addEventListener("open", () => resolve());
       connection.onerror = reject;
     });
     let next = 0;
@@ -83,7 +83,18 @@ async function renderedApproval(chrome: string, profile: string, url: string, na
         returnByValue: true,
       });
       const value = result.result.value;
-      if (value) return JSON.parse(value) as { frame?: unknown; error?: string };
+      if (value) {
+        const directory = process.env.HARNESS_VISUAL_SCREENSHOTS;
+        if (directory) {
+          const screenshot = await command("Page.captureScreenshot", { format: "png" });
+          mkdirSync(directory, { recursive: true });
+          writeFileSync(
+            join(directory, `${new URL(url).searchParams.get("scene")}.png`),
+            Buffer.from(screenshot.data, "base64"),
+          );
+        }
+        return JSON.parse(value) as { frame?: unknown; error?: string };
+      }
       if (value === "" && !started) {
         started = true;
         // Trusted keyboard input establishes :focus-visible modality before programmatic focus checks.
@@ -104,39 +115,48 @@ async function renderedApproval(chrome: string, profile: string, url: string, na
   }
 }
 
-it.each(["composer", "transcript", "approval", "agent", "fallback-anchors", "fallback-popover"])(
-  "approves rendered %s appearance and keyboard focus in Chromium",
-  async (scene) => {
-    const chrome =
-      process.env.CHROME_BIN ??
-      [
-        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-        "/usr/bin/google-chrome",
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
-      ].find(existsSync);
-    if (!chrome) throw new Error("Visual approval needs Chromium: set CHROME_BIN to the browser executable");
-    const profile = mkdtempSync(join(tmpdir(), "harness-web-visual-"));
-    const server = await createServer({ appType: "custom", server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
-    server.middlewares.use("/visual-approval", (_request, response) => {
-      response.setHeader("Content-Type", "text/html");
-      response.end('<!doctype html><style>#result{display:none}</style><div id="app"></div><pre id="result"></pre>');
-    });
-    try {
-      await server.listen();
-      const address = server.httpServer!.address();
-      if (typeof address !== "object" || address === null) throw new Error("visual server has no address");
-      const approval = await renderedApproval(
-        chrome,
-        profile,
-        `http://127.0.0.1:${address.port}/visual-approval?scene=${scene}`,
-        scene.startsWith("fallback-"),
-      );
-      if (approval.error) throw new Error(approval.error);
-      expect(approval.frame).toMatchSnapshot();
-    } finally {
-      await server.close();
-      rmSync(profile, { recursive: true, force: true });
-    }
-  },
-);
+it.each([
+  "composer",
+  "permissions",
+  "permissions-narrow",
+  "transcript",
+  "approval",
+  "fallback-anchors",
+  "fallback-popover",
+  "activity",
+  "activity-narrow",
+  "agent-activity",
+  "agent-activity-narrow",
+])("approves rendered %s appearance and keyboard focus in Chromium", async (scene) => {
+  const chrome =
+    process.env.CHROME_BIN ??
+    [
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "/usr/bin/google-chrome",
+      "/usr/bin/chromium",
+      "/usr/bin/chromium-browser",
+    ].find(existsSync);
+  if (!chrome) throw new Error("Visual approval needs Chromium: set CHROME_BIN to the browser executable");
+  const profile = mkdtempSync(join(tmpdir(), "harness-web-visual-"));
+  const server = await createServer({ appType: "custom", server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
+  server.middlewares.use("/visual-approval", (_request, response) => {
+    response.setHeader("Content-Type", "text/html");
+    response.end('<!doctype html><style>#result{display:none}</style><div id="app"></div><pre id="result"></pre>');
+  });
+  try {
+    await server.listen();
+    const address = server.httpServer!.address();
+    if (typeof address !== "object" || address === null) throw new Error("visual server has no address");
+    const approval = await renderedApproval(
+      chrome,
+      profile,
+      `http://127.0.0.1:${address.port}/visual-approval?scene=${scene}`,
+      scene.startsWith("fallback-") || scene.endsWith("-narrow"),
+    );
+    if (approval.error) throw new Error(approval.error);
+    expect(approval.frame).toMatchSnapshot();
+  } finally {
+    await server.close();
+    rmSync(profile, { recursive: true, force: true });
+  }
+});

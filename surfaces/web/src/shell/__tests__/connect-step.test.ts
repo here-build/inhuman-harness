@@ -265,7 +265,10 @@ describe("connect step", () => {
     const d = daemon();
     await render(d.request);
     await d.answer(
-      park("p1", JSON.stringify({ kind: "confirm", title: "Replace", description: "Replace the existing connection?" })),
+      park(
+        "p1",
+        JSON.stringify({ kind: "confirm", title: "Replace", description: "Replace the existing connection?" }),
+      ),
     );
     expect(text()).toContain("Replace the existing connection?");
     await click(button("Accept"));

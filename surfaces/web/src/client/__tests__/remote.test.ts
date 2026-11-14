@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RoomConnection } from "@inhuman.tools/harness-peer";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isRefusal, linkForClose, PING, PING_MS, startPing } from "../remote.js";
 

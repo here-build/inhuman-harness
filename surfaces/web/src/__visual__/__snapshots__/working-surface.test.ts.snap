@@ -1,36 +1,17 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`approves rendered agent appearance and keyboard focus in Chromium 1`] = `
+exports[`approves rendered activity appearance and keyboard focus in Chromium 1`] = `
 {
-  "face": {
+  "focus": {
     "background": "rgba(0, 0, 0, 0)",
     "border": [
       "solid",
       "0px",
-      "oklch(0.93 0.004 286)",
+      "oklch(0.72 0.16 25)",
     ],
     "font": [
       ""Source Sans 3", ui-sans-serif, sans-serif",
       "14px",
-      "normal",
-    ],
-    "outline": [
-      "none",
-      "3px",
-      "oklch(0.93 0.004 286)",
-    ],
-  },
-  "name": "Code Reviewer",
-  "trigger": {
-    "background": "rgba(0, 0, 0, 0)",
-    "border": [
-      "solid",
-      "0px",
-      "oklch(0.76 0.005 286)",
-    ],
-    "font": [
-      ""Source Sans 3", ui-sans-serif, sans-serif",
-      "13px",
       "normal",
     ],
     "outline": [
@@ -39,6 +20,81 @@ exports[`approves rendered agent appearance and keyboard focus in Chromium 1`] =
       "oklch(0.93 0.004 286)",
     ],
   },
+  "permission": "auto",
+  "status": "Waiting to retry3 / 15 unsuccessful foreground attemptsLast model request failedThe model connection timed out. Check the connection, then resume if it stops.Auto unavailableAutomatic approvals are unavailable. Check the configured judge connection and model. The judge service returned HTTP 503.",
+}
+`;
+
+exports[`approves rendered activity-narrow appearance and keyboard focus in Chromium 1`] = `
+{
+  "focus": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.72 0.16 25)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "14px",
+      "normal",
+    ],
+    "outline": [
+      "solid",
+      "2px",
+      "oklch(0.93 0.004 286)",
+    ],
+  },
+  "permission": "auto",
+  "status": "Waiting to retry3 / 15 unsuccessful foreground attemptsLast model request failedThe model connection timed out. Check the connection, then resume if it stops.Auto unavailableAutomatic approvals are unavailable. Check the configured judge connection and model. The judge service returned HTTP 503.",
+}
+`;
+
+exports[`approves rendered agent-activity appearance and keyboard focus in Chromium 1`] = `
+{
+  "focus": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.665 0.005 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "14px",
+      "all-petite-caps",
+    ],
+    "outline": [
+      "solid",
+      "2px",
+      "oklab(0.665 0.00137819 -0.00480631)",
+    ],
+  },
+  "status": "Waiting to retry3 / 15 unsuccessful foreground attemptsLast model request failedThe model connection timed out. Check the connection, then resume if it stops.Auto unavailableAutomatic approvals are unavailable. Check the configured judge connection and model. The judge service returned HTTP 503.",
+}
+`;
+
+exports[`approves rendered agent-activity-narrow appearance and keyboard focus in Chromium 1`] = `
+{
+  "focus": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.665 0.005 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "14px",
+      "all-petite-caps",
+    ],
+    "outline": [
+      "solid",
+      "2px",
+      "oklab(0.665 0.00137819 -0.00480631)",
+    ],
+  },
+  "status": "Waiting to retry3 / 15 unsuccessful foreground attemptsLast model request failedThe model connection timed out. Check the connection, then resume if it stops.Auto unavailableAutomatic approvals are unavailable. Check the configured judge connection and model. The judge service returned HTTP 503.",
 }
 `;
 
@@ -118,7 +174,26 @@ exports[`approves rendered composer appearance and keyboard focus in Chromium 1`
         "13px",
         "all-petite-caps",
       ],
-      "name": "Permission mode: manual",
+      "name": "Reasoning effort: default",
+      "outline": [
+        "solid",
+        "2px",
+        "oklch(0.93 0.004 286)",
+      ],
+    },
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "16px",
+        "normal",
+      ],
+      "name": "Adjust auto permissions",
       "outline": [
         "solid",
         "2px",
@@ -191,6 +266,208 @@ exports[`approves rendered fallback-popover appearance and keyboard focus in Chr
 }
 `;
 
+exports[`approves rendered permissions appearance and keyboard focus in Chromium 1`] = `
+{
+  "panel": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.93 0.004 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "14px",
+      "normal",
+    ],
+    "outline": [
+      "none",
+      "3px",
+      "oklch(0.93 0.004 286)",
+    ],
+  },
+  "selected": "auto",
+  "trigger": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.93 0.004 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "16px",
+      "normal",
+    ],
+    "outline": [
+      "solid",
+      "2px",
+      "oklch(0.93 0.004 286)",
+    ],
+  },
+  "words": [
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "14px",
+        "normal",
+      ],
+      "outline": [
+        "none",
+        "3px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "text": "manual",
+    },
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.93 0.004 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "14px",
+        "normal",
+      ],
+      "outline": [
+        "none",
+        "3px",
+        "oklch(0.93 0.004 286)",
+      ],
+      "text": "auto",
+    },
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "14px",
+        "normal",
+      ],
+      "outline": [
+        "none",
+        "3px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "text": "approve all",
+    },
+  ],
+}
+`;
+
+exports[`approves rendered permissions-narrow appearance and keyboard focus in Chromium 1`] = `
+{
+  "panel": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.93 0.004 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "14px",
+      "normal",
+    ],
+    "outline": [
+      "none",
+      "3px",
+      "oklch(0.93 0.004 286)",
+    ],
+  },
+  "selected": "auto",
+  "trigger": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": [
+      "solid",
+      "0px",
+      "oklch(0.93 0.004 286)",
+    ],
+    "font": [
+      ""Source Sans 3", ui-sans-serif, sans-serif",
+      "16px",
+      "normal",
+    ],
+    "outline": [
+      "solid",
+      "2px",
+      "oklch(0.93 0.004 286)",
+    ],
+  },
+  "words": [
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "14px",
+        "normal",
+      ],
+      "outline": [
+        "none",
+        "3px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "text": "manual",
+    },
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.93 0.004 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "14px",
+        "normal",
+      ],
+      "outline": [
+        "none",
+        "3px",
+        "oklch(0.93 0.004 286)",
+      ],
+      "text": "auto",
+    },
+    {
+      "background": "rgba(0, 0, 0, 0)",
+      "border": [
+        "solid",
+        "0px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "font": [
+        ""Source Sans 3", ui-sans-serif, sans-serif",
+        "14px",
+        "normal",
+      ],
+      "outline": [
+        "none",
+        "3px",
+        "oklch(0.76 0.005 286)",
+      ],
+      "text": "approve all",
+    },
+  ],
+}
+`;
+
 exports[`approves rendered transcript appearance and keyboard focus in Chromium 1`] = `
 {
   "failure": {
@@ -216,7 +493,7 @@ exports[`approves rendered transcript appearance and keyboard focus in Chromium 
     "border": [
       "solid",
       "0px 0px 0px 2px",
-      "oklch(0.665 0.005 286) oklch(0.665 0.005 286) oklch(0.665 0.005 286) oklch(0.535 0.005 286)",
+      "oklch(0.665 0.005 286) oklch(0.665 0.005 286) oklch(0.665 0.005 286) oklch(0.8 0.15 80)",
     ],
     "font": [
       ""Source Sans 3", ui-sans-serif, sans-serif",

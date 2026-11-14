@@ -19,8 +19,9 @@ import { mcpLoginLine } from "./mcp-registry.js";
 import { RegistrySearch } from "./mcp-search.js";
 import { PermissionsPanel } from "./permissions-panel.js";
 import { providerRows, type ConnectStart } from "./provider-list.js";
+import { PercentSlider, Setting, SettingsGroup, TriggerRange, percentOf } from "./runtime-controls.js";
 import { closeOpenSwipes, SwipeRow, type SwipeAction } from "./swipe-row.js";
-import { wireAccount } from "./wire-account.js";
+import { accountWindowLines, wireAccount } from "./wire-account.js";
 import { useDial } from "../client/context.js";
 import { DropdownSelect } from "../components/ui/anchored.js";
 import { Button } from "../components/ui/button.js";
@@ -31,6 +32,7 @@ import { TextField } from "../components/ui/text-field.js";
 
 const SECTIONS = [
   ["connections", "Connections"],
+  ["models", "Models"],
   ["mcp", "MCP"],
   ["plugins", "Plugins"],
   ["skills", "Skills"],
@@ -47,12 +49,17 @@ type Conn = {
   readonly error?: string;
   readonly configuration?: { readonly [key: string]: unknown };
   readonly live?: {
+    readonly auth?: unknown;
     readonly identity?: unknown;
     readonly keyMask?: unknown;
     readonly account?: unknown;
     readonly tools?: unknown;
   };
-  readonly driver?: { readonly name?: string; readonly abilityClaim?: readonly string[] } | null;
+  readonly driver?: {
+    readonly name?: string;
+    readonly importPath?: string;
+    readonly abilityClaim?: readonly string[];
+  } | null;
 };
 
 type PluginFace = {
@@ -131,7 +138,8 @@ export function SettingsDialog({ onDismiss }: { readonly onDismiss: () => void }
               </Button>
             </form>
           </header>
-          {section === "connections" ? <Connections /> : null}
+          {section === "connections" ? <AllConnections /> : null}
+          {section === "models" ? <Connections /> : null}
           {section === "mcp" ? <McpServers /> : null}
           {section === "plugins" ? <Plugins /> : null}
           {section === "skills" ? <Skills /> : null}
@@ -144,15 +152,314 @@ export function SettingsDialog({ onDismiss }: { readonly onDismiss: () => void }
   );
 }
 
+const AllConnections = observer(function AllConnectionsView() {
+  const dial = useDial();
+  const noticeId = useId();
+  const { request, notice, setNotice, success, run, reconnect, flow } = useConnectionRun();
+  const [adding, setAdding] = useState<"" | "pick" | "model" | "mcp">("");
+  const [endpoint, setEndpoint] = useState("");
+  const [adopting, setAdopting] = useState(false);
+  const [park, setPark] = useState<Park | null>(null);
+  const rows = listedConnections(dial);
+  const closeAdd = () => {
+    setAdding("");
+    setEndpoint("");
+  };
+  if (flow != null) return flow;
+  if (adding === "model") return <AddModel onDone={closeAdd} />;
+  if (park != null && request != null) {
+    return (
+      <ParkFollow
+        park={park}
+        request={request}
+        onPark={setPark}
+        onDone={() => {
+          setPark(null);
+          closeAdd();
+        }}
+        onCancel={() => setPark(null)}
+      />
+    );
+  }
+  const adoptMcp = () => {
+    if (request == null || adopting || endpoint.trim() === "") return;
+    setNotice("");
+    setAdopting(true);
+    void request("mcp-server/adopt", { input: endpoint.trim() }).then(
+      (result) => {
+        setAdopting(false);
+        const next = parkOf(result);
+        if (next != null) {
+          setPark(next);
+          return undefined;
+        }
+        const failure = failureOf(result);
+        setNotice(failure);
+        if (failure === "") closeAdd();
+        return undefined;
+      },
+      (error: unknown) => {
+        setAdopting(false);
+        return report(setNotice, error);
+      },
+    );
+  };
+  return (
+    <>
+      <Notice id={noticeId} message={notice} />
+      <Success message={success} />
+      <div className="settings-actions">
+        <Button
+          variant="secondary"
+          disabled={request == null}
+          aria-expanded={adding !== ""}
+          onClick={() => setAdding((open) => (open === "" ? "pick" : ""))}
+        >
+          Add connection
+        </Button>
+        {adding !== "" ? (
+          <>
+            <Button variant="ghost" onClick={() => setAdding("model")}>
+              Model provider
+            </Button>
+            <Button
+              variant="ghost"
+              aria-current={adding === "mcp" ? "true" : undefined}
+              onClick={() => setAdding("mcp")}
+            >
+              MCP server
+            </Button>
+          </>
+        ) : null}
+      </div>
+      {adding === "mcp" ? (
+        <div className="text-sm">
+          <TextField
+            label="URL or command"
+            value={endpoint}
+            inputClassName="mono"
+            aria-describedby={notice === "" ? undefined : noticeId}
+            placeholder="https://… or npx @scope/server"
+            spellCheck={false}
+            onChange={setEndpoint}
+          />
+          <Button className="mt-2" variant="secondary" disabled={adopting || endpoint.trim() === ""} onClick={adoptMcp}>
+            Connect
+          </Button>
+        </div>
+      ) : null}
+      <p className="text-sm text-muted">
+        {rows.length === 0 ? "No connection yet." : `${rows.length} connection${rows.length === 1 ? "" : "s"}.`}
+      </p>
+      <div className="settings-list">
+        {rows.map(([id, spec]) => (
+          <ConnectionCard key={id} id={id} spec={spec} disabled={request == null} onRun={run} onReconnect={reconnect} />
+        ))}
+      </div>
+    </>
+  );
+});
+
+function ConnectionCard({
+  id,
+  spec,
+  disabled,
+  onRun,
+  onReconnect,
+}: {
+  readonly id: string;
+  readonly spec: Conn;
+  readonly disabled: boolean;
+  readonly onRun: (method: string, params: unknown) => Promise<string>;
+  readonly onReconnect: (id: string, name: string) => Promise<void>;
+}) {
+  const driver = shownName(spec.driver?.name, "unknown");
+  const account = wireAccount(spec, driver);
+  const name = shownName(spec.name, id);
+  const configuration = spec.configuration ?? {};
+  const enabled = useLiveToggle(configuration.enabled !== false, (next) =>
+    onRun("connect/set-enabled", { id, enabled: next }),
+  );
+  const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const act = (method: string, params: unknown) => {
+    setBusy(true);
+    void onRun(method, params).then(() => setBusy(false));
+  };
+  const status = !enabled.checked ? "Disabled" : account.needsAuth ? "Needs auth" : statusLabel(spec.readyState);
+  const live = spec.live ?? {};
+  const identity = isRecord(live.identity) ? live.identity : {};
+  const tools = Array.isArray(live.tools) ? live.tools.length : null;
+  const httpMcp = spec.driver?.name === "mcp-http" || spec.driver?.importPath === "mcp-http";
+  const settings = Object.entries(configuration).filter(([key]) => key !== "secrets" && key !== "enabled");
+  const facts: (readonly [string, string])[] = [
+    ["Id", id],
+    ["Driver", driver],
+    ["Abilities", (spec.driver?.abilityClaim ?? []).join(", ")],
+    ["Status", status],
+    ["Signed in as", account.name],
+    ["Email", asText(identity.email)],
+    ["Plan", asText(identity.plan)],
+    ["Key", asText(live.keyMask)],
+    ["Balance", account.balance],
+    [
+      "Quota",
+      accountWindowLines(account, Date.now())
+        .map((line) => line.text)
+        .join("; "),
+    ],
+    ["Tools", tools == null ? "" : String(tools)],
+    ["Error", shownName(account.detail, asText(spec.error))],
+  ];
+  return (
+    <div className="settings-row">
+      <div className="settings-row-main">
+        <div className="settings-grow">
+          <div className="text-sm font-strong">{name}</div>
+          <div className={account.failed ? "text-sm text-danger" : "text-sm text-muted"}>
+            {[driver, status, account.description].filter((part) => part !== "" && part !== "…").join(" · ")}
+          </div>
+        </div>
+        <Checkbox isSelected={enabled.checked} isDisabled={disabled || busy} onChange={enabled.toggle}>
+          Enabled
+        </Checkbox>
+      </div>
+      {account.failed ? (
+        <ReconnectDoor
+          name={name}
+          account={account}
+          disabled={disabled || busy}
+          onReconnect={() => onReconnect(id, name)}
+        />
+      ) : null}
+      <details className="text-sm">
+        <summary className="cursor-pointer text-muted">Details</summary>
+        <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
+          {facts
+            .filter(([, value]) => value !== "")
+            .map(([label, value]) => (
+              <Fact key={label} label={label} value={value} />
+            ))}
+          {settings.map(([key, value]) => (
+            <Fact
+              key={`setting:${key}`}
+              label={key}
+              value={typeof value === "string" ? value : JSON.stringify(value)}
+              mono
+            />
+          ))}
+        </dl>
+      </details>
+      <div className="settings-actions">
+        {httpMcp && !account.failed ? (
+          <Button variant="ghost" disabled={disabled || busy} onClick={() => act("connect/logout", { id })}>
+            Log out
+          </Button>
+        ) : null}
+        {removing ? (
+          <>
+            <Button
+              variant="danger"
+              disabled={disabled || busy}
+              aria-label={`Confirm removing ${name}`}
+              onClick={() => {
+                setRemoving(false);
+                act("connect/drop", { id, confirm: true });
+              }}
+            >
+              Remove {name} and its secrets
+            </Button>
+            <Button variant="ghost" onClick={() => setRemoving(false)}>
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="ghost"
+            className="text-danger"
+            disabled={disabled || busy}
+            aria-label={`Remove ${name}`}
+            onClick={() => setRemoving(true)}
+          >
+            Remove
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Signed-out door: says what happened and offers the next step in place. */
+function ReconnectDoor({
+  name,
+  account,
+  disabled,
+  onReconnect,
+}: {
+  readonly name: string;
+  readonly account: { readonly needsAuth: boolean; readonly description: string; readonly detail: string };
+  readonly disabled: boolean;
+  readonly onReconnect: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const why = account.needsAuth
+    ? `${name} signed out or its key stopped working. Sign in again to keep using it; settings stay as they are.`
+    : `${name} can’t be reached${account.description === "" ? "" : ` (${account.description})`}. Try reconnecting; if it keeps failing, check the details or remove it.`;
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-sm border border-danger p-3 text-sm"
+      role="group"
+      aria-label={`${name} needs attention`}
+    >
+      <p>{why}</p>
+      <div className="settings-actions">
+        <Button
+          variant="default"
+          disabled={disabled || busy}
+          onClick={() => {
+            setBusy(true);
+            void onReconnect().then(() => setBusy(false));
+          }}
+        >
+          {busy ? "Starting…" : account.needsAuth ? `Sign in to ${name}` : `Reconnect ${name}`}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Fact({
+  label,
+  value,
+  mono = false,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly mono?: boolean;
+}) {
+  return (
+    <>
+      <dt className="text-muted">{label}</dt>
+      <dd className={mono ? "mono break-all" : "break-words"}>{value}</dd>
+    </>
+  );
+}
+
+function isRecord(value: unknown): value is { readonly [key: string]: unknown } {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const Connections = observer(function ConnectionsView() {
   const dial = useDial();
-  const { request, notice, run } = useConnectionRun();
+  const { request, notice, success, run, reconnect, flow } = useConnectionRun();
   const [adding, setAdding] = useState(false);
   const models = listedConnections(dial).filter(([, spec]) => !isMcp(spec));
+  if (flow != null) return flow;
   if (adding) return <AddModel onDone={() => setAdding(false)} />;
   return (
     <>
       <Notice message={notice} />
+      <Success message={success} />
       <div className="settings-actions">
         <Button variant="secondary" disabled={request == null} onClick={() => setAdding(true)}>
           Add a model
@@ -163,7 +470,7 @@ const Connections = observer(function ConnectionsView() {
       </p>
       <div className="settings-list">
         {models.map(([id, spec]) => (
-          <ConnectionRow key={id} id={id} spec={spec} disabled={request == null} onRun={run} />
+          <ConnectionRow key={id} id={id} spec={spec} disabled={request == null} onRun={run} onReconnect={reconnect} />
         ))}
       </div>
     </>
@@ -173,7 +480,7 @@ const Connections = observer(function ConnectionsView() {
 const McpServers = observer(function McpView() {
   const dial = useDial();
   const noticeId = useId();
-  const { request, notice, setNotice, run } = useConnectionRun();
+  const { request, notice, setNotice, success, run, reconnect, flow } = useConnectionRun();
   const [adding, setAdding] = useState(false);
   const [adopting, setAdopting] = useState(false);
   const [park, setPark] = useState<Park | null>(null);
@@ -204,6 +511,7 @@ const McpServers = observer(function McpView() {
       },
     );
   };
+  if (flow != null) return flow;
   if (park != null && request != null) {
     return (
       <ParkFollow
@@ -222,6 +530,7 @@ const McpServers = observer(function McpView() {
   return (
     <>
       <Notice id={noticeId} message={notice} />
+      <Success message={success} />
       <RegistrySearch
         noticeId={notice === "" ? undefined : noticeId}
         request={request}
@@ -261,16 +570,73 @@ const McpServers = observer(function McpView() {
       </p>
       <div className="settings-list">
         {servers.map(([id, spec]) => (
-          <ConnectionRow key={id} id={id} spec={spec} mcp disabled={request == null} onRun={run} />
+          <ConnectionRow
+            key={id}
+            id={id}
+            spec={spec}
+            mcp
+            disabled={request == null}
+            onRun={run}
+            onReconnect={reconnect}
+          />
         ))}
       </div>
     </>
   );
 });
 
+type Reconnecting = { readonly id: string; readonly name: string; readonly park: Park };
+
 function useConnectionRun() {
   const request = kernelRequest(useDial());
   const [notice, setNotice] = useState("");
+  const [success, setSuccess] = useState("");
+  const [reconnecting, setReconnecting] = useState<Reconnecting | null>(null);
+  /** Re-runs the driver's sign-in for one connection and follows each step it parks on. */
+  const reconnect = useCallback(
+    (id: string, name: string): Promise<void> => {
+      setNotice("");
+      setSuccess("");
+      if (request == null) {
+        setNotice("The daemon is not connected.");
+        return Promise.resolve();
+      }
+      return request("connect/login", { id }).then(
+        (result) => {
+          const park = parkOf(result);
+          if (park != null) setReconnecting({ id, name, park });
+          else if (failureOf(result) !== "") setNotice(`Couldn’t reconnect ${name}: ${failureOf(result)}`);
+          else setSuccess(`${name} is connected again.`);
+          return undefined;
+        },
+        (error: unknown) => {
+          setNotice(`Couldn’t reconnect ${name}: ${error instanceof Error ? error.message : "not accepted."}`);
+          return undefined;
+        },
+      );
+    },
+    [request],
+  );
+  const flow =
+    reconnecting != null && request != null ? (
+      <div className="settings-list">
+        <p className="text-sm font-strong">Reconnecting {reconnecting.name}</p>
+        <p className="text-sm text-muted">Follow the steps below. The connection keeps its settings and id.</p>
+        <ParkFollow
+          park={reconnecting.park}
+          request={request}
+          onPark={(park) => setReconnecting({ ...reconnecting, park })}
+          onDone={() => {
+            setSuccess(`${reconnecting.name} is connected again.`);
+            setReconnecting(null);
+          }}
+          onCancel={() => {
+            setNotice(`Reconnect of ${reconnecting.name} was cancelled. It stays signed out.`);
+            setReconnecting(null);
+          }}
+        />
+      </div>
+    ) : null;
   const run = useCallback(
     (method: string, params: unknown) => {
       setNotice("");
@@ -281,7 +647,7 @@ function useConnectionRun() {
     },
     [request],
   );
-  return { request, notice, setNotice, run };
+  return { request, notice, setNotice, success, run, reconnect, flow };
 }
 
 function ConnectionRow({
@@ -290,12 +656,14 @@ function ConnectionRow({
   mcp = false,
   disabled,
   onRun,
+  onReconnect,
 }: {
   readonly id: string;
   readonly spec: Conn;
   readonly mcp?: boolean;
   readonly disabled: boolean;
   readonly onRun: (method: string, params: unknown) => Promise<string>;
+  readonly onReconnect: (id: string, name: string) => Promise<void>;
 }) {
   const account = wireAccount(spec, spec.driver?.name ?? "");
   const name = shownName(spec.name, id);
@@ -313,10 +681,10 @@ function ConnectionRow({
   };
   const leading: SwipeAction | undefined = mcp
     ? account.failed
-      ? { label: "Log in", name: `Log in to ${name}`, tone: "action", onPress: () => act("connect/login", { id }) }
+      ? { label: "Log in", name: `Log in to ${name}`, tone: "action", onPress: () => onReconnect(id, name) }
       : { label: "Log out", name: `Log out of ${name}`, tone: "quiet", onPress: () => act("connect/logout", { id }) }
     : undefined;
-  return (
+  const row = (
     <SwipeRow
       label={`${name}, ${detail}`}
       title={name}
@@ -333,6 +701,18 @@ function ConnectionRow({
       }}
       onToggle={enabled.toggle}
     />
+  );
+  if (!account.failed) return row;
+  return (
+    <div className="flex flex-col gap-2">
+      {row}
+      <ReconnectDoor
+        name={name}
+        account={account}
+        disabled={disabled || busy}
+        onReconnect={() => onReconnect(id, name)}
+      />
+    </div>
   );
 }
 
@@ -798,64 +1178,231 @@ const Runtime = observer(function RuntimeView() {
   const [saved, setSaved] = useState(false);
   const [draft, setDraft] = useState(() => runtimeDraft(root));
   useEffect(() => setDraft(runtimeDraft(root)), [root]);
+  const soft = percentOf(draft.soft);
+  const hard = percentOf(draft.hard);
+  const glow = percentOf(draft.glow);
+  const off = [soft == null ? "Soft" : "", hard == null ? "Hard" : ""].filter((name) => name !== "");
   return (
     <>
       <Notice message={notice} />
-      <div className="settings-grid" onChangeCapture={() => setSaved(false)}>
-        <Field label="Compact strategy" value={draft.compact} onChange={(compact) => setDraft({ ...draft, compact })} />
-        <Field label="Hard trigger" value={draft.hard} onChange={(hard) => setDraft({ ...draft, hard })} />
-        <Field label="Soft trigger" value={draft.soft} onChange={(soft) => setDraft({ ...draft, soft })} />
-        <Field label="Turns to keep" value={draft.keep} onChange={(keep) => setDraft({ ...draft, keep })} />
-        <Field label="Context glow" value={draft.glow} onChange={(glow) => setDraft({ ...draft, glow })} />
-        <Field
-          label="Auto classifier"
-          value={draft.classifier}
-          onChange={(classifier) => setDraft({ ...draft, classifier })}
-        />
-        <Field
-          label="Approval pause (ms)"
-          value={draft.throttle}
-          onChange={(throttle) => setDraft({ ...draft, throttle })}
-        />
-        <Field
-          label="Speculative tools"
-          value={draft.speculative}
-          onChange={(speculative) => setDraft({ ...draft, speculative })}
-        />
-        <Field label="Shell peek (bytes)" value={draft.tail} onChange={(tail) => setDraft({ ...draft, tail })} />
-        <Field
-          label="Status line"
-          value={draft.statusline}
-          onChange={(statusline) => setDraft({ ...draft, statusline })}
-        />
-        <Field label="Status refresh" value={draft.refresh} onChange={(refresh) => setDraft({ ...draft, refresh })} />
-        <DropdownSelect
-          label="Super key"
-          className="col-span-full"
-          value={draft.superKey}
-          onChange={(value) => setDraft({ ...draft, superKey: value === "cmd" ? "cmd" : "ctrl" })}
-          options={[
-            { id: "ctrl", label: "Ctrl" },
-            { id: "cmd", label: "Command" },
-          ]}
-        />
+      <div className="flex flex-col gap-4" onChangeCapture={() => setSaved(false)}>
+        <SettingsGroup
+          title="Compaction"
+          intro="Long conversations are summarized so they keep fitting the model's context window."
+        >
+          <Setting
+            label="Compact strategy"
+            hint={
+              <>
+                <span className="block">The program that writes the summary when a conversation is compacted.</span>
+                <span className="block mt-1">
+                  The default ships with the harness and updates with it. To change how summaries are written, point
+                  this at your own file rather than editing a copy.
+                </span>
+              </>
+            }
+          >
+            <Field
+              label="Compact strategy"
+              value={draft.compact}
+              onChange={(compact) => setDraft({ ...draft, compact })}
+            />
+          </Setting>
+          <TriggerRange
+            soft={soft ?? 80}
+            hard={hard ?? 90}
+            note={
+              off.length === 0
+                ? undefined
+                : `${off.join(" and ")} trigger ${off.length === 1 ? "is" : "are"} off in config.json. Moving the handles turns ${off.length === 1 ? "it" : "them"} on.`
+            }
+            hint={
+              <>
+                <span className="block">Both handles are shares of the model's context window that are in use.</span>
+                <span className="block mt-1">
+                  <b>Soft</b> is where the context rail runs out and starts warning you. Nothing is forced there.
+                </span>
+                <span className="block mt-1">
+                  <b>Hard</b> is where the harness compacts the conversation by itself. Hard never sits below soft.
+                </span>
+              </>
+            }
+            onChange={(nextSoft, nextHard) => {
+              setSaved(false);
+              setDraft({ ...draft, soft: `${nextSoft}%`, hard: `${nextHard}%` });
+            }}
+          />
+          <Setting
+            label="Turns to keep"
+            hint="How many of the most recent turns stay word for word when older ones are summarized. At least 1."
+          >
+            <Field numeric label="Turns to keep" value={draft.keep} onChange={(keep) => setDraft({ ...draft, keep })} />
+          </Setting>
+          <PercentSlider
+            label="Context glow"
+            min={5}
+            value={glow ?? 75}
+            caption={`The rail starts to warm when ${glow ?? 75}% of the runway to the soft trigger is left.`}
+            hint={
+              <>
+                <span className="block">
+                  The composer rail blends toward its warning color once the runway left before the soft trigger drops
+                  to this share.
+                </span>
+                <span className="block mt-1">
+                  Higher values warn earlier. Lower values stay calm until compaction is close.
+                </span>
+              </>
+            }
+            onChange={(next) => {
+              setSaved(false);
+              setDraft({ ...draft, glow: `${next}%` });
+            }}
+          />
+        </SettingsGroup>
+        <SettingsGroup title="Approvals" intro="How tool calls that need a decision are judged and presented.">
+          <Setting
+            label="Auto classifier"
+            hint={
+              <>
+                <span className="block">
+                  The program that decides an ask in auto mode when no rule covers the call.
+                </span>
+                <span className="block mt-1">
+                  Point it at your own file to change the judgment. The default updates with the harness.
+                </span>
+              </>
+            }
+          >
+            <Field
+              label="Auto classifier"
+              value={draft.classifier}
+              onChange={(classifier) => setDraft({ ...draft, classifier })}
+            />
+          </Setting>
+          <Setting
+            label="Approval pause (ms)"
+            hint="When an approval prompt appears while you are typing, its confirm keys stay covered for this long so a stray keystroke cannot approve a call. 0 turns the pause off."
+          >
+            <Field
+              numeric
+              label="Approval pause (ms)"
+              value={draft.throttle}
+              onChange={(throttle) => setDraft({ ...draft, throttle })}
+            />
+          </Setting>
+          <Setting
+            label="Speculative tools"
+            hint="How many pending tool calls the policy check may judge ahead of time, at once. Higher values make approvals feel faster and spend more on the classifier. 0 judges nothing early."
+          >
+            <Field
+              numeric
+              label="Speculative tools"
+              value={draft.speculative}
+              onChange={(speculative) => setDraft({ ...draft, speculative })}
+            />
+          </Setting>
+        </SettingsGroup>
+        <SettingsGroup title="Output and display" intro="What you see of shell output and around the composer.">
+          <Setting
+            label="Shell peek (bytes)"
+            hint="How much of the end of a running or finished shell command is shown live and sent to the model. The rest is kept on disk. 0 shows no output; the highest allowed is 65536."
+          >
+            <Field
+              numeric
+              label="Shell peek (bytes)"
+              value={draft.tail}
+              onChange={(tail) => setDraft({ ...draft, tail })}
+            />
+          </Setting>
+          <Setting
+            label="Status line"
+            hint="What the line under the composer shows: git for branch and changes, any shell command to show its output, or empty for just the working directory."
+          >
+            <Field
+              label="Status line"
+              value={draft.statusline}
+              onChange={(statusline) => setDraft({ ...draft, statusline })}
+            />
+          </Setting>
+          <Setting
+            label="Status refresh"
+            hint="When the status line is recomputed: round (after each model round), turn (after each turn), or a duration such as 30s."
+          >
+            <Field
+              label="Status refresh"
+              value={draft.refresh}
+              onChange={(refresh) => setDraft({ ...draft, refresh })}
+            />
+          </Setting>
+          <Setting
+            label="Super key"
+            hint="The modifier for persist and more actions. Ctrl is the default everywhere because terminals often do not pass Command through."
+          >
+            <DropdownSelect
+              label="Super key"
+              value={draft.superKey}
+              onChange={(value) => setDraft({ ...draft, superKey: value === "cmd" ? "cmd" : "ctrl" })}
+              options={[
+                { id: "ctrl", label: "Ctrl" },
+                { id: "cmd", label: "Command" },
+              ]}
+            />
+          </Setting>
+          <Setting
+            inline
+            label="Hide floor-allow calls on the compact tape"
+            hint="Calls the safety floor always allows are left off the compact tape. They stay visible while open and in the full view."
+          >
+            <Check
+              label="Hide floor-allow calls on the compact tape"
+              checked={draft.hideFloor}
+              onChange={(hideFloor) => {
+                setSaved(false);
+                setDraft({ ...draft, hideFloor });
+              }}
+            />
+          </Setting>
+        </SettingsGroup>
+        <SettingsGroup title="Agent loop" intro="How a turn decides to keep going.">
+          <Setting
+            label="Foreground attempts"
+            hint="Stop a model request after this many unsuccessful attempts while a client has the session open. Workers inherit their caller's foreground state. Default: 15. 0 means no limit."
+          >
+            <Field
+              numeric
+              label="Foreground attempts"
+              value={draft.retryForeground}
+              onChange={(retryForeground) => setDraft({ ...draft, retryForeground })}
+            />
+          </Setting>
+          <Setting
+            label="Background attempts"
+            hint="How many unsuccessful attempts to allow when no client has the session open. Background work continues after you leave the page. Default: 0, no limit. Counts are separate from foreground attempts."
+          >
+            <Field
+              numeric
+              label="Background attempts"
+              value={draft.retryBackground}
+              onChange={(retryBackground) => setDraft({ ...draft, retryBackground })}
+            />
+          </Setting>
+          <Setting
+            inline
+            label="Text-only continuation"
+            hint="When a round ends with text and no tool call, a judge checks whether the model said it was about to keep working. If so, the turn continues instead of stopping."
+          >
+            <Check
+              label="Text-only continuation"
+              checked={draft.textOnly}
+              onChange={(textOnly) => {
+                setSaved(false);
+                setDraft({ ...draft, textOnly });
+              }}
+            />
+          </Setting>
+        </SettingsGroup>
       </div>
-      <Check
-        label="Hide floor-allow calls on the compact tape"
-        checked={draft.hideFloor}
-        onChange={(hideFloor) => {
-          setSaved(false);
-          setDraft({ ...draft, hideFloor });
-        }}
-      />
-      <Check
-        label="Text-only continuation"
-        checked={draft.textOnly}
-        onChange={(textOnly) => {
-          setSaved(false);
-          setDraft({ ...draft, textOnly });
-        }}
-      />
       <Button
         variant="secondary"
         disabled={request == null}
@@ -865,6 +1412,16 @@ const Runtime = observer(function RuntimeView() {
           const throttle = Number(draft.throttle);
           const speculative = Number(draft.speculative);
           const tail = Number(draft.tail);
+          const retryForeground = Number(draft.retryForeground);
+          const retryBackground = Number(draft.retryBackground);
+          if (
+            draft.retryForeground.trim() === "" ||
+            draft.retryBackground.trim() === "" ||
+            ![retryForeground, retryBackground].every((value) => Number.isSafeInteger(value) && value >= 0)
+          ) {
+            setNotice("Attempt limits need whole numbers of 0 or more. Use 0 for no limit.");
+            return;
+          }
           if (![keep, throttle, speculative, tail].every((value) => Number.isFinite(value))) {
             setNotice("Turns, pause, speculative tools, and shell peek need numbers.");
             return;
@@ -884,6 +1441,8 @@ const Runtime = observer(function RuntimeView() {
             superKey: draft.superKey,
             hideFloorTools: draft.hideFloor,
             textOnlyContinue: draft.textOnly,
+            retryMaxAttempts: retryForeground,
+            retryBackgroundMaxAttempts: retryBackground,
           }).then((error) => {
             setNotice(error);
             setSaved(error === "");
@@ -1174,13 +1733,24 @@ function BotForm({
 function Field({
   label,
   value,
+  numeric = false,
   onChange,
 }: {
   readonly label: string;
   readonly value: string;
+  readonly numeric?: boolean;
   readonly onChange: (value: string) => void;
 }) {
-  return <TextField className="col-span-full" label={label} value={value} spellCheck={false} onChange={onChange} />;
+  return (
+    <TextField
+      className="col-span-full"
+      label={label}
+      value={value}
+      spellCheck={false}
+      inputMode={numeric ? "numeric" : undefined}
+      onChange={onChange}
+    />
+  );
 }
 
 function Check({
@@ -1203,6 +1773,15 @@ function Notice({ id, message }: { readonly id?: string; readonly message: strin
   if (message === "") return null;
   return (
     <p id={id} className="text-sm text-danger" role="status">
+      {message}
+    </p>
+  );
+}
+
+function Success({ message }: { readonly message: string }) {
+  if (message === "") return null;
+  return (
+    <p className="text-sm text-muted" role="status">
       {message}
     </p>
   );
@@ -1388,6 +1967,8 @@ type RuntimeDraft = {
   superKey: "ctrl" | "cmd";
   hideFloor: boolean;
   textOnly: boolean;
+  retryForeground: string;
+  retryBackground: string;
 };
 
 function runtimeDraft(root: unknown): RuntimeDraft {
@@ -1406,6 +1987,8 @@ function runtimeDraft(root: unknown): RuntimeDraft {
         superKey?: string;
         hideFloorTools?: boolean;
         reActLoopIntentDetectedTrigger?: { enabled?: boolean };
+        retryMaxAttempts?: number;
+        retryBackgroundMaxAttempts?: number;
       }
     | undefined;
   return {
@@ -1423,6 +2006,8 @@ function runtimeDraft(root: unknown): RuntimeDraft {
     superKey: record?.superKey === "cmd" ? "cmd" : "ctrl",
     hideFloor: record?.hideFloorTools === true,
     textOnly: record?.reActLoopIntentDetectedTrigger?.enabled !== false,
+    retryForeground: String(record?.retryMaxAttempts ?? 15),
+    retryBackground: String(record?.retryBackgroundMaxAttempts ?? 0),
   };
 }
 

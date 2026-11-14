@@ -45,6 +45,8 @@ class PictureDial {
   session: {
     root: {
       uuid: string;
+      activity: { readonly kind: "idle" };
+      autoModeProblems: Record<string, string>;
       sessionId: string;
       path: string;
       head: null;
@@ -60,6 +62,8 @@ class PictureDial {
     this.session = {
       root: {
         uuid: "root-1",
+        activity: { kind: "idle" },
+        autoModeProblems: {},
         sessionId: "s-1",
         path: "/work/pictures",
         head: null,
@@ -112,7 +116,7 @@ function button(label: string): HTMLButtonElement {
   const node = [...container.querySelectorAll("button")].find(
     (candidate) => candidate.textContent.trim() === label || candidate.getAttribute("aria-label") === label,
   );
-  if (!(node instanceof HTMLButtonElement)) throw new Error(label);
+  if (!(node instanceof HTMLButtonElement)) throw new TypeError(label);
   return node;
 }
 
@@ -124,7 +128,7 @@ async function render(node: ReturnType<typeof createElement>): Promise<void> {
 
 async function typeDraft(value: string): Promise<void> {
   const field = container.querySelector("textarea");
-  if (!(field instanceof HTMLTextAreaElement)) throw new Error("draft missing");
+  if (!(field instanceof HTMLTextAreaElement)) throw new TypeError("draft missing");
   const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
   if (setValue == null) throw new Error("textarea value setter missing");
   await act(async () => {
@@ -135,7 +139,7 @@ async function typeDraft(value: string): Promise<void> {
 
 async function addFile(name: string, type: string): Promise<void> {
   const input = container.querySelector('input[type="file"]');
-  if (!(input instanceof HTMLInputElement)) throw new Error("file input missing");
+  if (!(input instanceof HTMLInputElement)) throw new TypeError("file input missing");
   const data = new DataTransfer();
   data.items.add(new File([Uint8Array.from([1, 2, 3, 4])], name, { type }));
   Object.defineProperty(input, "files", { configurable: true, value: data.files });
@@ -152,7 +156,7 @@ async function addFile(name: string, type: string): Promise<void> {
 
 async function pasteImage(type: string): Promise<void> {
   const field = container.querySelector("textarea");
-  if (!(field instanceof HTMLTextAreaElement)) throw new Error("draft missing");
+  if (!(field instanceof HTMLTextAreaElement)) throw new TypeError("draft missing");
   const data = new DataTransfer();
   data.items.add(new File([Uint8Array.from([9, 8, 7])], "from-clipboard.png", { type }));
   await act(async () => {
@@ -220,7 +224,7 @@ describe("composer pictures", () => {
   it("outlines the field while a file is over the window and heats it over the field", async () => {
     await render(createElement(Composer));
     const pill = container.querySelector(".composer-pill");
-    if (!(pill instanceof HTMLElement)) throw new Error("field missing");
+    if (!(pill instanceof HTMLElement)) throw new TypeError("field missing");
     const data = new DataTransfer();
     data.items.add(new File([Uint8Array.from([1])], "shot.png", { type: "image/png" }));
     await act(async () => {
@@ -311,7 +315,7 @@ describe("composer pictures", () => {
     expect(button("Send").disabled).toBe(true);
     expect(container.querySelector('button[aria-label="Stop"]')).toBeNull();
     const field = container.querySelector("textarea");
-    if (!(field instanceof HTMLTextAreaElement)) throw new Error("draft missing");
+    if (!(field instanceof HTMLTextAreaElement)) throw new TypeError("draft missing");
     await act(async () => {
       field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     });

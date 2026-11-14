@@ -4,12 +4,9 @@ import "@fontsource/monaspace-krypton/400.css";
 import "@fontsource/monaspace-krypton/700.css";
 import { ToolBodyView } from "@inhuman.tools/harness-transcript";
 
-import { agents, agentWorkers, approval, conversation } from "../__stories__/scenes.js";
+import { agentActivity, agents, agentWorkers, approval, autoUnavailable, conversation } from "../__stories__/scenes.js";
 import { sessionStage, StoryApp } from "../__stories__/story-app.js";
-import { PROJECT, worldOf } from "../__stories__/world.js";
 import { Dialog, DropdownSelect } from "../components/ui/anchored.js";
-import { stageOf } from "../shell/new-session.js";
-import { projectHref } from "../shell/path.js";
 import "../styles.css";
 
 function face(node: HTMLElement) {
@@ -52,19 +49,95 @@ async function approve() {
   const scheme = query.get("scheme");
   document.documentElement.dataset.scheme = scheme === "light" ? "light" : "dark";
   if (scenario.startsWith("fallback-")) return approveFallback(scenario, query.get("hold") === "1");
-  const stage =
-    scenario === "transcript"
-      ? sessionStage(agents, { workers: agentWorkers })
-      : scenario === "approval"
-        ? sessionStage(() => approval("shell"))
-        : scenario === "agent"
-          ? () => {
-              stageOf(PROJECT).agent = "Code Reviewer";
-              return { dial: worldOf([]), at: projectHref(PROJECT) };
-            }
+  const stage = scenario.startsWith("agent-activity")
+    ? () => {
+        const { parent, worker } = agentActivity();
+        return sessionStage(() => parent, { peeks: () => [worker] })();
+      }
+    : scenario.startsWith("activity")
+      ? sessionStage(autoUnavailable)
+      : scenario === "transcript"
+        ? sessionStage(agents, { workers: agentWorkers })
+        : scenario === "approval"
+          ? sessionStage(() => approval("shell"))
           : sessionStage(conversation);
   const root = createRoot(document.querySelector("#app")!);
   root.render(createElement(StoryApp, { stage }));
+
+  if (scenario.startsWith("agent-activity")) {
+    const note = await present<HTMLButtonElement>(".agent-note:not(:disabled)");
+    note.click();
+    const status = await present<HTMLElement>(".agent-peek > .session-status");
+    const dialog = status.closest<HTMLDialogElement>("dialog");
+    if (dialog == null) throw new Error("The agent status has no dialog");
+    for (const detail of status.querySelectorAll("details")) detail.open = true;
+    await document.fonts.ready;
+    await Promise.all(dialog.getAnimations().map((animation) => animation.finished));
+    const close = dialog.querySelector<HTMLButtonElement>('button[aria-label="Close"]');
+    const tape = dialog.querySelector<HTMLElement>(".agent-peek-tape");
+    if (close == null || tape == null) throw new Error("The agent dialog is missing its controls");
+    if (!status.textContent?.includes("3 / 15 unsuccessful foreground attempts"))
+      throw new Error("The agent dialog is not showing its worker's retry status");
+    const box = dialog.getBoundingClientRect();
+    if (box.top < 0 || box.bottom > innerHeight || dialog.scrollWidth > dialog.clientWidth)
+      throw new Error("The agent dialog overflows the viewport");
+    if (status.getBoundingClientRect().bottom > tape.getBoundingClientRect().top + 1)
+      throw new Error("The agent status overlaps its transcript");
+    return { status: status.textContent, focus: focus(close) };
+  }
+
+  if (scenario.startsWith("permissions")) {
+    const words = await present<HTMLElement>(".permission-modes");
+    const auto = await present<HTMLInputElement>('.permission-word input[value="auto"]');
+    auto.click();
+    await document.fonts.ready;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const labels = [...words.querySelectorAll<HTMLElement>(".permission-word")];
+    const bounds = labels.map((label) => label.getBoundingClientRect());
+    if (new Set(bounds.map((box) => Math.round(box.top))).size !== 1)
+      throw new Error("Permission words do not share a row");
+    if (bounds.some((box) => box.left < 0 || box.right > innerWidth))
+      throw new Error("Permission words overflow the viewport");
+    if (!auto.checked) throw new Error("Auto did not become selected");
+    auto.focus();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const autoLabel = auto.closest<HTMLElement>("label")!;
+    if (getComputedStyle(autoLabel).outlineStyle === "none") throw new Error("Permission word has no keyboard focus");
+    const adjust = await present<HTMLButtonElement>(".permission-adjust");
+    const triggerFace = focus(adjust);
+    adjust.click();
+    const panel = await present<HTMLElement>('.permission-panel [role="dialog"]');
+    // Native anchor placement follows the frame that mounts the top-layer panel.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (words.querySelector<HTMLInputElement>("input:checked")?.value !== "auto")
+      throw new Error("Opening adjustments changed the permission mode");
+    const box = panel.closest<HTMLElement>(".permission-panel")!.getBoundingClientRect();
+    if (box.left < 0 || box.right > innerWidth || box.top < 0 || box.bottom > innerHeight)
+      throw new Error(
+        `Permission panel overflows the viewport: ${JSON.stringify(box.toJSON())} in ${innerWidth} × ${innerHeight}`,
+      );
+    if (panel.scrollWidth > panel.clientWidth) throw new Error("Permission panel contents overflow horizontally");
+    return {
+      words: labels.map((label) => ({ text: label.textContent, ...face(label) })),
+      trigger: triggerFace,
+      panel: face(panel),
+      selected: auto.value,
+    };
+  }
+
+  if (scenario.startsWith("activity")) {
+    const status = await present<HTMLElement>(".session-status");
+    const draft = await present<HTMLTextAreaElement>('textarea[aria-label="Message draft"]');
+    const permission = await present<HTMLElement>(".permission-word[data-problem]");
+    await document.fonts.ready;
+    if (status.getBoundingClientRect().bottom > draft.getBoundingClientRect().top)
+      throw new Error("Activity status overlaps the message draft");
+    if (document.documentElement.scrollWidth > innerWidth) throw new Error("Activity status overflows the viewport");
+    permission.querySelector<HTMLInputElement>("input")!.focus();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    if (getComputedStyle(permission).outlineStyle === "none") throw new Error("Auto warning has no keyboard focus");
+    return { status: status.textContent, permission: permission.textContent, focus: face(permission) };
+  }
 
   if (scenario === "transcript") {
     const note = await present<HTMLButtonElement>(".agent-note:not(:disabled)");
@@ -86,13 +159,6 @@ async function approve() {
   if (scenario === "approval") {
     const shortcut = await present<HTMLElement>(".composer kbd");
     return { shortcut: face(shortcut) };
-  }
-  if (scenario === "agent") {
-    const trigger = await present<HTMLButtonElement>(".agent-trigger");
-    trigger.focus();
-    trigger.click();
-    const name = await present<HTMLElement>('[role="menuitemradio"][data-key="Code Reviewer"] span');
-    return { name: name.textContent, face: face(name), trigger: focus(trigger) };
   }
 
   const draft = await present<HTMLTextAreaElement>('textarea[aria-label="Message draft"]');

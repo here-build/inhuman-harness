@@ -1,9 +1,18 @@
 import { useRef, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { isFileDropItem } from "react-aria-components";
 import { UNSAFE_PortalProvider } from "react-aria";
+import { isFileDropItem } from "react-aria-components";
 
 import { Page, Schemes, Section } from "./brand-kit.js";
+import {
+  Dialog,
+  DropZone,
+  FileTrigger,
+  Toast,
+  ToastContent,
+  ToastQueue,
+  ToastRegion,
+} from "../components/ui/feedback.js";
 import {
   Breadcrumb,
   Breadcrumbs,
@@ -18,15 +27,6 @@ import {
   Text,
   Toolbar,
 } from "../components/ui/navigation.js";
-import {
-  Dialog,
-  DropZone,
-  FileTrigger,
-  Toast,
-  ToastContent,
-  ToastQueue,
-  ToastRegion,
-} from "../components/ui/feedback.js";
 
 const meta = {
   title: "Graphic Precision/Navigation and feedback",
@@ -161,8 +161,8 @@ function FileExample() {
       <FileTrigger allowsMultiple onSelect={(selection) => setFiles(Array.from(selection ?? []))}>
         <FieldButton>Choose files</FieldButton>
       </FileTrigger>
-      <Text role="status" className={files.length ? "font-mono" : "text-muted"}>
-        {files.length ? files.map((file) => file.name).join(", ") : "No files selected"}
+      <Text role="status" className={files.length > 0 ? "font-mono" : "text-muted"}>
+        {files.length > 0 ? files.map((file) => file.name).join(", ") : "No files selected"}
       </Text>
     </DropZone>
   );

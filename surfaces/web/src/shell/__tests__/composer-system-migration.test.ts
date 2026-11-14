@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AckBlock } from "../ack-block.js";
 import { storeChoices } from "../ack-prompt.js";
 import { Composer } from "../composer.js";
-import { resetNewSessions, stageOf } from "../new-session.js";
+import { resetNewSessions } from "../new-session.js";
 import { StageComposer } from "../stage-composer.js";
 
 const request = vi.hoisted(() => vi.fn(async (_method: string, _params: unknown) => ({ ok: true })));
@@ -42,6 +42,8 @@ function makeDial() {
     session: {
       root: {
         uuid: "root-migration",
+        activity: { kind: "idle" as const },
+        autoModeProblems: {},
         sessionId: "migration",
         path,
         head: null,
@@ -189,23 +191,6 @@ describe("composer shared controls", () => {
     await act(async () => stop.click());
     expect(request.mock.calls).toEqual([["turn/cancel", { turnId: "turn-live" }]]);
     expect(container.querySelector('button[aria-label="Stop"]')).toBeNull();
-  });
-
-  it("retains the agent's native anchored popover and natural name", async () => {
-    await render(true);
-    const trigger = node<HTMLButtonElement>(".agent-trigger");
-    const user = userEvent.setup({ document });
-    await act(async () => user.click(trigger));
-    const menu = within(container).getByRole("menu", { name: /^Agent/ });
-    const popover = menu.closest<HTMLElement>(".gp-native-popover");
-    expect(popover?.getAttribute("popover")).toBe("auto");
-    const reviewer = within(menu).getByRole("menuitemradio", { name: "Code Reviewer" });
-    await act(async () => user.click(reviewer));
-    expect(stageOf(path).agent).toBe("Code Reviewer");
-    expect(trigger.getAttribute("aria-label")).toBe("Agent: Code Reviewer");
-    expect(within(container).queryByRole("menu", { name: /^Agent/ })).toBeNull();
-    expect(document.activeElement).toBe(trigger);
-    expect(request).not.toHaveBeenCalled();
   });
 
   it("uses the native-anchored shared acknowledgement select with its persistent label and fallback", async () => {

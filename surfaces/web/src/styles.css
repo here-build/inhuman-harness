@@ -348,17 +348,14 @@ pre,
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: --spacing(1);
   inline-size: 11rem;
-  padding: --spacing(3);
-  border-inline-end: 1px solid var(--color-line);
   background: var(--color-wash);
 }
 
 .settings-nav button {
   min-block-size: 2rem;
   padding: --spacing(2) --spacing(3);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   text-align: start;
   font-size: var(--text-sm);
 }
@@ -632,8 +629,6 @@ pre,
     flex-direction: row;
     inline-size: auto;
     overflow-x: auto;
-    border-inline-end: 0;
-    border-block-end: 1px solid var(--color-line);
   }
 
   .settings-grid {
@@ -1028,15 +1023,6 @@ pre,
   outline-offset: 2px;
 }
 
-/* Agent names are content even on a shared command-shaped button. These
-   overrides are unlayered like .label, so Tailwind layer ordering cannot
-   silently turn configured names back into petite caps. */
-.agent-trigger.label,
-.agent-menu .permission-row[data-agent-name] {
-  font-variant-caps: normal;
-  letter-spacing: normal;
-}
-
 /* Slash completion belongs to the drafting field but must escape its clipping
    editing boundary. Native top-layer placement remains anchored to the field. */
 .gp-native-popover.skill-slash-popover {
@@ -1215,8 +1201,6 @@ html:has(.composer-pill[data-drop]) {
   font-size: var(--text-sm);
 }
 
-.permission-trigger,
-.agent-trigger,
 .effort-trigger {
   max-width: 100%;
   padding: 0 --spacing(2);
@@ -1225,79 +1209,122 @@ html:has(.composer-pill[data-drop]) {
   font-size: var(--text-xs);
 }
 
-.permission-trigger {
-  anchor-name: --permission-mode;
+.permission-mode {
+  grid-column: 2 / 5;
+  grid-row: 2;
+  min-inline-size: 0;
+  padding: --spacing(1) var(--gutter-width) --spacing(3);
+  pointer-events: auto;
 }
 
-.agent-trigger {
-  anchor-name: --agent-menu;
+.permission-modes {
+  display: flex;
+  align-items: center;
+  gap: --spacing(5);
+}
+
+.permission-option {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--muted);
+}
+
+.permission-option[data-active] {
+  color: var(--ink);
+}
+
+.permission-word {
+  display: inline-flex;
+  min-block-size: --spacing(6);
+  align-items: center;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.permission-word[data-selected] {
+  font-weight: var(--font-weight-strong);
+}
+
+.permission-word[data-hovered],
+.permission-adjust:hover,
+.permission-adjust[aria-expanded="true"] {
+  color: var(--ink);
+}
+
+.permission-word[data-focus-visible] {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.permission-word[data-disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.permission-adjust {
+  display: inline-flex;
+  min-inline-size: --spacing(6);
+  min-block-size: --spacing(6);
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.permission-word[data-problem] {
+  color: var(--danger);
+}
+
+.permission-problem {
+  max-inline-size: min(32rem, calc(100vw - 2rem));
+  margin-block-start: --spacing(1);
+  color: var(--danger);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.session-status {
+  margin-inline: var(--gutter-width);
+  margin-block-end: --spacing(2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.session-status > p {
+  margin-inline: 0;
+}
+
+.session-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: --spacing(3);
+  row-gap: --spacing(1);
+}
+
+.session-status-line[data-problem],
+.session-status-problem,
+.session-status-error {
+  color: var(--danger);
+}
+
+.session-status-problem,
+.session-status-error {
+  margin-block-start: --spacing(1);
+}
+
+.session-status-error > summary {
+  cursor: pointer;
 }
 
 .effort-trigger {
   anchor-name: --reasoning-effort;
 }
 
-.permission-trigger:hover,
-.agent-trigger:hover,
 .effort-trigger:hover {
   background: var(--hover);
   color: var(--ink);
-}
-
-/* Above the word. Top layer, so the composer cannot cover it. */
-.permission-menu,
-.agent-menu {
-  inset: auto;
-  position-area: top span-left;
-  position-try-fallbacks:
-    flip-block,
-    flip-inline,
-    flip-block flip-inline;
-  margin: --spacing(1);
-  min-inline-size: 11rem;
-  padding: --spacing(1);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-sm);
-  background: var(--color-raised);
-  color: var(--color-ink);
-  box-shadow: var(--overlay-shadow);
-}
-
-.permission-menu {
-  position-anchor: --permission-mode;
-}
-
-.agent-menu {
-  position-anchor: --agent-menu;
-}
-
-/* Closed, a popover stays in the tree and keeps its box over the word that opens it. */
-.permission-menu:not(:popover-open),
-.agent-menu:not(:popover-open) {
-  display: none;
-}
-
-.permission-menu:popover-open,
-.agent-menu:popover-open {
-  display: flex;
-  flex-direction: column;
-}
-
-.permission-row {
-  padding: --spacing(1) --spacing(2);
-  border-radius: var(--radius-xs);
-  color: var(--color-muted);
-  font-size: var(--text-sm);
-  text-align: start;
-}
-
-.permission-row[aria-checked="true"] {
-  color: var(--color-ink);
-  font-weight: var(--font-weight-strong);
-}
-
-.permission-row:hover {
-  background: var(--color-hover);
 }
 
 @media (pointer: coarse) {
@@ -1756,13 +1783,14 @@ html:has(.composer-pill[data-drop]) {
   pointer-events: none;
 }
 
-/* An explicit bottom alignment keeps the horizontal side unchanged. The
-   previous-note inset is also the fit boundary, so flipping cannot cross it. */
+/* Bottom alignment keeps the horizontal side unchanged. Only `bottom` and
+   `height` are set: leaving `top` auto avoids an over-constrained box (top +
+   bottom + height would drop `bottom`), so the note's foot actually meets the
+   span's foot. `align-self` is inert on an absolutely positioned box. */
 @position-try --annotation-bottom {
-  top: var(--previous-note);
+  top: auto;
   bottom: anchor(bottom);
   height: max-content;
-  align-self: end;
 }
 
 .annotation-slot.side-left {
@@ -1813,36 +1841,39 @@ html:has(.composer-pill[data-drop]) {
   font-size: var(--text-xs);
 }
 
-/* Agents rest at the end of the round that took their result in. The ones
-   still out share the tape's end: one stack, held to the bottom beside the
-   model note's rest. A settled stack stays where it came back. */
-.agent-slot {
-  /* The lower anchor wins when preceding notes leave no room. Let the stack
-     grow upward rather than extending the tape's scrollable overflow. */
-  top: min(max(anchor(top), var(--previous-note)), calc(100% - var(--annotation-end)));
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  position-try-fallbacks: none;
+/* Spawned agents dock at the window's lower right: an always-open toast stack
+   nobody can collapse or swipe away. It narrows from 22rem to 16rem as the tape
+   does, and while it holds a toast the conversation's right lane is at least as
+   wide as it, so the body squeezes instead of sliding under it. Where even a
+   squeezed body would fall under 20rem there is no dock. */
+.tape {
+  --dock-width: clamp(16rem, calc(100cqw - 2 * var(--gutter-width) - 21rem), 22rem);
 }
 
-.agent-stack {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--cell-gap);
-  z-index: 1;
+.tape:has([data-sonner-toast]) :is(.transcript, .composer) {
+  --conversation-grid: minmax(0, 1fr) var(--gutter-width) minmax(0, var(--body-width)) var(--gutter-width)
+    minmax(calc(var(--dock-width) + 1rem), 1fr);
 }
 
-.agent-slot[data-out] > .agent-stack {
-  top: auto;
-  bottom: var(--model-rest);
+.agent-dock {
+  z-index: 20;
+  --normal-font: var(--font-sans);
+  font-family: var(--font-sans);
 }
 
-.agent-slot:not([data-out]) > .agent-stack {
-  position: relative;
-  top: auto;
+.agent-toast {
+  width: var(--width);
+}
+
+@container (max-width: 44rem) {
+  .agent-dock {
+    display: none;
+  }
+
+  .tape:has([data-sonner-toast]) :is(.transcript, .composer) {
+    --conversation-grid: minmax(0, 1fr) var(--gutter-width) minmax(0, var(--body-width)) var(--gutter-width)
+      minmax(0, 1fr);
+  }
 }
 
 /* The bar is the agent's state: working, asking, settled, failed. The note, its peek, and a workflow card share it. */
@@ -1871,6 +1902,7 @@ html:has(.composer-pill[data-drop]) {
   border-left: 2px solid var(--agent-bar);
   background: var(--canvas);
   color: var(--subtle);
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
   line-height: 1.45;
   text-align: start;
@@ -2037,6 +2069,16 @@ html:has(.composer-pill[data-drop]) {
   color: var(--muted);
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
+}
+
+.agent-peek > .session-status {
+  flex: none;
+  max-block-size: min(16rem, 35dvh);
+  margin: 0;
+  padding: --spacing(3) --spacing(6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-bottom: 1px solid var(--line);
 }
 
 .agent-brief {
@@ -2261,26 +2303,14 @@ html:has(.composer-pill[data-drop]) {
   inset-block-end: 1rem;
 }
 
-.auxiliary-popup .agent-note > span {
-  display: block;
-  overflow: visible;
-  white-space: normal;
-}
-
-.auxiliary-popup .agent-note > span > span {
-  overflow: visible;
-}
-
 /* The popup has plain content, not the side-note's decorative bar. */
-.auxiliary-popup .tape-thought,
-.auxiliary-popup .agent-note {
+.auxiliary-popup .tape-thought {
   border: 0;
   box-shadow: none;
   padding: 0;
 }
 
-.auxiliary-popup .tape-thought::before,
-.auxiliary-popup .agent-note::before {
+.auxiliary-popup .tape-thought::before {
   display: none;
 }
 
@@ -2494,12 +2524,6 @@ html:has(.composer-pill[data-drop]) {
     margin-block: 0 var(--round-gap);
   }
 
-  /* Agents follow the round that took them in; the ones still out close the tape. */
-  .annotation-slot.agent-slot {
-    grid-row: calc(var(--beat-row) * 5 + 4);
-    margin-block: calc(-1 * var(--round-gap) + var(--cell-gap)) var(--round-gap);
-  }
-
   /* The model follows the last round it ran. */
   .annotation-slot.model-slot {
     grid-row: calc(var(--model-last-row) * 5 + 5);
@@ -2532,6 +2556,10 @@ html:has(.composer-pill[data-drop]) {
 
   .composer-picks {
     align-items: flex-start;
+  }
+
+  .permission-mode {
+    grid-row: 3;
   }
 
   /* A round with only reasoning has no body. */
@@ -4406,4 +4434,89 @@ html:has(.composer-pill[data-drop]) {
 .permissions-explain dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+/* Auto's sprocket anchors the per-class adjustment panel in the top layer. */
+.permission-panel {
+  inset: auto;
+  position-area: top span-left;
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+  margin: --spacing(1);
+  inline-size: min(30rem, calc(100vw - --spacing(4)));
+  max-block-size: min(36rem, 80vh);
+  overflow-y: auto;
+  padding: --spacing(2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-raised);
+  color: var(--color-ink);
+  box-shadow: var(--overlay-shadow);
+}
+
+.permission-panel:not(:popover-open) {
+  display: none;
+}
+
+.permission-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: --spacing(2);
+}
+
+.permission-chip {
+  padding: 0 --spacing(2);
+  min-block-size: --spacing(6);
+  font-size: var(--text-xs);
+}
+
+.permission-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: --spacing(2);
+}
+
+.permission-group {
+  margin: --spacing(2) 0 --spacing(1);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.permission-class {
+  display: grid;
+  grid-template-columns: 1fr auto --spacing(5);
+  align-items: center;
+  gap: --spacing(2);
+  padding-block: --spacing(0.5);
+  font-size: var(--text-sm);
+}
+
+.permission-class[data-overridden] .permission-class-label {
+  font-weight: var(--font-weight-strong, 600);
+}
+
+.permission-reset {
+  grid-column: 3;
+  border-radius: var(--radius-xs);
+  color: var(--color-muted);
+}
+
+.permission-reset:hover {
+  background: var(--hover);
+  color: var(--color-ink);
+}
+
+.always-auto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: --spacing(2);
+  margin-block-start: --spacing(2);
+  font-size: var(--text-sm);
 }

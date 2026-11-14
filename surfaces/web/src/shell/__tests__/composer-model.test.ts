@@ -11,6 +11,8 @@ import { naturalName } from "../model-choice.js";
 
 type SessionFace = {
   root: {
+    activity: { readonly kind: "idle" };
+    autoModeProblems: Record<string, string>;
     uuid: string;
     sessionId: string;
     findRunningTurn: () => { uuid: string; approvalHead: unknown } | null;
@@ -49,6 +51,8 @@ class ModelDial {
     this.session = {
       root: {
         uuid: "root:alpha",
+        activity: { kind: "idle" },
+        autoModeProblems: {},
         sessionId: "s-alpha",
         findRunningTurn: () => null,
         kvs: observable({ connection: "chatgpt", model: "gpt-6.1-sol" }),
@@ -139,7 +143,7 @@ async function searchFor(text: string): Promise<void> {
 async function pick(choice: { readonly connection: string; readonly model: string }): Promise<void> {
   await searchFor(choice.model);
   const option = optionNodes()[options().indexOf(`${choice.connection} · ${naturalName(choice.model)}`)];
-  if (!(option instanceof HTMLElement)) throw new Error(`no option ${choice.model}`);
+  if (!(option instanceof HTMLElement)) throw new TypeError(`no option ${choice.model}`);
   await act(async () => {
     option.click();
   });
@@ -170,24 +174,13 @@ afterEach(() => {
 describe("composer model choice", () => {
   it("names the permission mode under the model and writes a pick", async () => {
     await render();
-    const word = element<HTMLButtonElement>(".permission-trigger");
-    expect(word.textContent).toBe("auto");
+    const group = within(container).getByRole("radiogroup", { name: "Permission mode" });
+    expect(within(group).getByRole<HTMLInputElement>("radio", { name: "auto" }).checked).toBe(true);
     const user = userEvent.setup({ document });
     await act(async () => {
-      await user.click(word);
-    });
-    const menu = within(container).getByRole("menu", { name: /^Permission mode/ });
-    // The menu mounts on open; test its public semantics, not hidden legacy rows.
-    expect(
-      within(menu)
-        .getAllByRole("menuitemradio")
-        .map((node) => node.textContent.trim()),
-    ).toEqual(["manual", "always approve", "auto"]);
-    await act(async () => {
-      await user.click(within(menu).getByRole("menuitemradio", { name: "manual" }));
+      await user.click(within(group).getByRole("radio", { name: "manual" }));
     });
     expect(state.request).toHaveBeenCalledWith("policy/set", { policy: "manual" });
-    expect(within(container).queryByRole("menu", { name: /^Permission mode/ })).toBeNull();
   });
 
   it("sits under the draft and names each wire when more than one is listed", async () => {
@@ -361,7 +354,7 @@ function button(label: string): HTMLButtonElement {
   const node = [...container.querySelectorAll("button")].find(
     (candidate) => candidate.textContent.trim() === label || candidate.getAttribute("aria-label") === label,
   );
-  if (!(node instanceof HTMLButtonElement)) throw new Error(label);
+  if (!(node instanceof HTMLButtonElement)) throw new TypeError(label);
   return node;
 }
 

@@ -1,12 +1,11 @@
+/* eslint-disable import-x/no-relative-packages -- The workspace document is the single normative source, not a runtime package dependency. */
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-// The workspace document is the single normative source, not a runtime package dependency.
-// eslint-disable-next-line import-x/no-relative-packages
-import guide from "../../../../docs/graphic-precision.md?raw";
 import { Page, Schemes, Section, StoryLink } from "./brand-kit.js";
+import guide from "../../../../docs/graphic-precision.md?raw";
 import { Button } from "../components/ui/button.js";
 
 const meta = {

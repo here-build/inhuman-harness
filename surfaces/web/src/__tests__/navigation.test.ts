@@ -49,6 +49,9 @@ function sessionSnapshot(sessionId: string) {
       sessionId,
       path: projectPath,
       title: `Session ${sessionId}`,
+      activity: { kind: "idle" as const },
+      autoModeProblems: {},
+      kvs: {},
       findRunningTurn: () => null,
       agent: { spec: { name: "", adoptNamedRecipe: vi.fn() } },
     },
@@ -66,6 +69,7 @@ class NavigationDial {
         beta: { title: "Session beta", status: "reading", lastPrompt: "" },
       },
       botsRoster: {},
+      kvs: {},
       approvalAskThrottleMs: 0,
       // Something is connected, so the frame is the workspace and not the first-run splash.
       connections: { chatgpt: { id: "chatgpt", driver: { name: "chatgpt", abilityClaim: ["completion"] } } },
@@ -518,10 +522,6 @@ describe("live application navigation", () => {
     const dial = new NavigationDial();
     Object.assign(dial.kernel.root, {
       kvs: { connection: "chatgpt", model: "gpt-6.1-sol" },
-      bots: {
-        explore: { name: "explore", description: "", instructions: "Look.", recipeScope: "session", error: null },
-        "broken-bot": { name: "broken-bot", description: "", instructions: "", error: "unreadable" },
-      },
     });
     Object.assign(dial.kernel.root.connections, {
       chatgpt: {
@@ -545,22 +545,9 @@ describe("live application navigation", () => {
     expect(dial.request).not.toHaveBeenCalled();
     const user = userEvent.setup({ document });
     await act(async () => {
-      await user.click(element<HTMLButtonElement>(".permission-trigger"));
+      await user.click(within(container).getByRole("radio", { name: "approve all" }));
     });
-    await act(async () => {
-      await user.click(within(container).getByRole("menuitemradio", { name: "always approve" }));
-    });
-    expect(element<HTMLButtonElement>(".permission-trigger").getAttribute("aria-label")).toBe(
-      "Permission mode: always approve",
-    );
-    expect(container.textContent).not.toContain("broken-bot");
-    await act(async () => {
-      await user.click(element<HTMLButtonElement>(".agent-trigger"));
-    });
-    await act(async () => {
-      await user.click(within(container).getByRole("menuitemradio", { name: "explore" }));
-    });
-    expect(element<HTMLButtonElement>(".agent-trigger").getAttribute("aria-label")).toBe("Agent: explore");
+    expect(within(container).getByRole<HTMLInputElement>("radio", { name: "approve all" }).checked).toBe(true);
     expect(dial.request).not.toHaveBeenCalled();
     await typeDraft("hello stage");
 
@@ -592,9 +579,6 @@ describe("live application navigation", () => {
       ["policy/set", { policy: "yolo" }],
       ["turn", { prompt: "hello stage" }],
     ]);
-    expect(dial.session?.root.agent.spec.adoptNamedRecipe).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "explore", recipeScope: "session", keepAlive: false }),
-    );
     expect(dial.prepareMint).toHaveBeenCalledTimes(1);
   });
 });

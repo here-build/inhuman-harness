@@ -156,6 +156,25 @@ describe("screen field migration", () => {
     expect((within(container).getByLabelText("Turns to keep") as HTMLInputElement).value).toBe("13");
   });
 
+  it("edits both compaction triggers on one slider and explains them in tooltips", async () => {
+    await render(h(SettingsDialog, { onDismiss: vi.fn() }));
+    await click("Runtime");
+    const soft = within(container).getByLabelText("Soft trigger") as HTMLInputElement;
+    const hard = within(container).getByLabelText("Hard trigger") as HTMLInputElement;
+    expect([soft.value, hard.value]).toEqual(["80", "90"]);
+    await act(async () => {
+      soft.focus();
+      await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    });
+    expect(soft.value).toBe("78");
+    await click("Save");
+    expect(dial.calls.find((call) => call.method === "config/set")?.params).toMatchObject({
+      compactTriggers: { soft: "78%", hard: "90%" },
+    });
+    const hint = within(container).getByRole("button", { name: "About Compaction thresholds" });
+    expect(describedText(hint)).toContain("Hard never sits below soft");
+  });
+
   it("keeps permission probe help external and disables Explain without a session", async () => {
     await render(h(PermissionsPanel));
     const input = within(container).getByLabelText("Command, path or mcp:server/tool");

@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { runInAction } from "mobx";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
-import { approval, conversation, fresh, running, STYLES } from "./scenes.js";
+import { approval, autoUnavailable, conversation, fresh, retrying, running, STYLES } from "./scenes.js";
 import { sessionStage, StoryApp } from "./story-app.js";
 import { asking, edit } from "./world.js";
 
@@ -30,6 +30,8 @@ export const Drafting: Story = {
 
 /** A live turn with an empty draft offers Stop; Esc does the same. */
 export const Running: Story = { args: { stage: sessionStage(running) } };
+export const Retrying: Story = { args: { stage: sessionStage(retrying) } };
+export const AutoUnavailable: Story = { args: { stage: sessionStage(autoUnavailable) } };
 
 /** The port refused the message: the draft stays and the composer says so. */
 export const Refused: Story = {

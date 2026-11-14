@@ -394,6 +394,16 @@ describe("Tape", () => {
     expect(html).not.toContain("update_metadata");
   });
 
+  it("renders no progress aside for a mark with no title, description, or items", () => {
+    const html = renderCells([
+      { kind: "round", id: "round" },
+      { kind: "progress", id: "empty", title: "", description: "", items: [] },
+      { kind: "speech", id: "assistant", text: "Done.", thought: "" },
+    ]);
+    expect(html).not.toContain("progress-mark");
+    expect(html).toContain("Done.");
+  });
+
   it("places task and goal lines in the same progress pane as the title", () => {
     const html = renderCells([
       { kind: "round", id: "round" },

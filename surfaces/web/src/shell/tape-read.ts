@@ -216,10 +216,27 @@ export function projectUserTurn(turn: SessionTurn, projectPath: string, blobs?: 
       roundId = chunk.uuid;
       roundModel = chunk.expectation.model.trim();
       roundConnection = chunk.expectation.connectionId;
-      const text = chunk.expectation.responseText.trim();
-      const thought = chunk.expectation.responseThought.trim();
+      const expectation = chunk.expectation;
+      const report = expectation.isDone ? null : expectation.report;
+      const text = (report?.text ?? expectation.responseText).trim();
+      const thought = (report?.thought ?? expectation.responseThought).trim();
       if (text !== "" || thought !== "") {
         roundCells.push({ kind: "speech", id: chunk.uuid, text, thought });
+      }
+      if (expectation.outcome === "failed") {
+        roundCells.push({
+          kind: "tool",
+          id: `${chunk.uuid}:failure`,
+          summary: expectation.endCause === "crash" ? "Model request interrupted" : "Model request failed",
+          outcome: "failed",
+          body: {
+            kind: "text",
+            text:
+              expectation.endDetail ||
+              expectation.failReason ||
+              "The model request did not complete. Resume the turn to try again.",
+          },
+        });
       }
     } else if (chunk instanceof ToolCallJob) {
       pushTool(roundCells, chunk, tools, projectPath, blobs);
