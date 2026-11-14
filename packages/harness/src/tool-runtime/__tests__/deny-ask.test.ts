@@ -13,7 +13,6 @@ import {
   ToolCallHandler,
 } from "../index.js";
 
-
 function shellEntry(execute: CatalogEntry["execute"]): CatalogEntry {
   return {
     wireName: "shell",

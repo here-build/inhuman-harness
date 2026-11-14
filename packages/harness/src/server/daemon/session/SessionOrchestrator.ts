@@ -5,6 +5,7 @@ import { docTag, fail, step, trace } from "@inhuman.tools/harness-diagnostics";
 import {
   AGENT_ASK,
   AGENT_SEND,
+  overlayUserLayer,
   AgentCallbackJob,
   AgentCallJob,
   BotCallJob,
@@ -41,7 +42,7 @@ import {
   WebExtractToolJob,
   WebSearchToolJob,
 } from "@inhuman.tools/harness-model";
-import { reActLoopIntentDetectedTriggerFor } from "@inhuman.tools/harness-model/shared";
+import { configuredCompletionModel, reActLoopIntentDetectedTriggerFor } from "@inhuman.tools/harness-model/shared";
 import {
   type CapabilityConnection,
   type CompleteRequest,
@@ -224,10 +225,12 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     // `<repo>/.inhuman/authorization.json` (tighten only). Both are re-stamped when their files change, so a
     // mid-session tightening applies to the next call.
     const projectPath = this.sessionDaemon.project.path;
+    const projectRoot = this.sessionDaemon.project.root;
     const syncAuthorization = () => {
       if (!this.canApplyResults) return;
       const session = this.session.root;
-      const user = this.kernel.root.authorizationJson;
+      // The user's own per-project overlay (kernel state) sits on the user layer: both are the user's.
+      const user = overlayUserLayer(this.kernel.root.authorizationJson, projectRoot.authorizationJson);
       if (session.authorizationUserJson !== user) session.authorizationUserJson = user;
       const project = readProjectAuthorization(projectPath);
       if (session.authorizationProjectJson !== project) session.authorizationProjectJson = project;
@@ -238,11 +241,12 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     }, PROJECT_LAYER_POLL_MS);
     poll.unref();
     const stopAuthorization = reaction(
-      () => (this.activated ? this.kernel.root.authorizationJson : null),
+      () => (this.activated ? [this.kernel.root.authorizationJson, projectRoot.authorizationJson] : null),
       () => {
         if (!this.activated) return;
         runInAction(syncAuthorization);
       },
+      { equals: comparer.structural },
     );
     // Stored grants of project, bot and global scope come from the kernel's `grants.json`.
     scope.persistentGrants = () => parseGrantRows(this.kernel.root.grantsJson);
@@ -1228,12 +1232,21 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         throw new Error(intent.persistFailed ? INTENT_NOT_PERSISTED : "completion cancelled");
       }
     }
-    // The retry budget is read once, here, and recorded on the round. A live setting change
-    // does not reach a round that is already retrying.
-    req.round.stampRetryLimits({
-      maxMs: this.kernel.root.retryMaxMs,
-      maxAttempts: this.kernel.root.retryMaxAttempts,
-    });
+    const stopRetrySettings = reaction(
+      () => ({
+        maxMs: this.kernel.root.retryMaxMs,
+        maxAttempts: this.kernel.root.retryMaxAttempts,
+        backgroundMaxAttempts: this.kernel.root.retryBackgroundMaxAttempts,
+        foreground: this.sessionDaemon.kernel.foregroundSessionIds().has(this.session.root.sessionId),
+      }),
+      ({ foreground, ...limits }) => {
+        runInAction(() => {
+          req.round.stampRetryLimits(limits);
+          req.round.retryForeground = foreground;
+        });
+      },
+      { fireImmediately: true, equals: comparer.structural },
+    );
     const started = Date.now();
     const id = req.round.uuid;
     trace(
@@ -1252,6 +1265,8 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       );
       if (error instanceof ConnectionMiss) this.originCompletions.delete(req.round);
       throw error;
+    } finally {
+      stopRetrySettings();
     }
   }
 
@@ -1521,7 +1536,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         if (reason !== "") stopDetail = reason;
       }
       const pew = node instanceof CompletionExpectation ? node : tapeCompletion(node);
-      if (pew == null || pew.startedAtMs == null) continue;
+      if (pew?.startedAtMs == null) continue;
       hasCompletion = true;
       if (pew.outcome !== "failed" || pew.endCause === "cancel") continue;
       const text = pew.endDetail?.trim() || pew.failReason?.trim() || "model round failed";
@@ -1572,21 +1587,12 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 
   #configuredModel(connectionId: string): string {
-    const spec = this.kernel.root.connections[connectionId];
-    if (spec == null) return "";
-    const configured = typeof spec.configuration.model === "string" ? spec.configuration.model.trim() : "";
-    if (configured !== "") return configured;
-    const activeConnection = (this.session.root.kvs.connection || this.kernel.root.kvs.connection || "").trim();
-    if (connectionId === activeConnection) {
-      const activeModel = (this.session.root.kvs.model || this.kernel.root.kvs.model || "").trim();
-      if (activeModel !== "") return activeModel;
-    }
-    const liveModels = spec.live?.models;
-    if (Array.isArray(liveModels)) {
-      const first = liveModels.find((id) => typeof id === "string" && id.trim() !== "");
-      if (typeof first === "string") return first.trim();
-    }
-    return "";
+    return configuredCompletionModel(
+      connectionId,
+      this.session.root.kvs,
+      this.kernel.root.kvs,
+      this.kernel.root.connections[connectionId],
+    );
   }
 
   async #reActLoopIntentDetectedTrigger(

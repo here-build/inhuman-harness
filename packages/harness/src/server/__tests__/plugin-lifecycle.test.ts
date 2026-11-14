@@ -68,7 +68,6 @@ function packWires(kernel: KernelDaemon, pluginName: string): string[] {
 }
 
 describe("plugin lifecycle", () => {
-  
   it("install_restart_disable_reenable", async () => {
     const system = await mkdtemp(join(tmpdir(), "harness-life-k-"));
     let kernel = new KernelDaemon(system);

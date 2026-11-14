@@ -8,8 +8,8 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 
-import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import { ChunkedWebSocket } from "@inhuman.tools/chunked-websocket/client";
+import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import WebSocket, { type RawData } from "ws";
 
 import type { RemoteAccess } from "./remote-access.js";

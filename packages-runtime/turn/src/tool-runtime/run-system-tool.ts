@@ -21,7 +21,7 @@ import {
   SystemToolJob,
   writePluginMeta,
 } from "@inhuman.tools/harness-model";
-import type { ToolOutcomeSnap } from "@inhuman.tools/harness-model/schemas";
+import { asToolOutcome, type ToolOutcomeSnap } from "@inhuman.tools/harness-model/schemas";
 import { z } from "zod";
 
 import { externalizePrior } from "./blob-port.js";
@@ -100,28 +100,6 @@ export function sealToolCall(job: SystemToolJob, outcome: ToolOutcomeSnap): void
   rememberJobResult(job, outcomeText(outcome), RESULT_NOTE_CHARS);
   job.outcomeSnap ??= outcome;
   retractShellTail(job);
-}
-
-function asToolResult(out: unknown): ToolOutcomeSnap {
-  if (out != null && typeof out === "object" && "ok" in out) {
-    const row = out as {
-      ok?: unknown;
-      text?: unknown;
-      value?: unknown;
-      json?: unknown;
-      truncated?: unknown;
-    };
-    if (typeof row.ok === "boolean") {
-      return {
-        ok: row.ok,
-        ...(typeof row.text === "string" ? { text: row.text } : {}),
-        ...("value" in row ? { value: row.value } : {}),
-        ...("json" in row ? { json: row.json } : {}),
-        ...(row.truncated === true ? { truncated: true } : {}),
-      };
-    }
-  }
-  return { ok: true, value: out };
 }
 
 function doorText(error: unknown): string {
@@ -254,7 +232,7 @@ export async function executeSystemTool(
     const proposed = pendingPropose.get(job);
     pendingPropose.delete(job);
     if (!canApplyResults()) return;
-    const outcome = asToolResult(dispatched);
+    const outcome = asToolOutcome(dispatched);
     if (signal.aborted) {
       seal(outcome.ok ? cancelledSnap(signal) : outcome);
       return;

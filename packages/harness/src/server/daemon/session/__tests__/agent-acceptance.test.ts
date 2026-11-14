@@ -77,7 +77,6 @@ function closedTurn(child: ToolCallJob) {
 }
 
 describe("agent acceptance step 3", () => {
-  
   it("replacement while a child session attaches drops the old caller's late delivery", async () => {
     const { project, session } = await openPluginHarness();
     const entered = Promise.withResolvers<void>();

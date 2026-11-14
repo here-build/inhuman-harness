@@ -35,7 +35,13 @@ export type IntentAssessment = {
 
 export type RoundGate = {
   readonly reason:
-    "provider-failed" | "content-filter" | "length-no-answer" | "round-limit" | "no-connection" | "plugin-refused";
+    | "provider-failed"
+    | "content-filter"
+    | "length-no-answer"
+    | "round-limit"
+    | "no-connection"
+    | "plugin-refused"
+    | "continuation-unavailable";
   readonly detail: string;
 };
 

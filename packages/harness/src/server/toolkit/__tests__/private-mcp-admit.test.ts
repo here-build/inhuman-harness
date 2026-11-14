@@ -4,9 +4,9 @@
  */
 import { fileURLToPath } from "node:url";
 
-import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { BotCallJob, AgentNotifyJob, SessionRoot } from "@inhuman.tools/harness-model";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { normalizeDefinitions, resolveReferences } from "@inhuman.tools/plugin-sdk";
 import { describe, expect, it, onTestFinished } from "vitest";
 

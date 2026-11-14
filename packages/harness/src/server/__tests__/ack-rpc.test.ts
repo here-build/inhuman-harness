@@ -55,7 +55,6 @@ const answer = (session: SessionDaemon, job: SystemToolJob, extra: Record<string
   });
 
 describe("ack over RPC", () => {
-  
   it("an allowed call waits; ack/pending describes it; ack/answer lets it run", async () => {
     const { session } = await open([STATUS]);
     const job = call(session, "git status");

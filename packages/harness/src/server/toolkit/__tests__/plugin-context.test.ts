@@ -4,7 +4,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   BotCallJob,
@@ -16,6 +15,7 @@ import {
   SessionTurn,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { InhumanPlugin, InhumanTool } from "@inhuman.tools/plugin-sdk";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
@@ -191,7 +191,7 @@ describe("plugin graph context", () => {
         kernel.catalog,
         { session: cutSession.root, originTurn: cutTurn },
       );
-      if (!(retain instanceof BotCallJob)) throw new Error("expected BotCallJob");
+      if (!(retain instanceof BotCallJob)) throw new TypeError("expected BotCallJob");
       retain.humanApprove = true;
       cutTurn.enqueue(retain);
       const budget = sourceCutCharLimit("call");

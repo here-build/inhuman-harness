@@ -46,7 +46,6 @@ async function openSession(): Promise<{ root: SessionRoot }> {
 }
 
 describe("job_stop", () => {
-  
   it("lists live work, cancels a sitting shell, and leaves a foreground call alone", async () => {
     const { root } = await openSession();
     const shell = new SystemToolJob({

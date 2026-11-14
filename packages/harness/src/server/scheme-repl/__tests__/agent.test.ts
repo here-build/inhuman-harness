@@ -125,7 +125,6 @@ function respondJson(root: { head: SessionTurn | null }, requestId: string, resp
 }
 
 describe("scheme_repl agent mixer", () => {
-  
   it("bot/send waits for Scheme respond; bot/ask omitted-spec mints a worker; :readonly stamps worker desk", async () => {
     const { project, session } = await openHarness();
 

@@ -30,10 +30,17 @@ export function applyConfigSet(
     readonly statuslineRefresh?: string;
     readonly speculativePolicyProcessingTools?: number;
     readonly textOnlyContinue?: boolean;
+    readonly retryMaxAttempts?: number;
+    readonly retryBackgroundMaxAttempts?: number;
+    readonly retryMaxMs?: number;
     readonly authorization?: Record<string, unknown> | null;
   },
 ): void {
   if (args.compact !== undefined) config.compact = args.compact;
+  if (args.retryMaxAttempts !== undefined) config.retryMaxAttempts = args.retryMaxAttempts;
+  if (args.retryBackgroundMaxAttempts !== undefined)
+    config.retryBackgroundMaxAttempts = args.retryBackgroundMaxAttempts;
+  if (args.retryMaxMs !== undefined) config.retryMaxMs = args.retryMaxMs;
   if (args.compactKeepTurns !== undefined) config.compactKeepTurns = args.compactKeepTurns;
   if (args.contextRetention !== undefined) config.contextRetention = { ...args.contextRetention };
   if (args.compactTriggers !== undefined) {

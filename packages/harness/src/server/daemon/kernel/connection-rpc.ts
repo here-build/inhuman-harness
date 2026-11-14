@@ -99,3 +99,55 @@ export async function loginConnection(
   await loginMcpHttp(id, url, host);
   return { ok: true };
 }
+
+/** What a new or stored connection looks like to the duplicate check. */
+export type ConnectionFingerprintSource = {
+  readonly driver: string;
+  readonly settings: Readonly<Record<string, unknown>>;
+  readonly secrets: Readonly<Record<string, string>>;
+};
+
+/** OIDC sign-ins carry a refresh token: one endpoint may host several accounts. */
+function signedInByOidc(secrets: Readonly<Record<string, string>>): boolean {
+  return (secrets.refreshToken ?? "") !== "";
+}
+
+function endpointOf(row: ConnectionFingerprintSource): string {
+  const settings = row.settings;
+  for (const key of ["url", "baseUrl", "baseURL", "endpoint"]) {
+    const value = settings[key];
+    if (typeof value === "string" && value.trim() !== "") return value.trim().replace(/\/+$/, "").toLowerCase();
+  }
+  if (typeof settings.command === "string" && settings.command.trim() !== "") {
+    const args = Array.isArray(settings.args) ? settings.args.map(String) : [];
+    return [settings.command.trim(), ...args].join(" ");
+  }
+  return "";
+}
+
+function staticTokenOf(row: ConnectionFingerprintSource): string {
+  const token = row.secrets.token ?? "";
+  if (token !== "") return token;
+  const apiKey = row.secrets.apiKey ?? "";
+  if (apiKey !== "") return apiKey;
+  return authorizationHeader(row.settings);
+}
+
+/**
+ * The id of a stored connection the candidate would duplicate: same driver,
+ * same endpoint, same static token (two empty tokens match). OIDC sign-ins on
+ * either side never collide.
+ */
+export function duplicateConnectionOf(
+  candidate: ConnectionFingerprintSource,
+  stored: Readonly<Record<string, ConnectionFingerprintSource>>,
+): string | null {
+  if (signedInByOidc(candidate.secrets)) return null;
+  const endpoint = endpointOf(candidate);
+  const token = staticTokenOf(candidate);
+  for (const [id, row] of Object.entries(stored)) {
+    if (id.startsWith("__") || row.driver !== candidate.driver || signedInByOidc(row.secrets)) continue;
+    if (endpointOf(row) === endpoint && staticTokenOf(row) === token) return id;
+  }
+  return null;
+}

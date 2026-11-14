@@ -33,7 +33,6 @@ const TASKS = fileURLToPath(new URL("../../../../../plugins/inhuman-plugin-tasks
 const FACE_TIMEOUT = 4_000;
 
 describe("settings management", () => {
-  
   it("writes skills, bots, plugins, and an mcp server onto the live documents", async () => {
     const system = await mkdtemp(join(tmpdir(), "harness-settings-k-"));
     const workspace = await mkdtemp(join(tmpdir(), "harness-settings-p-"));

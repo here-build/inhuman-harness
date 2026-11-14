@@ -31,7 +31,6 @@ import { KernelDaemon } from "../KernelDaemon.js";
 const TIMEOUT = 8_000;
 
 describe("kernel seat machine", () => {
-  
   it("remembers, parks on seat drop, titles from turn/steer, worker lens", { timeout: 30_000 }, async () => {
     const system = await realpath(await mkdtemp(join(tmpdir(), "harness-seat-k-")));
     const workspace = await realpath(await mkdtemp(join(tmpdir(), "harness-seat-p-")));

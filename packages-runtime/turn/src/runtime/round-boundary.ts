@@ -194,6 +194,18 @@ export async function assessBoundary(
   if (gate == null && roundCapReached(turn) && decideRound(finalCandidates).kind === "advance") {
     gate = { reason: "round-limit", detail: maxRoundsMessage(turn.maxRounds ?? 0) };
   }
+  const assessment = boundary.intentAssessment;
+  if (
+    gate == null &&
+    decideRound(finalCandidates).kind !== "advance" &&
+    assessment != null &&
+    (assessment.status === "failed" || assessment.status === "invalid" || assessment.status === "unsupported")
+  ) {
+    gate = {
+      reason: "continuation-unavailable",
+      detail: `Continuation check unavailable. Check the judge connection and model in settings, then resume the turn. ${assessment.detail}`,
+    };
+  }
   return decideRound(finalCandidates, gate, boundary.intentAssessment);
 }
 

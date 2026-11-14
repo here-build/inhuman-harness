@@ -259,8 +259,10 @@ export class KernelRoot extends Model<any, null> {
   @state accessor lengthContinuations: number = DEFAULT_LENGTH_CONTINUATIONS;
   /** Total time a model round may keep retrying a transient error. `config.json` `retryMaxMs`; 0 = no deadline. */
   @state accessor retryMaxMs: number = 0;
-  /** Attempts before a transient error ends the round. `config.json` `retryMaxAttempts`; 0 = no limit. */
-  @state accessor retryMaxAttempts: number = 0;
+  /** Failed foreground attempts before stopping. `config.json` `retryMaxAttempts`; 0 = no limit. */
+  @state accessor retryMaxAttempts: number = 15;
+  /** Failed background attempts before stopping. 0 = no limit. */
+  @state accessor retryBackgroundMaxAttempts: number = 0;
   /** Persist-mod key. `config.json` `superKey`; `ctrl` (default) or `cmd`. */
   @state accessor superKey: SuperKey = DEFAULT_SUPER_KEY;
   /**

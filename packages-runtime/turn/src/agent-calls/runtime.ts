@@ -276,7 +276,7 @@ export function settleCancelledTurn(
  * A successful provider response instead resumes its separately checkpointed
  * response expansion; completed provider I/O is never repeated to recover tools.
  */
-export function restorePendingRound(turn: SessionTurn): void {
+export function restorePendingRound(turn: SessionTurn, options: CloseTurnOptions = {}): void {
   if (turn.reducerExited || !turn.orchestrated || turn.completed) return;
   let index = turn.doneWork.length - 1;
   while (index >= 0 && isClaimCell(turn.doneWork[index])) index -= 1;
@@ -284,6 +284,28 @@ export function restorePendingRound(turn: SessionTurn): void {
   if (cell == null || !interrupted(cell, turn)) return;
   if (cell instanceof CompletionJob && cell.orchestrated && !cell.expectation.isDone) {
     if (turn.cancelRequested) return;
+    const expectation = cell.expectation;
+    const limit = expectation.retryForeground ? expectation.retryMaxAttempts : expectation.retryBackgroundMaxAttempts;
+    if (limit > 0) {
+      let interruptedAttempts = 1;
+      for (let at = index - 1; at >= 0; at -= 1) {
+        const prior = turn.doneWork[at];
+        if (!(prior instanceof CompletionJob)) continue;
+        if (prior.expectation.endCause !== "crash") break;
+        if (prior.expectation.retryForeground === expectation.retryForeground) interruptedAttempts += 1;
+      }
+      if (interruptedAttempts >= limit) {
+        closeTurn(
+          turn,
+          {
+            kind: "broke",
+            detail: `Stopped after ${interruptedAttempts} interrupted model attempts. Check the connection, then resume the turn.`,
+          },
+          options,
+        );
+        return;
+      }
+    }
     runInAction(() => {
       const next = new ReACTChunk();
       next.decision = decideRound([{ cause: { kind: "recovery", sources: [cell.uuid] } }]);

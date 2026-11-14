@@ -46,7 +46,6 @@ async function openSession(): Promise<{ root: SessionRoot }> {
 }
 
 describe("ProgrammaticJob executor", () => {
-  
   it("a program seals once including on error and with unresolved children", async () => {
     const { root } = await openSession();
 

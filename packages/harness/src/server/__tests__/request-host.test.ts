@@ -9,10 +9,10 @@ import {
   JSON_RPC_INVALID_PARAMS,
   type UiForm,
 } from "@/protocol/rpc";
-import type { PlaneSocket } from "../transport/plane.js";
 
 import { DaemonRpcMethod, RequestHost, RpcInternalError, UiCancelled } from "../contract.js";
 import { serveJsonRpc, type RpcRequestIdentity } from "../transport/jsonrpc.js";
+import type { PlaneSocket } from "../transport/plane.js";
 
 describe("RequestHost", () => {
   it("RequestHost parks sequential ui() and cancel throws UiCancelled", async () => {

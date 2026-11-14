@@ -2,9 +2,6 @@
  * Admit stamps regenerateable from catalog class. Denied reads do not dump.
  */
 
-import invariant from "tiny-invariant";
-
-import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
@@ -27,7 +24,9 @@ import {
   WebExtractToolJob,
   WebSearchToolJob,
 } from "@inhuman.tools/harness-model";
+import { DocumentContainer } from "@inhuman.tools/model";
 import type { ToolCall } from "@inhuman.tools/tool-call-normalize";
+import invariant from "tiny-invariant";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { SQUEEZE_COMPACT_CHARS, squeezeToolCall } from "@/context";
@@ -65,7 +64,6 @@ function mcpHost(catalog: KernelToolCatalog): void {
     ],
   };
 }
-
 
 describe("ToolCallHandler.admit", () => {
   it.each([

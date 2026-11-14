@@ -38,6 +38,7 @@ import {
   ruleStampFor,
   workspacePath,
 } from "@inhuman.tools/harness-model";
+import { classifierRoute } from "@inhuman.tools/harness-model/shared";
 import { classifierResources, policyEnvCapability } from "@inhuman.tools/policy/floor";
 import { parseTirithEvidence, tirithCoverage } from "@inhuman.tools/policy-tirith";
 import { action, comparer, type IReactionDisposer, observable, reaction, runInAction } from "mobx";
@@ -54,6 +55,8 @@ import {
   type SoftDenyOutcome,
   type SoftDenySections,
 } from "./soft-deny.js";
+
+export { classifierRoute, type ClassifierRouteOpts } from "@inhuman.tools/harness-model/shared";
 
 function trace(name: string, message: string): void {
   const debug = process.env.DEBUG;
@@ -175,29 +178,6 @@ const classifierCache = new DefaultedMap((p: string): string => {
 });
 
 export const classifierFiles = loaderFromResolver((p) => classifierCache.get(p));
-
-export type ClassifierRouteOpts = {
-  /** Kernel last-choice. Session mint is a snapshot; this overlay is live. */
-  readonly fallback?: Readonly<Record<string, string>>;
-  /** Connection `settings.model` when the judge wire is named but `judgeModel` is empty. */
-  readonly configuredModel?: (connectionId: string) => string;
-};
-
-export function classifierRoute(
-  kvs: Readonly<Record<string, string>>,
-  opts?: ClassifierRouteOpts,
-): {
-  readonly connection: string;
-  readonly model: string;
-  readonly key: string;
-} {
-  const fallback = opts?.fallback ?? {};
-  const connection = (kvs.judgeConnection || fallback.judgeConnection || kvs.connection || "").trim();
-  const judgeModel = (kvs.judgeModel || fallback.judgeModel || "").trim();
-  const configured = connection !== "" && opts?.configuredModel != null ? opts.configuredModel(connection).trim() : "";
-  const model = (judgeModel || configured || kvs.model || "").trim();
-  return { connection, model, key: `${connection}\n${model}` };
-}
 
 type ClassifierPlan =
   | { readonly kind: "cache"; readonly decision: "allow" | "deny"; readonly attempt: number }
@@ -505,6 +485,11 @@ export class ClassifierHandle {
           case "literal":
             runInAction(() => {
               if (this.job.classifierResult !== null) return;
+              const route = classifierRoute(this.scope.root.kvs, {
+                fallback: this.scope.judgeFallbackKvs,
+                configuredModel: this.scope.judgeConfiguredModel,
+              });
+              delete this.scope.root.autoModeProblems[route.key];
               this.job.classifierResult = plan.decision;
               this.scope.remainderStore(this.job, plan.identity, plan.decision);
             });
@@ -608,6 +593,7 @@ export class ClassifierHandle {
               return;
             }
             trace("harness:judge", `vote ${vote.decision} job=${jobId} ms=${Date.now() - started}`);
+            delete this.scope.root.autoModeProblems[`${plan.connection}\n${plan.model}`];
             this.job.classifierResult = vote.decision;
             if (vote.reason !== undefined) this.job.judgeReason = vote.reason;
             if (vote.round !== undefined) this.job.softDenyRound = vote.round;
@@ -684,6 +670,7 @@ export class ClassifierHandle {
   writeFail(text: string): void {
     if (this.job.classifierResult !== null) return;
     if (text.trim() !== "") this.job.classifierAbstain = text;
+    this.#recordProblem(text);
     this.job.judgeFails += 1;
     if (this.scope.closed) return;
     this.#clearTimer();
@@ -701,8 +688,18 @@ export class ClassifierHandle {
   writeFailSticky(text: string): void {
     if (this.job.classifierResult !== null) return;
     if (text.trim() !== "") this.job.classifierAbstain = text;
+    this.#recordProblem(text);
     this.job.judgeFails = JUDGE_FAILS_FINAL;
     this.#clearTimer();
+  }
+
+  #recordProblem(text: string): void {
+    if (text.trim() === "" || this.scope.closed) return;
+    const route = classifierRoute(this.scope.root.kvs, {
+      fallback: this.scope.judgeFallbackKvs,
+      configuredModel: this.scope.judgeConfiguredModel,
+    });
+    this.scope.root.autoModeProblems[route.key] = text;
   }
 
   #clearTimer(): void {

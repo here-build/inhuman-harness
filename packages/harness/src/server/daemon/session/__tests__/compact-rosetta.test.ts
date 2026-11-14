@@ -40,7 +40,6 @@ const TIMEOUT = 2_000;
 const starterPath = fileURLToPath(new URL("fixtures/compact-starter/compact.scm", import.meta.url));
 
 test("compact cycle: occupancy, overflow insert, cutoff, pair-safety, later turn eats the card", async () => {
-
   const pairC1 = completion("one", { used: 10, total: 100 });
   const pairT1 = tool("t1");
   const pairT2 = tool("t2", "Bash");

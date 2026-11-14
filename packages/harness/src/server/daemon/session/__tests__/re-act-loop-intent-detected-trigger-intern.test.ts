@@ -1,4 +1,4 @@
-import { CompletionJob, SessionPlexus, SessionTurn } from "@inhuman.tools/harness-model";
+import { CompletionJob, publishKernelSeat, SessionPlexus, SessionTurn } from "@inhuman.tools/harness-model";
 import { expect, onTestFinished, test } from "vitest";
 
 import { assessTextOnlyContinueIntern } from "../re-act-loop-intent-detected-trigger.js";
@@ -78,8 +78,9 @@ test.each([
       .filter((child) => child instanceof CompletionJob && child.expectation.completionMode === "isolated")
       .map((job) => ({ completed: job.completed, mode: (job as CompletionJob).expectation.completionMode })),
   }).toEqual({
-    decision: "halt",
-    reason: row.verdict === "question" ? "awaiting-user" : "no-trigger",
+    decision: row.verdict === null ? "blocked" : "halt",
+    reason:
+      row.verdict === null ? "continuation-unavailable" : row.verdict === "question" ? "awaiting-user" : "no-trigger",
     intent: { status: row.status, verdict: row.verdict },
     rounds: 1,
     incomplete: row.incomplete,
@@ -91,6 +92,7 @@ test.each([
 
 test("caches unsupported schema only for that configured judge wire", async () => {
   const live = await liveSession();
+  publishKernelSeat(live.kernel.plexus.awareness, "s1");
   await configureJudge(live);
   live.model.judge({ fail: "json_schema unsupported: judge" });
   for (const expectedChildren of [1, 0]) {

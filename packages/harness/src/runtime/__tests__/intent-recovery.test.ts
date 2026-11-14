@@ -465,6 +465,31 @@ describe("job recovery from real on-disk SQLite rows", () => {
 });
 
 describe("job recovery on a live replica", () => {
+  it("stops repeated interrupted attempts at the recorded foreground limit", () => {
+    const plexus = SessionPlexus.create("recovery-limit");
+    onTestFinished(() => plexus.destroy());
+    const completions = Array.from({ length: 3 }, () => {
+      const expectation = new CompletionExpectation({ connectionId: "c" });
+      expectation.stampRetryLimits({ maxMs: 0, maxAttempts: 3, backgroundMaxAttempts: 0 });
+      return new CompletionJob({ expectation, orchestrationResult: true });
+    });
+    for (const completion of completions.slice(0, -1)) {
+      completion.expectation.fail("crash", "interrupted by restart; execution outcome unknown", "null");
+      completion.markComplete();
+    }
+    const turn = new SessionTurn({
+      turnTail: new SessionSystemPrompt(),
+      queue: [],
+      doneWork: completions,
+      reducerExited: false,
+      orchestrationResult: true,
+    });
+    plexus.root.head = turn;
+    recoverSessionJobs(plexus.root);
+    expect(turn.reducerExited).toBe(true);
+    expect(turn.broke).toContain("3 interrupted model attempts");
+    expect(turn.queue).toHaveLength(0);
+  });
   it("closes a cancelled program and completion a crash left open", () => {
     const plexus = SessionPlexus.create("cancel-open", "/tmp/cancel-open");
     onTestFinished(() => plexus.destroy());

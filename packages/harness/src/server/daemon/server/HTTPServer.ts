@@ -1,4 +1,4 @@
-import { mkdir, realpath, unlink } from "node:fs/promises";
+import { chmod, mkdir, realpath, unlink } from "node:fs/promises";
 import { createServer } from "node:http";
 
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
@@ -120,6 +120,9 @@ export class HTTPServer implements AsyncDisposable {
         resolve();
       });
     });
+    // The socket peer is the approval authority: restrict it to the owning
+    // user immediately after bind, before any client can attach.
+    await chmod(path, 0o600);
     step(`sock ready ${path}`);
 
     this.server.on("error", (error) => {

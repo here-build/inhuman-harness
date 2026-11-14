@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+
 import { rowPairId, type SessionPatchBatch } from "@inhuman.tools/harness-contract";
 import { resolvedTip, SessionPlexus, SessionTurn, type SessionRoot } from "@inhuman.tools/harness-model/session";
 import { type ModelPatch } from "@inhuman.tools/model";
@@ -6,7 +7,6 @@ import { computed, observable, runInAction, when } from "mobx";
 import { z } from "zod";
 
 import { glanceAskLine } from "./ask-line.js";
-import { sessionColumns } from "./summary.js";
 import {
   receiptCovers,
   SessionOwnershipError,
@@ -31,6 +31,7 @@ import {
 } from "./effects.js";
 import { interruptSession } from "./interrupt.js";
 import { recoverSessionJobs, type JobRecoveryOptions, type RecoveredJob } from "./recovery.js";
+import { sessionColumns } from "./summary.js";
 import { iterateTurn, type TurnIteratorHost } from "../runtime/turn-iterator.js";
 import {
   admitCompact,
@@ -111,27 +112,34 @@ function hydrateSessionEffectsMeta(session: SessionPlexus, effectRecords: readon
   const commands = session.getMetaMap("harness:session-commands");
   const effects = session.getMetaMap("harness:session-effects");
   for (const row of effectRecords) {
-    if (row.kind === "commit") {
-      commits.set(row.effectKey, { format: "input-digest-v1", hash: row.inputHash });
-    } else if (row.kind === "command") {
-      const parsed = JSON.parse(row.outcomeJson) as unknown;
-      const result = commandResultSchema.safeParse(parsed);
-      if (result.success) {
-        commands.set(row.effectKey, {
-          format: "command-digest-v1",
-          inputHash: row.inputHash,
-          result: result.data,
-        });
-      } else {
+    switch (row.kind) {
+      case "commit": {
         commits.set(row.effectKey, { format: "input-digest-v1", hash: row.inputHash });
+        break;
       }
-    } else if (row.kind === "effect") {
-      if (row.phase === "intent") {
-        const request = sessionEffectRequestSchema.parse(JSON.parse(row.outcomeJson));
-        effects.set(row.effectKey, { phase: "intent", request, inputHash: row.inputHash });
-      } else {
-        const outcome = sessionEffectOutcomeSchema.parse(JSON.parse(row.outcomeJson));
-        effects.set(row.effectKey, { phase: "result", inputHash: row.inputHash, outcome });
+      case "command": {
+        const parsed = JSON.parse(row.outcomeJson) as unknown;
+        const result = commandResultSchema.safeParse(parsed);
+        if (result.success) {
+          commands.set(row.effectKey, {
+            format: "command-digest-v1",
+            inputHash: row.inputHash,
+            result: result.data,
+          });
+        } else {
+          commits.set(row.effectKey, { format: "input-digest-v1", hash: row.inputHash });
+        }
+        break;
+      }
+      case "effect": {
+        if (row.phase === "intent") {
+          const request = sessionEffectRequestSchema.parse(JSON.parse(row.outcomeJson));
+          effects.set(row.effectKey, { phase: "intent", request, inputHash: row.inputHash });
+        } else {
+          const outcome = sessionEffectOutcomeSchema.parse(JSON.parse(row.outcomeJson));
+          effects.set(row.effectKey, { phase: "result", inputHash: row.inputHash, outcome });
+        }
+        break;
       }
     }
   }

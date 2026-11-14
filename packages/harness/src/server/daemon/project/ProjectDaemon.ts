@@ -105,6 +105,12 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     });
   }
 
+  writeAuthorizationOverlay(json: string): void {
+    runInAction(() => {
+      if (this.root.authorizationJson !== json) this.root.authorizationJson = json;
+    });
+  }
+
   async session(id: string = randomUUID()): Promise<SessionDaemon> {
     await this.ready;
     return this.#attach(id, true);
@@ -223,7 +229,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     step(interned == null ? `session mint ${id}` : `session rebootstrap ${id}`);
     try {
       await created.recover();
-      if (forceHonor && interned != null && isConversationSession(created.root)) {
+      if (forceHonor && isConversationSession(created.root)) {
         this.kernel.reserveAttachment(id);
       }
       await this.#reattachNamed(created);

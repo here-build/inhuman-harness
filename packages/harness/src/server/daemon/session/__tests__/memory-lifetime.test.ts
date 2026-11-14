@@ -47,7 +47,6 @@ async function openHarness() {
 }
 
 describe("memory lifetime step 3", () => {
-  
   it("call_and_turn_lifetime_transition_matrix", async () => {
     const { kernel, project, session } = await openHarness();
 

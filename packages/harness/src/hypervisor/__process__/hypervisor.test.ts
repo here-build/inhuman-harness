@@ -40,10 +40,7 @@ function scratch(): string {
   return root;
 }
 
-function roster(
-  runtimeFlags: string[] = [],
-  restart: RestartPolicy = never,
-) {
+function roster(runtimeFlags: string[] = [], restart: RestartPolicy = never) {
   return {
     servers: [
       {
@@ -98,7 +95,9 @@ describe("descriptors and readiness", () => {
 
   it("times out if runtime never publishes readiness", async () => {
     const root = scratch();
-    await expect(start(root, roster(["--unready"], never), 400, 400)).rejects.toThrow(/timeout waiting for runtime ready/);
+    await expect(start(root, roster(["--unready"], never), 400, 400)).rejects.toThrow(
+      /timeout waiting for runtime ready/,
+    );
   });
 
   it("records exit when a child dies before ready", async () => {

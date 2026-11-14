@@ -41,7 +41,6 @@ const visuals = [
 ];
 
 describe("turn.send image capabilities", () => {
-  
   it.each([
     { model: "gpt-6.1-sol", capabilities: { "gpt-6.1-sol": { inputModalities: ["text", "image"] } } },
     { model: "arbitrary", capabilities: { arbitrary: { inputModalities: ["image"] } } },

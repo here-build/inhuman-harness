@@ -1,18 +1,8 @@
-import {
-  decodePlaneFrame,
-  encodePresenceQuery,
-  encodePresenceUpdate,
-} from "@inhuman.tools/harness-peer";
+import { decodePlaneFrame, encodePresenceQuery, encodePresenceUpdate } from "@inhuman.tools/harness-peer";
 import { ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  attachPlane,
-  keepPlaneAlive,
-  PLANE_PING_MS,
-  PresenceRoom,
-  type PlaneSocket,
-} from "../transport/plane.js";
+import { attachPlane, keepPlaneAlive, PLANE_PING_MS, PresenceRoom, type PlaneSocket } from "../transport/plane.js";
 import { classifyPublicUpgrade } from "../transport/routes.js";
 
 function fakeSocket(): {
@@ -126,10 +116,12 @@ describe("plane keep-alive and presence routing", () => {
     });
 
     a.closeNow();
-    expect(b.sent.some((text) => {
-      const parsed = decodePlaneFrame(text);
-      return parsed?.kind === "presence/update" && parsed.entries.some(([, state]) => state === null);
-    })).toBe(true);
+    expect(
+      b.sent.some((text) => {
+        const parsed = decodePlaneFrame(text);
+        return parsed?.kind === "presence/update" && parsed.entries.some(([, state]) => state === null);
+      }),
+    ).toBe(true);
 
     room.close(1000, "test");
     hub.destroy();

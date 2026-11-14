@@ -848,6 +848,6 @@ function parked(value: unknown): { form: "ui"; pending: string; body: string } {
 
 function urlFromPark(body: string): URL {
   const parsed = JSON.parse(body) as { url?: unknown };
-  if (typeof parsed.url !== "string") throw new Error(`parked body has no url: ${body}`);
+  if (typeof parsed.url !== "string") throw new TypeError(`parked body has no url: ${body}`);
   return new URL(parsed.url);
 }

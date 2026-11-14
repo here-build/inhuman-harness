@@ -52,7 +52,10 @@ export class ProjectDocument extends DocumentContainer<ProjectRoot, AwarenessSha
     return projectDoc;
   }
 
-  static create(path: string, docOrOptions?: DocumentContainer<any, any> | ProjectPlexusCreateOptions | unknown): ProjectDocument {
+  static create(
+    path: string,
+    docOrOptions?: DocumentContainer<any, any> | ProjectPlexusCreateOptions | unknown,
+  ): ProjectDocument {
     if (docOrOptions instanceof DocumentContainer) {
       if (!(docOrOptions.root instanceof ProjectRoot) || docOrOptions.root.path !== path) {
         const root = new ProjectRoot({ path });
@@ -82,19 +85,23 @@ export class ProjectDocument extends DocumentContainer<ProjectRoot, AwarenessSha
     source: ProjectDocument | DocumentContainer<any, any> | SerializedDocument | unknown,
     options?: { readonly readOnly?: boolean; readonly clientId?: number; readonly undo?: string },
   ): ProjectDocument {
-    if (source instanceof ProjectDocument) return source;
+    const finish = (doc: ProjectDocument): ProjectDocument => {
+      if (options?.readOnly === true) doc.readOnly = true;
+      return doc;
+    };
+    if (source instanceof ProjectDocument) return finish(source);
     if (source instanceof DocumentContainer) {
       if (!(source.root instanceof ProjectRoot)) {
         const root = new ProjectRoot();
         source.hydrateFromSnapshot(serializeDocument(root));
       }
       Object.setPrototypeOf(source, ProjectDocument.prototype);
-      return source as ProjectDocument;
+      return finish(source as ProjectDocument);
     }
     if (source && typeof source === "object" && "root" in source && "revision" in source) {
-      return ProjectDocument.fromSnapshot(source as SerializedDocument);
+      return finish(ProjectDocument.fromSnapshot(source as SerializedDocument));
     }
-    return new ProjectDocument(new ProjectRoot(), options);
+    return finish(new ProjectDocument(new ProjectRoot(), options));
   }
 }
 

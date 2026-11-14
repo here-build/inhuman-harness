@@ -10,6 +10,9 @@ import {
   grantSubjectSchema,
 } from "@inhuman.tools/harness-contract";
 import {
+  CAPPED_CLASSES,
+  CLASS_GROUPS,
+  CLASS_LABELS,
   CLASS_IDS as MODEL_CLASS_IDS,
   grantRowSchema as modelGrantRow,
   grantSubjectSchema as modelSubject,
@@ -22,6 +25,12 @@ describe("taxonomy parity", () => {
     expect([...MODEL_CLASS_IDS]).toEqual([...CLASS_IDS]);
     expect([...CONTRACT_CLASS_IDS]).toEqual([...CLASS_IDS]);
     expect(Object.keys(CLASSES)).toEqual([...CLASS_IDS]);
+  });
+
+  it("the picker's labels, risky cap and groups copy the policy taxonomy", () => {
+    expect(CLASS_LABELS).toEqual(Object.fromEntries(CLASS_IDS.map((id) => [id, CLASSES[id].label])));
+    expect([...CAPPED_CLASSES].sort()).toEqual(CLASS_IDS.filter((id) => CLASSES[id].risky).sort());
+    expect(CLASS_GROUPS.flatMap((group) => group.classes).sort()).toEqual([...CLASS_IDS].sort());
   });
 
   it("tier names are soft-deny and ask; risky and general are nothing", () => {
@@ -67,6 +76,12 @@ describe("taxonomy parity", () => {
 
   it("every contract method of the policy engine is declared once", () => {
     expect(Object.keys(contract.kernel.grant).toSorted()).toEqual(["add", "list", "revoke"]);
-    expect(Object.keys(contract.session.policy).toSorted()).toEqual(["configGet", "explain", "overlay", "set"]);
+    expect(Object.keys(contract.session.policy).toSorted()).toEqual([
+      "classMode",
+      "configGet",
+      "explain",
+      "overlay",
+      "set",
+    ]);
   });
 });

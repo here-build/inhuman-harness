@@ -20,7 +20,12 @@ function reservationRoot(sessionId: string, snap: EligibilitySnapshot): boolean 
 function eligibilityRoots(snap: EligibilitySnapshot): Set<string> {
   const roots = new Set<string>();
   for (const id of snap.acquired) {
-    if (snap.occupied.has(id) || snap.resident.has(id) || reservationRoot(id, snap)) {
+    if (
+      snap.occupied.has(id) ||
+      snap.resident.has(id) ||
+      reservationRoot(id, snap) ||
+      (snap.conversations.has(id) && snap.running.has(id))
+    ) {
       roots.add(id);
     }
   }

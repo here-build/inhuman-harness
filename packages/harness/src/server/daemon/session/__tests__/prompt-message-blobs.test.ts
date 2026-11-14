@@ -145,7 +145,9 @@ describe("the summarizer's prefix", () => {
         inflight: new Map(),
         complete: (req: CompleteRequest): Promise<CompleteResult> => {
           const user = req.round.promptMessages[1]!;
-          const wire = [...projectModelHistory(req.round, { readBlob: (sha256) => objects.get(sha256)?.bytes ?? null })];
+          const wire = [
+            ...projectModelHistory(req.round, { readBlob: (sha256) => objects.get(sha256)?.bytes ?? null }),
+          ];
           live.push({
             grew: serializedBytes(plexus) - before,
             user: user.body.kind,

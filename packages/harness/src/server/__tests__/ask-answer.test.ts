@@ -2,7 +2,6 @@
  * A human answer, applied: a block is never lifted, a soft-deny is never stored, an ask is stored only
  * as an offered family, a comment stores nothing, a folder is a session read root.
  */
-import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   type GrantRow,
@@ -12,6 +11,7 @@ import {
   SessionTurn,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { applyAskAnswer, type AnswerEnv } from "../ask-answer.js";

@@ -45,7 +45,6 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("eval admission", () => {
-  
   it("admit machine: pure Scheme no wire; duplicate reuses; manual refused; busy refused; policy_denied vs residual ask; result/cancel follow admitted turn after head moves; failed persist creates no turn", async () => {
     const session = await openSession();
     const first = (await session.handleRequest("eval", {

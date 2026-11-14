@@ -50,7 +50,6 @@ function fate(session: SessionDaemon, text: string) {
 }
 
 describe("session inbox door", () => {
-  
   it("concurrent drain and steer-first leave a queued row as exactly one of turn or steer", async () => {
     const drainFirst = await idleSessionWithQueue("later");
     const id = drainFirst.root.promptQueue[0]!.uuid;

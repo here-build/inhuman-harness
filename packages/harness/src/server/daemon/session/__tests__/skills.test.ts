@@ -28,7 +28,6 @@ function writeSkill(root: string, name: string, body = SKILL): void {
 }
 
 describe("project skills", () => {
-  
   it("session attach lists one-level skills, skips farm and nested, expands /name unless host-reserved", async () => {
     const system = await mkdtemp(join(tmpdir(), "harness-skills-k-"));
     const workspace = await mkdtemp(join(tmpdir(), "harness-skills-p-"));

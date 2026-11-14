@@ -78,7 +78,7 @@ describe("completion history tails", () => {
     const restored = hydrateModel<SessionRoot>(replica.toSnapshot());
     const last = restored.head?.queue.at(-1);
     expect(last).toBeInstanceOf(CompletionJob);
-    if (!(last instanceof CompletionJob)) throw new Error("missing completion");
+    if (!(last instanceof CompletionJob)) throw new TypeError("missing completion");
     expect(last.expectation.messages).toHaveLength(199);
     expect(last.expectation.historyTail?.uuid).toBe(previous?.historyTail?.uuid);
     source.destroy();

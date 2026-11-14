@@ -24,7 +24,6 @@ import { describe, expect, it } from "vitest";
 import { recoverSessionJobs } from "@/runtime";
 
 describe("cancel settlement", () => {
-  
   /** Head closed with the cancel requested and a round that never landed. */
   function wedged(): {
     readonly root: SessionRoot;

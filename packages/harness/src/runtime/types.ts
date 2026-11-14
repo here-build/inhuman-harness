@@ -17,5 +17,7 @@ export type EligibilitySnapshot = {
   /** Mint-until-first-seat. Idle conversations stay rooted; workers do not. */
   readonly reserved: ReadonlySet<string>;
   readonly conversations: ReadonlySet<string>;
+  /** Open user turns keep running after their last client disconnects. */
+  readonly running: ReadonlySet<string>;
   readonly grants: readonly DelegatedGrant[];
 };

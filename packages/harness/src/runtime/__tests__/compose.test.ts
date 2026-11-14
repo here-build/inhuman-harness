@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
-import { SessionPlexus } from "@inhuman.tools/harness-model";
+import { ProgrammaticJob, SessionPlexus } from "@inhuman.tools/harness-model";
 import { registerProviders } from "@inhuman.tools/harness-provider-sdk";
 import { ConnectionSpec, type DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { disposeKernelConnections } from "@inhuman.tools/plexus-expectations/executor";
@@ -89,7 +89,6 @@ function emptyTables(): {
 }
 
 describe("production runtime composition", () => {
-  
   it("constructs without observers; activate binds catalog projection", () => {
     const catalog = new KernelToolCatalog();
     const runtime = new ProductionRuntime({
@@ -233,7 +232,7 @@ describe("production runtime composition", () => {
     });
     worker.root.agent.spec.recipeScope = "session";
     worker.root.agent.spec.name = "reviewer";
-    admitCall(caller, worker);
+    const call = admitCall(caller, worker);
     runtime.intern("caller", caller);
     runtime.intern("worker", worker);
     expect(
@@ -246,6 +245,29 @@ describe("production runtime composition", () => {
         ),
       ].sort(),
     ).toEqual(["caller", "worker"]);
+    expect([
+      ...graphEligibleSessionIds(
+        runtime.eligibilitySnapshot({
+          occupied: new Set(),
+          reserved: new Set(),
+        }),
+      ),
+    ]).toEqual(["caller", "worker"]);
+    const turn = caller.root.head;
+    if (turn == null) throw new Error("The admitted call has no turn");
+    turn.reducerExited = true;
+    call.completed = true;
+    const background = new ProgrammaticJob({ background: true });
+    turn.pushChild(background);
+    expect([
+      ...graphEligibleSessionIds(
+        runtime.eligibilitySnapshot({
+          occupied: new Set(),
+          reserved: new Set(),
+        }),
+      ),
+    ]).toEqual(["caller"]);
+    background.completed = true;
     expect([
       ...graphEligibleSessionIds(
         runtime.eligibilitySnapshot({

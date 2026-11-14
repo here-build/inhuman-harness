@@ -47,7 +47,11 @@ export class KernelDocument extends DocumentContainer<KernelRoot, KernelAwarenes
   }
 
   static create(root: KernelRoot = new KernelRoot(), options?: KernelPlexusCreateOptions): KernelDocument {
-    const doc = new KernelDocument(root, { guid: KERNEL_DOC_GUID, revision: options?.revision, clientId: options?.clientId });
+    const doc = new KernelDocument(root, {
+      guid: KERNEL_DOC_GUID,
+      revision: options?.revision,
+      clientId: options?.clientId,
+    });
     hydrateKernelRoot(doc.root);
     return doc;
   }
@@ -65,7 +69,11 @@ export class KernelDocument extends DocumentContainer<KernelRoot, KernelAwarenes
     source: KernelDocument | DocumentContainer<any, any> | SerializedDocument | unknown,
     options?: { readonly readOnly?: boolean; readonly clientId?: number; readonly undo?: string },
   ): KernelDocument {
-    if (source instanceof KernelDocument) return source;
+    const finish = (doc: KernelDocument): KernelDocument => {
+      if (options?.readOnly === true) doc.readOnly = true;
+      return doc;
+    };
+    if (source instanceof KernelDocument) return finish(source);
     if (source instanceof DocumentContainer) {
       if (!(source.root instanceof KernelRoot)) {
         const root = new KernelRoot();
@@ -75,12 +83,12 @@ export class KernelDocument extends DocumentContainer<KernelRoot, KernelAwarenes
         hydrateKernelRoot(source.root as KernelRoot);
       }
       Object.setPrototypeOf(source, KernelDocument.prototype);
-      return source as KernelDocument;
+      return finish(source as KernelDocument);
     }
     if (source && typeof source === "object" && "root" in source && "revision" in source) {
-      return KernelDocument.fromSnapshot(source as SerializedDocument);
+      return finish(KernelDocument.fromSnapshot(source as SerializedDocument));
     }
-    return KernelDocument.create(new KernelRoot(), options);
+    return finish(KernelDocument.create(new KernelRoot(), options));
   }
 }
 

@@ -129,7 +129,11 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
     source: SessionDocument | DocumentContainer<any, any> | SerializedDocument | unknown,
     options?: { readonly readOnly?: boolean; readonly clientId?: number; readonly undo?: string },
   ): SessionDocument {
-    if (source instanceof SessionDocument) return source;
+    const finish = (doc: SessionDocument): SessionDocument => {
+      if (options?.readOnly === true) doc.readOnly = true;
+      return doc;
+    };
+    if (source instanceof SessionDocument) return finish(source);
     if (source instanceof DocumentContainer) {
       if (!(source.root instanceof SessionRoot)) {
         const root = new SessionRoot();
@@ -139,14 +143,14 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
         hydrateSessionRoot(source.root as SessionRoot);
       }
       Object.setPrototypeOf(source, SessionDocument.prototype);
-      return source as SessionDocument;
+      return finish(source as SessionDocument);
     }
     if (source && typeof source === "object" && "root" in source && "revision" in source) {
-      return SessionDocument.fromSnapshot(source as SerializedDocument);
+      return finish(SessionDocument.fromSnapshot(source as SerializedDocument));
     }
     const root = new SessionRoot();
     hydrateSessionRoot(root);
-    return new SessionDocument(root, { clientId: options?.clientId });
+    return finish(new SessionDocument(root, { clientId: options?.clientId }));
   }
 }
 

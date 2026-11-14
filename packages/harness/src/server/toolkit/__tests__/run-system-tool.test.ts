@@ -15,7 +15,6 @@ import { executeSystemTool } from "@/tool-runtime";
 
 import { KernelToolCatalog } from "../tool-table.js";
 
-
 function fixture() {
   const plexus = SessionPlexus.create("exec-meta", "/tmp/exec-meta");
   const catalog = new KernelToolCatalog();

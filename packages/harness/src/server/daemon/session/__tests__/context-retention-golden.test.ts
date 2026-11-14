@@ -568,7 +568,7 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
       "retention.tool.shell": '"round"',
     });
     expect(changed).not.toBe(stamped[0]);
-    expect([...f.turns.map((turn) => turn.retentionJson)]).toEqual(stamped);
+    expect(f.turns.map((turn) => turn.retentionJson)).toEqual(stamped);
     expect(JSON.stringify([...projectModelHistory(tip, { readVisual })])).toBe(before);
 
     // Rehydrate the document into a fresh plexus.

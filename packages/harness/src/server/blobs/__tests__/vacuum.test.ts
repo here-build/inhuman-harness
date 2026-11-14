@@ -448,26 +448,30 @@ describe("vacuumSession", () => {
       try {
         const db = new HarnessDatabase(join(tmpDir, "harness.db"));
         db.writeTransaction(["sessions", "session_blobs"], (tx) => {
-          tx.insert(sessionsTable).values({
-            sessionId: "s1",
-            createdAtMs: Date.now(),
-            lastActiveAtMs: Date.now(),
-            workspacePath: "/tmp",
-          }).run();
-          tx.insert(sessionBlobsTable).values([
-            {
-              id: rowPairId("s1", "referenced-hash-1"),
+          tx.insert(sessionsTable)
+            .values({
               sessionId: "s1",
-              blobId: "referenced-hash-1",
               createdAtMs: Date.now(),
-            },
-            {
-              id: rowPairId("s1", "referenced-hash-2"),
-              sessionId: "s1",
-              blobId: "referenced-hash-2",
-              createdAtMs: Date.now(),
-            },
-          ]).run();
+              lastActiveAtMs: Date.now(),
+              workspacePath: "/tmp",
+            })
+            .run();
+          tx.insert(sessionBlobsTable)
+            .values([
+              {
+                id: rowPairId("s1", "referenced-hash-1"),
+                sessionId: "s1",
+                blobId: "referenced-hash-1",
+                createdAtMs: Date.now(),
+              },
+              {
+                id: rowPairId("s1", "referenced-hash-2"),
+                sessionId: "s1",
+                blobId: "referenced-hash-2",
+                createdAtMs: Date.now(),
+              },
+            ])
+            .run();
         });
 
         const deleted: string[] = [];

@@ -153,6 +153,13 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
   /** Transient-error retry budget in force, recorded when the round starts. 0 is no limit. */
   @state accessor retryMaxMs: number = 0;
   @state accessor retryMaxAttempts: number = 0;
+  @state accessor retryBackgroundMaxAttempts: number = 0;
+  @state accessor retryForeground: boolean = true;
+  @state accessor foregroundFailures: number = 0;
+  @state accessor backgroundFailures: number = 0;
+  @state accessor lastAttemptError: string = "";
+  @state accessor retryUntilMs: number | null = null;
+  @state accessor phase: "waiting" | "thinking" | "responding" = "waiting";
   /** Window occupancy after this call — a gauge, not a spend weight. Null until usage reports it. */
   @state accessor totalTokens: number | null = null;
   /** Prefix-cache *read* size. 0 until reported or on miss. Included in input, not extra. */
@@ -362,11 +369,33 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
     if (next.thoughtKind !== undefined) this.responseThoughtKind = thoughtKindOf(next.thoughtKind);
   }
 
-  /** Record the retry budget once, when the round is first driven. */
+  /** The host keeps limits and occupancy current, including during backoff. */
   @state.action
-  stampRetryLimits(limits: { readonly maxMs: number; readonly maxAttempts: number }): void {
-    if (this.retryMaxMs === 0) this.retryMaxMs = limits.maxMs;
-    if (this.retryMaxAttempts === 0) this.retryMaxAttempts = limits.maxAttempts;
+  stampRetryLimits(limits: {
+    readonly maxMs: number;
+    readonly maxAttempts: number;
+    readonly backgroundMaxAttempts?: number;
+  }): void {
+    this.retryMaxMs = limits.maxMs;
+    this.retryMaxAttempts = limits.maxAttempts;
+    this.retryBackgroundMaxAttempts = limits.backgroundMaxAttempts ?? limits.maxAttempts;
+  }
+
+  @state.action
+  recordAttemptFailure(reason: string, foreground = this.retryForeground): void {
+    if (foreground) this.foregroundFailures += 1;
+    else this.backgroundFailures += 1;
+    this.lastAttemptError = reason;
+  }
+
+  retryExhausted(startedAt: number, now = Date.now()): string {
+    const count = this.retryForeground ? this.foregroundFailures : this.backgroundFailures;
+    const limit = this.retryForeground ? this.retryMaxAttempts : this.retryBackgroundMaxAttempts;
+    if (limit > 0 && count >= limit)
+      return `Stopped after ${count} unsuccessful ${this.retryForeground ? "foreground" : "background"} attempts. Check the connection or model, then resume the turn.`;
+    if (this.retryMaxMs > 0 && now - startedAt >= this.retryMaxMs)
+      return `Stopped after ${Math.round((now - startedAt) / 1000)}s of retrying. Check the connection or model, then resume the turn.`;
+    return "";
   }
 
   /** Homed `child.list` — replace in place; a new array is not adopted. */

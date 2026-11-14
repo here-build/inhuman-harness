@@ -110,7 +110,6 @@ async function sealAfterNeed(session: SessionDaemon, turn: SessionTurn): Promise
 }
 
 describe("context_need loop", () => {
-  
   it("text-only overflow compacts without manufacturing continuation", async () => {
     const session = await openSession();
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`plan` });

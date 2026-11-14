@@ -64,6 +64,16 @@ function ask(opts: {
 }
 
 describe("remainder routing", () => {
+  it("clears a prior auto-mode failure after a model-free classifier succeeds", async () => {
+    using bag = ask({ judgeAskProgram: "allow" });
+    const wire = classifierRoute(bag.root.kvs);
+    bag.root.autoModeProblems[wire.key] = "No models loaded";
+    const job = shell("curl x");
+    bag.enqueue(job);
+    await settled(job);
+    expect(job.classifierResult).toBe("allow");
+    expect(bag.root.autoModeProblems[wire.key]).toBeUndefined();
+  });
   it("prefers kernel last-choice and connection settings over the session chat model", () => {
     const chat = { connection: "atria-asi-ai", model: "Atria-Dawn-Preview" };
     expect(
@@ -466,6 +476,7 @@ describe("remainder host", () => {
     haltedCompletion.fail("settled", "json_schema unsupported: responses API cannot send json_schema", "null");
     await failed(haltJob);
     const haltKey = classifierRoute(haltBag.root.kvs).key;
+    expect(haltBag.root.autoModeProblems[haltKey]).toContain("json_schema unsupported");
     const halted = {
       minted: open.get().length,
       classifierResult: haltJob.classifierResult,

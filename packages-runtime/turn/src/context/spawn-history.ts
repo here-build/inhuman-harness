@@ -8,14 +8,14 @@ import {
   ToolCallJob,
 } from "@inhuman.tools/harness-model/session";
 
-import { BACKGROUND_TOOL, IN_FLIGHT_TOOL } from "./observations.js";
-import { refOfNode } from "./retention/render.js";
 import {
   MODEL_OMISSION_GUIDANCE,
   modelCallSummary,
   projectModelArguments,
   type ModelArguments,
 } from "./model-arguments.js";
+import { BACKGROUND_TOOL, IN_FLIGHT_TOOL } from "./observations.js";
+import { refOfNode } from "./retention/render.js";
 import { parseJobStamp } from "./retention/stamp.js";
 import { squeezeObservation, squeezeProgrammaticText, squeezeToolCall } from "./squeeze.js";
 

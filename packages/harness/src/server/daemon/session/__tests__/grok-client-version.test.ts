@@ -18,7 +18,6 @@ import type { SessionDaemon } from "../SessionDaemon.js";
 
 const originalFetch = globalThis.fetch;
 
-
 afterEach(() => {
   globalThis.fetch = originalFetch;
 });

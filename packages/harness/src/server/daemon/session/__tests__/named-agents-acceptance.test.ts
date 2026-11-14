@@ -135,7 +135,6 @@ function workerDoc(id: string) {
 }
 
 describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
-  
   it("spawn doors: deny-before-license writes no roster; unknown recipe rejects; self-invoke; post-terminal no remint; replay same Call no remint", async () => {
     const { kernel, project, session } = await openHarness();
 
@@ -1717,7 +1716,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
       argsJson: JSON.stringify({ targetId: session.root.sessionId, message: "back" }),
       humanApprove: true,
     });
-    echo.root.head = closedTurn(send);
+    (await project.session(echo.sessionId)).root.head = closedTurn(send);
     await when(() => send.completed && session.root.head?.prompt.includes("message from") === true, {
       timeout: TIMEOUT,
     });
@@ -1904,8 +1903,8 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         stalledCall.workerSessionId !== "" &&
-        project.sessions[stalledCall.workerSessionId]?.root.findTurnByAgentRequestId(stalledCall.uuid)?.reducerExited ===
-          true,
+        project.sessions[stalledCall.workerSessionId]?.root.findTurnByAgentRequestId(stalledCall.uuid)
+          ?.reducerExited === true,
       { timeout: TIMEOUT },
     );
     const stalledWorker = project.sessions[stalledCall.workerSessionId]!;

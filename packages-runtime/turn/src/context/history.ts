@@ -34,14 +34,14 @@ import {
 import invariant from "tiny-invariant";
 
 import { usesGenericSilentProjection } from "./delivery.js";
-import { BACKGROUND_TOOL, IN_FLIGHT_TOOL, NO_TOOLS_SYSTEM } from "./observations.js";
-import { refOfNode, textRemainder, toolRemainder, visualRef, type StubFacts } from "./retention/render.js";
 import {
   MODEL_OMISSION_GUIDANCE,
   modelCallSummary,
   projectModelArguments,
   type ModelToolCall,
 } from "./model-arguments.js";
+import { BACKGROUND_TOOL, IN_FLIGHT_TOOL, NO_TOOLS_SYSTEM } from "./observations.js";
+import { refOfNode, textRemainder, toolRemainder, visualRef, type StubFacts } from "./retention/render.js";
 import { effectiveRule, kindRule } from "./retention/resolve.js";
 import { parseJobStamp } from "./retention/stamp.js";
 import { buildView, horizonExpired, newestOf, type RetentionView, type ViewOptions } from "./retention/view.js";

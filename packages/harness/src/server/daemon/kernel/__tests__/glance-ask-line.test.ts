@@ -10,7 +10,6 @@ import { expect, test } from "vitest";
 
 import { glanceAskLine } from "../glance-ask-line.js";
 
-
 function shell(args: Record<string, unknown> = {}): SystemToolJob {
   return new SystemToolJob({
     toolCallId: "sh",

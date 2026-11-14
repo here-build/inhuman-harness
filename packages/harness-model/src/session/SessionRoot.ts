@@ -3,28 +3,29 @@ import { FieldAwareness, model as modelDecorator, state } from "@inhuman.tools/m
 import { STATUSLINE_LANE, walkWork, WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { comparer, computed, observable, type IObservableValue } from "mobx";
 
+import { sessionActivity, type SessionActivity } from "./activity.js";
 import { Agent, type OpenAgentCallback } from "./Agent.js";
+import { parseGrantRows } from "./authorization/grants.js";
 import { pendingResultNotes } from "./background-jobs.js";
 import { documentRoot } from "./document-root.js";
 import type { PermissionMode } from "./eval-context.js";
 import { AgentCallNotification } from "./jobs/AgentCallNotification.js";
-import { mcpToolRefKey, type McpPersistScope } from "./mcp-name-floor.js";
-import { projectionsOf } from "./projection-registry.js";
-import { SkillSpec } from "./prompt-parts.js";
-import { PluginAction, pluginLogHeads, pluginLogs } from "./plugin-log.js";
-import { readRootOf } from "./read-roots.js";
-import { type SessionUnfinished } from "./unfinished.js";
-import { ActionSpec } from "../shared/ActionSpec.js";
-import { applyKv } from "../shared/KeyValueStorage.js";
-import type { KvProposal } from "../shared/residual.js";
-import { parseGrantRows } from "./authorization/grants.js";
 import { CallJob } from "./jobs/CallJob.js";
 import { CompactJob } from "./jobs/CompactJob.js";
 import { ProgrammaticJob } from "./jobs/ProgrammaticJob.js";
 import { ToolCallJob } from "./jobs/ToolCallJob.js";
+import { mcpToolRefKey, type McpPersistScope } from "./mcp-name-floor.js";
+import { PluginAction, pluginLogHeads, pluginLogs } from "./plugin-log.js";
+import { projectionsOf } from "./projection-registry.js";
+import { SkillSpec } from "./prompt-parts.js";
+import { readRootOf } from "./read-roots.js";
 import { SessionAdmission } from "./SessionAdmission.js";
 import { HARNESS_CONSTITUTION, SessionSystemPrompt } from "./SessionSystemPrompt.js";
 import { EMPTY_STORAGE, storageAfterTurn, type PluginStorageMap } from "./trajectory-projection.js";
+import { type SessionUnfinished } from "./unfinished.js";
+import { ActionSpec } from "../shared/ActionSpec.js";
+import { applyKv } from "../shared/KeyValueStorage.js";
+import type { KvProposal } from "../shared/residual.js";
 import {
   reactChunks,
   ReACTChunk,
@@ -70,6 +71,11 @@ function statuslineLane(root: SessionRoot) {
 
 @modelDecorator("harness:session:root")
 export class SessionRoot extends WorkContainer {
+  @computed
+  get activity(): SessionActivity {
+    return sessionActivity(this);
+  }
+
   @state.record accessor kvs: Record<string, string> = {};
 
   @state.action
@@ -188,6 +194,8 @@ export class SessionRoot extends WorkContainer {
   @state accessor policyProgram: string = "";
   /** Auto residual ask processor body. */
   @state accessor judgeAskProgram: string = "";
+  /** Latest classifier failure per connection/model. A successful vote clears its entry. */
+  @state.record accessor autoModeProblems: Record<string, string> = {};
   /**
    * Why this session's plugin behavior is not fully attached, or which of its
    * hooks failed this turn. Report only; never a vote.

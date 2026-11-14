@@ -17,12 +17,24 @@ function snap(
     resident: extra.resident ?? new Set(),
     reserved: extra.reserved ?? new Set(),
     conversations: extra.conversations ?? extra.acquired,
+    running: extra.running ?? new Set(),
     ...extra,
   };
 }
 
 describe("eligibility and delegated grants", () => {
-  
+  it("keeps open conversations and their admitted workers alive without a client", () => {
+    const grants = [{ callId: "call", callerSessionId: "caller", workerSessionId: "worker" }];
+    const facts = snap({
+      acquired: new Set(["caller", "worker", "orphan"]),
+      conversations: new Set(["caller"]),
+      running: new Set(["caller", "worker", "orphan"]),
+      grants,
+    });
+    expect([...graphEligibleSessionIds(facts)].sort()).toEqual(["caller", "worker"]);
+    expect([...graphEligibleSessionIds({ ...facts, running: new Set() })]).toEqual([]);
+  });
+
   it("activates from seats, the resident bit, and admitted calls", () => {
     const caller = sessionOf("caller");
     const worker = sessionOf("worker");

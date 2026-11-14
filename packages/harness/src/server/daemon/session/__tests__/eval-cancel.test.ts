@@ -46,7 +46,6 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("eval cancellation", () => {
-  
   it("cancel machine: outstanding request blocks delayed admission; admitted programmatic cancel survives reclaim; request-scoped cancel persists across reopen", async () => {
     const session = await openSession();
     await expect(session.handleRequest("turn/cancel", { requestId: "req-late" })).resolves.toEqual({

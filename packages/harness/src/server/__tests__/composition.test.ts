@@ -117,9 +117,7 @@ describe("product topology roster", () => {
         role: server.role,
         requires: server.requires,
       })),
-    ).toEqual([
-      { id: "runtime", role: "runtime", requires: [] },
-    ]);
+    ).toEqual([{ id: "runtime", role: "runtime", requires: [] }]);
     expect(bins.runtime.args).toHaveLength(2);
     expect(bins.runtime.args[0]).toMatch(/[/\\]bin\.js$/);
     expect(bins.runtime.args[1]).toBe("--supervised");

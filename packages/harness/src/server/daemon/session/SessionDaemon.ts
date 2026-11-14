@@ -31,7 +31,10 @@ import {
   SessionTurn,
   SessionTurnEvalSpec,
   layerErrors,
+  capClassMode,
+  layerConfig,
   parseAuthorizationConfig,
+  withClassMode,
   SystemToolJob,
   ToolSpec,
   type UserVisualIdentity,
@@ -80,9 +83,9 @@ import { readBlobSync } from "../../blobs/store.js";
 import { vacuumSession, type VacuumCounts } from "../../blobs/vacuum.js";
 import { captureEnv } from "../../capture-env.js";
 import { DaemonRpcMethod, parseRpcInput, RequestHost, RpcInvalidParams } from "../../contract.js";
-import type { RpcRequestIdentity } from "../../transport/jsonrpc.js";
 import { SHELL_TOOL_NAME } from "../../toolkit/catalog.js";
 import { sessionCatalog } from "../../toolkit/tool-table.js";
+import type { RpcRequestIdentity } from "../../transport/jsonrpc.js";
 import { attachPlane, type PlaneSocket, type PresenceRoom } from "../../transport/plane.js";
 import { applyPendingBotNotice } from "../bots/index.js";
 import type { KernelDaemon } from "../kernel/KernelDaemon.js";
@@ -238,6 +241,17 @@ export class SessionDaemon extends RequestHost implements Disposable {
       runInAction(() => this.root.replaceAuthorizationOverlay(JSON.stringify(parsed.config)));
       return { ok: true, errors: [] };
     }),
+    DaemonRpcMethod.fromContract(contract.session.policy.classMode, (args) => {
+      step(`policy/class-mode ${args.scope} ${args.class} ${args.mode ?? "clear"}`);
+      const mode = args.mode === null ? null : capClassMode(args.class, args.mode);
+      const current =
+        args.scope === "session" ? this.root.authorizationOverlayJson : this.project.root.authorizationJson;
+      const next = withClassMode(layerConfig(current), args.class, mode);
+      const json = Object.keys(next).length === 0 ? "" : JSON.stringify(next);
+      if (args.scope === "session") runInAction(() => this.root.replaceAuthorizationOverlay(json));
+      else this.project.writeAuthorizationOverlay(json);
+      return { ok: true, mode };
+    }),
     DaemonRpcMethod.fromContract(contract.session.policy.configGet, () => {
       const root = this.root;
       const warnings: string[] = [];
@@ -257,6 +271,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
           user: root.authorizationUserJson,
           project: root.authorizationProjectJson,
           session: root.authorizationOverlayJson,
+          projectOverlay: this.project.root.authorizationJson,
         },
         warnings,
       };

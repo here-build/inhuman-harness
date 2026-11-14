@@ -23,7 +23,6 @@ import { applyCompact } from "@/session";
 
 import { loadCompactProgram } from "../compact.js";
 
-
 const BIG_OUTPUT = `${"line of a long grep result\n".repeat(220)}END-OF-BIG-OUTPUT`;
 
 function round(

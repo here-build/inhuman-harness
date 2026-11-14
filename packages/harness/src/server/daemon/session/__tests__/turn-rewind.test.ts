@@ -55,7 +55,6 @@ async function refused(promise: Promise<unknown>): Promise<string> {
 }
 
 describe("turn/rewind", () => {
-  
   it("mint pairs tip; rewind/redo; refuse off-chain and continue; send ends the episode", async () => {
     const session = await openSession();
     const noHead = await refused(session.handleRequest("turn/rewind", { turnId: "missing" }));

@@ -51,7 +51,6 @@ async function seedDemoPackKernel(): Promise<string> {
 }
 
 describe("SessionUnit", () => {
-  
   it("tool/constitution snapshot", async () => {
     const genesis = new SessionSystemPrompt({
       constitution: HARNESS_CONSTITUTION,

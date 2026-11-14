@@ -128,10 +128,22 @@ export class ProductionRuntime<
     readonly reserved: ReadonlySet<string>;
     readonly resident?: ReadonlySet<string>;
     readonly conversations?: ReadonlySet<string>;
+    readonly running?: ReadonlySet<string>;
   }): EligibilitySnapshot {
     const acquired = this.acquired;
     const resident = new Set(facts.resident);
     const conversations = new Set(facts.conversations);
+    const running = new Set(facts.running);
+    if (facts.running == null) {
+      for (const [id, replica] of this.#replicas) {
+        for (const turn of replica.root.liveTurns) {
+          if ((!turn.reducerExited && !turn.completed) || turn.openBackgroundWork.length > 0) {
+            running.add(id);
+            break;
+          }
+        }
+      }
+    }
     if (facts.resident == null || facts.conversations == null) {
       for (const [id, replica] of this.#replicas) {
         if (facts.resident == null && replica.root.agent.spec.resident) {
@@ -148,6 +160,7 @@ export class ProductionRuntime<
       resident,
       reserved: facts.reserved,
       conversations,
+      running,
       grants: collectDelegatedGrants(this, acquired),
     };
   }

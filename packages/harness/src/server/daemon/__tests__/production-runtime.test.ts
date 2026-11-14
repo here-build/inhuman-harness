@@ -35,7 +35,6 @@ function filesystemServerEntry(): string {
 }
 
 describe("local production runtime composition", () => {
-  
   it("generic completion and MCP intern without HTTPServer", async () => {
     const system = await mkdtemp(join(tmpdir(), "harness-r0-k-"));
     const workspace = await mkdtemp(join(tmpdir(), "harness-r0-p-"));

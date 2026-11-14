@@ -30,7 +30,6 @@ const KEEP_FIRST = `
 `;
 
 test("compact refuse + RPC door; loadCompactProgram reads KernelRoot.compactStrategy", async () => {
-
   const parsed = [
     ["90%", 0.9],
     ["80%", 0.8],

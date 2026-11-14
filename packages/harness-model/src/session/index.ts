@@ -15,6 +15,7 @@ export * from "./rewind.js";
 export * from "./SessionAdmission.js";
 export * from "./admission.js";
 export * from "./background-jobs.js";
+export * from "./activity.js";
 export * from "./document-root.js";
 export * from "./SessionRoot.js";
 export * from "./trajectory-projection.js";

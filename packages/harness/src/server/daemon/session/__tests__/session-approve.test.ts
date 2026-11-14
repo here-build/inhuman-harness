@@ -1,7 +1,6 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { DocumentContainer } from "@inhuman.tools/model";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   BotCallJob,
@@ -14,6 +13,7 @@ import {
   SystemToolJob,
   ToolCallJob,
 } from "@inhuman.tools/harness-model";
+import { DocumentContainer } from "@inhuman.tools/model";
 import { mkdir, mkdtemp, readFile, remove, writeFile, writeJson } from "fs-extra";
 import { runInAction, when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";

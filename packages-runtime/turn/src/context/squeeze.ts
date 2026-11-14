@@ -21,8 +21,8 @@
 import { toSExprString, toSExprStringWithElisions } from "@here.build/arrival-serializer";
 import { ProgrammaticJob, ToolCallJob, type ToolCallRepresentation } from "@inhuman.tools/harness-model/session";
 
-import { humanSize, refOfNode } from "./retention/render.js";
 import { MODEL_OMISSION_GUIDANCE, modelCallSummary, projectModelArguments } from "./model-arguments.js";
+import { humanSize, refOfNode } from "./retention/render.js";
 import { parseJobStamp, WRITE_ARG_TOOLS } from "./retention/stamp.js";
 
 export type SqueezeTo = "compact" | "micro";
@@ -231,5 +231,5 @@ export function projectModelToolText(tool: ToolCallJob): string {
     argumentsView.kind === "omitted"
       ? `${MODEL_OMISSION_GUIDANCE}\n${modelCallSummary({ ...call, arguments: argumentsView })}`
       : `[Historical tool call ${call.id}: ${call.name}]\nOriginal arguments: ${argumentsView.json}`;
-  return `${invocation}\nObserved result:\n${squeezeToolCall(tool, "compact")}`;
+  return `${invocation}\nObserved result:\n${paintObservation(liftToolImages(tool.observationPayload()).payload)}`;
 }

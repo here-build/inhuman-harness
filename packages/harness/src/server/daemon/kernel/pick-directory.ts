@@ -171,15 +171,11 @@ export function disposeNativeDirectoryPicker(): void {
 function normalizePickedPath(raw: string): string | null {
   const trimmed = raw.trim();
   if (trimmed === "") return null;
-  if (trimmed === "/" || /^[A-Za-z]:\\?$/.test(trimmed)) return trimmed;
+  if (trimmed === "/" || /^[a-z]:\\?$/i.test(trimmed)) return trimmed;
   return trimmed.replace(/[/\\]+$/, "");
 }
 
-function runCommand(
-  file: string,
-  args: readonly string[],
-  signal?: AbortSignal,
-): Promise<CommandResult> {
+function runCommand(file: string, args: readonly string[], signal?: AbortSignal): Promise<CommandResult> {
   return new Promise((resolve) => {
     execFile(file, [...args], { signal, windowsHide: true }, (error, stdout, stderr) => {
       if (!error) {
@@ -208,7 +204,7 @@ export async function pickNativeDirectory(
   if (signal?.aborted) return null;
 
   if (platform === "darwin") {
-    let candidate = warmDarwin;
+    const candidate = warmDarwin;
     warmDarwin = null;
     let res = candidate != null ? await candidate.trigger(signal) : null;
     if (res == null && !signal?.aborted) {
@@ -224,22 +220,14 @@ export async function pickNativeDirectory(
   }
 
   if (platform === "linux") {
-    const zenity = await runCommand(
-      "zenity",
-      ["--file-selection", "--directory", `--title=${PROMPT}`],
-      signal,
-    );
+    const zenity = await runCommand("zenity", ["--file-selection", "--directory", `--title=${PROMPT}`], signal);
     if (signal?.aborted) return null;
     if (!zenity.enoent) {
       if (zenity.code === 0) return normalizePickedPath(zenity.stdout);
       if (zenity.code === 1 || zenity.code === 5) return null;
       throw new Error(zenity.stderr.trim() || "Could not open the folder picker.");
     }
-    const kdialog = await runCommand(
-      "kdialog",
-      ["--getexistingdirectory", ".", "--title", PROMPT],
-      signal,
-    );
+    const kdialog = await runCommand("kdialog", ["--getexistingdirectory", ".", "--title", PROMPT], signal);
     if (signal?.aborted) return null;
     if (!kdialog.enoent) {
       if (kdialog.code === 0) return normalizePickedPath(kdialog.stdout);

@@ -13,7 +13,6 @@ import { expect, it, onTestFinished, vi } from "vitest";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
 
-
 it("a message lands as one inbound turn on the target, with no callback, and the target is flushed", async () => {
   const system = await mkdtemp(join(tmpdir(), "harness-message-k-"));
   const workspace = await mkdtemp(join(tmpdir(), "harness-message-p-"));

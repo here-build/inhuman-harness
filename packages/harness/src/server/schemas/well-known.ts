@@ -78,9 +78,11 @@ export const fileCatalogSchema = z.object({
   maxBotDepth: z.number().finite().nonnegative().optional(),
   /** Rounds that continue an answer cut off by the output limit. Omitted is 3; 0 is off. */
   lengthContinuations: z.number().finite().nonnegative().optional(),
-  /** Retry budget for transient model errors. Omitted or 0 is no limit. */
-  retryMaxMs: z.number().finite().nonnegative().optional(),
-  retryMaxAttempts: z.number().finite().nonnegative().optional(),
+  /** Retry deadline for transient model errors. Omitted or 0 is no limit. */
+  retryMaxMs: z.number().int().nonnegative().optional(),
+  /** Foreground failures. Omitted is 15; 0 is no limit. Background defaults to no limit. */
+  retryMaxAttempts: z.number().int().nonnegative().optional(),
+  retryBackgroundMaxAttempts: z.number().int().nonnegative().optional(),
   superKey: z.string().optional(),
   /** Compact tape drops floor-allow calls. Omitted / false keeps them, including while open. */
   hideFloorTools: z.boolean().optional(),

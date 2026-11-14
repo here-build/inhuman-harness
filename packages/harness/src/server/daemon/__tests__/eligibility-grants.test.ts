@@ -52,7 +52,6 @@ function admitCall(caller: { root: SessionRoot }, worker: { root: SessionRoot })
 }
 
 describe("eligibility and delegated grants", () => {
-  
   it("rootless cycle of acquired replicas does not activate honor", async () => {
     const system = await openKernel("cycle-k");
     const workspace = await openKernel("cycle-p");

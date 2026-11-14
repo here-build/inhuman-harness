@@ -16,7 +16,6 @@ import {
 import { pendingAsksTable, sessionsTable, sessionTurnsTable } from "@inhuman.tools/harness-contract/schema";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import {
-  AskAgentSpec,
   DEFAULT_COMPACT_STRATEGY,
   DEFAULT_COMPACT_TRIGGERS,
   DEFAULT_COMPACT_KEEP_TURNS,
@@ -66,10 +65,10 @@ import {
   addConnectionToolExclude,
   searchOfficialRegistry,
 } from "@/providers/mcp";
-import { graphEligibleSessionIds, ProductionRuntime } from "@/runtime";
+import { graphEligibleSessionIds, isConversationSession, ProductionRuntime } from "@/runtime";
 
 import { internLookedAt, probeCompletionCatalog, warmCompletionCatalog } from "./completion-catalog.js";
-import { loginConnection, requireConnection, settingsBag, toListRow } from "./connection-rpc.js";
+import { duplicateConnectionOf, loginConnection, requireConnection, settingsBag, toListRow } from "./connection-rpc.js";
 import {
   healKernelDependencies,
   KERNEL_SEED_PACKAGES,
@@ -273,6 +272,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         RpcInvalidParams.invariant(false, error instanceof Error ? error.message : `${driver} adopt failed`);
       }
       if (signal.aborted) return { ok: false as const };
+      this.rejectDuplicateConnection("connect/adopt", driver, bags.settings ?? {}, {
+        ...bags.secrets,
+        ...(secrets ?? {}),
+      });
       let id = "";
       this.adjustConfig((config) => {
         const slice = connectionSliceSchema.parse({
@@ -307,6 +310,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         this.plexus.root.drivers[bags.driver] !== undefined,
         `mcp-server/adopt: unknown driver ${bags.driver}`,
       );
+      this.rejectDuplicateConnection("mcp-server/adopt", bags.driver, bags.settings ?? {}, {
+        ...bags.secrets,
+        ...(secrets ?? {}),
+      });
       let id = "";
       this.adjustConfig((config) => {
         const slice = connectionSliceSchema.parse({
@@ -1094,6 +1101,26 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     }
   }
 
+  /** Refuses a second connection to the same endpoint with the same (or no) static token. */
+  private rejectDuplicateConnection(
+    method: string,
+    driver: string,
+    settings: Readonly<Record<string, unknown>>,
+    secrets: Readonly<Record<string, string>>,
+  ): void {
+    const stored = Object.fromEntries(
+      Object.entries(this.connections).map(([id, spec]) => [
+        id,
+        { driver: spec.driver.name, settings: settingsBag(spec), secrets: readConnectionSecrets(this.root, id) },
+      ]),
+    );
+    const twin = duplicateConnectionOf({ driver, settings, secrets }, stored);
+    RpcInvalidParams.invariant(
+      twin === null,
+      `${method}: already connected as ${twin ?? ""} (same endpoint and token); sign in with OIDC or use another token for a second connection`,
+    );
+  }
+
   adjustConfig(update: (config: ConfigJson) => ConfigJson | void): ConfigJson {
     const next = adjustJson<ConfigJson>(join(this.root, "config.json"), (raw) => {
       const config = parseConfigJson(raw);
@@ -1305,15 +1332,31 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     return graphEligibleSessionIds(this.#eligibilitySnapshot());
   }
 
+  foregroundSessionIds(): ReadonlySet<string> {
+    const snap = this.#eligibilitySnapshot();
+    return graphEligibleSessionIds({ ...snap, resident: new Set(), reserved: new Set(), running: new Set() });
+  }
+
   #eligibilitySnapshot() {
     this.#eligibilityEpoch.get();
     const occupied = new Set<string>();
+    const running = new Set<string>();
     for (const id of this.runtime.acquired) {
       if (sessionIsOccupied(this.plexus.awareness, id)) occupied.add(id);
+      const live = this.liveSession(id);
+      if (live?.orchestrator.activated === true) {
+        for (const turn of live.root.liveTurns) {
+          if ((!turn.reducerExited && !turn.completed) || turn.openBackgroundWork.length > 0) {
+            running.add(id);
+            break;
+          }
+        }
+      }
     }
     return this.runtime.eligibilitySnapshot({
       occupied,
       reserved: new Set(this.#reservations),
+      running,
     });
   }
 
@@ -1844,20 +1887,26 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         }
         for (const id of wasGraph) {
           if (this.#closed || graph.has(id)) continue;
-          this.#parkIfGrantOnly(id);
+          if (this.#reservations.has(id)) {
+            const root = this.sessionPlexus(id)?.root;
+            if (root != null && !isConversationSession(root)) {
+              this.dropReservation(id);
+              continue;
+            }
+          }
+          this.#parkIfIneligible(id);
         }
       },
       { fireImmediately: true, equals: comparer.structural },
     );
   }
 
-  #parkIfGrantOnly(sessionId: string): void {
-    const spec = this.runtime.replica(sessionId)?.root.agent.spec;
-    if (spec == null) return;
-    if (spec.recipeScope !== "session" && !(spec instanceof AskAgentSpec)) return;
-    void this.liveSession(sessionId)
-      ?.park()
-      .catch((error: unknown) => fail("grant park", error));
+  #parkIfIneligible(sessionId: string): void {
+    const daemon = this.liveSession(sessionId);
+    if (daemon == null) return;
+    const scope = daemon.root.agent.spec.recipeScope;
+    if (scope === "global" || scope === "project") return;
+    void daemon.park().catch((error: unknown) => fail("grant park", error));
   }
 
   #upsertSessionGlance(sessionId: string, snap: SessionSummary): void {

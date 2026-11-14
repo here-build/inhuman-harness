@@ -19,14 +19,23 @@ import { updateMetadataArgsSchema } from "../../schemas/update-metadata.js";
 import { DEFAULT_COMPACT_TRIGGERS, parseCompactTrigger } from "../../shared/compact-settings.js";
 import { contextNeedFromChunks, type ContextNeed } from "../context-need.js";
 import type { PermissionMode } from "../eval-context.js";
+import { TurnApprovalNoteChunk } from "./approval-note-chunk.js";
+import { SessionTurnEvalSpec } from "./eval-spec.js";
+import { TurnNotificationChunk } from "./notification-chunk.js";
+import { TurnPromptChunk } from "./prompt-chunk.js";
+import { ReACTChunk, type RoundContextNote } from "./react-chunk.js";
+import type { RoundDecision } from "./round-decision.js";
+import type { SessionUnit, TurnChunk } from "./types.js";
+import { parseUserVisuals, userVisualsJson, type UserVisualIdentity } from "./user-visual.js";
 import { AgentCallNotification } from "../jobs/AgentCallNotification.js";
 import { CompactJob } from "../jobs/CompactJob.js";
 import { CompletionJob, tapeCompletion } from "../jobs/CompletionJob.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SequenceJob } from "../jobs/SequenceJob.js";
 import { ToolCallJob } from "../jobs/ToolCallJob.js";
-import { RegisteredToolsSet } from "../RegisteredToolsSet.js";
+import { metadataJobsIn, SESSION_METADATA_PLUGIN_ID, sessionMetadataActionOf } from "../metadata-actions.js";
 import { PluginAction, pluginLogHeads, pluginLogs } from "../plugin-log.js";
+import { RegisteredToolsSet } from "../RegisteredToolsSet.js";
 import type { SessionSystemPrompt, SystemPromptParts } from "../SessionSystemPrompt.js";
 import { SessionSystemPromptDerivation } from "../SessionSystemPromptDerivation.js";
 import { storageAfterTurn, type PluginStorageMap } from "../trajectory-projection.js";
@@ -37,15 +46,6 @@ import {
   SESSION_TITLE_MAX_CHARS,
   UPDATE_METADATA_TOOL_NAME,
 } from "../update-metadata.js";
-import { TurnApprovalNoteChunk } from "./approval-note-chunk.js";
-import { SessionTurnEvalSpec } from "./eval-spec.js";
-import { TurnNotificationChunk } from "./notification-chunk.js";
-import { TurnPromptChunk } from "./prompt-chunk.js";
-import { ReACTChunk, type RoundContextNote } from "./react-chunk.js";
-import type { RoundDecision } from "./round-decision.js";
-import type { SessionUnit, TurnChunk } from "./types.js";
-import { parseUserVisuals, userVisualsJson, type UserVisualIdentity } from "./user-visual.js";
-import { metadataJobsIn, SESSION_METADATA_PLUGIN_ID, sessionMetadataActionOf } from "../metadata-actions.js";
 
 export type TurnMetadata = {
   readonly title: string;

@@ -186,7 +186,6 @@ function pewCount(job: MCPToolJob): number {
 }
 
 describe("Park MCP", () => {
-  
   it("drops a dispatched MCP result after its runtime is replaced on the same document", async () => {
     const session = await openParkMcp();
     const job = admitMcp(session);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { projectModelArguments } from "../model-arguments.js";
 import {
   canonicalKeep,
   DEFAULT_CONTEXT_RETENTION,
@@ -12,7 +13,6 @@ import {
   type StepFacts,
 } from "../retention/index.js";
 import { textRemainder, toolRemainder, type StubFacts } from "../retention/render.js";
-import { projectModelArguments } from "../model-arguments.js";
 
 describe("G10: narrowing algebra", () => {
   it("combines conditions as whichever comes first", () => {

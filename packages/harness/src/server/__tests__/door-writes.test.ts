@@ -31,7 +31,6 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("client writes through the session door", () => {
-  
   it("resident/set flips the resident bit", async () => {
     const session = await openSession();
     const on = await session.handleRequest("resident/set", { resident: true });

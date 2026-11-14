@@ -88,7 +88,6 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("Turn interpret", () => {
-  
   it("licensed MCP with a missing or empty connection fails closed", async () => {
     const session = await openSession();
     const root = session.root;

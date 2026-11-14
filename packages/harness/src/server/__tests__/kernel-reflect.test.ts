@@ -169,7 +169,7 @@ describe("kernel reflect", () => {
         root.retryMaxAttempts,
         root.lengthContinuations,
       ],
-      want: [0, 0, 0, 0, 0, 0, 3],
+      want: [0, 0, 0, 0, 0, 15, 3],
     },
     {
       name: "loop limits from config",

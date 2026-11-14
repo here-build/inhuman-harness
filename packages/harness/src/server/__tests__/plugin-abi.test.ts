@@ -58,7 +58,6 @@ function toolShape(tool: { type?: string; name?: string; class?: string } | unde
 }
 
 describe("plugin ABI step 2", () => {
-  
   it("plain_ctor_old_sdk_match_and_exclusive_slot_conflict", async () => {
     const plain = normalizeDefinitions((await import(PLAIN)).default, "plain");
     const ctor = normalizeDefinitions(

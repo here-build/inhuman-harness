@@ -31,7 +31,6 @@ async function openHarness() {
 }
 
 describe("worker desk permissions", () => {
-  
   it("session and one-shot follow caller mode and roots; project does not", async () => {
     const { project, session } = await openHarness();
     session.root.permissionMode = "auto";

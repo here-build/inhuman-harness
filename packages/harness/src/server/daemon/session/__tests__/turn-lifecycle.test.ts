@@ -54,7 +54,6 @@ async function openSession(): Promise<{ session: SessionDaemon; project: Project
 }
 
 describe("Turn lifecycle", () => {
-  
   it("a prompt sent right after Stop runs as the next turn instead of vanishing", async () => {
     const { session } = await openSession();
     const root = session.root;
@@ -75,7 +74,7 @@ describe("Turn lifecycle", () => {
     });
     await when(() => root.head instanceof SessionTurn && root.head !== turn, { timeout: TIMEOUT });
     const next = root.head;
-    if (!(next instanceof SessionTurn)) throw new Error("expected the next turn");
+    if (!(next instanceof SessionTurn)) throw new TypeError("expected the next turn");
     expect({ prompt: String(next.prompt), queued: root.promptQueue.length, steers: root.steerQueue.length }).toEqual({
       prompt: "after stop",
       queued: 0,

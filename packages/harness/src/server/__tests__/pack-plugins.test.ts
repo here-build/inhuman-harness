@@ -249,7 +249,7 @@ describe("pack plugins", () => {
     expect({
       discovered: names.length > 0,
       errors: shippedGraph.errors,
-      presence: [...shippedGraph.presence.map((row) => row.pluginName)].sort(),
+      presence: shippedGraph.presence.map((row) => row.pluginName).sort(),
       loaded: Object.keys(shippedPlexus.root.plugins).sort(),
     }).toEqual({
       discovered: true,

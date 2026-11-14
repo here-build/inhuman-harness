@@ -12,7 +12,6 @@ import { expect, it, onTestFinished, vi } from "vitest";
 import { KernelDaemon } from "../../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../../project/ProjectDaemon.js";
 
-
 it("a corrupt peer is skipped and the session still attaches", async () => {
   const system = await mkdtemp(join(tmpdir(), "harness-recover-k-"));
   const workspace = await mkdtemp(join(tmpdir(), "harness-recover-p-"));

@@ -28,7 +28,6 @@ import {
 
 const HARD = parseCompactTrigger("90%");
 
-
 function gauge(used: number, limit: number, promptText = "round"): CompletionExpectation {
   const node = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`${promptText}` });
   if (used > 0) node.totalTokens = used;

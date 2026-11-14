@@ -80,7 +80,6 @@ const rows: Row[] = [
 ];
 
 test("ReACT loop: mint, tools, stamp source, recover from text, fail-seal, later turn bears previous", async () => {
-
   const replica = await phaseMintReplicaSees();
   expect(replica).toMatchObject({
     connection: scriptedConnectionId(),

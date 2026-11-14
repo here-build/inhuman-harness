@@ -64,7 +64,6 @@ async function openSession(): Promise<SessionDaemon> {
 }
 
 describe("Steer / promptQueue", () => {
-  
   it("0-tool extends; compact bounce and cancel demote; promptQueue drain /compact is compact turn", async () => {
     const session = await openSession();
     const root = session.root;
@@ -106,7 +105,7 @@ describe("Steer / promptQueue", () => {
     });
     // Do not return the turn from `then`: Job is thenable, so the promise would settle to its result.
     const afterCompact = root.head;
-    if (!(afterCompact instanceof SessionTurn)) throw new Error("expected an open turn");
+    if (!(afterCompact instanceof SessionTurn)) throw new TypeError("expected an open turn");
     const compactDemoted = afterCompact.prompt;
     await when(() => completionsOf(afterCompact).length === 1, { timeout: TIMEOUT });
     modelOf(session).reply({ text: "ok" });
@@ -140,7 +139,7 @@ describe("Steer / promptQueue", () => {
       timeout: TIMEOUT,
     });
     const compactHead = root.head;
-    if (!(compactHead instanceof SessionTurn)) throw new Error("expected an open turn");
+    if (!(compactHead instanceof SessionTurn)) throw new TypeError("expected an open turn");
     const drainCompact = {
       compact: reactChunks(compactHead).some((chunk) => chunk instanceof CompactJob),
       reload: compactHead.reloadTools,
@@ -151,7 +150,7 @@ describe("Steer / promptQueue", () => {
       timeout: TIMEOUT,
     });
     const pathHead = root.head;
-    if (!(pathHead instanceof SessionTurn)) throw new Error("expected an open turn");
+    if (!(pathHead instanceof SessionTurn)) throw new TypeError("expected an open turn");
     const drainPath = pathHead.prompt;
     await when(() => completionsOf(pathHead).length === 1, { timeout: TIMEOUT });
     modelOf(session).reply({ text: "ok" });

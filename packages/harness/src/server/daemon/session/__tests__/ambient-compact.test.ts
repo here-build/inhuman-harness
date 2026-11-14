@@ -12,7 +12,6 @@ import { keepFloors, sliceCompactEat, historyBehind, Transcript } from "@/contex
 
 import { ambientCutoff, startAmbientCompact } from "../ambient-compact.js";
 
-
 function round(text: string, used: number): CompletionExpectation {
   const node = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`${text}` });
   node.totalTokens = used;

@@ -120,7 +120,8 @@ export function reflectKernel(
         maxBotDepth: parseLoopLimit(file.maxBotDepth),
         lengthContinuations: parseLoopLimit(file.lengthContinuations, DEFAULT_LENGTH_CONTINUATIONS),
         retryMaxMs: parseLoopLimit(file.retryMaxMs),
-        retryMaxAttempts: parseLoopLimit(file.retryMaxAttempts),
+        retryMaxAttempts: parseLoopLimit(file.retryMaxAttempts, 15),
+        retryBackgroundMaxAttempts: parseLoopLimit(file.retryBackgroundMaxAttempts),
         statusline: file.statusline === undefined ? DEFAULT_STATUSLINE : file.statusline.trim(),
         statuslineRefresh: file.statuslineRefresh?.trim() || DEFAULT_STATUSLINE_REFRESH,
       });

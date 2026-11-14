@@ -24,7 +24,6 @@ const TOKEN_A = "portal-jwt-a";
 const TOKEN_B = "portal-jwt-b";
 const FAR_EXPIRY = "2099-01-01T00:00:00.000Z";
 
-
 describe("SessionOrchestrator.ensure web-nous", () => {
   it("ensures Nous first, aliases the OIDC bag, and shares one chain across ticks", async () => {
     let release!: () => void;

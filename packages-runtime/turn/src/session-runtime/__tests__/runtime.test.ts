@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
+
 import "@inhuman.tools/harness-model/session/register";
 import { RegisteredToolsSet, SessionTurn } from "@inhuman.tools/harness-model/session";
+import type { SerializedModelRow } from "@inhuman.tools/model";
 import { onTestFinished, describe, expect, it } from "vitest";
 
-import type { NewSessionEffectRow } from "../durability.js";
 import type { SessionCommandHost } from "../../session/types.js";
+import type { NewSessionEffectRow } from "../durability.js";
 import {
   SessionRuntime,
   SessionOwnershipError,
@@ -12,7 +14,6 @@ import {
   type SessionNodeRestoreState,
   type SessionReceipt,
 } from "../index.js";
-import type { SerializedModelRow } from "@inhuman.tools/model";
 
 function commands(runtime: SessionRuntime): SessionCommandHost {
   return {
@@ -793,11 +794,11 @@ describe("portable session lifecycle and durable effects", () => {
 
 it("distinguishes retry fingerprints from literal input and preserves Unicode inputs", async () => {
   const runtime = open();
-  const text = "x".repeat(64) + "\ud800";
+  const text = `${"x".repeat(64)}\ud800`;
   await runtime.commitMutation("digest-test", text, () => {});
   const digest = `sha256:${createHash("sha256").update(JSON.stringify(text)).digest("hex")}`;
   await expect(runtime.commitMutation("digest-test", digest, () => {})).rejects.toThrow("different input");
-  await expect(runtime.commitMutation("digest-test", "x".repeat(64) + "\ud801", () => {})).rejects.toThrow(
+  await expect(runtime.commitMutation("digest-test", `${"x".repeat(64)}\ud801`, () => {})).rejects.toThrow(
     "different input",
   );
   await expect(runtime.commitMutation("digest-test", text, () => {})).resolves.toMatchObject({

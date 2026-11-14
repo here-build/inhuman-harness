@@ -64,7 +64,6 @@ function failIntentPersist(kernel: KernelDaemon): void {
 }
 
 describe("orchestrator settlement", () => {
-  
   it("a tool whose intent cannot be persisted completes with a failure", async () => {
     const { kernel, session } = await openSession();
     failIntentPersist(kernel);

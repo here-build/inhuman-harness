@@ -122,7 +122,7 @@ function applyJobRecovery(
       return;
     case "resume-inner":
       if (job instanceof SessionTurn) {
-        restorePendingRound(job);
+        restorePendingRound(job, { catalog, releaseCall, session });
         // A tape that owes no round has nothing to resume.
         if (!job.reducerExited && !job.openWork && !job.queuedContinuation) {
           closeTurn(job, { kind: "finish" }, { catalog, releaseCall, session });
