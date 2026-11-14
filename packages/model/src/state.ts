@@ -197,45 +197,52 @@ function bindArrayObserver<T>(
       return;
     }
     const link = self[CONTAINER_LINK];
-    if (kind === "childList") {
-      const remaining = new Set(arr);
-      for (const removed of change.removed) {
-        if (!remaining.has(removed)) {
-          detachParent(removed);
+    switch (kind) {
+      case "childList": {
+        const remaining = new Set(arr);
+        for (const removed of change.removed) {
+          if (!remaining.has(removed)) {
+            detachParent(removed);
+            if (removed instanceof Model) {
+              link?.notifyDetached?.(removed);
+            }
+          }
+        }
+        for (let idx = change.index; idx < arr.length; idx++) {
+          attachParent(arr[idx], self, idx);
+        }
+        for (const child of change.added) {
+          if (child) {
+            link?.registerNode(child as unknown as Model);
+          }
+        }
+        break;
+      }
+      case "refList": {
+        for (const removed of change.removed) {
           if (removed instanceof Model) {
             link?.notifyDetached?.(removed);
           }
         }
-      }
-      for (let idx = change.index; idx < arr.length; idx++) {
-        attachParent(arr[idx], self, idx);
-      }
-      for (const child of change.added) {
-        if (child) {
-          link?.registerNode(child as unknown as Model);
+        for (const added of change.added) {
+          if (added instanceof Model) {
+            link?.registerNode(added);
+          }
         }
+        break;
       }
-    } else if (kind === "refList") {
-      for (const removed of change.removed) {
-        if (removed instanceof Model) {
-          link?.notifyDetached?.(removed);
+      case "list": {
+        for (const removed of change.removed) {
+          if (removed instanceof Model) {
+            link?.notifyDetached?.(removed);
+          }
         }
-      }
-      for (const added of change.added) {
-        if (added instanceof Model) {
-          link?.registerNode(added);
+        for (const item of change.added) {
+          if (item && item instanceof Model) {
+            link?.registerNode(item);
+          }
         }
-      }
-    } else if (kind === "list") {
-      for (const removed of change.removed) {
-        if (removed instanceof Model) {
-          link?.notifyDetached?.(removed);
-        }
-      }
-      for (const item of change.added) {
-        if (item && item instanceof Model) {
-          link?.registerNode(item);
-        }
+        break;
       }
     }
     if (!link || link.isApplyingPatches) {
@@ -476,7 +483,7 @@ export function stateChildList<This, TItem extends Model>(
           }
         }
       }
-      value.forEach((child, idx) => attachParent(child, this, idx));
+      for (const [idx, child] of value.entries()) attachParent(child, this, idx);
       const obsArr = observable.array(value, {
         deep: false,
         name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,
@@ -508,7 +515,7 @@ export function stateChildList<This, TItem extends Model>(
       const self = this as unknown as Linkable;
       const props = self[HYDRATION_DATA];
       const raw = props && Array.isArray(props[propertyKey]) ? (props[propertyKey] as TItem[]) : initialValue;
-      raw.forEach((child, idx) => attachParent(child, this, idx));
+      for (const [idx, child] of raw.entries()) attachParent(child, this, idx);
       const obsArr = observable.array(raw, {
         deep: false,
         name: `${String((self as any)?.constructor?.name ?? "")}.${propertyKey}`,

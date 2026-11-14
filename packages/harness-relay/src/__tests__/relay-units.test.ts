@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  encodePresenceRemoval,
-  readPresenceEntries,
-  routeBrowserPlane,
-  routeDaemonPlane,
-} from "../plane.js";
+import { encodePresenceRemoval, readPresenceEntries, routeBrowserPlane, routeDaemonPlane } from "../plane.js";
 import { parseRoom, roomKey, tagKey } from "../room.js";
 import { restoreResponse, rewriteRequest } from "../rpc.js";
 

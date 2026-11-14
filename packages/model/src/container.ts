@@ -78,6 +78,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
   #txDepth = 0;
   #metaModifiedInTx = false;
   #isApplyingPatches = false;
+  #readOnly = false;
 
   constructor(
     root: TRoot,
@@ -85,12 +86,14 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
       revision?: number;
       clientId?: number;
       guid?: string;
+      readOnly?: boolean;
       meta?: Record<string, Record<string, unknown>>;
     },
   ) {
     this.root = root;
     this.guid = options?.guid ?? root.uuid;
     this.revision = options?.revision ?? 0;
+    this.#readOnly = options?.readOnly ?? false;
     this.awareness = new ReactiveAwareness<TAwareness>(options?.clientId);
     this.awareness.doc = this;
     if (options?.meta) {
@@ -116,6 +119,14 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
 
   get isDestroyed(): boolean {
     return this.#destroyed;
+  }
+
+  get readOnly(): boolean {
+    return this.#readOnly;
+  }
+
+  set readOnly(value: boolean) {
+    this.#readOnly = value;
   }
 
   on(event: "destroy", listener: () => void): void {
@@ -233,11 +244,11 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
       this.#dirtyNodeRevisions.set(node.uuid, this.revision);
     }
 
-    const container = this;
+    const isApplyingPatches = (): boolean => this.#isApplyingPatches;
     const link: ModelContainerLink = {
       container: this,
       get isApplyingPatches(): boolean {
-        return container.#isApplyingPatches;
+        return isApplyingPatches();
       },
       awareness: this.awareness,
       recordPatch: (patch: ModelPatch) => this.recordPatch(patch),
@@ -260,7 +271,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
   }
 
   registerNode(node: Model): void {
-    if (!node || !node.uuid) return;
+    if (!node?.uuid) return;
     const current = this.#registry.get(node.uuid);
     const currentLink = node[CONTAINER_LINK];
     if (current === node && currentLink?.container === this) {
@@ -272,25 +283,38 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     const meta = getModelMetadata(node.constructor);
     for (const field of meta.stateFields.values()) {
       const value = (node as unknown as Record<string, unknown>)[field.propertyKey];
-      if (field.kind === "child" || field.kind === "ref") {
-        if (value instanceof Model) {
-          this.registerNode(value);
+      switch (field.kind) {
+        case "child":
+        case "ref": {
+          if (value instanceof Model) {
+            this.registerNode(value);
+          }
+          break;
         }
-      } else if (field.kind === "childList" || field.kind === "refList" || field.kind === "list") {
-        if (Array.isArray(value)) {
-          for (const item of value) {
-            if (item instanceof Model) {
-              this.registerNode(item);
+        case "childList":
+        case "refList":
+        case "list": {
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (item instanceof Model) {
+                this.registerNode(item);
+              }
             }
           }
+          break;
         }
-      } else if (field.kind === "childRecord") {
-        if (value && typeof value === "object") {
-          for (const child of Object.values(value)) {
-            if (child instanceof Model) {
-              this.registerNode(child);
+        case "childRecord": {
+          if (value && typeof value === "object") {
+            for (const child of Object.values(value)) {
+              if (child instanceof Model) {
+                this.registerNode(child);
+              }
             }
           }
+          break;
+        }
+        default: {
+          break;
         }
       }
     }
@@ -425,11 +449,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     readonly deletes?: readonly string[];
     readonly reset?: boolean;
   }): void {
-    if (
-      delta.upserts.length === 0 &&
-      (!delta.deletes || delta.deletes.length === 0) &&
-      !delta.reset
-    ) {
+    if (delta.upserts.length === 0 && (!delta.deletes || delta.deletes.length === 0) && !delta.reset) {
       if (delta.revision !== undefined) {
         runInAction(() => {
           this.revision = Math.max(this.revision, delta.revision!);
@@ -741,7 +761,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
   }
 
   recordPatch(patch: ModelPatch): void {
-    if (this.#isApplyingPatches) {
+    if (this.#readOnly || this.#isApplyingPatches) {
       return;
     }
 
@@ -766,6 +786,9 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
   }
 
   transact<T>(fn: () => T): T {
+    if (this.#readOnly) {
+      throw new Error("Cannot write to a read-only document.");
+    }
     this.#txDepth++;
     try {
       const result = runInAction(fn);
@@ -1005,9 +1028,8 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
   }
 
   #wrapMetaMap(raw: Map<string, unknown>): Map<string, unknown> {
-    const container = this;
     return new Proxy(raw, {
-      get(target, prop, receiver) {
+      get: (target, prop, receiver) => {
         if (prop === "toJSON") {
           return () => Object.fromEntries(target.entries());
         }
@@ -1016,7 +1038,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
             const prev = target.get(key);
             if (prev !== value) {
               target.set(key, value);
-              container.#onMetaModified();
+              this.#onMetaModified();
             }
             return receiver;
           };
@@ -1025,7 +1047,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
           return (key: string) => {
             const existed = target.delete(key);
             if (existed) {
-              container.#onMetaModified();
+              this.#onMetaModified();
             }
             return existed;
           };
@@ -1034,7 +1056,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
           return () => {
             if (target.size > 0) {
               target.clear();
-              container.#onMetaModified();
+              this.#onMetaModified();
             }
           };
         }

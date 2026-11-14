@@ -19,18 +19,9 @@ const SCOPE_NAMES = [
   "@inhuman.tools/scope-plane-tinybase",
   "@inhuman.tools/scope-plane-electric",
 ] as const;
-const MODEL_NAMES = [
-  "@inhuman.tools/harness-model",
-  "@inhuman.tools/plexus-expectations",
-] as const;
+const MODEL_NAMES = ["@inhuman.tools/harness-model", "@inhuman.tools/plexus-expectations"] as const;
 
-const ERASED_YJS_STACK = [
-  "yjs",
-  "y-protocols",
-  "lib0",
-  "y-websocket",
-  "@here.build/plexus",
-] as const;
+const ERASED_YJS_STACK = ["yjs", "y-protocols", "lib0", "y-websocket", "@here.build/plexus"] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

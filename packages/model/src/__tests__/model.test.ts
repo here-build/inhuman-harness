@@ -389,6 +389,50 @@ describe("@inhuman.tools/model", () => {
       }
     }
 
+    it("enforces a read-only boundary: local writes refused, remote row deltas still apply", () => {
+      const root = new ContainerRoot({
+        sessionId: "ro-sess",
+        title: "Initial",
+        depth: 0,
+        parentSessionId: null,
+        metadataJson: null,
+      });
+      const source = new DocumentContainer(root);
+      const replica = DocumentContainer.fromSnapshot<ContainerRoot>(source.toSnapshot());
+      replica.readOnly = true;
+
+      // A local transaction is refused outright.
+      expect(() =>
+        replica.transact(() => {
+          replica.root.title = "local";
+        }),
+      ).toThrow(/read-only/);
+
+      // A bare local mutation emits no patch and does not advance the revision.
+      let batches = 0;
+      replica.onPatch(() => {
+        batches++;
+      });
+      const revisionBefore = replica.revision;
+      runInAction(() => {
+        replica.root.title = "local edit";
+      });
+      expect(batches).toBe(0);
+      expect(replica.revision).toBe(revisionBefore);
+
+      // Remote row deltas still apply through the read-only boundary.
+      source.transact(() => {
+        root.title = "Remote";
+      });
+      replica.applyNodeRows({
+        rootId: source.root.uuid,
+        revision: source.revision,
+        upserts: source.toNodeRows(),
+        reset: true,
+      });
+      expect(replica.root.title).toBe("Remote");
+    });
+
     it("batches patches and increments revision when mutations occur inside transact or @state.action", () => {
       const root = new ContainerRoot({
         sessionId: "root-sess",

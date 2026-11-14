@@ -5,10 +5,10 @@ import { buildDevCredential } from "../auth/dev.js";
 import { handle } from "../index.js";
 import { readPresenceEntries } from "../plane.js";
 import { machineStub, userStub } from "../stubs.js";
-import { decodeServerFrame, encodeChunk, encodeNodeFrame, type ReqFrame } from "../tunnel/protocol.js";
-import { TunnelServer } from "../tunnel/server.js";
 import { DEV_SECRET, ORIGIN, testEnv, uniqueSub } from "./helpers.js";
 import { BrowserPlanePeer, DaemonPlanePeer, Peer, presenceFrame } from "./peers.js";
+import { decodeServerFrame, encodeChunk, encodeNodeFrame, type ReqFrame } from "../tunnel/protocol.js";
+import { TunnelServer } from "../tunnel/server.js";
 
 const OK = "ok@example.com";
 const devBearer = (sub: string) => `Bearer ${buildDevCredential(DEV_SECRET, sub, OK)}`;
@@ -69,10 +69,7 @@ describe("rooms", () => {
     const daemon = await daemonRoom(sub, id, "/session?path=%2Fwork&sessionId=s1");
     await daemon.until(() => daemon.subscribes >= 1, "replayed shape/subscribe at daemon");
     daemon.setState("fromDaemon", 1);
-    await browser.until(
-      () => browser.synced && browser.state.get("fromDaemon") === 1,
-      "daemon state in browser",
-    );
+    await browser.until(() => browser.synced && browser.state.get("fromDaemon") === 1, "daemon state in browser");
     // Clients write through RPC; a forged browser shape/delta reaches neither peers nor daemon.
     browser.forgeDelta("fromBrowser", 2);
     daemon.setState("again", 3);

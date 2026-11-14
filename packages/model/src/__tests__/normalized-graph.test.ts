@@ -164,7 +164,7 @@ describe("normalized entity graph", () => {
     const restored = hydrateModel<Entry>(serializeModel(first));
     const next = restored.history[0];
     expect(next).toBeInstanceOf(Entry);
-    if (!(next instanceof Entry)) throw new Error("missing next");
+    if (!(next instanceof Entry)) throw new TypeError("missing next");
     expect(next.history[0]).toBe(restored);
   });
 

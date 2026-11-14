@@ -108,7 +108,10 @@ export class BrowserPlanePeer extends Peer {
   presence: Array<Record<string, unknown>> = [];
   pings = 0;
 
-  constructor(ws: WebSocket, readonly subscriptionId = "sub-1") {
+  constructor(
+    ws: WebSocket,
+    readonly subscriptionId = "sub-1",
+  ) {
     super(ws);
     this.handle((f) => {
       if (typeof f !== "string") return false;

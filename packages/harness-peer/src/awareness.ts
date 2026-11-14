@@ -9,8 +9,6 @@ import { PlexusAwareness, type PresenceEntry } from "@inhuman.tools/model";
 
 import { decodePlaneFrame, encodePresenceUpdate, type PlaneWireFrame } from "./frames.js";
 
-export { PlexusAwareness };
-
 /** Origin stamp for inbound plane frames. Forward skips this origin. */
 export const REMOTE_AWARENESS_ORIGIN = "remote";
 
@@ -73,3 +71,5 @@ export function encodeLocalAwarenessFrame(hub: PlexusAwareness): string | null {
   if (entries.length === 0) return null;
   return encodePresenceUpdate(entries);
 }
+
+export { PlexusAwareness } from "@inhuman.tools/model";

@@ -69,7 +69,8 @@ export const CONTEXT_NEED_PRESERVE_DESCRIPTION =
   "Override compaction to keep N recent turns/rounds verbatim (e.g. preserve last 3 rounds) instead of summarizing them.";
 export const CONTEXT_NEED_USER_TURNS_DESCRIPTION = "Keep at least this many recent user turns.";
 export const CONTEXT_NEED_ROUNDS_DESCRIPTION = "Keep at least this many recent tool rounds.";
-export const CONTEXT_NEED_FOCUS_DESCRIPTION = "Hint for the compactor about what to prioritize keeping during summarization.";
+export const CONTEXT_NEED_FOCUS_DESCRIPTION =
+  "Hint for the compactor about what to prioritize keeping during summarization.";
 export const CONTEXT_NEED_SETTLED_DESCRIPTION = "Current reasoning phase reached a clean boundary.";
 
 /** JSON Schema of the `context_need` input. */

@@ -9,21 +9,8 @@ import {
   type ShapeDeltaFrame,
   type ShapeSubscribeFrame,
   type ShapeUnsubscribeFrame,
-  type StreamDeltaFrame,
 } from "@inhuman.tools/harness-contract/schema";
 import type { DocumentContainer, Model, PresenceEntry, SerializedModelRow } from "@inhuman.tools/model";
-
-export type {
-  PlaneWireFrame,
-  PresenceEntryTuple,
-  PresenceQueryFrame,
-  PresenceStateFrame,
-  PresenceUpdateFrame,
-  ShapeDeltaFrame,
-  ShapeSubscribeFrame,
-  ShapeUnsubscribeFrame,
-  StreamDeltaFrame,
-};
 
 export function encodePlaneFrame(frame: PlaneWireFrame): string {
   return JSON.stringify(frame);
@@ -116,3 +103,15 @@ export function applyNodeShapeDelta<TRoot extends Model>(
     reset: delta.reset,
   });
 }
+
+export {
+  type PlaneWireFrame,
+  type PresenceEntryTuple,
+  type PresenceQueryFrame,
+  type PresenceStateFrame,
+  type PresenceUpdateFrame,
+  type ShapeDeltaFrame,
+  type ShapeSubscribeFrame,
+  type ShapeUnsubscribeFrame,
+  type StreamDeltaFrame,
+} from "@inhuman.tools/harness-contract/schema";

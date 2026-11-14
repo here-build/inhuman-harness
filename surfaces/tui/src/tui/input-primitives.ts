@@ -296,15 +296,7 @@ function wordRight(draft: string, cursor: number): number {
   return i;
 }
 
-type DraftMotion =
-  | "left"
-  | "right"
-  | "home"
-  | "end"
-  | "word_left"
-  | "word_right"
-  | "line_up"
-  | "line_down";
+type DraftMotion = "left" | "right" | "home" | "end" | "word_left" | "word_right" | "line_up" | "line_down";
 
 function hardLineBounds(draft: string, cursor: number): { start: number; end: number; col: number } {
   const c = clampCursor(draft, cursor);
@@ -521,9 +513,7 @@ function parsePasteKeyEvent(event: { readonly key: string }): string | null {
   }
 }
 
-function parseComposerCaretEvent(event: {
-  readonly key: string;
-}): { cursor: number; mark: number | null } | null {
+function parseComposerCaretEvent(event: { readonly key: string }): { cursor: number; mark: number | null } | null {
   if (!event.key.startsWith(`${KEY_COMPOSER_CARET}:`)) return null;
   const parts = event.key.split(":");
   if (parts.length !== 3) return null;
@@ -928,9 +918,7 @@ export function reconcileSelectedKey(
   prev: string | null,
   rows: readonly { readonly key?: string; readonly name: string }[],
 ): string | null {
-  const keys = rows.map((row, index) =>
-    row.key != null && row.key !== "" ? row.key : `choice:${index}:${row.name}`,
-  );
+  const keys = rows.map((row, index) => (row.key != null && row.key !== "" ? row.key : `choice:${index}:${row.name}`));
   if (prev != null && keys.includes(prev)) return prev;
   return keys[0] ?? null;
 }

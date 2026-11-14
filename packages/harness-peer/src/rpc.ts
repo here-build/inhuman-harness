@@ -8,9 +8,7 @@
  */
 import { encodeJsonRpcRequest, jsonRpcResponse, RpcClientError } from "@inhuman.tools/harness-contract";
 
-import { RoomConnection, type RoomConnectionOptions } from "./provider.js";
-
-export { RoomConnection, type RoomConnectionOptions };
+import { RoomConnection } from "./provider.js";
 
 export function detachLocalPresence(connection: RoomConnection): void {
   connection.awareness.setLocalState(null);
@@ -64,7 +62,10 @@ export type TextFrameSource = {
   off?(event: string, fn: (...args: any[]) => void): void;
 };
 
-export function bindTextFrames(connection: RoomConnection | TextFrameSource, onText: (text: string) => void): () => void {
+export function bindTextFrames(
+  connection: RoomConnection | TextFrameSource,
+  onText: (text: string) => void,
+): () => void {
   if (connection instanceof RoomConnection) {
     const handler = (text: string): void => {
       onText(text);
@@ -188,3 +189,5 @@ export function bindJsonRpc(connection: RoomConnection | TextFrameSource): JsonR
     },
   };
 }
+
+export { type RoomConnectionOptions, RoomConnection } from "./provider.js";

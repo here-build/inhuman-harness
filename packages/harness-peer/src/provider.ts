@@ -38,7 +38,11 @@ type ActiveClientLaneSub = {
   listeners: Set<(delta: ShapeDeltaFrame) => void>;
 };
 
-function defaultNodeLaneFrame(roomname: string, params: Record<string, string>, offset?: number): ShapeSubscribeFrame | null {
+function defaultNodeLaneFrame(
+  roomname: string,
+  params: Record<string, string>,
+  offset?: number,
+): ShapeSubscribeFrame | null {
   if (roomname === "kernel") {
     return {
       kind: "shape/subscribe",
@@ -226,8 +230,7 @@ export class RoomConnection {
         ws.send(encodeShapeSubscribe(nodeFrame));
       }
       for (const sub of this.#laneSubscriptions.values()) {
-        const resumeFrame: ShapeSubscribeFrame =
-          sub.offset > 0 ? { ...sub.frame, offset: sub.offset } : sub.frame;
+        const resumeFrame: ShapeSubscribeFrame = sub.offset > 0 ? { ...sub.frame, offset: sub.offset } : sub.frame;
         ws.send(encodeShapeSubscribe(resumeFrame));
       }
 

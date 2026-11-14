@@ -26,23 +26,20 @@ export type AwarenessUpdateChange = {
 
 export type AwarenessUpdateListener = (changed: AwarenessUpdateChange, origin?: unknown) => void;
 
-export type PresenceEntry = readonly [
-  clientId: number,
-  state: Record<string, unknown> | null,
-  clock?: number,
-];
+export type PresenceEntry = readonly [clientId: number, state: Record<string, unknown> | null, clock?: number];
 
 let nextAwarenessClientId = 1;
 
-function resolveClientId(input?: number | { readonly clientId?: number; readonly clientID?: number } | unknown): number {
+function resolveClientId(
+  input?: number | { readonly clientId?: number; readonly clientID?: number } | unknown,
+): number {
   if (typeof input === "number" && Number.isFinite(input)) {
     if (input >= nextAwarenessClientId) nextAwarenessClientId = input + 1;
     return input;
   }
   if (input != null && typeof input === "object") {
     const candidate =
-      (input as { clientId?: unknown; clientID?: unknown }).clientId ??
-      (input as { clientID?: unknown }).clientID;
+      (input as { clientId?: unknown; clientID?: unknown }).clientId ?? (input as { clientID?: unknown }).clientID;
     if (typeof candidate === "number" && Number.isFinite(candidate)) {
       if (candidate >= nextAwarenessClientId) nextAwarenessClientId = candidate + 1;
       return candidate;
@@ -84,11 +81,7 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
     const out = new Map<number, Record<string, unknown>>();
     for (const [id, bag] of this.#clients.entries()) {
       if (bag.size === 0 && !this.meta.has(id)) continue;
-      const obj: Record<string, unknown> = {};
-      for (const [k, v] of bag.entries()) {
-        obj[k] = v;
-      }
-      out.set(id, obj);
+      out.set(id, Object.fromEntries(bag.entries()));
     }
     return out;
   }
@@ -96,11 +89,7 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
   getLocalState(): Record<string, unknown> | null {
     const bag = this.#clients.get(this.clientId);
     if (bag === undefined || (bag.size === 0 && !this.meta.has(this.clientId))) return null;
-    const obj: Record<string, unknown> = {};
-    for (const [k, v] of bag.entries()) {
-      obj[k] = v;
-    }
-    return obj;
+    return Object.fromEntries(bag.entries());
   }
 
   on(event: "update" | "change", listener: AwarenessUpdateListener): void;
@@ -207,7 +196,7 @@ export class ReactiveAwareness<S extends AwarenessShape = AwarenessShape> {
   @action
   clearLane<K extends string & keyof S>(lane: K, clientId: number = this.clientId, origin?: unknown): void {
     const bag = this.#clients.get(clientId);
-    if (bag === undefined || !bag.has(lane)) return;
+    if (!bag?.has(lane)) return;
     bag.delete(lane);
     this.#bumpMeta(clientId);
     this.#emitUpdate({ added: [], updated: [clientId], removed: [] }, origin);

@@ -1,10 +1,5 @@
 import { registerModelClass } from "./metadata.js";
-import type {
-  AbstractModelConstructor,
-  AssertModelMatchesTable,
-  DrizzleTableLike,
-  ModelOptions,
-} from "./types.js";
+import type { AbstractModelConstructor, AssertModelMatchesTable, DrizzleTableLike, ModelOptions } from "./types.js";
 
 type HasSchemaError<T> = true extends {
   [K in keyof T]: T[K] extends { readonly __error: string } ? true : false;
@@ -23,11 +18,7 @@ export function model<
     _context: ClassDecoratorContext<TClass>,
   ): [TTable] extends [DrizzleTableLike]
     ? HasSchemaError<
-        AssertModelMatchesTable<
-          TTable,
-          InstanceType<TClass>,
-          Extract<TIgnored[number], keyof TTable["$inferSelect"]>
-        >
+        AssertModelMatchesTable<TTable, InstanceType<TClass>, Extract<TIgnored[number], keyof TTable["$inferSelect"]>>
       > extends true
       ? {
           readonly __compile_error: "Model class does not match Drizzle table";

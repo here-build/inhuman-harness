@@ -1359,6 +1359,7 @@ export class Tea implements Disposable {
           runInAction(() => {
             this.#pluginReplies.set(key, reply);
           });
+          return undefined;
         })
         .catch(() => undefined)
         .finally(() => {

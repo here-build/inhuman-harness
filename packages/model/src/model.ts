@@ -124,17 +124,13 @@ export abstract class Model<TRow = any, TParent = any> {
           result[key] = value instanceof Model ? value.uuid : null;
           break;
         case "refList":
-          result[key] = Array.isArray(value)
-            ? value.map((item) => (item instanceof Model ? item.uuid : item))
-            : [];
+          result[key] = Array.isArray(value) ? value.map((item) => (item instanceof Model ? item.uuid : item)) : [];
           break;
         case "child":
           result[key] = value instanceof Model ? value.toJSON() : null;
           break;
         case "childList":
-          result[key] = Array.isArray(value)
-            ? value.map((item) => (item instanceof Model ? item.toJSON() : item))
-            : [];
+          result[key] = Array.isArray(value) ? value.map((item) => (item instanceof Model ? item.toJSON() : item)) : [];
           break;
         case "childRecord":
           result[key] =
@@ -148,9 +144,7 @@ export abstract class Model<TRow = any, TParent = any> {
               : {};
           break;
         case "list":
-          result[key] = Array.isArray(value)
-            ? value.map((item) => (item instanceof Model ? item.uuid : item))
-            : [];
+          result[key] = Array.isArray(value) ? value.map((item) => (item instanceof Model ? item.uuid : item)) : [];
           break;
       }
     }

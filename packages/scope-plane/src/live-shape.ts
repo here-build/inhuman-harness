@@ -49,11 +49,7 @@ export interface LiveShapeOptions {
   readonly onDelta?: (delta: ShapeDeltaFrame) => void;
 }
 
-export class LiveShape<
-  TKey = string,
-  TRow extends Record<string, unknown> = Record<string, unknown>,
-  TModel = TRow,
-> {
+export class LiveShape<TKey = string, TRow extends Record<string, unknown> = Record<string, unknown>, TModel = TRow> {
   readonly #lane?: UpdateLaneName;
   readonly #params?: Record<string, unknown>;
   readonly #keyField?: keyof TRow & string;

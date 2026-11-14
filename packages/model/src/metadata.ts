@@ -18,7 +18,12 @@ export const STATE_META_SYMBOL = Symbol("STATE_META_SYMBOL");
 const tagToConstructor = new Map<string, ModelConstructor>();
 const constructorToTag = new Map<ClassLike, string>();
 
-export function registerModelClass(tag: string, ctor: ClassLike, table?: DrizzleTableLike, options?: ModelOptions): void {
+export function registerModelClass(
+  tag: string,
+  ctor: ClassLike,
+  table?: DrizzleTableLike,
+  options?: ModelOptions,
+): void {
   const existing = tagToConstructor.get(tag);
   if (existing) {
     if (existing === ctor) {
