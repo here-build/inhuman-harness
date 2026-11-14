@@ -9,6 +9,7 @@ interface Linkable {
   readonly uuid: string;
   [HYDRATION_DATA]?: Record<string, unknown>;
   [CONTAINER_LINK]?: {
+    assertWritable?(): void;
     recordPatch(patch: ModelPatch): void;
   };
 }
@@ -57,11 +58,12 @@ export function column<TCol extends DrizzleColumnLike, TValue = ColumnValue<TCol
         return getter.call(this);
       },
       set(this: This, value: TActual): void {
+        const self = this as unknown as Linkable;
+        const link = self[CONTAINER_LINK];
+        link?.assertWritable?.();
         const oldVal = getter.call(this);
         setter.call(this, value);
         if (!Object.is(oldVal, value)) {
-          const self = this as unknown as Linkable;
-          const link = self[CONTAINER_LINK];
           if (link) {
             const rawVal = codec ? codec.toDb(value as unknown as TValue) : value;
             link.recordPatch({

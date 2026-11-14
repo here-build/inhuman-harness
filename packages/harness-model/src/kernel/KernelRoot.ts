@@ -204,6 +204,8 @@ export class KernelRoot extends Model<any, null> {
   }
 
   @state accessor schemaVersion: number = SCHEMA_VERSION;
+  @state accessor kernelId: string = "local";
+  @state.list accessor enabledPlugins: string[] = [];
   @state accessor compactStrategy: string = DEFAULT_COMPACT_STRATEGY;
   /** Ask residual processor. `config.json` `autoModeClassifier`. */
   @state accessor autoModeClassifier: string = DEFAULT_AUTO_MODE_JUDGE;
@@ -340,6 +342,8 @@ export class KernelRoot extends Model<any, null> {
     opts:
       | {
           schemaVersion?: number;
+          kernelId?: string;
+          enabledPlugins?: string[];
           kvs?: Record<string, string>;
           compactStrategy?: string;
           autoModeClassifier?: string;

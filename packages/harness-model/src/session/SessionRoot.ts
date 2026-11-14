@@ -182,6 +182,7 @@ export class SessionRoot extends WorkContainer {
   }
 
   @state accessor sessionId!: string;
+  @state accessor projectId: string = "";
   @state accessor path!: string;
   @state accessor mode: string = "act";
   /**
@@ -294,6 +295,7 @@ export class SessionRoot extends WorkContainer {
     props?:
       | {
           readonly sessionId?: string;
+          readonly projectId?: string;
           readonly path?: string;
           readonly mode?: string;
           readonly standingPermissionMode?: PermissionMode;

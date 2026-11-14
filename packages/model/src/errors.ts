@@ -11,3 +11,10 @@ export class BrokenReferenceError extends Error {
     this.name = "BrokenReferenceError";
   }
 }
+
+export class ReadOnlyDocumentError extends Error {
+  constructor(message = "Cannot write to a read-only document.") {
+    super(message);
+    this.name = "ReadOnlyDocumentError";
+  }
+}

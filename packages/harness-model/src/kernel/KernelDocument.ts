@@ -80,7 +80,13 @@ export class KernelDocument extends DocumentContainer<KernelRoot, KernelAwarenes
         hydrateKernelRoot(root);
         source.hydrateFromSnapshot(serializeDocument(root));
       } else {
-        hydrateKernelRoot(source.root as KernelRoot);
+        const wasReadOnly = source.readOnly;
+        if (wasReadOnly) source.readOnly = false;
+        try {
+          hydrateKernelRoot(source.root as KernelRoot);
+        } finally {
+          if (wasReadOnly) source.readOnly = true;
+        }
       }
       Object.setPrototypeOf(source, KernelDocument.prototype);
       return finish(source as KernelDocument);

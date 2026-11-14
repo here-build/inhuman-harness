@@ -12,7 +12,7 @@ export {
 export { column } from "./column.js";
 export { DocumentContainer } from "./container.js";
 export { model } from "./decorator-model.js";
-export { BrokenReferenceError, SchemaAuditError } from "./errors.js";
+export { BrokenReferenceError, ReadOnlyDocumentError, SchemaAuditError } from "./errors.js";
 export { getModelByTag, getModelMetadata, getModelTag, resetModelRegistry } from "./metadata.js";
 export { Model, type ModelContainerLink } from "./model.js";
 export {

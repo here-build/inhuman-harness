@@ -1,4 +1,4 @@
-import { action, observable, observe, runInAction } from "mobx";
+import { action, intercept, observable, observe, runInAction } from "mobx";
 
 import { getModelMetadata, registerStateMetadata } from "./metadata.js";
 import { Model } from "./model.js";
@@ -10,6 +10,7 @@ interface Linkable {
   [HYDRATION_DATA]?: Record<string, unknown>;
   [CONTAINER_LINK]?: {
     readonly isApplyingPatches?: boolean;
+    assertWritable?(): void;
     recordPatch(patch: ModelPatch): void;
     registerNode(node: Model): void;
     notifyDetached?(node: Model): void;
@@ -35,11 +36,12 @@ export function state<This, TValue>(
       return getter.call(this);
     },
     set(this: This, value: TValue): void {
+      const self = this as unknown as Linkable;
+      const link = self[CONTAINER_LINK];
+      link?.assertWritable?.();
       const oldVal = getter.call(this);
       setter.call(this, value);
       if (!Object.is(oldVal, value)) {
-        const self = this as unknown as Linkable;
-        const link = self[CONTAINER_LINK];
         if (link && !link.isApplyingPatches) {
           link.recordPatch({
             op: "set",
@@ -76,11 +78,12 @@ state.ref = function stateRef<This, TValue extends Model | null>(
       return getter.call(this);
     },
     set(this: This, value: TValue): void {
+      const self = this as unknown as Linkable;
+      const link = self[CONTAINER_LINK];
+      link?.assertWritable?.();
       const oldVal = getter.call(this);
       setter.call(this, value);
       if (oldVal !== value) {
-        const self = this as unknown as Linkable;
-        const link = self[CONTAINER_LINK];
         if (oldVal instanceof Model) {
           link?.notifyDetached?.(oldVal);
         }
@@ -151,6 +154,9 @@ function stateChildImpl<This, TValue extends Model | null>(
       return getter.call(this);
     },
     set(this: This, value: TValue): void {
+      const self = this as unknown as Linkable;
+      const link = self[CONTAINER_LINK];
+      link?.assertWritable?.();
       const oldVal = getter.call(this);
       if (oldVal !== value && oldVal) {
         detachParent(oldVal);
@@ -158,8 +164,6 @@ function stateChildImpl<This, TValue extends Model | null>(
       attachParent(value, this, propertyKey);
       setter.call(this, value);
       if (oldVal !== value) {
-        const self = this as unknown as Linkable;
-        const link = self[CONTAINER_LINK];
         if (oldVal instanceof Model) {
           link?.notifyDetached?.(oldVal);
         }
@@ -192,7 +196,11 @@ function bindArrayObserver<T>(
   arr: T[],
   kind: "list" | "refList" | "childList",
 ): () => void {
-  return observe(arr, (change) => {
+  const stopIntercept = intercept(arr as any, (change: any) => {
+    self[CONTAINER_LINK]?.assertWritable?.();
+    return change;
+  });
+  const stopObserve = observe(arr, (change) => {
     if (change.type !== "splice") {
       return;
     }
@@ -273,10 +281,18 @@ function bindArrayObserver<T>(
       items,
     });
   });
+  return () => {
+    stopIntercept();
+    stopObserve();
+  };
 }
 
 function bindRecordObserver(self: Linkable, propertyKey: string, obj: Record<string, unknown>): () => void {
-  return observe(obj, (change) => {
+  const stopIntercept = intercept(obj as any, (change: any) => {
+    self[CONTAINER_LINK]?.assertWritable?.();
+    return change;
+  });
+  const stopObserve = observe(obj, (change) => {
     const link = self[CONTAINER_LINK];
     if (!link || link.isApplyingPatches) {
       return;
@@ -299,6 +315,10 @@ function bindRecordObserver(self: Linkable, propertyKey: string, obj: Record<str
       });
     }
   });
+  return () => {
+    stopIntercept();
+    stopObserve();
+  };
 }
 
 export function stateList<This, TItem>(
@@ -321,8 +341,9 @@ export function stateList<This, TItem>(
     },
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
-      const oldArr = getter.call(this);
       const link = self[CONTAINER_LINK];
+      link?.assertWritable?.();
+      const oldArr = getter.call(this);
       if (Array.isArray(oldArr)) {
         const nextSet = new Set<unknown>(value);
         for (const oldItem of oldArr) {
@@ -397,8 +418,9 @@ export function stateRefList<This, TItem extends Model>(
     },
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
-      const oldArr = getter.call(this);
       const link = self[CONTAINER_LINK];
+      link?.assertWritable?.();
+      const oldArr = getter.call(this);
       if (Array.isArray(oldArr)) {
         const nextSet = new Set<unknown>(value);
         for (const oldItem of oldArr) {
@@ -470,8 +492,9 @@ export function stateChildList<This, TItem extends Model>(
     },
     set(this: This, value: TItem[]): void {
       const self = this as unknown as Linkable;
-      const oldArr = getter.call(this);
       const link = self[CONTAINER_LINK];
+      link?.assertWritable?.();
+      const oldArr = getter.call(this);
       const nextSet = new Set(value);
       if (Array.isArray(oldArr)) {
         for (const oldChild of oldArr) {
@@ -529,7 +552,11 @@ export function stateChildList<This, TItem extends Model>(
 state.childList = stateChildList;
 
 function bindChildRecordObserver(self: Linkable, propertyKey: string, obj: Record<string, unknown>): () => void {
-  return observe(obj, (change) => {
+  const stopIntercept = intercept(obj as any, (change: any) => {
+    self[CONTAINER_LINK]?.assertWritable?.();
+    return change;
+  });
+  const stopObserve = observe(obj, (change) => {
     const link = self[CONTAINER_LINK];
     if (change.type === "remove") {
       detachParent(change.oldValue);
@@ -569,6 +596,10 @@ function bindChildRecordObserver(self: Linkable, propertyKey: string, obj: Recor
       });
     }
   });
+  return () => {
+    stopIntercept();
+    stopObserve();
+  };
 }
 
 export function stateChildRecord<This, TValue extends Model>(
@@ -591,8 +622,9 @@ export function stateChildRecord<This, TValue extends Model>(
     },
     set(this: This, value: Record<string, TValue>): void {
       const self = this as unknown as Linkable;
-      const oldObj = getter.call(this);
       const link = self[CONTAINER_LINK];
+      link?.assertWritable?.();
+      const oldObj = getter.call(this);
       const nextValues = new Set<unknown>(Object.values(value));
       if (oldObj && typeof oldObj === "object") {
         for (const oldChild of Object.values(oldObj)) {
@@ -682,6 +714,8 @@ export function stateRecord<This, TValue>(
     },
     set(this: This, value: Record<string, TValue>): void {
       const self = this as unknown as Linkable;
+      const link = self[CONTAINER_LINK];
+      link?.assertWritable?.();
       const obsObj = observable.object(value, undefined, { deep: false });
       const prevDisposer = disposers.get(self as object);
       if (prevDisposer) {
@@ -692,7 +726,6 @@ export function stateRecord<This, TValue>(
 
       setter.call(this, obsObj as unknown as Record<string, TValue>);
 
-      const link = self[CONTAINER_LINK];
       if (link && !link.isApplyingPatches) {
         link.recordPatch({
           op: "set",

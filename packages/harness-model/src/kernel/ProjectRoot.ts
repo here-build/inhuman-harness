@@ -1,3 +1,4 @@
+import type { ProjectKind } from "@inhuman.tools/harness-contract";
 import { Model, model as modelDecorator, state } from "@inhuman.tools/model";
 
 import { BotSpec, writeAuthoredBots } from "./BotSpec.js";
@@ -36,7 +37,23 @@ export class ProjectRoot extends Model<any, null> {
     writeAuthoredBots(this, specs);
   }
 
+  @state accessor projectId: string = "";
+  @state accessor kind: ProjectKind = "local";
   @state accessor path: string = "";
+  @state.list accessor enabledPlugins: string[] = [];
+  @state.record accessor pluginConfigs: Record<string, string> = {};
+
+  @state.action
+  setPluginConfig(pluginId: string, configJson: string): void {
+    const id = pluginId.trim();
+    if (id === "") return;
+    this.pluginConfigs[id] = configJson;
+  }
+
+  getPluginConfig(pluginId: string): string | undefined {
+    return this.pluginConfigs[pluginId.trim()];
+  }
+
   /**
    * Last-choice permission mode for a new session in this project.
    * Empty inherits kernel `defaultPermissionMode` at mint. A set id wins, including
@@ -63,7 +80,11 @@ export class ProjectRoot extends Model<any, null> {
     opts?:
       | symbol
       | {
+          projectId?: string;
+          kind?: ProjectKind;
           path?: string;
+          enabledPlugins?: string[];
+          pluginConfigs?: Record<string, string>;
           defaultPermissionMode?: PermissionMode | "";
           authorizationJson?: string;
           trusted?: boolean;

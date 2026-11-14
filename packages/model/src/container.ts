@@ -1,7 +1,7 @@
 import { observable, runInAction } from "mobx";
 
 import { ReactiveAwareness, type AwarenessShape } from "./awareness.js";
-import { BrokenReferenceError } from "./errors.js";
+import { BrokenReferenceError, ReadOnlyDocumentError } from "./errors.js";
 import { getModelByTag, getModelMetadata } from "./metadata.js";
 import { Model, type ModelContainerLink } from "./model.js";
 import {
@@ -203,6 +203,12 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     return this.#isApplyingPatches;
   }
 
+  assertWritable(): void {
+    if (this.#readOnly && !this.#isApplyingPatches) {
+      throw new ReadOnlyDocumentError();
+    }
+  }
+
   getNode(uuid: string): Model | undefined {
     return this.#registry.get(uuid);
   }
@@ -247,6 +253,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
         return isApplyingPatches();
       },
       awareness: this.awareness,
+      assertWritable: () => this.assertWritable(),
       recordPatch: (patch: ModelPatch) => this.recordPatch(patch),
       registerNode: (child: Model) => this.registerNode(child),
       notifyDetached: (detached: Model) => {
@@ -461,6 +468,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
 
     const targetRootId = delta.rootId ?? this.root?.uuid;
 
+    const prevApplying = this.#isApplyingPatches;
     this.#isApplyingPatches = true;
     try {
       runInAction(() => {
@@ -745,7 +753,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
         }
       });
     } finally {
-      this.#isApplyingPatches = false;
+      this.#isApplyingPatches = prevApplying;
     }
   }
 
@@ -782,9 +790,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
   }
 
   transact<T>(fn: () => T): T {
-    if (this.#readOnly) {
-      throw new Error("Cannot write to a read-only document.");
-    }
+    this.assertWritable();
     this.#txDepth++;
     try {
       const result = runInAction(fn);
@@ -816,6 +822,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     if (batch.patches.length > 0 && !batch.patches.some((patch) => this.#registry.has(patch.nodeId))) {
       return;
     }
+    const prevApplying = this.#isApplyingPatches;
     this.#isApplyingPatches = true;
     try {
       runInAction(() => {
@@ -826,7 +833,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
         this.revision = batch.revision;
       });
     } finally {
-      this.#isApplyingPatches = false;
+      this.#isApplyingPatches = prevApplying;
     }
   }
 
@@ -1012,6 +1019,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
   }
 
   importMeta(meta: Record<string, Record<string, unknown>>): void {
+    const prevApplying = this.#isApplyingPatches;
     this.#isApplyingPatches = true;
     try {
       this.#meta.clear();
@@ -1019,7 +1027,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
         this.#meta.set(ns, this.#wrapMetaMap(new Map(Object.entries(entries))));
       }
     } finally {
-      this.#isApplyingPatches = false;
+      this.#isApplyingPatches = prevApplying;
     }
   }
 
@@ -1031,6 +1039,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
         }
         if (prop === "set") {
           return (key: string, value: unknown) => {
+            this.assertWritable();
             const prev = target.get(key);
             if (prev !== value) {
               target.set(key, value);
@@ -1041,6 +1050,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
         }
         if (prop === "delete") {
           return (key: string) => {
+            this.assertWritable();
             const existed = target.delete(key);
             if (existed) {
               this.#onMetaModified();
@@ -1050,6 +1060,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
         }
         if (prop === "clear") {
           return () => {
+            this.assertWritable();
             if (target.size > 0) {
               target.clear();
               this.#onMetaModified();
@@ -1102,6 +1113,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
       return;
     }
 
+    const prevApplying = this.#isApplyingPatches;
     this.#isApplyingPatches = true;
     try {
       runInAction(() => {
@@ -1119,7 +1131,7 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
         this.revision = Math.max(this.revision, snapshot.revision);
       });
     } finally {
-      this.#isApplyingPatches = false;
+      this.#isApplyingPatches = prevApplying;
     }
   }
 

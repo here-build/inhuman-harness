@@ -10,6 +10,7 @@ import {
   hydrateModel,
   Model,
   model,
+  ReadOnlyDocumentError,
   SchemaAuditError,
   serializeModel,
   state,
@@ -379,6 +380,8 @@ describe("@inhuman.tools/model", () => {
       @state.record accessor tags: Record<string, string> = {};
       @state.list accessor flags: string[] = [];
       @state.ref accessor activeItem: ContainerItem | null = null;
+      @state.child accessor featuredItem: ContainerItem | null = null;
+      @state.childRecord accessor namedItems: Record<string, ContainerItem> = {};
 
       @state.action
       batchAdd(item: ContainerItem, flag: string, tagKey: string, tagVal: string): void {
@@ -389,40 +392,135 @@ describe("@inhuman.tools/model", () => {
       }
     }
 
-    it("enforces a read-only boundary: local writes refused, remote row deltas still apply", () => {
+    it("enforces a read-only boundary pre-mutation: local writes throw ReadOnlyDocumentError without mutating, while remote deltas still apply", () => {
+      const item0 = new ContainerItem({ text: "Initial Item", priority: 1 });
       const root = new ContainerRoot({
         sessionId: "ro-sess",
         title: "Initial",
         depth: 0,
         parentSessionId: null,
         metadataJson: null,
+        items: [item0],
+        flags: ["init-flag"],
+        tags: { env: "prod" },
+        namedItems: { primary: new ContainerItem({ text: "Named", priority: 2 }) },
       });
       const source = new DocumentContainer(root);
+      source.setMeta("ui", "theme", "dark");
       const replica = DocumentContainer.fromSnapshot<ContainerRoot>(source.toSnapshot());
       replica.readOnly = true;
 
-      // A local transaction is refused outright.
-      expect(() =>
-        replica.transact(() => {
-          replica.root.title = "local";
-        }),
-      ).toThrow(/read-only/);
-
-      // A bare local mutation emits no patch and does not advance the revision.
       let batches = 0;
       replica.onPatch(() => {
         batches++;
       });
       const revisionBefore = replica.revision;
-      runInAction(() => {
-        replica.root.title = "local edit";
-      });
+
+      // 1. transact(...) throws ReadOnlyDocumentError
+      expect(() =>
+        replica.transact(() => {
+          replica.root.title = "local";
+        }),
+      ).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.title).toBe("Initial");
+
+      // 2. @column bare assignment throws before mutation
+      expect(() => {
+        runInAction(() => {
+          replica.root.title = "local edit";
+        });
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.title).toBe("Initial");
+
+      // 3. @state scalar assignment on a registered child throws before mutation
+      expect(() => {
+        runInAction(() => {
+          replica.root.items[0].text = "tampered";
+        });
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.items[0].text).toBe("Initial Item");
+
+      // 4. @state.list and @state.childList in-place push/splice & property reassign throw before mutation
+      expect(() => {
+        replica.root.flags.push("hack");
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.flags).toEqual(["init-flag"]);
+
+      expect(() => {
+        replica.root.items.push(new ContainerItem({ text: "Intruder", priority: 99 }));
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.items).toHaveLength(1);
+
+      expect(() => {
+        replica.root.flags = ["replaced"];
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.flags).toEqual(["init-flag"]);
+
+      // 5. @state.record & @state.childRecord assign/delete throw before mutation
+      expect(() => {
+        replica.root.tags.env = "staging";
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.tags.env).toBe("prod");
+
+      expect(() => {
+        delete replica.root.tags.env;
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.tags.env).toBe("prod");
+
+      expect(() => {
+        replica.root.namedItems.extra = new ContainerItem({ text: "Extra", priority: 3 });
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.namedItems.extra).toBeUndefined();
+
+      expect(() => {
+        delete replica.root.namedItems.primary;
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.namedItems.primary?.text).toBe("Named");
+
+      // 6. @state.child & @state.ref assign throw before mutation
+      expect(() => {
+        replica.root.featuredItem = new ContainerItem({ text: "Featured", priority: 5 });
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.featuredItem).toBeNull();
+
+      expect(() => {
+        replica.root.activeItem = replica.root.items[0];
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.activeItem).toBeNull();
+
+      // 7. @state.action throws before mutation
+      expect(() => {
+        replica.root.batchAdd(new ContainerItem({ text: "X", priority: 0 }), "f2", "k", "v");
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.root.items).toHaveLength(1);
+      expect(replica.root.flags).toEqual(["init-flag"]);
+      expect(replica.root.tags.k).toBeUndefined();
+
+      // 8. Metadata map writes (getMetaMap().set / setMeta / deleteMeta / clear) throw before mutation
+      expect(() => {
+        replica.getMetaMap("ui").set("theme", "light");
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.getMeta("ui", "theme")).toBe("dark");
+
+      expect(() => {
+        replica.setMeta("ui", "theme", "light");
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(() => {
+        replica.deleteMeta("ui", "theme");
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(() => {
+        replica.getMetaMap("ui").clear();
+      }).toThrowError(ReadOnlyDocumentError);
+      expect(replica.getMeta("ui", "theme")).toBe("dark");
+
       expect(batches).toBe(0);
       expect(replica.revision).toBe(revisionBefore);
 
-      // Remote row deltas still apply through the read-only boundary.
+      // Remote deltas and snapshots still apply through the read-only boundary.
       source.transact(() => {
         root.title = "Remote";
+        root.tags.remoteKey = "yes";
+        root.flags.push("remote-flag");
       });
       replica.applyNodeRows({
         rootId: source.root.uuid,
@@ -431,6 +529,12 @@ describe("@inhuman.tools/model", () => {
         reset: true,
       });
       expect(replica.root.title).toBe("Remote");
+      expect(replica.root.tags.remoteKey).toBe("yes");
+      expect(replica.root.flags).toEqual(["init-flag", "remote-flag"]);
+
+      source.setMeta("ui", "theme", "solarized");
+      replica.hydrateFromSnapshot(source.toSnapshot());
+      expect(replica.getMeta("ui", "theme")).toBe("solarized");
     });
 
     it("batches patches and increments revision when mutations occur inside transact or @state.action", () => {

@@ -10,6 +10,7 @@ export interface ModelContainerLink {
   readonly container?: any;
   readonly isApplyingPatches?: boolean;
   readonly awareness?: ReactiveAwareness<any>;
+  assertWritable?(): void;
   recordPatch(patch: ModelPatch): void;
   registerNode(node: Model): void;
   notifyDetached?(node: Model): void;

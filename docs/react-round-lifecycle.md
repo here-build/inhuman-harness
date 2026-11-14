@@ -21,7 +21,7 @@ creating one does not authorize a model invocation.
 `decideRound` in harness-model is the pure policy function: it assesses budgets,
 unions eligible causes, applies gates, and defaults to halt. The iterator commits
 that decision, then handles admission through the inbound barrier and round hook.
-The admitted `CompletionJob` and the boundary's `successor` reference are committed together by a model syncing action. `decision.nextRoundId` projects that reference's UUID after materialization; older documents can still carry the ID in their decision JSON.
+The admitted `CompletionJob` and the boundary's `successor` reference are committed together inside a `DocumentContainer.transact(...)` action. `decision.nextRoundId` projects that reference's UUID after materialization; older documents can still carry the ID in their decision JSON.
 
 ```mermaid
 flowchart LR
@@ -111,7 +111,7 @@ typed decision. Legacy tape-counting and failure-collapsing test helpers have be
 
 Response admission plus its expansion cursor, completed expansion plus its boundary
 and any forced compaction, decision plus terminal notice, and successor plus its authorization reference each
-use a model syncing action. MobX actions alone do not make Yjs updates atomic.
+use `DocumentContainer.transact(...)` (or `@state.action`). Plain MobX actions outside `transact` do not group node deltas into a single atomic document revision.
 
 Plugin admission follows canonical work reachability (`walkWork(session)`), including nested turns and the background work retained by `root.work`. An admitted tool keeps its post-hook lease while its origin subtree remains in retained session ancestry, including after background completion removes it from scheduling; rewinding that origin away revokes the lease. Plugin pre/post hooks and guards have execution deadlines. Timeout, cancellation, park, or rewind prevents their late state writes, notifications, and host-effect entry. A human permission wait does not consume the plugin execution deadline. Completed worker calls join their bounded plugin finalizers before the turn records its plugin-state snapshot.
 
@@ -121,9 +121,9 @@ Plugin admission follows canonical work reachability (`walkWork(session)`), incl
 Daemon with a controlled provider connection. It covers combined causes, ambient
 notes, input during judgment, public cancel/rewind, retry budgets and progress,
 CodeAct contracts, and replica-visible blocked/incomplete decisions. It rehydrates
-every Yjs update of a live turn to check durable structural invariants, saves
+every committed node delta of a live turn to check durable structural invariants, saves
 provider-settled, partially-expanded, undecided, decided and admitted prefixes,
-and reopens those images through DocumentService in fresh daemons. A real
+and reopens those images from SQLite node checkpoints in fresh daemons. A real
 `edit_file` result verifies that recovering settled tool work does not repeat its
 filesystem edit; terminal images remain stable over two further restarts. Another trace restarts
 twice during provider I/O and verifies one explicit recovery grant per abandoned

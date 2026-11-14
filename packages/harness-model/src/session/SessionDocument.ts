@@ -140,7 +140,13 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
         hydrateSessionRoot(root);
         source.hydrateFromSnapshot(serializeDocument(root));
       } else {
-        hydrateSessionRoot(source.root as SessionRoot);
+        const wasReadOnly = source.readOnly;
+        if (wasReadOnly) source.readOnly = false;
+        try {
+          hydrateSessionRoot(source.root as SessionRoot);
+        } finally {
+          if (wasReadOnly) source.readOnly = true;
+        }
       }
       Object.setPrototypeOf(source, SessionDocument.prototype);
       return finish(source as SessionDocument);
