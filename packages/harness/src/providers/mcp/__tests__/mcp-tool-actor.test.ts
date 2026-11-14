@@ -87,7 +87,6 @@ function ready(connection: McpDriverConnection, client: Partial<Client>): void {
 }
 
 describe("MCP tool actor", () => {
-  
   it("exclude without tools/call; call seals receipt; stdio stderr / HTTP needs-auth", async () => {
     const excluded = homeCall({
       connectionKey: "mail",

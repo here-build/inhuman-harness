@@ -108,7 +108,7 @@ function wire(
 ): { chat: ChatMessage[]; turn: SessionTurn; tip: CompletionExpectation } {
   const plexus = session(id, extra?.path ?? "");
   const last = cells.at(-1);
-  if (!(last instanceof CompletionExpectation)) throw new Error("wire: last cell is not a CompletionExpectation");
+  if (!(last instanceof CompletionExpectation)) throw new TypeError("wire: last cell is not a CompletionExpectation");
   const tip = last;
   if (extra?.systemNote !== undefined) tip.systemNote = prompt.system`${extra.systemNote}`;
   const turn = new SessionTurn({
@@ -129,7 +129,6 @@ function wire(
   plexus.root.head = turn;
   return { chat: [...viewWire(tip, { dialect: extra?.dialect })], turn, tip };
 }
-
 
 describe("viewWire", () => {
   it.each([

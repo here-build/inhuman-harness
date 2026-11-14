@@ -1,9 +1,9 @@
 /** Record a normalized context request on this invocation's trajectory. */
-import invariant from "tiny-invariant";
 import { CONTEXT_NEED_DESCRIPTION } from "@inhuman.tools/activity";
 import { CONTEXT_NEED_TOOL_NAME, type SessionMetadataAction } from "@inhuman.tools/harness-model";
 import { contextNeedAdmitSchema } from "@inhuman.tools/harness-model/schemas";
 import { InhumanTool } from "@inhuman.tools/plugin-sdk";
+import invariant from "tiny-invariant";
 import { z } from "zod";
 
 import { toolResultSchema } from "../schemas/tool-result.js";

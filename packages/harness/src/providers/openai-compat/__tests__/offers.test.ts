@@ -57,9 +57,7 @@ describe("OpenAiCompatDriverConnection.adopt", () => {
       login.callback,
     );
     expect({ questions: login.bodies, renewed }).toEqual({
-      questions: [
-        JSON.stringify({ kind: "input", name: "API key", description: "LM Studio API key", secret: true }),
-      ],
+      questions: [JSON.stringify({ kind: "input", name: "API key", description: "LM Studio API key", secret: true })],
       renewed: { ...local, secrets: { apiKey: "new-local-key" } },
     });
   });

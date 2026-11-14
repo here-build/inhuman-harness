@@ -50,7 +50,9 @@ describe("model capability normalization", () => {
     expect(modelCapabilitiesOf({ reasoning: true })).toEqual({ supportsReasoning: true });
     expect(modelCapabilitiesOf({ reasoning: false })).toEqual({ supportsReasoning: false });
     expect(modelCapabilitiesOf({ reasoning: { supported: false } })).toEqual({ supportsReasoning: false });
-    expect(modelCapabilitiesOf({ reasoning: { enabled: true, supported_efforts: ["LOW", "Medium", "high", "invalid"] } })).toEqual({
+    expect(
+      modelCapabilitiesOf({ reasoning: { enabled: true, supported_efforts: ["LOW", "Medium", "high", "invalid"] } }),
+    ).toEqual({
       supportsReasoning: true,
       reasoningEfforts: ["low", "medium", "high"],
     });

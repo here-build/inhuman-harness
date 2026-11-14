@@ -1,10 +1,9 @@
 /**
- * Closed effort vocabulary. Owned here so the document model does not
- * depend on plugin-sdk or the dotprompt capability.
+ * Closed effort vocabulary, owned by harness-contract (L0) and re-exported
+ * here so the document model depends on neither plugin-sdk nor the dotprompt
+ * capability.
  */
-export const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
-
-export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+import { type ReasoningEffort } from "@inhuman.tools/harness-contract";
 
 /** Type guard for valid reasoning effort values. */
 export function isReasoningEffort(value: unknown): value is ReasoningEffort {
@@ -66,10 +65,7 @@ const DEFAULT_ENABLED_REASONING_PROFILE: ModelReasoningProfile = {
   toggleCacheImpact: "drops-full",
 };
 
-function applyHintEfforts(
-  profile: ModelReasoningProfile,
-  hint?: ReasoningProfileHint,
-): ModelReasoningProfile {
+function applyHintEfforts(profile: ModelReasoningProfile, hint?: ReasoningProfileHint): ModelReasoningProfile {
   if (!profile.supportsReasoning || !hint?.reasoningEfforts?.length) {
     return profile;
   }
@@ -99,11 +95,7 @@ function classifyNormalizedModel(
         toggleCacheImpact: "drops-messages",
       };
     }
-    if (
-      /^claude-3[.-]7/.test(id) ||
-      /^claude-(?:sonnet|opus|haiku)-4/.test(id) ||
-      /^claude-4/.test(id)
-    ) {
+    if (/^claude-3[.-]7/.test(id) || /^claude-(?:sonnet|opus|haiku)-4/.test(id) || id.startsWith("claude-4")) {
       return {
         supportsReasoning: true,
         canDisable: true,
@@ -119,7 +111,7 @@ function classifyNormalizedModel(
   }
 
   // OpenAI / ChatGPT
-  if (/^gpt-6/.test(id)) {
+  if (id.startsWith("gpt-6")) {
     return {
       supportsReasoning: true,
       canDisable: false,
@@ -128,11 +120,7 @@ function classifyNormalizedModel(
       toggleCacheImpact: "drops-full",
     };
   }
-  if (
-    /^gpt-5-(?:pro|codex)/.test(id) ||
-    /^(?:o1|o3|o4)(?:$|[-._:])/.test(id) ||
-    /^gpt-oss/.test(id)
-  ) {
+  if (/^gpt-5-(?:pro|codex)/.test(id) || /^(?:o1|o3|o4)(?:$|[-._:])/.test(id) || id.startsWith("gpt-oss")) {
     return {
       supportsReasoning: true,
       canDisable: false,
@@ -141,7 +129,7 @@ function classifyNormalizedModel(
       toggleCacheImpact: "drops-full",
     };
   }
-  if (/^gpt-5/.test(id)) {
+  if (id.startsWith("gpt-5")) {
     return {
       supportsReasoning: true,
       canDisable: true,
@@ -245,7 +233,7 @@ function classifyNormalizedModel(
   }
 
   // GLM / Z.AI
-  if (/^glm-5(?:\.3|\.2|)/.test(id)) {
+  if (/^glm-5(?:\.3|\.2)?/.test(id)) {
     return {
       supportsReasoning: true,
       canDisable: false,
@@ -306,7 +294,7 @@ function classifyNormalizedModel(
 
   // Other known reasoning families or explicit thinking tag / catalog hint
   if (
-    /^magistral/.test(id) ||
+    id.startsWith("magistral") ||
     /^minimax-m[12]/.test(id) ||
     /^nemotron.*thinking/.test(id) ||
     hasThinkingTag ||
@@ -322,10 +310,7 @@ function classifyNormalizedModel(
  * Classify a model identifier (plus optional provider/catalog hints) into its
  * reasoning effort capabilities and prompt-cache invalidation behavior.
  */
-export function reasoningProfileFor(
-  model: string,
-  hint?: ReasoningProfileHint,
-): ModelReasoningProfile {
+export function reasoningProfileFor(model: string, hint?: ReasoningProfileHint): ModelReasoningProfile {
   if (hint?.supportsReasoning === false) {
     return DISABLED_REASONING_PROFILE;
   }
@@ -378,3 +363,5 @@ export function formatReasoningEffortLabel(effort: ReasoningEffort | "" | null):
   }
   return effort;
 }
+
+export { REASONING_EFFORTS, type ReasoningEffort } from "@inhuman.tools/harness-contract";

@@ -1,8 +1,8 @@
 /** Read a sealed result back from the session graph, paged. */
-import invariant from "tiny-invariant";
 import { documentRoot, SessionRoot, ToolCallJob } from "@inhuman.tools/harness-model";
 import { InhumanTool } from "@inhuman.tools/plugin-sdk";
 import { recallContext } from "@inhuman.tools/turn/tool-runtime";
+import invariant from "tiny-invariant";
 import { z } from "zod";
 
 import { toolResultSchema } from "../schemas/tool-result.js";

@@ -113,13 +113,13 @@ export function majorAmount(value: number | string): string {
     invariant(Number.isFinite(Number(trimmed)), `invalid amount ${value}`);
     return trimmed;
   }
-  if (!Number.isFinite(value)) throw new Error(`invalid amount ${value}`);
+  if (!Number.isFinite(value)) throw new TypeError(`invalid amount ${value}`);
   return String(value);
 }
 
 export function unscale(value: number | string, divisor: number, digits: number): string {
   const n = typeof value === "string" ? Number(value) : value;
-  if (!Number.isFinite(n)) throw new Error(`invalid amount ${value}`);
+  if (!Number.isFinite(n)) throw new TypeError(`invalid amount ${value}`);
   return (n / divisor).toFixed(digits);
 }
 

@@ -1,3 +1,5 @@
+import { REASONING_EFFORTS } from "@inhuman.tools/harness-contract";
+
 /** Provider-declared input support. Missing fields remain unknown, not text-only. */
 export type ModelCapabilities = {
   inputModalities?: string[];
@@ -6,15 +8,7 @@ export type ModelCapabilities = {
   reasoningEfforts?: string[];
 };
 
-const VALID_REASONING_EFFORTS: ReadonlySet<string> = new Set([
-  "none",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-]);
+const VALID_REASONING_EFFORTS: ReadonlySet<string> = new Set(REASONING_EFFORTS);
 
 const REASONING_PARAMETERS: ReadonlySet<string> = new Set([
   "reasoning",
@@ -87,10 +81,7 @@ function reasoningEffortsOf(rec: Record<string, unknown>): string[] | undefined 
       ? (rec.reasoning as Record<string, unknown>)
       : undefined;
   const raw =
-    rec.supported_reasoning_levels ??
-    rec.reasoning_efforts ??
-    reasoningObj?.supported_efforts ??
-    reasoningObj?.efforts;
+    rec.supported_reasoning_levels ?? rec.reasoning_efforts ?? reasoningObj?.supported_efforts ?? reasoningObj?.efforts;
   if (!Array.isArray(raw) || raw.length === 0) return undefined;
   const seen = new Set<string>();
   const efforts: string[] = [];

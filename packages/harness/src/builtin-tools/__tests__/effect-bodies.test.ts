@@ -1,8 +1,8 @@
-import invariant from "tiny-invariant";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import invariant from "tiny-invariant";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { KernelToolCatalog } from "@/tool-catalog";

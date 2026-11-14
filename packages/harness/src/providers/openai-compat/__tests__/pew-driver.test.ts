@@ -227,7 +227,8 @@ function respondTip(
   extra?: { readonly systemNote?: string },
 ): CompletionExpectation {
   const last = cells.at(-1);
-  if (!(last instanceof CompletionExpectation)) throw new Error("respondTip: last cell is not a CompletionExpectation");
+  if (!(last instanceof CompletionExpectation))
+    throw new TypeError("respondTip: last cell is not a CompletionExpectation");
   if (extra?.systemNote !== undefined) last.systemNote = prompt.system`${extra.systemNote}`;
   plexus.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt({ env: { Mode: "act" } }),

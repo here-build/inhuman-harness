@@ -8,6 +8,7 @@ import {
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
+import { reaction } from "mobx";
 import { describe, expect, it } from "vitest";
 
 import { bindSessionCatalog, KernelToolCatalog } from "@/tool-catalog";
@@ -149,7 +150,8 @@ describe("retry budget", () => {
       (r) => r.stampRetryLimits({ maxMs: 0, maxAttempts: 3 }),
     );
     expect({ posts, outcome: round.outcome }).toEqual({ posts: 3, outcome: "failed" });
-    expect(round.failReason).toContain("gave up after 3 attempts");
+    expect(round.failReason).toContain("Stopped after 3 unsuccessful foreground attempts");
+    expect(round.foregroundFailures).toBe(3);
   });
 
   it("gives up after the recorded time", async () => {
@@ -163,9 +165,91 @@ describe("retry budget", () => {
     expect(round.outcome).toBe("failed");
     expect(round.failReason).toContain("of retrying");
   });
+
+  it("counts background and foreground failures separately across a live switch", async () => {
+    let active: CompletionExpectation;
+    const { round, posts } = await run(
+      (n, res) => {
+        if (n === 2) active.retryForeground = true;
+        res.writeHead(503);
+        res.end();
+      },
+      (r) => {
+        active = r;
+        r.retryForeground = false;
+        r.stampRetryLimits({ maxMs: 0, maxAttempts: 2, backgroundMaxAttempts: 0 });
+      },
+    );
+    expect({ posts, foreground: round.foregroundFailures, background: round.backgroundFailures }).toEqual({
+      posts: 5,
+      foreground: 2,
+      background: 3,
+    });
+    expect(round.failReason).toContain("2 unsuccessful foreground attempts");
+  });
+
+  it("uses the background cap when no client is watching", async () => {
+    const { round, posts } = await run(
+      (_n, res) => {
+        res.writeHead(503);
+        res.end();
+      },
+      (r) => {
+        r.retryForeground = false;
+        r.stampRetryLimits({ maxMs: 0, maxAttempts: 15, backgroundMaxAttempts: 2 });
+      },
+    );
+    expect(posts).toBe(2);
+    expect(round.failReason).toContain("2 unsuccessful background attempts");
+  });
+});
+
+describe("structured output failures", () => {
+  it.each([
+    { status: 400, message: "No models loaded. Load a model first.", unsupported: false },
+    { status: 401, message: "Authentication required", unsupported: false },
+    { status: 400, message: "response_format json_schema is not supported by this model", unsupported: true },
+  ])("preserves the cause of HTTP $status: $message", async ({ status, message, unsupported }) => {
+    const { round } = await run(
+      (_n, res) => {
+        res.writeHead(status, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { message } }));
+      },
+      (r) => {
+        r.responseSchema = { type: "object" };
+      },
+    );
+    expect(round.outcome).toBe("failed");
+    expect(round.failReason).toContain(message);
+    expect(round.failReason?.includes("json_schema unsupported")).toBe(unsupported);
+  });
 });
 
 describe("stop reasons on the wire", () => {
+  it("publishes thinking and responding before settling a streamed answer", async () => {
+    const phases: string[] = [];
+    let stop = () => {};
+    try {
+      const { round } = await run(
+        (_n, res) =>
+          sse(res, [
+            { choices: [{ delta: { reasoning_content: "Let me check" } }] },
+            { choices: [{ delta: { content: "Done." }, finish_reason: "stop" }] },
+          ]),
+        (r) => {
+          stop = reaction(
+            () => r.phase,
+            (phase) => phases.push(phase),
+            { fireImmediately: true },
+          );
+        },
+      );
+      expect(round.outcome).toBe("successful");
+      expect(phases).toEqual(["waiting", "thinking", "responding"]);
+    } finally {
+      stop();
+    }
+  });
   it("records the provider's stop reason on the completion", async () => {
     const { round } = await run((_n, res) =>
       sse(res, [

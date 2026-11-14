@@ -15,3 +15,29 @@ export const toolOutcomeSnapSchema = z.object({
   jsonError: z.string().optional(),
 });
 export type ToolOutcomeSnap = z.infer<typeof toolOutcomeSnapSchema>;
+
+/**
+ * Coerce an arbitrary tool return into the canonical outcome snapshot.
+ * A well-formed `{ ok: boolean, … }` object is projected field-by-field;
+ * anything else becomes a successful opaque value. This is the single source
+ * of the coercion — harness builtin-tools and the turn runtime delegate here
+ * instead of re-implementing it.
+ */
+export function asToolOutcome(out: unknown): ToolOutcomeSnap {
+  if (out != null && typeof out === "object" && "ok" in out) {
+    const row = out as Record<string, unknown>;
+    if (typeof row.ok === "boolean") {
+      return {
+        ok: row.ok,
+        ...(typeof row.text === "string" ? { text: row.text } : {}),
+        ...(typeof row.refusalReason === "string" ? { refusalReason: row.refusalReason } : {}),
+        ...("value" in row ? { value: row.value } : {}),
+        ...(row.truncated === true ? { truncated: true } : {}),
+        ...(typeof row.code === "string" ? { code: row.code } : {}),
+        ...("json" in row ? { json: row.json } : {}),
+        ...(typeof row.jsonError === "string" ? { jsonError: row.jsonError } : {}),
+      };
+    }
+  }
+  return { ok: true, value: out };
+}

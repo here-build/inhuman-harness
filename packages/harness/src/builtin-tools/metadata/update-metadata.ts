@@ -1,5 +1,4 @@
 /** Record a normalized session label on this invocation's trajectory. */
-import invariant from "tiny-invariant";
 import {
   clampChars,
   METADATA_SAME_ROUND_NOTE,
@@ -9,6 +8,7 @@ import {
   type SessionMetadataAction,
 } from "@inhuman.tools/harness-model";
 import { InhumanTool } from "@inhuman.tools/plugin-sdk";
+import invariant from "tiny-invariant";
 import { z } from "zod";
 
 import { toolResultSchema } from "../schemas/tool-result.js";

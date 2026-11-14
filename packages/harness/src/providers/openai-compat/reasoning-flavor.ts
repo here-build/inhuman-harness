@@ -8,7 +8,7 @@
  * Chat Completions vs Responses is still `completionApi()`. This table is
  * the Completions/Responses *extension*: which keys, which clamp, which echo.
  */
-export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+import { REASONING_EFFORTS, type ReasoningEffort } from "@inhuman.tools/harness-contract";
 
 export type ReasoningFlavor =
   "none" | "openai" | "chatgpt" | "grok" | "openrouter" | "deepseek" | "gemini" | "groq" | "qwen" | "kimi" | "together";
@@ -34,7 +34,7 @@ export type ReasoningDialect = {
 
 const EMPTY_BODY: Readonly<Record<string, unknown>> = {};
 
-const EFFORTS: ReadonlySet<string> = new Set(["none", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const EFFORTS: ReadonlySet<string> = new Set(REASONING_EFFORTS);
 
 function isEffort(value: string): value is ReasoningEffort {
   return EFFORTS.has(value);
@@ -327,3 +327,5 @@ export function reasoningDialectFor(
     body,
   };
 }
+
+export { type ReasoningEffort } from "@inhuman.tools/harness-contract";

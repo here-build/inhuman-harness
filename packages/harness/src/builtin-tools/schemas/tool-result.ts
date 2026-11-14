@@ -1,19 +1,8 @@
-import { z } from "@inhuman.tools/plugin-sdk";
+import { toolOutcomeSnapSchema } from "@inhuman.tools/harness-model/schemas";
 
-export const toolResultSchema = z.object({
-  ok: z.boolean(),
-  code: z.string().optional(),
-  text: z.string().optional(),
-  value: z.unknown().optional(),
-  json: z.unknown().optional(),
-  truncated: z.boolean().optional(),
-});
-
-export const toolResultShape = z.object({
-  ok: z.boolean(),
-  code: z.string().optional(),
-  text: z.unknown().optional(),
-  value: z.unknown().optional(),
-  json: z.unknown().optional(),
-  truncated: z.boolean().optional(),
-});
+/**
+ * Canonical tool output schema. There is exactly one representation of a tool
+ * outcome — `toolOutcomeSnapSchema`, owned by harness-model. Builtin tools
+ * declare it as their `output:` under the historical name `toolResultSchema`.
+ */
+export const toolResultSchema = toolOutcomeSnapSchema;

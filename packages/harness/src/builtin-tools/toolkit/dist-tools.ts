@@ -18,7 +18,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 
-import { optionalDescription } from "@inhuman.tools/harness-model/schemas";
+import { asToolOutcome, optionalDescription, type ToolOutcomeSnap } from "@inhuman.tools/harness-model/schemas";
 import { InhumanTool } from "@inhuman.tools/plugin-sdk";
 import { extraRootAllowed, ToolError } from "@inhuman.tools/turn/tool-runtime";
 import dedent from "dedent";
@@ -29,7 +29,7 @@ import { namedBotsHome } from "../named-bots-home.js";
 import { MAX_FILE_READ_BYTES, MAX_FILE_WRITE_BYTES } from "./bounds.js";
 import { finderFor } from "./finder.js";
 import { elidedArgumentRef, overwriteExistingDoor, overwriteExistingOf, priorTextSync } from "./write-gate.js";
-import { toolResultSchema, toolResultShape } from "../schemas/tool-result.js";
+import { toolResultSchema } from "../schemas/tool-result.js";
 
 export { ToolError } from "@inhuman.tools/turn/tool-runtime";
 
@@ -40,29 +40,14 @@ type DistContext = {
   readonly onPriorContent?: (text: string | null) => void;
 };
 
-export interface ToolResult {
-  readonly ok: boolean;
-  readonly code?: string;
-  /** Door / dist string payload. Structured results use `value`; paint is squeeze. */
-  readonly text?: string;
-  readonly value?: unknown;
-  readonly json?: unknown;
-  /** Listing/search hit more results than it returned. Markers stay out of `value`. */
-  readonly truncated?: boolean;
-}
+/**
+ * Historical name for the canonical tool outcome (`ToolOutcomeSnap`, owned by
+ * harness-model). An alias, not a second representation.
+ */
+export type ToolResult = ToolOutcomeSnap;
 
-export function asToolResult(out: unknown): ToolResult {
-  const parsed = toolResultShape.safeParse(out);
-  if (!parsed.success) return { ok: true, value: out };
-  return {
-    ok: parsed.data.ok,
-    ...(typeof parsed.data.code === "string" ? { code: parsed.data.code } : {}),
-    ...(typeof parsed.data.text === "string" ? { text: parsed.data.text } : {}),
-    ...(out !== null && typeof out === "object" && "value" in out ? { value: parsed.data.value } : {}),
-    ...(out !== null && typeof out === "object" && "json" in out ? { json: parsed.data.json } : {}),
-    ...(parsed.data.truncated === true ? { truncated: true } : {}),
-  };
-}
+/** The single coercion lives in harness-model; this is a name, not an implementation. */
+export const asToolResult = asToolOutcome;
 
 function optionalString(description: string) {
   return z.preprocess(

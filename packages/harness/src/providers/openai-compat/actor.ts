@@ -809,6 +809,16 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
           await this.#sleepBackoff(n, retryAfter);
           if (this.signal.aborted) return;
         }
+        const exhaustedBeforeAttempt = this.expectation.retryExhausted(runStarted);
+        if (exhaustedBeforeAttempt !== "") {
+          const reason = `${exhaustedBeforeAttempt} ${this.expectation.lastAttemptError}`;
+          runInAction(() => {
+            this.expectation.failReason = reason;
+          });
+          this.fail(reason);
+          return;
+        }
+        const foreground = this.expectation.retryForeground;
         this.#beginAttempt();
         try {
           const turn = owningTurn(this.expectation);
@@ -895,7 +905,15 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
             const transientHttp = response.status === 408 || response.status === 429 || response.status >= 500;
             const schema = this.expectation.responseSchema;
             const schemaSent = schema != null;
-            if (!transientHttp && schemaSent && response.status >= 400 && response.status < 500) {
+            if (
+              !transientHttp &&
+              schemaSent &&
+              response.status === 400 &&
+              /json_schema|response_format|structured[ _-]?outputs?/i.test(errorBody) &&
+              /unsupported|not supported|does not support|not implemented|unrecognized|unknown (?:field|parameter)/i.test(
+                errorBody,
+              )
+            ) {
               throw new Error(`${JSON_SCHEMA_UNSUPPORTED}: ${message}`);
             }
             throw new Error(message);
@@ -935,11 +953,12 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
         } catch (error) {
           if (this.signal.aborted) return;
           if (error instanceof ExpectationInvariant) throw error;
+          const reason = error instanceof Error ? error.message : String(error);
+          this.expectation.recordAttemptFailure(reason, foreground);
           if (error instanceof StreamStallError) abort.abort(error);
           if (!isTransientCompletionError(error)) {
-            const reason = error instanceof Error ? error.message : String(error);
-            this.expectation.failReason = reason;
             runInAction(() => {
+              this.expectation.failReason = reason;
               if (this.#spokenText !== "" || this.#spokenThought !== "") {
                 this.expectation.responseText = this.#spokenText;
                 this.expectation.responseThought = this.#spokenThought;
@@ -949,12 +968,11 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
             this.fail(reason);
             return;
           }
-          const reason = error instanceof Error ? error.message : String(error);
-          const exhausted = this.#retryExhausted(n + 1, runStarted);
+          const exhausted = this.expectation.retryExhausted(runStarted);
           if (exhausted !== "") {
             const final = `${exhausted}: ${reason}`;
-            this.expectation.failReason = final;
             runInAction(() => {
+              this.expectation.failReason = final;
               if (this.#spokenText !== "" || this.#spokenThought !== "") {
                 this.expectation.responseText = this.#spokenText;
                 this.expectation.responseThought = this.#spokenThought;
@@ -983,9 +1001,13 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
     this.#answerDump = null;
     this.#spokenText = "";
     this.#spokenThought = "";
-    this.expectation.beginAttempt(
-      this.driverConnection.cacheFlavor() !== "none" && this.expectation.expectPromptCacheHit(),
-    );
+    runInAction(() => {
+      this.expectation.retryUntilMs = null;
+      this.expectation.phase = "waiting";
+      this.expectation.beginAttempt(
+        this.driverConnection.cacheFlavor() !== "none" && this.expectation.expectPromptCacheHit(),
+      );
+    });
     this.report({
       text: "",
       thought: "",
@@ -995,18 +1017,6 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
     });
   }
 
-  /**
-   * Empty while the round may retry. The budget is recorded on the expectation when the round
-   * starts; zero is no limit, which is the default.
-   */
-  #retryExhausted(attempts: number, startedAt: number): string {
-    const { retryMaxAttempts: maxAttempts, retryMaxMs: maxMs } = this.expectation;
-    if (maxAttempts > 0 && attempts >= maxAttempts) return `gave up after ${attempts} attempts`;
-    if (maxMs > 0 && Date.now() - startedAt >= maxMs)
-      return `gave up after ${Math.round((Date.now() - startedAt) / 1000)}s of retrying`;
-    return "";
-  }
-
   #sleepBackoff(n: number, retryAfter?: number): Promise<void> {
     // Retry-After is a floor on the wait. The cap still bounds it.
     const delay = Math.max(this.backoffMs(n), Math.min(retryAfter ?? 0, BACKOFF_CAP_MS));
@@ -1014,6 +1024,9 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
     const backoff = new AbortController();
     this.#backoffAbort = backoff;
     const retryUntilMs = Date.now() + delay;
+    runInAction(() => {
+      this.expectation.retryUntilMs = retryUntilMs;
+    });
     this.report({
       text: "",
       thought: "",
@@ -1044,11 +1057,12 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
     if (text.length === 0 && thought.length === 0) return;
     this.#spokenText = text;
     this.#spokenThought = thought;
-    if (text.trim() !== "") {
-      runInAction(() => {
+    runInAction(() => {
+      this.expectation.phase = text.trim() !== "" ? "responding" : "thinking";
+      if (text.trim() !== "") {
         this.expectation.markThoughtEnded();
-      });
-    }
+      }
+    });
     this.report({
       text,
       thought,
@@ -1065,6 +1079,7 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
     if (current === "raw" || current === kind) return;
     runInAction(() => {
       this.expectation.responseThoughtKind = kind;
+      if (this.#spokenText.trim() === "") this.expectation.phase = "thinking";
     });
   }
 
@@ -1133,6 +1148,30 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
     const ledger = usageLedger(raw);
     this.#lastRaw = preferCacheResponse(this.#lastRaw, raw);
     runInAction(() => {
+      if (typeof raw === "object" && raw !== null) {
+        const type = readField(raw, "type");
+        const item = readField(raw, "item");
+        const itemType = typeof item === "object" && item !== null ? readField(item, "type") : null;
+        if (type === "response.output_item.added" && itemType === "reasoning" && this.#spokenText === "")
+          this.expectation.phase = "thinking";
+        if (
+          (type === "response.output_item.added" && itemType === "function_call") ||
+          type === "response.function_call_arguments.delta"
+        )
+          this.expectation.phase = "responding";
+        const choices = readField(raw, "choices");
+        if (
+          Array.isArray(choices) &&
+          choices.some((choice: unknown) => {
+            if (typeof choice !== "object" || choice === null) return false;
+            const delta = readField(choice, "delta");
+            if (typeof delta !== "object" || delta === null) return false;
+            const calls = readField(delta, "tool_calls");
+            return Array.isArray(calls) && calls.length > 0;
+          })
+        )
+          this.expectation.phase = "responding";
+      }
       if (ledger.totalTokens != null) this.expectation.totalTokens = ledger.totalTokens;
       if (ledger.cachedTokens != null) {
         this.expectation.cachedTokens = ledger.cachedTokens;

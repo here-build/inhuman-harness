@@ -12,6 +12,7 @@ export const CALL_FAIL_CODES = [
   "expired",
   "rejected",
   "unknown_recipe",
+  "unknown_tool",
   "denied",
   "schema_requires_one_shot",
   "caller_missing",
