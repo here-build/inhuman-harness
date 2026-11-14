@@ -15,6 +15,7 @@ import {
   presenceFrameSchema,
   recentSessionsLaneParamsSchema,
   rowPairId,
+  schemaSql,
   scopeNodesLaneParamsSchema,
   serializedSessionDocumentSchema,
   sessionAttachFrameSchema,
@@ -26,14 +27,19 @@ import {
   shapeUnsubscribeFrameSchema,
   splitRowPairId,
   streamDeltaFrameSchema,
+  tables,
   type SerializedSessionDocument,
   type SessionSyncFrame,
 } from "../index.js";
 import {
   bootstrapHarnessSqliteSql,
   HARNESS_SQLITE_DDL,
+  HARNESS_TABLE_NAMES,
   kernelStateTable,
   pendingAsksTable,
+  pluginStateLogsTable,
+  projectsTable,
+  scmResourcesTable,
   scopeNodesTable,
   sessionBlobsTable,
   sessionEffectsTable,
@@ -46,6 +52,7 @@ describe("schema and wire contract", () => {
   describe("Drizzle table metadata vs SQLite & Postgres DDL", () => {
     const allTables = [
       kernelStateTable,
+      projectsTable,
       scopeNodesTable,
       sessionsTable,
       pendingAsksTable,
@@ -53,6 +60,8 @@ describe("schema and wire contract", () => {
       sessionNodesTable,
       sessionEffectsTable,
       sessionBlobsTable,
+      scmResourcesTable,
+      pluginStateLogsTable,
     ];
 
     it("initializes SQLite cleanly with bootstrapHarnessSqliteSql and matches Drizzle table metadata", () => {
@@ -123,8 +132,26 @@ describe("schema and wire contract", () => {
         .map((m) => m[1]!)
         .sort();
       expect(pgCreatedTables).toEqual(expectedNames);
+      expect(schemaSql()).toBe(bootstrapHarnessPostgresSql);
+      expect([...HARNESS_TABLE_NAMES].sort()).toEqual(expectedNames);
+      for (const table of allTables) {
+        const cfg = getTableConfig(table);
+        const def = tables[cfg.name as keyof typeof tables];
+        expect(def).toBeDefined();
+        expect(def.sql).toBe(cfg.name);
+        const pk = cfg.columns.find((col) => col.primary);
+        expect(pk).toBeDefined();
+        expect(def.keySql).toBe(pk!.name);
+        expect(def.columns.map((col) => col.sql)).toEqual(
+          cfg.columns.filter((col) => !col.primary).map((col) => col.name),
+        );
+      }
+      expect(bootstrapHarnessPostgresSql).toContain("ALTER TABLE kernel_state REPLICA IDENTITY FULL;");
+      expect(bootstrapHarnessPostgresSql).toContain("ALTER TABLE projects REPLICA IDENTITY FULL;");
       expect(bootstrapHarnessPostgresSql).toContain("ALTER TABLE session_nodes REPLICA IDENTITY FULL;");
       expect(bootstrapHarnessPostgresSql).toContain("ALTER TABLE scope_nodes REPLICA IDENTITY FULL;");
+      expect(bootstrapHarnessPostgresSql).toContain("ALTER TABLE scm_resources REPLICA IDENTITY FULL;");
+      expect(bootstrapHarnessPostgresSql).toContain("ALTER TABLE plugin_state_logs REPLICA IDENTITY FULL;");
     });
 
     it("encodes and decodes NUL-free composite keys via rowPairId / splitRowPairId", () => {
@@ -138,21 +165,42 @@ describe("schema and wire contract", () => {
   describe("Update Lane live shapes and unified wire frames", () => {
     it("parses valid lane parameters for all update lanes", () => {
       expect(kernelMetaLaneParamsSchema.parse({})).toEqual({});
-      expect(scopeNodesLaneParamsSchema.parse({ scopeId: "kernel" })).toEqual({ scopeId: "kernel" });
-      expect(sessionNodesLaneParamsSchema.parse({ sessionId: "sess-1" })).toEqual({ sessionId: "sess-1" });
-      expect(activeSessionsLaneParamsSchema.parse({ workspacePath: "/test/ws" })).toEqual({
+      expect(kernelMetaLaneParamsSchema.parse({ kernelId: "tenant-a" })).toEqual({ kernelId: "tenant-a" });
+      expect(scopeNodesLaneParamsSchema.parse({ kernelId: "tenant-a", scopeId: "kernel" })).toEqual({
+        kernelId: "tenant-a",
+        scopeId: "kernel",
+      });
+      expect(sessionNodesLaneParamsSchema.parse({ kernelId: "tenant-a", sessionId: "sess-1" })).toEqual({
+        kernelId: "tenant-a",
+        sessionId: "sess-1",
+      });
+      expect(activeSessionsLaneParamsSchema.parse({ kernelId: "tenant-a", projectId: "proj-1", workspacePath: "/test/ws" })).toEqual({
+        kernelId: "tenant-a",
+        projectId: "proj-1",
         workspacePath: "/test/ws",
       });
       expect(activeSessionsLaneParamsSchema.parse({})).toEqual({});
-      expect(recentSessionsLaneParamsSchema.parse({ limit: 25, workspacePath: "/ws", beforeMs: 5000 })).toEqual({
+      expect(
+        recentSessionsLaneParamsSchema.parse({
+          kernelId: "tenant-a",
+          projectId: "proj-1",
+          limit: 25,
+          workspacePath: "/ws",
+          beforeMs: 5000,
+        }),
+      ).toEqual({
+        kernelId: "tenant-a",
+        projectId: "proj-1",
         limit: 25,
         workspacePath: "/ws",
         beforeMs: 5000,
       });
-      expect(childSessionsLaneParamsSchema.parse({ parentSessionId: "parent-123" })).toEqual({
+      expect(childSessionsLaneParamsSchema.parse({ kernelId: "tenant-a", parentSessionId: "parent-123" })).toEqual({
+        kernelId: "tenant-a",
         parentSessionId: "parent-123",
       });
-      expect(pendingAsksLaneParamsSchema.parse({ sessionId: "sess-456" })).toEqual({
+      expect(pendingAsksLaneParamsSchema.parse({ kernelId: "tenant-a", sessionId: "sess-456" })).toEqual({
+        kernelId: "tenant-a",
         sessionId: "sess-456",
       });
       expect(pendingAsksLaneParamsSchema.parse({})).toEqual({});

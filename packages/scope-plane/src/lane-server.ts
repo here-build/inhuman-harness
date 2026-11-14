@@ -127,16 +127,29 @@ export class UpdateLaneHub {
   }
 
   evaluateLane(frame: ShapeSubscribeFrame): Record<string, unknown>[] {
+    const targetKernelId = frame.params.kernelId ?? this.#database.kernelId;
     switch (frame.lane) {
       case "kernel_meta": {
-        return this.#database.drizzle.select().from(kernelStateTable).where(eq(kernelStateTable.id, "singleton")).all();
+        const rows = this.#database.drizzle
+          .select()
+          .from(kernelStateTable)
+          .where(eq(kernelStateTable.kernelId, targetKernelId))
+          .all();
+        if (rows.length === 0 && targetKernelId === "local") {
+          return this.#database.drizzle
+            .select()
+            .from(kernelStateTable)
+            .where(eq(kernelStateTable.id, "singleton"))
+            .all();
+        }
+        return rows;
       }
 
       case "scope_nodes": {
         return this.#database.drizzle
           .select()
           .from(scopeNodesTable)
-          .where(eq(scopeNodesTable.scopeId, frame.params.scopeId))
+          .where(and(eq(scopeNodesTable.kernelId, targetKernelId), eq(scopeNodesTable.scopeId, frame.params.scopeId)))
           .all();
       }
 
@@ -144,26 +157,35 @@ export class UpdateLaneHub {
         return this.#database.drizzle
           .select()
           .from(sessionNodesTable)
-          .where(eq(sessionNodesTable.sessionId, frame.params.sessionId))
+          .where(
+            and(eq(sessionNodesTable.kernelId, targetKernelId), eq(sessionNodesTable.sessionId, frame.params.sessionId)),
+          )
           .all();
       }
 
       case "active_sessions": {
-        const activeCondition = sql`(${sessionsTable.running} = 1 OR ${sessionsTable.sessionId} IN (SELECT ${pendingAsksTable.sessionId} FROM ${pendingAsksTable}))`;
-        const whereCondition = frame.params.workspacePath
-          ? and(activeCondition, eq(sessionsTable.workspacePath, frame.params.workspacePath))
-          : activeCondition;
+        const activeCondition = sql`(${sessionsTable.running} = 1 OR ${sessionsTable.sessionId} IN (SELECT ${pendingAsksTable.sessionId} FROM ${pendingAsksTable} WHERE ${pendingAsksTable.kernelId} = ${targetKernelId}))`;
+        const conditions = [eq(sessionsTable.kernelId, targetKernelId), activeCondition];
+        if (frame.params.projectId) {
+          conditions.push(eq(sessionsTable.projectId, frame.params.projectId));
+        }
+        if (frame.params.workspacePath) {
+          conditions.push(eq(sessionsTable.workspacePath, frame.params.workspacePath));
+        }
 
         return this.#database.drizzle
           .select()
           .from(sessionsTable)
-          .where(whereCondition)
+          .where(and(...conditions))
           .orderBy(desc(sessionsTable.lastActiveAtMs))
           .all();
       }
 
       case "recent_sessions": {
-        const conditions = [isNull(sessionsTable.archivedAtMs)];
+        const conditions = [eq(sessionsTable.kernelId, targetKernelId), isNull(sessionsTable.archivedAtMs)];
+        if (frame.params.projectId) {
+          conditions.push(eq(sessionsTable.projectId, frame.params.projectId));
+        }
         if (frame.params.workspacePath) {
           conditions.push(eq(sessionsTable.workspacePath, frame.params.workspacePath));
         }
@@ -184,20 +206,27 @@ export class UpdateLaneHub {
         return this.#database.drizzle
           .select()
           .from(sessionsTable)
-          .where(eq(sessionsTable.parentSessionId, frame.params.parentSessionId))
+          .where(
+            and(
+              eq(sessionsTable.kernelId, targetKernelId),
+              eq(sessionsTable.parentSessionId, frame.params.parentSessionId),
+            ),
+          )
           .orderBy(asc(sessionsTable.createdAtMs))
           .all();
       }
 
       case "pending_asks": {
-        const base = this.#database.drizzle.select().from(pendingAsksTable);
+        const conditions = [eq(pendingAsksTable.kernelId, targetKernelId)];
         if (frame.params.sessionId) {
-          return base
-            .where(eq(pendingAsksTable.sessionId, frame.params.sessionId))
-            .orderBy(asc(pendingAsksTable.createdAtMs))
-            .all();
+          conditions.push(eq(pendingAsksTable.sessionId, frame.params.sessionId));
         }
-        return base.orderBy(asc(pendingAsksTable.createdAtMs)).all();
+        return this.#database.drizzle
+          .select()
+          .from(pendingAsksTable)
+          .where(and(...conditions))
+          .orderBy(asc(pendingAsksTable.createdAtMs))
+          .all();
       }
 
       default: {
@@ -213,40 +242,49 @@ export class UpdateLaneHub {
   }
 
   #handleCommit(event: DatabaseCommitEvent): void {
+    const memo = new Map<string, Map<string, { readonly row: Record<string, unknown>; readonly json: string }>>();
+
     for (const sub of this.#subscriptions.values()) {
-      // Fast O(delta) path for scope_nodes and session_nodes
+      const targetKernelId = sub.frame.params.kernelId ?? this.#database.kernelId;
+      const matchesDefaultKernel = targetKernelId === this.#database.kernelId;
+
+      // Fast O(delta) path for scope_nodes and session_nodes on the local/default kernel
       if (sub.frame.lane === "scope_nodes") {
         if (!event.touchedTables.includes("scope_nodes")) continue;
-        const direct = event.scopeNodeChanges?.get(sub.frame.params.scopeId);
-        if (direct) {
-          if (direct.upserts.length === 0 && direct.deletes.length === 0 && !direct.reset) continue;
-          sub.sink({
-            kind: "shape/delta",
-            subscriptionId: sub.subscriptionId,
-            offset: event.offset,
-            upserts: [...direct.upserts],
-            deletes: [...direct.deletes],
-            reset: direct.reset ?? false,
-          });
+        if (matchesDefaultKernel) {
+          const direct = event.scopeNodeChanges?.get(sub.frame.params.scopeId);
+          if (direct) {
+            if (direct.upserts.length === 0 && direct.deletes.length === 0 && !direct.reset) continue;
+            sub.sink({
+              kind: "shape/delta",
+              subscriptionId: sub.subscriptionId,
+              offset: event.offset,
+              upserts: [...direct.upserts],
+              deletes: [...direct.deletes],
+              reset: direct.reset ?? false,
+            });
+          }
+          continue;
         }
-        continue;
       }
 
       if (sub.frame.lane === "session_nodes") {
         if (!event.touchedTables.includes("session_nodes")) continue;
-        const direct = event.sessionNodeChanges?.get(sub.frame.params.sessionId);
-        if (direct) {
-          if (direct.upserts.length === 0 && direct.deletes.length === 0 && !direct.reset) continue;
-          sub.sink({
-            kind: "shape/delta",
-            subscriptionId: sub.subscriptionId,
-            offset: event.offset,
-            upserts: [...direct.upserts],
-            deletes: [...direct.deletes],
-            reset: direct.reset ?? false,
-          });
+        if (matchesDefaultKernel) {
+          const direct = event.sessionNodeChanges?.get(sub.frame.params.sessionId);
+          if (direct) {
+            if (direct.upserts.length === 0 && direct.deletes.length === 0 && !direct.reset) continue;
+            sub.sink({
+              kind: "shape/delta",
+              subscriptionId: sub.subscriptionId,
+              offset: event.offset,
+              upserts: [...direct.upserts],
+              deletes: [...direct.deletes],
+              reset: direct.reset ?? false,
+            });
+          }
+          continue;
         }
-        continue;
       }
 
       const sourceTables = LANE_SOURCE_TABLES[sub.frame.lane];
@@ -255,14 +293,18 @@ export class UpdateLaneHub {
         continue;
       }
 
-      const newRows = this.evaluateLane(sub.frame);
-      const pkField = LANE_PRIMARY_KEYS[sub.frame.lane];
-
-      const newRowMap = new Map<string, { readonly row: Record<string, unknown>; readonly json: string }>();
-      for (const row of newRows) {
-        const pk = String(row[pkField]);
-        const json = JSON.stringify(row);
-        newRowMap.set(pk, { row, json });
+      const cacheKey = `${sub.frame.lane}\0${JSON.stringify(sub.frame.params)}`;
+      let newRowMap = memo.get(cacheKey);
+      if (newRowMap === undefined) {
+        const newRows = this.evaluateLane(sub.frame);
+        const pkField = LANE_PRIMARY_KEYS[sub.frame.lane];
+        newRowMap = new Map<string, { readonly row: Record<string, unknown>; readonly json: string }>();
+        for (const row of newRows) {
+          const pk = String(row[pkField]);
+          const json = JSON.stringify(row);
+          newRowMap.set(pk, { row, json });
+        }
+        memo.set(cacheKey, newRowMap);
       }
 
       const upserts: Record<string, unknown>[] = [];

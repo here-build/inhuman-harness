@@ -5,6 +5,7 @@ export * from "./schema/lanes.js";
 export * from "./schema/patches.js";
 export * from "./schema/postgres.js";
 export * from "./schema/rows.js";
+export * from "./schema/tables.js";
 export * from "./schemas/authorization.js";
 export * from "./schemas/connection.js";
 export * from "./schemas/rpc.js";

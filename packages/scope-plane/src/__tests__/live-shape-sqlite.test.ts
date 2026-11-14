@@ -15,6 +15,8 @@ import { HarnessDatabase } from "../sqlite-database.js";
 @model("test:live-shape:session", sessionsTable)
 class SessionModel extends Model<SessionRow> {
   @column(sessionsTable.sessionId) accessor sessionId!: string;
+  @column(sessionsTable.kernelId) accessor kernelId!: string;
+  @column(sessionsTable.projectId) accessor projectId!: string;
   @column(sessionsTable.title) accessor title!: string;
   @column(sessionsTable.workspacePath) accessor workspacePath!: string;
   @column(sessionsTable.mode) accessor mode!: "assistant" | "agentic";
@@ -33,6 +35,7 @@ class SessionModel extends Model<SessionRow> {
 @model("test:live-shape:pending_ask", pendingAsksTable)
 class PendingAskModel extends Model<PendingAskRow> {
   @column(pendingAsksTable.jobId) accessor jobId!: string;
+  @column(pendingAsksTable.kernelId) accessor kernelId!: string;
   @column(pendingAsksTable.sessionId) accessor sessionId!: string;
   @column(pendingAsksTable.turnId) accessor turnId!: string;
   @column(pendingAsksTable.kind) accessor kind!: "ask" | "ack";
@@ -45,10 +48,12 @@ function makeSessionRow(id: string, overrides: Partial<SessionRow> = {}): Sessio
   const index = Number(id.replaceAll(/\D/g, "")) || 1;
   return {
     sessionId: id,
+    kernelId: "local",
+    projectId: "",
     title: `Session ${id}`,
     workspacePath: "/test/workspace",
     mode: "assistant",
-    permissionMode: "ask",
+    permissionMode: "manual",
     running: false,
     headTurnId: null,
     parentSessionId: null,
@@ -363,10 +368,93 @@ describe("SQLite Storage Engine & LiveShape Reactive Lanes", () => {
       permissionMode: "auto",
       updatedAtMs: 12345,
     });
+    expect(kernelRow.id).toBe("local");
+    expect(kernelRow.kernelId).toBe("local");
     expect(kernelRow.defaultModel).toBe("claude-3-7-sonnet");
     expect(kernelRow.permissionMode).toBe("auto");
 
     stopChild();
     childShape.dispose();
+  });
+
+  it("isolates multi-tenant kernelId and projectId lanes and supports projects/scm_resources/plugin_state_logs CRUD", () => {
+    db.upsertKernelState({
+      id: "tenant-a",
+      kernelId: "tenant-a",
+      defaultModel: "claude-sonnet",
+      enabledPluginsJson: '["todos"]',
+      updatedAtMs: 100,
+    });
+    db.upsertKernelState({
+      id: "tenant-b",
+      kernelId: "tenant-b",
+      defaultModel: "gpt-5",
+      updatedAtMs: 100,
+    });
+
+    db.insertSession(makeSessionRow("ta-p1", { kernelId: "tenant-a", projectId: "proj-1", running: true }));
+    db.insertSession(makeSessionRow("ta-p2", { kernelId: "tenant-a", projectId: "proj-2", running: true }));
+    db.insertSession(makeSessionRow("tb-p1", { kernelId: "tenant-b", projectId: "proj-1", running: true }));
+
+    const transport = createLocalShapeTransport(hub);
+    const shapeAProj1 = new LiveShape(
+      "active_sessions",
+      { kernelId: "tenant-a", projectId: "proj-1" },
+      "sessionId",
+      SessionModel,
+      transport,
+    );
+    const shapeB = new LiveShape("kernel_meta", { kernelId: "tenant-b" }, "id", undefined, transport);
+    shapeAProj1.connect();
+    shapeB.connect();
+
+    expect(shapeAProj1.list.map((s) => s.sessionId)).toEqual(["ta-p1"]);
+    expect((shapeB.list[0] as { defaultModel: string } | undefined)?.defaultModel).toBe("gpt-5");
+
+    db.insertSession(makeSessionRow("ta-p1-new", { kernelId: "tenant-a", projectId: "proj-1", running: true, lastActiveAtMs: 9_000_000 }));
+    expect(shapeAProj1.list.map((s) => s.sessionId).sort()).toEqual(["ta-p1", "ta-p1-new"]);
+    expect(shapeAProj1.rows.has("tb-p1")).toBe(false);
+    expect(shapeAProj1.rows.has("ta-p2")).toBe(false);
+
+    const project = db.upsertProject({
+      projectId: "proj-1",
+      kernelId: "tenant-a",
+      title: "Virtual DB",
+      kind: "virtual",
+      updatedAtMs: 200,
+    });
+    expect(project.kind).toBe("virtual");
+    expect(db.listProjects("tenant-a")).toHaveLength(1);
+    expect(db.deleteProject("proj-1")).toBe(true);
+
+    db.upsertScmResource({
+      id: "scm-1",
+      kernelId: "tenant-a",
+      scope: "project",
+      scopeId: "proj-1",
+      kind: "policy",
+      name: "rules.scm",
+      source: "(allow)",
+      sha256: "hash1",
+      updatedAtMs: 201,
+    });
+    expect(db.listScmResources("project", "proj-1", "policy", "tenant-a")).toHaveLength(1);
+    expect(db.deleteScmResource("scm-1")).toBe(true);
+
+    db.upsertPluginStateLog({
+      id: "log-1",
+      kernelId: "tenant-a",
+      plugin: "memory",
+      scope: "global",
+      scopeId: "tenant-a",
+      namespace: "notes",
+      logJson: '[{"op":"add"}]',
+      updatedAtMs: 202,
+    });
+    expect(db.listPluginStateLogs("memory", "global", "tenant-a", "tenant-a")).toHaveLength(1);
+    expect(db.deletePluginStateLog("log-1")).toBe(true);
+
+    shapeAProj1.dispose();
+    shapeB.dispose();
   });
 });

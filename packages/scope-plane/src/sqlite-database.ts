@@ -1,8 +1,12 @@
 import {
+  HARNESS_TABLE_NAMES,
   bootstrapHarnessSqliteSql,
   kernelStateTable,
   pendingAsksTable,
+  pluginStateLogsTable,
+  projectsTable,
   rowPairId,
+  scmResourcesTable,
   scopeNodesTable,
   sessionBlobsTable,
   sessionEffectsTable,
@@ -10,10 +14,20 @@ import {
   sessionsTable,
   sessionTurnsTable,
   storedModelRowSchema,
+  type HarnessTableName,
   type KernelStateRow,
   type KernelStateRowInsert,
   type PendingAskRow,
   type PendingAskRowInsert,
+  type PluginStateLogRow,
+  type PluginStateLogRowInsert,
+  type PluginStateScope,
+  type ProjectRow,
+  type ProjectRowInsert,
+  type ScmResourceKind,
+  type ScmResourceRow,
+  type ScmResourceRowInsert,
+  type ScmResourceScope,
   type ScopeNodeRow,
   type SessionBlobRow,
   type SessionBlobRowInsert,
@@ -32,21 +46,11 @@ import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
 
 import { migrateLegacySqliteSchema } from "./sqlite-migration.js";
 
-export const HARNESS_TABLE_NAMES = [
-  "kernel_state",
-  "scope_nodes",
-  "sessions",
-  "pending_asks",
-  "session_turns",
-  "session_nodes",
-  "session_effects",
-  "session_blobs",
-] as const;
-
-export type HarnessTableName = (typeof HARNESS_TABLE_NAMES)[number];
+export { HARNESS_TABLE_NAMES, type HarnessTableName };
 
 export const harnessSchema = {
   kernelStateTable,
+  projectsTable,
   scopeNodesTable,
   sessionsTable,
   pendingAsksTable,
@@ -54,6 +58,8 @@ export const harnessSchema = {
   sessionNodesTable,
   sessionEffectsTable,
   sessionBlobsTable,
+  scmResourcesTable,
+  pluginStateLogsTable,
 } as const;
 
 export type HarnessSchema = typeof harnessSchema;
@@ -75,7 +81,9 @@ export interface DatabaseCommitEvent {
 
 export type DatabaseCommitListener = (event: DatabaseCommitEvent) => void;
 
-export type HarnessDatabaseOptions = BetterSqliteOptions;
+export type HarnessDatabaseOptions = BetterSqliteOptions & {
+  readonly kernelId?: string;
+};
 
 interface MutableRowDelta<TRow extends Record<string, unknown>> {
   readonly upserts: Map<string, TRow>;
@@ -106,6 +114,7 @@ function mintInitialCommitOffset(): number {
 export class HarnessDatabase implements Disposable {
   readonly #sqlite: BetterSqliteDatabase;
   readonly #drizzle: BetterSQLite3Database<HarnessSchema>;
+  readonly #kernelId: string;
   readonly #commitListeners = new Set<DatabaseCommitListener>();
   #commitOffset = mintInitialCommitOffset();
   #txDepth = 0;
@@ -114,13 +123,15 @@ export class HarnessDatabase implements Disposable {
   readonly #txSessionNodeChanges = new Map<string, MutableRowDelta<SessionNodeRow>>();
 
   constructor(path = ":memory:", options?: HarnessDatabaseOptions) {
-    this.#sqlite = new Database(path, options);
+    const { kernelId = "local", ...sqliteOptions } = options ?? {};
+    this.#kernelId = kernelId;
+    this.#sqlite = new Database(path, sqliteOptions);
     this.#sqlite.pragma("journal_mode = WAL");
     this.#sqlite.pragma("synchronous = NORMAL");
     this.#sqlite.pragma("foreign_keys = ON");
     this.#sqlite.pragma("busy_timeout = 5000");
-    const migratedLegacy = options?.readonly !== true && migrateLegacySqliteSchema(this.#sqlite);
-    if (options?.readonly !== true) {
+    const migratedLegacy = sqliteOptions.readonly !== true && migrateLegacySqliteSchema(this.#sqlite);
+    if (sqliteOptions.readonly !== true) {
       this.#sqlite.exec(bootstrapHarnessSqliteSql);
       if (migratedLegacy) {
         this.#sqlite
@@ -131,6 +142,10 @@ export class HarnessDatabase implements Disposable {
       }
     }
     this.#drizzle = drizzle(this.#sqlite, { schema: harnessSchema });
+  }
+
+  get kernelId(): string {
+    return this.#kernelId;
   }
 
   get sqlite(): BetterSqliteDatabase {
@@ -263,6 +278,7 @@ export class HarnessDatabase implements Disposable {
       liveIds?.add(id);
       const dbRow: ScopeNodeRow = {
         id,
+        kernelId: this.#kernelId,
         scopeId,
         nodeId: row.uuid,
         tag: row.tag,
@@ -275,6 +291,7 @@ export class HarnessDatabase implements Disposable {
         .onConflictDoUpdate({
           target: scopeNodesTable.id,
           set: {
+            kernelId: dbRow.kernelId,
             tag: dbRow.tag,
             isRoot: dbRow.isRoot,
             revision: dbRow.revision,
@@ -386,6 +403,7 @@ export class HarnessDatabase implements Disposable {
       liveIds?.add(id);
       const dbRow: SessionNodeRow = {
         id,
+        kernelId: this.#kernelId,
         sessionId,
         nodeId: row.uuid,
         tag: row.tag,
@@ -398,6 +416,7 @@ export class HarnessDatabase implements Disposable {
         .onConflictDoUpdate({
           target: sessionNodesTable.id,
           set: {
+            kernelId: dbRow.kernelId,
             tag: dbRow.tag,
             isRoot: dbRow.isRoot,
             revision: dbRow.revision,
@@ -593,31 +612,39 @@ export class HarnessDatabase implements Disposable {
     return meta;
   }
 
-  getKernelState(): KernelStateRow | undefined {
+  getKernelState(kernelId = this.#kernelId): KernelStateRow | undefined {
+    const row = this.#drizzle.select().from(kernelStateTable).where(eq(kernelStateTable.id, kernelId)).get();
+    if (row || kernelId !== "local") {
+      return row;
+    }
     return this.#drizzle.select().from(kernelStateTable).where(eq(kernelStateTable.id, "singleton")).get();
   }
 
   upsertKernelState(state: Partial<KernelStateRowInsert> & { readonly updatedAtMs: number }): KernelStateRow {
     return this.writeTransaction(["kernel_state"], (tx) => {
+      const targetKernelId = state.kernelId ?? this.#kernelId;
+      const targetId = state.id ?? targetKernelId;
       const rowToInsert: KernelStateRowInsert = {
-        id: "singleton",
         defaultModel: "",
-        permissionMode: "ask",
+        permissionMode: "manual",
+        enabledPluginsJson: "[]",
         kvsJson: "{}",
         ...state,
+        id: targetId,
+        kernelId: targetKernelId,
+      };
+      const updateSet = {
+        ...state,
+        kernelId: targetKernelId,
       };
       tx.insert(kernelStateTable)
         .values(rowToInsert)
         .onConflictDoUpdate({
           target: kernelStateTable.id,
-          set: state,
+          set: updateSet,
         })
         .run();
-      const updated = tx
-        .select()
-        .from(kernelStateTable)
-        .where(eq(kernelStateTable.id, rowToInsert.id ?? "singleton"))
-        .get();
+      const updated = tx.select().from(kernelStateTable).where(eq(kernelStateTable.id, targetId)).get();
       if (!updated) {
         throw new Error("Failed to retrieve upserted kernel_state row");
       }
@@ -625,17 +652,80 @@ export class HarnessDatabase implements Disposable {
     });
   }
 
+  getProject(projectId: string): ProjectRow | undefined {
+    return this.#drizzle.select().from(projectsTable).where(eq(projectsTable.projectId, projectId)).get();
+  }
+
+  listProjects(kernelId = this.#kernelId): ProjectRow[] {
+    return this.#drizzle.select().from(projectsTable).where(eq(projectsTable.kernelId, kernelId)).all();
+  }
+
+  upsertProject(row: ProjectRowInsert): ProjectRow {
+    return this.writeTransaction(["projects"], (tx) => {
+      const kernelId = row.kernelId ?? this.#kernelId;
+      const rowToInsert: ProjectRowInsert = {
+        title: "",
+        kind: "local",
+        workspacePath: null,
+        defaultPermissionMode: "manual",
+        authorizationJson: "{}",
+        kvsJson: "{}",
+        lastUsedModelJson: "{}",
+        enabledPluginsJson: "[]",
+        pluginConfigsJson: "{}",
+        botsRosterJson: "{}",
+        trusted: false,
+        contentHash: null,
+        revision: 0,
+        ...row,
+        kernelId,
+      };
+      tx.insert(projectsTable)
+        .values(rowToInsert)
+        .onConflictDoUpdate({
+          target: projectsTable.projectId,
+          set: rowToInsert,
+        })
+        .run();
+      const updated = tx
+        .select()
+        .from(projectsTable)
+        .where(eq(projectsTable.projectId, row.projectId))
+        .get();
+      if (!updated) {
+        throw new Error(`Failed to retrieve upserted project ${row.projectId}`);
+      }
+      return updated;
+    });
+  }
+
+  deleteProject(projectId: string): boolean {
+    return this.writeTransaction(["projects"], (tx) => {
+      const result = tx.delete(projectsTable).where(eq(projectsTable.projectId, projectId)).run();
+      return result.changes > 0;
+    });
+  }
+
   getSession(sessionId: string): SessionRow | undefined {
     return this.#drizzle.select().from(sessionsTable).where(eq(sessionsTable.sessionId, sessionId)).get();
   }
 
-  listSessions(): SessionRow[] {
+  listSessions(kernelId?: string): SessionRow[] {
+    if (kernelId !== undefined) {
+      return this.#drizzle.select().from(sessionsTable).where(eq(sessionsTable.kernelId, kernelId)).all();
+    }
     return this.#drizzle.select().from(sessionsTable).all();
   }
 
   insertSession(session: SessionRowInsert): SessionRow {
     return this.writeTransaction(["sessions"], (tx) => {
-      tx.insert(sessionsTable).values(session).run();
+      const rowToInsert: SessionRowInsert = {
+        ...session,
+        kernelId: session.kernelId ?? this.#kernelId,
+        projectId: session.projectId ?? "",
+        permissionMode: session.permissionMode ?? "manual",
+      };
+      tx.insert(sessionsTable).values(rowToInsert).run();
       const created = tx.select().from(sessionsTable).where(eq(sessionsTable.sessionId, session.sessionId)).get();
       if (!created) {
         throw new Error(`Failed to retrieve inserted session ${session.sessionId}`);
@@ -687,7 +777,9 @@ export class HarnessDatabase implements Disposable {
 
   insertPendingAsk(ask: PendingAskRowInsert): PendingAskRow {
     return this.writeTransaction(["pending_asks"], (tx) => {
-      tx.insert(pendingAsksTable).values(ask).run();
+      tx.insert(pendingAsksTable)
+        .values({ ...ask, kernelId: ask.kernelId ?? this.#kernelId })
+        .run();
       const created = tx.select().from(pendingAsksTable).where(eq(pendingAsksTable.jobId, ask.jobId)).get();
       if (!created) {
         throw new Error(`Failed to retrieve inserted pending_ask ${ask.jobId}`);
@@ -718,7 +810,9 @@ export class HarnessDatabase implements Disposable {
 
   insertSessionTurn(turn: SessionTurnRowInsert): SessionTurnRow {
     return this.writeTransaction(["session_turns"], (tx) => {
-      tx.insert(sessionTurnsTable).values(turn).run();
+      tx.insert(sessionTurnsTable)
+        .values({ ...turn, kernelId: turn.kernelId ?? this.#kernelId })
+        .run();
       const created = tx.select().from(sessionTurnsTable).where(eq(sessionTurnsTable.turnId, turn.turnId)).get();
       if (!created) {
         throw new Error(`Failed to retrieve inserted session_turn ${turn.turnId}`);
@@ -767,6 +861,7 @@ export class HarnessDatabase implements Disposable {
     const row: SessionEffectRowInsert = {
       ...effect,
       id,
+      kernelId: effect.kernelId ?? this.#kernelId,
       phase: effect.phase ?? "committed",
     };
     tx.insert(sessionEffectsTable)
@@ -807,7 +902,7 @@ export class HarnessDatabase implements Disposable {
   insertSessionBlobInTx(tx: HarnessDrizzleTx, blob: Omit<SessionBlobRowInsert, "id"> & { readonly id?: string }): void {
     const id = blob.id ?? rowPairId(blob.sessionId, blob.blobId);
     tx.insert(sessionBlobsTable)
-      .values({ ...blob, id })
+      .values({ ...blob, id, kernelId: blob.kernelId ?? this.#kernelId })
       .onConflictDoNothing()
       .run();
   }
@@ -827,6 +922,106 @@ export class HarnessDatabase implements Disposable {
   listReferencedBlobIds(): string[] {
     const rows = this.#drizzle.selectDistinct({ blobId: sessionBlobsTable.blobId }).from(sessionBlobsTable).all();
     return rows.map((r) => r.blobId);
+  }
+
+  getScmResource(id: string): ScmResourceRow | undefined {
+    return this.#drizzle.select().from(scmResourcesTable).where(eq(scmResourcesTable.id, id)).get();
+  }
+
+  listScmResources(
+    scope?: ScmResourceScope,
+    scopeId?: string,
+    kind?: ScmResourceKind,
+    kernelId = this.#kernelId,
+  ): ScmResourceRow[] {
+    const conditions = [eq(scmResourcesTable.kernelId, kernelId)];
+    if (scope !== undefined) conditions.push(eq(scmResourcesTable.scope, scope));
+    if (scopeId !== undefined) conditions.push(eq(scmResourcesTable.scopeId, scopeId));
+    if (kind !== undefined) conditions.push(eq(scmResourcesTable.kind, kind));
+    return this.#drizzle
+      .select()
+      .from(scmResourcesTable)
+      .where(and(...conditions))
+      .all();
+  }
+
+  upsertScmResource(row: ScmResourceRowInsert): ScmResourceRow {
+    return this.writeTransaction(["scm_resources"], (tx) => {
+      const rowToInsert: ScmResourceRowInsert = {
+        ...row,
+        kernelId: row.kernelId ?? this.#kernelId,
+      };
+      tx.insert(scmResourcesTable)
+        .values(rowToInsert)
+        .onConflictDoUpdate({
+          target: scmResourcesTable.id,
+          set: rowToInsert,
+        })
+        .run();
+      const updated = tx.select().from(scmResourcesTable).where(eq(scmResourcesTable.id, row.id)).get();
+      if (!updated) {
+        throw new Error(`Failed to retrieve upserted scm_resource ${row.id}`);
+      }
+      return updated;
+    });
+  }
+
+  deleteScmResource(id: string): boolean {
+    return this.writeTransaction(["scm_resources"], (tx) => {
+      const result = tx.delete(scmResourcesTable).where(eq(scmResourcesTable.id, id)).run();
+      return result.changes > 0;
+    });
+  }
+
+  getPluginStateLog(id: string): PluginStateLogRow | undefined {
+    return this.#drizzle.select().from(pluginStateLogsTable).where(eq(pluginStateLogsTable.id, id)).get();
+  }
+
+  listPluginStateLogs(
+    plugin?: string,
+    scope?: PluginStateScope,
+    scopeId?: string,
+    kernelId = this.#kernelId,
+  ): PluginStateLogRow[] {
+    const conditions = [eq(pluginStateLogsTable.kernelId, kernelId)];
+    if (plugin !== undefined) conditions.push(eq(pluginStateLogsTable.plugin, plugin));
+    if (scope !== undefined) conditions.push(eq(pluginStateLogsTable.scope, scope));
+    if (scopeId !== undefined) conditions.push(eq(pluginStateLogsTable.scopeId, scopeId));
+    return this.#drizzle
+      .select()
+      .from(pluginStateLogsTable)
+      .where(and(...conditions))
+      .all();
+  }
+
+  upsertPluginStateLog(row: PluginStateLogRowInsert): PluginStateLogRow {
+    return this.writeTransaction(["plugin_state_logs"], (tx) => {
+      const rowToInsert: PluginStateLogRowInsert = {
+        namespace: "default",
+        logJson: "[]",
+        ...row,
+        kernelId: row.kernelId ?? this.#kernelId,
+      };
+      tx.insert(pluginStateLogsTable)
+        .values(rowToInsert)
+        .onConflictDoUpdate({
+          target: pluginStateLogsTable.id,
+          set: rowToInsert,
+        })
+        .run();
+      const updated = tx.select().from(pluginStateLogsTable).where(eq(pluginStateLogsTable.id, row.id)).get();
+      if (!updated) {
+        throw new Error(`Failed to retrieve upserted plugin_state_log ${row.id}`);
+      }
+      return updated;
+    });
+  }
+
+  deletePluginStateLog(id: string): boolean {
+    return this.writeTransaction(["plugin_state_logs"], (tx) => {
+      const result = tx.delete(pluginStateLogsTable).where(eq(pluginStateLogsTable.id, id)).run();
+      return result.changes > 0;
+    });
   }
 
   close(): void {

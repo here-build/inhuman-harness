@@ -24,7 +24,7 @@
 | --- | --- | --- | --- |
 | [../../README.md](../../README.md) | Публичный вход | Описывает локальный CLI/Web продукт (`npx inhuman`). Актуален для `Local Contour`; после Волны 5 дополнить ссылкой на переносимую серверную поставку | Оставить без изменений до Волны 5 |
 | [../usage.md](../usage.md) | Руководство оператора | Актуально для `Local Contour` (`~/.harness`, `manual`/`auto`/`yolo`). Упоминание «Closing either client ... this is not cloud execution» остается верным для локального режима | Сохранить как операторский гайд CLI |
-| [../packages.md](../packages.md) | Карта пакетов | Частичный дрейф: все еще называет `scope-plane`, `scope-plane-electric`, `scope-plane-tinybase` приватными хотя манифесты у `scope-plane` публичны (отмечено и в [аудите](../audits/2026-11-12-architecture-audit.md#L67)) | Обновить по мере рефакторинга в Волне 1 и Волне 5 |
+| [../packages.md](../packages.md) | Карта пакетов | Обновлено в Волне 1 (`scope-plane` публичный с каноническим 11-табличным `RowPlane`; приватные адаптеры `scope-plane-electric`, `scope-plane-tinybase`) | Остальные пакеты дообновить в Волне 5 |
 | [../package-guidelines.md](../package-guidelines.md) | Стандарт пакетов | Актуален | Сохранить |
 | [../testing.md](../testing.md) | Инженерная спецификация | Актуален; в Волне 0.5 дополнить ссылкой на стандартные бенчмарки | Дополнить после Волны 0.5/1 |
 | [../react-round-lifecycle.md](../react-round-lifecycle.md) | Спецификация рантайма | **Частичный дрейф лексики**: строки 24, 114, 124–126 по-прежнему ссылаются на `Plexus syncing action`, `MobX actions alone do not make Yjs updates atomic`, `Yjs update` и `DocumentService` вместо `DocumentContainer.transact` | Обновить формулировки синхронизации после Волны 2 |
@@ -41,9 +41,9 @@
 
 Эти расхождения напрямую закрываются Волнами 1–5:
 
-1. **Две конкурирующие схемы внутри `packages/scope-plane`**:
-   - актуальная 8-табличная `HarnessDatabase` ([sqlite-database.ts](../../packages/scope-plane/src/sqlite-database.ts)) на контракте [sqlite.ts](../../packages/harness-contract/src/schema/sqlite.ts);
-   - старая 10-табличная [schema.ts](../../packages/scope-plane/src/schema.ts) (`scopes`, `config`, `overviews`, `roster`, `generations`, ...), от которой зависят `scope-plane-electric` и `scope-plane-tinybase`.
+1. ~~**Две конкурирующие схемы внутри `packages/scope-plane`**~~ *(закрыто в Волне 1)*:
+   - единая 11-табличная мульти-тенантная схема зафиксирована в каноническом контракте ([tables.ts](../../packages/harness-contract/src/schema/tables.ts), [sqlite.ts](../../packages/harness-contract/src/schema/sqlite.ts), [postgres.ts](../../packages/harness-contract/src/schema/postgres.ts));
+   - старая 10-табличная схема в `packages/scope-plane` удалена, а [scope-plane](../../packages/scope-plane/src/row-plane.ts), [scope-plane-electric](../../packages/scope-plane-electric/src/index.ts) и [scope-plane-tinybase](../../packages/scope-plane-tinybase/src/index.ts) переведены на `RowPlane` поверх 11 канонических таблиц.
 2. **Процессные синглтоны состояния**: `seated` в [blobs/store.ts](../../packages/harness/src/server/blobs/store.ts#L20), `rootDir` в [visual-store.ts](../../packages/harness/src/server/daemon/session/visual-store.ts#L20), а также [secrets.ts](../../packages/harness/src/server/secrets.ts) не привязаны к конкретному `KernelDaemon`.
 3. **Завязка `Project` и `policy` на локальную ФС**: [ProjectDaemon.ts](../../packages/harness/src/server/daemon/project/ProjectDaemon.ts#L49-L80) делает `realpathSync` / `statSync().isDirectory()` / `mkdirSync` / `BotsWatcher`; [real-path.ts](../../packages-runtime/turn/src/policy-processor/real-path.ts) и [write-admit.ts](../../packages-runtime/turn/src/tool-runtime/write-admit.ts) вызывают `node:fs` на хосте демона; [state-store.ts](../../packages/harness/src/extensions/state-store.ts#L65-L77) пишет `project`/`global` логи плагинов на диск мимо БД.
 4. **Недостающая защита `readOnly` на клиенте** и ручная проекция `@column`-полей `SessionRoot`/`SessionTurn` (отмечено в [аудите](../audits/2026-11-12-architecture-audit.md#L21) и сохраняется в списке работ Волны 2).

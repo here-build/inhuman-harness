@@ -345,6 +345,12 @@ describe("normalized SQL documents, Electric message folding, and O(delta) lanes
     const validRow = validDoc.takeNodeDelta().upserts[0]!;
     validDoc.destroy();
 
+    raw
+      .prepare(
+        "INSERT INTO kernel_state (id, default_model, permission_mode, kvs_json, updated_at_ms) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run("singleton", "gpt-4o", "auto", '{"theme":"dark"}', 99);
+
     const packedRow = {
       format: "content-v1",
       value: { ...validRow, state: { ...validRow.state, text: null } },
@@ -432,6 +438,20 @@ describe("normalized SQL documents, Electric message folding, and O(delta) lanes
     expect(tableNames.has("session_updates")).toBe(false);
     expect(tableNames.has("session_documents")).toBe(false);
     expect(tableNames.has("shared_payloads")).toBe(false);
+    expect(tableNames.has("projects")).toBe(true);
+    expect(tableNames.has("scm_resources")).toBe(true);
+    expect(tableNames.has("plugin_state_logs")).toBe(true);
+
+    const migratedKernel = db.getKernelState();
+    expect(migratedKernel).toEqual({
+      id: "local",
+      kernelId: "local",
+      defaultModel: "gpt-4o",
+      permissionMode: "auto",
+      enabledPluginsJson: "[]",
+      kvsJson: '{"theme":"dark"}',
+      updatedAtMs: 99,
+    });
     db.close();
 
     // Reopening an already-migrated DB is idempotent.

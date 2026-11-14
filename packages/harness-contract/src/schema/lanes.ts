@@ -20,29 +20,39 @@ export const UPDATE_LANE_NAMES = [
 export const updateLaneNameSchema = z.enum(UPDATE_LANE_NAMES);
 export type UpdateLaneName = z.infer<typeof updateLaneNameSchema>;
 
-export const kernelMetaLaneParams = z.object({}).strict();
+export const kernelMetaLaneParams = z
+  .object({
+    kernelId: z.string().trim().min(1).optional(),
+  })
+  .strict();
 export const kernelMetaLaneParamsSchema = kernelMetaLaneParams;
 export type KernelMetaLaneParams = z.infer<typeof kernelMetaLaneParams>;
 
 export const scopeNodesLaneParams = z.object({
+  kernelId: z.string().trim().min(1).optional(),
   scopeId: z.string().trim().min(1, "scopeId is required"),
 });
 export const scopeNodesLaneParamsSchema = scopeNodesLaneParams;
 export type ScopeNodesLaneParams = z.infer<typeof scopeNodesLaneParams>;
 
 export const sessionNodesLaneParams = z.object({
+  kernelId: z.string().trim().min(1).optional(),
   sessionId: z.string().trim().min(1, "sessionId is required"),
 });
 export const sessionNodesLaneParamsSchema = sessionNodesLaneParams;
 export type SessionNodesLaneParams = z.infer<typeof sessionNodesLaneParams>;
 
 export const activeSessionsLaneParams = z.object({
+  kernelId: z.string().trim().min(1).optional(),
+  projectId: z.string().trim().min(1).optional(),
   workspacePath: z.string().trim().min(1).optional(),
 });
 export const activeSessionsLaneParamsSchema = activeSessionsLaneParams;
 export type ActiveSessionsLaneParams = z.infer<typeof activeSessionsLaneParams>;
 
 export const recentSessionsLaneParams = z.object({
+  kernelId: z.string().trim().min(1).optional(),
+  projectId: z.string().trim().min(1).optional(),
   workspacePath: z.string().trim().min(1).optional(),
   limit: z.number().int().positive(),
   beforeMs: z.number().int().nonnegative().optional(),
@@ -51,12 +61,14 @@ export const recentSessionsLaneParamsSchema = recentSessionsLaneParams;
 export type RecentSessionsLaneParams = z.infer<typeof recentSessionsLaneParams>;
 
 export const childSessionsLaneParams = z.object({
+  kernelId: z.string().trim().min(1).optional(),
   parentSessionId: z.string().trim().min(1, "parentSessionId is required"),
 });
 export const childSessionsLaneParamsSchema = childSessionsLaneParams;
 export type ChildSessionsLaneParams = z.infer<typeof childSessionsLaneParams>;
 
 export const pendingAsksLaneParams = z.object({
+  kernelId: z.string().trim().min(1).optional(),
   sessionId: z.string().trim().min(1).optional(),
 });
 export const pendingAsksLaneParamsSchema = pendingAsksLaneParams;

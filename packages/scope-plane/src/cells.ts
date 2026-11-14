@@ -1,28 +1,8 @@
-import type { CellKind } from "./schema.js";
+import { rowPairId, type CellKind } from "@inhuman.tools/harness-contract/schema";
 
 export type Cell = string | number | boolean;
 
 export type Row = Readonly<Record<string, Cell>>;
-
-export class ScopeMissing extends Error {
-  readonly scopeId: string;
-
-  constructor(scopeId: string) {
-    super(`scope missing: ${scopeId}`);
-    this.name = "ScopeMissing";
-    this.scopeId = scopeId;
-  }
-}
-
-export class ScopeCycle extends Error {
-  readonly scopeId: string;
-
-  constructor(scopeId: string) {
-    super(`scope cycle at ${scopeId}`);
-    this.name = "ScopeCycle";
-    this.scopeId = scopeId;
-  }
-}
 
 export class ScopeKey extends Error {
   constructor(message: string) {
@@ -36,7 +16,7 @@ export function pairId(scopeId: string, part: string): string {
   if (scopeId.includes("\0") || part.includes("\0")) {
     throw new ScopeKey("scope id and key must not contain NUL");
   }
-  return JSON.stringify([scopeId, part]);
+  return rowPairId(scopeId, part);
 }
 
 export function text(row: Row | undefined, key: string): string | null {

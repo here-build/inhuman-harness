@@ -1,382 +1,250 @@
 import { describe, expect, it } from "vitest";
 
-import { ScopeCycle, ScopeKey, ScopeMissing, type Row } from "../cells.js";
-import { createScopePlane, type ScopePlane, type ScopeView } from "../plane.js";
-import type { RowPlane } from "../row-plane.js";
-import { schemaSql, type TableName } from "../schema.js";
+import {
+  HARNESS_TABLE_NAMES,
+  ScopeKey,
+  coerceCell,
+  columnOf,
+  pairId,
+  schemaSql,
+  tables,
+  type Row,
+  type RowMatch,
+  type RowPlane,
+  type TableName,
+} from "../index.js";
 
-const glance = {
-  sessionId: "sess-1",
-  scopeId: "child",
-  title: "Notes",
-  lastMessageAt: 10,
-  recipeScope: "",
-  specName: "",
-  resident: false,
-  keepAlive: false,
-  oneShot: false,
-  model: "grok",
-  status: "writing",
-  midMotion: true,
-  openTurn: true,
-  openToolCount: 1,
-  periodArmed: false,
-  openCallbackCount: 0,
-  asking: false,
-  unfinished: "turn",
-  lastPrompt: "look",
-  askLine: "",
-  questionLine: "",
-};
+function createMemoryRowPlane(): RowPlane {
+  const stores = new Map<TableName, Map<string, Row>>();
+  const watchers = new Map<TableName, Set<() => void>>();
 
-function createMemoryRows(): RowPlane {
-  const bags = new Map<TableName, Map<string, Row>>();
-  const listeners: Array<{ table: TableName; onChange: () => void }> = [];
-
-  function bag(table: TableName): Map<string, Row> {
-    const existing = bags.get(table);
-    if (existing != null) return existing;
-    const created = new Map<string, Row>();
-    bags.set(table, created);
-    return created;
-  }
-
-  function poke(table: TableName): void {
-    for (const listener of listeners) {
-      if (listener.table === table) listener.onChange();
+  const tableMap = (table: TableName): Map<string, Row> => {
+    let m = stores.get(table);
+    if (!m) {
+      m = new Map();
+      stores.set(table, m);
     }
-  }
+    return m;
+  };
 
-  const rows: RowPlane = {
+  const notify = (table: TableName): void => {
+    for (const cb of watchers.get(table) ?? []) {
+      cb();
+    }
+  };
+
+  const makePlane = (snapshotData?: Map<TableName, Map<string, Row>>): RowPlane => ({
     async get(table, id) {
-      const row = bag(table).get(id);
-      return row == null ? undefined : { ...row };
+      const m = (snapshotData ?? stores).get(table);
+      const row = m?.get(id);
+      return row ? { ...row } : undefined;
     },
     async list(table, column, equals) {
-      const found: { id: string; row: Row }[] = [];
-      for (const [id, row] of bag(table)) {
-        if (row[column] === equals) found.push({ id, row: { ...row } });
+      const m = (snapshotData ?? stores).get(table);
+      if (!m) return [];
+      const out: { id: string; row: Row }[] = [];
+      for (const [id, row] of m) {
+        if (row[column] === equals) out.push({ id, row: { ...row } });
       }
-      return found;
+      return out;
     },
     async put(table, id, row) {
-      bag(table).set(id, { ...row });
-      poke(table);
+      tableMap(table).set(id, { ...row });
+      notify(table);
     },
     async remove(table, id) {
-      bag(table).delete(id);
-      poke(table);
+      if (tableMap(table).delete(id)) {
+        notify(table);
+      }
     },
-    async replaceIf(table, id, column, expected, row) {
-      const rowsForTable = bag(table);
-      const current = rowsForTable.get(id);
-      if (expected === undefined) {
-        if (current != null) return false;
-      } else if (current?.[column] !== expected) return false;
-      rowsForTable.set(id, { ...row });
-      poke(table);
-      return true;
-    },
-    async insertIfAbsent(table, id, row) {
-      const rowsForTable = bag(table);
-      if (rowsForTable.has(id)) return false;
-      rowsForTable.set(id, { ...row });
-      poke(table);
+    async replaceIf(table, id, column, expectVal, row) {
+      const m = tableMap(table);
+      const existing = m.get(id);
+      if (expectVal === undefined) {
+        if (existing !== undefined) return false;
+        m.set(id, { ...row });
+        notify(table);
+        return true;
+      }
+      if (!existing || existing[column] !== expectVal) return false;
+      m.set(id, { ...row });
+      notify(table);
       return true;
     },
     async replaceIfMatch(table, id, expected, row) {
-      const current = bag(table).get(id);
-      if (current == null || !Object.entries(expected).every(([key, value]) => current[key] === value)) return false;
-      bag(table).set(id, { ...row });
-      poke(table);
+      const m = tableMap(table);
+      const existing = m.get(id);
+      if (!existing) return false;
+      for (const [k, v] of Object.entries(expected)) {
+        if (existing[k] !== v) return false;
+      }
+      m.set(id, { ...row });
+      notify(table);
+      return true;
+    },
+    async insertIfAbsent(table, id, row) {
+      const m = tableMap(table);
+      if (m.has(id)) return false;
+      m.set(id, { ...row });
+      notify(table);
       return true;
     },
     async removeIf(table, id, expected) {
-      const rowsForTable = bag(table);
-      const current = rowsForTable.get(id);
-      if (current == null) return false;
-      for (const [key, value] of Object.entries(expected)) {
-        if (current[key] !== value) return false;
+      const m = tableMap(table);
+      const existing = m.get(id);
+      if (!existing) return false;
+      for (const [k, v] of Object.entries(expected)) {
+        if (existing[k] !== v) return false;
       }
-      rowsForTable.delete(id);
-      poke(table);
+      m.delete(id);
+      notify(table);
       return true;
     },
-    watch(table, _match, onChange) {
-      const listener = { table, onChange };
-      listeners.push(listener);
+    watch(table, _match: RowMatch, onChange) {
+      let set = watchers.get(table);
+      if (!set) {
+        set = new Set();
+        watchers.set(table, set);
+      }
+      set.add(onChange);
       return () => {
-        const index = listeners.indexOf(listener);
-        if (index !== -1) listeners.splice(index, 1);
+        set.delete(onChange);
       };
     },
-  };
-  return rows;
-}
-
-function contract(open: () => Promise<{ plane: ScopePlane; close(): Promise<void> }>): void {
-  it("overlays parent config and kv, and keeps the roster local", async () => {
-    const opened = await open();
-    const { plane } = opened;
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    await plane.ensureScope({ id: "child", parentId: "root", path: "/work" });
-    expect(await plane.publishConfig("root", 0, { defaultPermissionMode: "manual", compactKeepTurns: 4 })).toBe(1);
-    expect(await plane.publishConfig("child", 0, { defaultPermissionMode: "ask" })).toBe(1);
-    await plane.putKv("root", "color", "blue");
-    await plane.putKv("root", "size", "1");
-    await plane.putKv("child", "color", "red");
-    expect(await plane.insertRoster("root", "echo", "root-bot")).toBe(true);
-    expect(await plane.insertRoster("child", "echo", "child-bot")).toBe(true);
-    expect(await plane.insertRoster("child", "echo", "other")).toBe(false);
-    expect(await plane.insertRoster("child", "echo", "child-bot")).toBe(true);
-
-    const view = await plane.read("child");
-    expect(view).toMatchObject({
-      id: "child",
-      parentId: "root",
-      path: "/work",
-      chain: ["root", "child"],
-      generation: 1,
-      config: { defaultPermissionMode: "ask", compactKeepTurns: 4, statusline: null },
-      kv: { color: "red", size: "1" },
-      roster: { echo: "child-bot" },
-    });
-    expect(await plane.publishConfig("child", 1, { defaultPermissionMode: null, statusline: "git" })).toBe(2);
-    const cleared = await plane.read("child");
-    expect(cleared?.config.defaultPermissionMode).toBe("manual");
-    expect(cleared?.config.statusline).toBe("git");
-    expect(cleared?.config.compactKeepTurns).toBe(4);
-    await opened.close();
-  });
-
-  it("rejects a stale config generation and a stale lease", async () => {
-    const opened = await open();
-    const { plane } = opened;
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    expect(await plane.publishConfig("root", 3, { superKey: "cmd" })).toBeNull();
-    expect(await plane.publishConfig("root", 0, { superKey: "cmd" })).toBe(1);
-    expect(await plane.publishConfig("root", 0, { superKey: "ctrl" })).toBeNull();
-    const kept = await plane.read("root");
-    expect(kept?.config.superKey).toBe("cmd");
-
-    expect(await plane.claimGeneration("sess", "root", 0, "worker-a")).toBe(1);
-    expect(await plane.claimGeneration("sess", "root", 0, "worker-b")).toBeNull();
-    expect(await plane.claimGeneration("sess", "root", 1, "worker-b")).toBe(2);
-    expect(await plane.releaseGeneration("sess", 2, "worker-a")).toBe(false);
-    expect(await plane.releaseGeneration("sess", 2, "worker-b")).toBe(true);
-    expect(await plane.claimGeneration("sess", "root", 0, "worker-a")).toBe(3);
-    await opened.close();
-  });
-
-  it("lists overviews on the child only and wakes a watcher", async () => {
-    const opened = await open();
-    const { plane } = opened;
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    await plane.ensureScope({ id: "child", parentId: "root", path: "/work" });
-    let resolveArmed: () => void = () => undefined;
-    const armed = new Promise<void>((resolve) => {
-      resolveArmed = resolve;
-    });
-    let resolveSeen: (view: ScopeView | null) => void = () => undefined;
-    const seen = new Promise<ScopeView | null>((resolve) => {
-      resolveSeen = resolve;
-    });
-    const stop = plane.watch("child", (view) => {
-      resolveArmed();
-      if (view?.overviews[0]?.title === "Notes") resolveSeen(view);
-    });
-    await armed;
-    await plane.writeOverview(glance);
-    const view = await seen;
-    stop();
-    expect(view?.overviews.map((row) => row.sessionId)).toEqual(["sess-1"]);
-    const root = await plane.read("root");
-    expect(root?.overviews).toEqual([]);
-    await opened.close();
-  });
-
-  it("refuses a missing parent, a cycle, and a NUL key", async () => {
-    const opened = await open();
-    const { plane } = opened;
-    await plane.ensureScope({ id: "child", parentId: "gone", path: null });
-    await expect(plane.read("child")).rejects.toBeInstanceOf(ScopeMissing);
-    await plane.ensureScope({ id: "a", parentId: "b", path: null });
-    await plane.ensureScope({ id: "b", parentId: "a", path: null });
-    await expect(plane.read("a")).rejects.toBeInstanceOf(ScopeCycle);
-    await expect(plane.putKv("a", "bad\0key", "x")).rejects.toBeInstanceOf(ScopeKey);
-    await opened.close();
-  });
-
-  it("keeps pane, usage, and calls on this scope and overlays last-used models", async () => {
-    const opened = await open();
-    const { plane } = opened;
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    await plane.ensureScope({ id: "child", parentId: "root", path: "/work", trusted: true, contentHash: "abc" });
-    await plane.putTermContinue("child", "desk", "sess-1");
-    await plane.putTermContinue("root", "desk", "other");
-    await plane.stampModelUsage("child", "grok/grok-4", 9);
-    await plane.putLastUsedModel("root", "grok", "grok-4");
-    await plane.putLastUsedModel("child", "openai", "gpt");
-    await plane.writeAgentCall({
-      callId: "call-1",
-      scopeId: "child",
-      callerSessionId: "a",
-      workerSessionId: "b",
-      spec: "bot",
-      oneShot: true,
-      completed: false,
-    });
-    await plane.writeAgentCall({
-      callId: "call-2",
-      scopeId: "root",
-      callerSessionId: "a",
-      workerSessionId: "c",
-      spec: "",
-      oneShot: false,
-      completed: true,
-    });
-    const view = await plane.read("child");
-    expect(view).toMatchObject({
-      trusted: true,
-      contentHash: "abc",
-      termContinue: { desk: "sess-1" },
-      modelsUsage: { "grok/grok-4": 9 },
-      lastUsedConnectionModel: { grok: "grok-4", openai: "gpt" },
-    });
-    expect(view?.agentCalls.map((call) => call.callId)).toEqual(["call-1"]);
-    await plane.putTermContinue("child", "desk", null);
-    await plane.putLastUsedModel("child", "openai", null);
-    await plane.removeAgentCall("call-1");
-    await plane.stampScope("child", { contentHash: "" });
-    const cleared = await plane.read("child");
-    expect(cleared?.termContinue).toEqual({});
-    expect(cleared?.agentCalls).toEqual([]);
-    expect(cleared?.contentHash).toBe("");
-    expect(cleared?.trusted).toBe(true);
-    expect(cleared?.lastUsedConnectionModel).toEqual({ grok: "grok-4" });
-    const root = await plane.read("root");
-    expect(root?.trusted).toBe(false);
-    expect(root?.termContinue).toEqual({ desk: "other" });
-    expect(root?.agentCalls.map((call) => call.callId)).toEqual(["call-2"]);
-    await opened.close();
-  });
-
-  it("merges overlapping scope writes instead of dropping a stamp", async () => {
-    const opened = await open();
-    const { plane } = opened;
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    await Promise.all([
-      plane.ensureScope({ id: "s", parentId: null, path: null, trusted: true }),
-      plane.ensureScope({ id: "s", parentId: null, path: null, contentHash: "abc" }),
-    ]);
-    await Promise.all([
-      plane.ensureScope({ id: "s", parentId: "root", path: "/work" }),
-      plane.stampScope("s", { contentHash: "kept" }),
-    ]);
-    const view = await plane.read("s");
-    expect(view).toMatchObject({
-      parentId: "root",
-      path: "/work",
-      trusted: true,
-      contentHash: "kept",
-    });
-    await opened.close();
-  });
-}
-
-describe("scope plane", () => {
-  contract(async () => ({
-    plane: createScopePlane(createMemoryRows()),
-    async close() {
-      return undefined;
+    async snapshot(read) {
+      const copy = new Map<TableName, Map<string, Row>>();
+      for (const [t, m] of stores) {
+        const inner = new Map<string, Row>();
+        for (const [id, r] of m) inner.set(id, { ...r });
+        copy.set(t, inner);
+      }
+      return read(makePlane(copy));
     },
-  }));
-
-  it("catches a parent update made while the discovered chain is being subscribed", async () => {
-    const rows = createMemoryRows();
-    let changed = false;
-    const plane = createScopePlane({
-      ...rows,
-      watch(table, match, onChange) {
-        if (!changed && table === "config" && "id" in match && match.id === "root") {
-          changed = true;
-          void rows.put("config", "root", { generation: 2, compactKeepTurns: 8 });
-        }
-        return rows.watch(table, match, onChange);
-      },
-    });
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    await plane.ensureScope({ id: "child", parentId: "root", path: null });
-    await plane.publishConfig("root", 0, { compactKeepTurns: 4 });
-    let initial: ScopeView | null = null;
-    await new Promise<void>((resolve, reject) => {
-      const stop = plane.watch(
-        "child",
-        (view) => {
-          initial = view;
-          stop();
-          resolve();
-        },
-        reject,
-      );
-    });
-    expect(initial).toMatchObject({ config: { compactKeepTurns: 8 } });
   });
 
-  it("identifies captured parent dependencies without claiming an atomic snapshot", async () => {
-    const plane = createScopePlane(createMemoryRows());
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    await plane.ensureScope({ id: "child", parentId: "root", path: null });
-    const before = await plane.read("child");
-    await plane.putKv("root", "name", "new");
-    const changed = await plane.read("child");
-    expect(changed?.generation).toBe(before?.generation);
-    expect(changed?.revision).not.toBe(before?.revision);
-    expect(changed?.consistency).toBe("observed");
-    expect((await plane.read("child"))?.revision).toBe(changed?.revision);
-    await expect(plane.readSnapshot("child")).rejects.toThrow("does not support atomic snapshots");
-  });
+  return makePlane();
+}
 
-  it("does not take over a generation released between observation and compare-and-set", async () => {
-    const rows = createMemoryRows();
-    let releaseFirst = false;
-    const plane = createScopePlane({
-      ...rows,
-      async replaceIfMatch(table, id, expected, row) {
-        if (releaseFirst && table === "generations") {
-          releaseFirst = false;
-          await rows.replaceIfMatch(
-            table,
-            id,
-            { generation: 1, holder: "worker" },
-            { scopeId: "root", generation: 1, holder: "" },
-          );
-        }
-        return rows.replaceIfMatch(table, id, expected, row);
-      },
-    });
-    expect(await plane.claimGeneration("sess", "root", 0, "worker")).toBe(1);
-    releaseFirst = true;
-    expect(await plane.claimGeneration("sess", "root", 1, "replacement")).toBeNull();
-    expect(await plane.claimGeneration("sess", "root", 0, "worker")).toBe(2);
-    expect(await plane.releaseGeneration("sess", 1, "worker")).toBe(false);
-    await expect(
-      plane.writeOverviewOwned({ sessionId: "sess-1", scopeId: "child", generation: 1, holder: "worker" }, glance),
-    ).rejects.toThrow("does not support fenced writes");
-  });
-});
+describe("Canonical 11-table RowPlane & contract re-exports", () => {
+  it("exposes all 11 canonical Agent DB tables, columnOf, and Postgres schemaSql()", () => {
+    expect(HARNESS_TABLE_NAMES).toEqual([
+      "kernel_state",
+      "projects",
+      "scope_nodes",
+      "sessions",
+      "pending_asks",
+      "session_turns",
+      "session_nodes",
+      "session_effects",
+      "session_blobs",
+      "scm_resources",
+      "plugin_state_logs",
+    ]);
 
-describe("schemaSql", () => {
-  it("declares inheritance nulls, the roster unique key, and scope foreign keys", () => {
+    for (const table of HARNESS_TABLE_NAMES) {
+      expect(tables[table].sql).toBe(table);
+      expect(columnOf(table, "kernelId")).toEqual({
+        name: "kernelId",
+        sql: "kernel_id",
+        kind: "string",
+        required: true,
+      });
+    }
+
     const sql = schemaSql();
-    expect(sql).toContain("NULL config columns inherit");
-    expect(sql).toContain("UNIQUE (scope_id, name)");
-    expect(sql).toContain("UNIQUE (scope_id, key)");
-    expect(sql).toContain("FOREIGN KEY (scope_id) REFERENCES scopes (id)");
-    expect(sql).toContain("CREATE INDEX overviews_scope ON overviews (scope_id);");
-    expect(sql).toContain("CREATE INDEX term_continue_scope ON term_continue (scope_id);");
-    expect(sql).toContain("UNIQUE (scope_id, connection)");
-    expect(sql).toContain("content_hash text");
-    expect(sql).toContain("revision bigint NOT NULL");
+    for (const table of HARNESS_TABLE_NAMES) {
+      expect(sql).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
+    }
+    expect(sql).toContain("ALTER TABLE projects REPLICA IDENTITY FULL;");
+    expect(sql).toContain("ALTER TABLE scm_resources REPLICA IDENTITY FULL;");
+    expect(sql).toContain("ALTER TABLE plugin_state_logs REPLICA IDENTITY FULL;");
+  });
+
+  it("validates composite pairId keys and cell coercions", () => {
+    expect(pairId("kernel", "node-1")).toBe('["kernel","node-1"]');
+    expect(() => pairId("kernel", "bad\0key")).toThrow(ScopeKey);
+    expect(() => pairId("bad\0scope", "key")).toThrow(ScopeKey);
+
+    expect(coerceCell("string", "hello")).toBe("hello");
+    expect(coerceCell("string", 123)).toBeUndefined();
+    expect(coerceCell("boolean", true)).toBe(true);
+    expect(coerceCell("boolean", 1)).toBeUndefined();
+    expect(coerceCell("number", 42)).toBe(42);
+    expect(coerceCell("number", "1700000000000")).toBe(1_700_000_000_000);
+    expect(coerceCell("number", "not-a-num")).toBeUndefined();
+  });
+
+  it("supports get/list/put/remove, CAS guards, watch, and snapshots across canonical tables", async () => {
+    const plane = createMemoryRowPlane();
+    let projectChanges = 0;
+    const unwatch = plane.watch("projects", { column: "kernelId", equals: "tenant-a" }, () => {
+      projectChanges += 1;
+    });
+
+    const projectRow: Row = {
+      kernelId: "tenant-a",
+      title: "App",
+      kind: "virtual",
+      defaultPermissionMode: "manual",
+      authorizationJson: "{}",
+      kvsJson: "{}",
+      lastUsedModelJson: "{}",
+      enabledPluginsJson: '["todos"]',
+      pluginConfigsJson: "{}",
+      botsRosterJson: "{}",
+      trusted: false,
+      revision: 1,
+      updatedAtMs: 1000,
+    };
+
+    expect(await plane.insertIfAbsent("projects", "proj-1", projectRow)).toBe(true);
+    expect(await plane.insertIfAbsent("projects", "proj-1", projectRow)).toBe(false);
+    expect(await plane.get("projects", "proj-1")).toEqual(projectRow);
+    expect(projectChanges).toBe(1);
+
+    expect(
+      await plane.replaceIf("projects", "proj-1", "revision", 1, {
+        ...projectRow,
+        title: "App v2",
+        revision: 2,
+        updatedAtMs: 2000,
+      }),
+    ).toBe(true);
+    expect(await plane.replaceIf("projects", "proj-1", "revision", 1, projectRow)).toBe(false);
+
+    expect(
+      await plane.replaceIfMatch(
+        "projects",
+        "proj-1",
+        { kernelId: "tenant-a", revision: 2 },
+        { ...projectRow, title: "App v3", trusted: true, revision: 3, updatedAtMs: 3000 },
+      ),
+    ).toBe(true);
+
+    const scmId = pairId("project", "proj-1:policy/default");
+    await plane.put("scm_resources", scmId, {
+      kernelId: "tenant-a",
+      scope: "project",
+      scopeId: "proj-1",
+      kind: "policy",
+      name: "default.scm",
+      source: "(policy)",
+      sha256: "abc123",
+      updatedAtMs: 3000,
+    });
+
+    const snapTitle = await plane.snapshot?.(async (reader) => {
+      await plane.put("projects", "proj-1", { ...projectRow, title: "Outside Snapshot", revision: 4 });
+      return (await reader.get("projects", "proj-1"))?.title;
+    });
+    expect(snapTitle).toBe("App v3");
+    expect((await plane.get("projects", "proj-1"))?.title).toBe("Outside Snapshot");
+
+    expect((await plane.list("scm_resources", "scopeId", "proj-1")).map((r) => r.id)).toEqual([scmId]);
+    expect(await plane.removeIf("projects", "proj-1", { revision: 99 })).toBe(false);
+    expect(await plane.removeIf("projects", "proj-1", { revision: 4 })).toBe(true);
+    expect(await plane.get("projects", "proj-1")).toBeUndefined();
+
+    unwatch();
   });
 });

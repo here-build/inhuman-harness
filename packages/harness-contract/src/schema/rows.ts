@@ -8,24 +8,69 @@
 
 export type KernelStateRow = {
   id: string;
+  kernelId: string;
   defaultModel: string;
   permissionMode: string;
+  enabledPluginsJson: string;
   kvsJson: string;
   updatedAtMs: number;
 };
 
 export type KernelStateRowInsert = {
   id?: string;
+  kernelId?: string;
   defaultModel?: string;
   permissionMode?: string;
+  enabledPluginsJson?: string;
   kvsJson?: string;
   updatedAtMs: number;
 };
 
 export type KernelRow = KernelStateRow;
 
+export type ProjectKind = "local" | "remote" | "virtual";
+
+export type ProjectRow = {
+  projectId: string;
+  kernelId: string;
+  title: string;
+  kind: ProjectKind;
+  workspacePath: string | null;
+  defaultPermissionMode: string;
+  authorizationJson: string;
+  kvsJson: string;
+  lastUsedModelJson: string;
+  enabledPluginsJson: string;
+  pluginConfigsJson: string;
+  botsRosterJson: string;
+  trusted: boolean;
+  contentHash: string | null;
+  revision: number;
+  updatedAtMs: number;
+};
+
+export type ProjectRowInsert = {
+  projectId: string;
+  kernelId?: string;
+  title?: string;
+  kind?: ProjectKind;
+  workspacePath?: string | null;
+  defaultPermissionMode?: string;
+  authorizationJson?: string;
+  kvsJson?: string;
+  lastUsedModelJson?: string;
+  enabledPluginsJson?: string;
+  pluginConfigsJson?: string;
+  botsRosterJson?: string;
+  trusted?: boolean;
+  contentHash?: string | null;
+  revision?: number;
+  updatedAtMs: number;
+};
+
 export type ScopeNodeRow = {
   id: string;
+  kernelId: string;
   scopeId: string;
   nodeId: string;
   tag: string;
@@ -36,6 +81,7 @@ export type ScopeNodeRow = {
 
 export type ScopeNodeRowInsert = {
   id: string;
+  kernelId?: string;
   scopeId: string;
   nodeId: string;
   tag: string;
@@ -46,6 +92,8 @@ export type ScopeNodeRowInsert = {
 
 export type SessionRow = {
   sessionId: string;
+  kernelId: string;
+  projectId: string;
   title: string;
   workspacePath: string;
   mode: "assistant" | "agentic";
@@ -63,6 +111,8 @@ export type SessionRow = {
 
 export type SessionRowInsert = {
   sessionId: string;
+  kernelId?: string;
+  projectId?: string;
   title?: string;
   workspacePath?: string;
   mode?: "assistant" | "agentic";
@@ -82,6 +132,7 @@ export type SessionSummaryRow = SessionRow;
 
 export type PendingAskRow = {
   jobId: string;
+  kernelId: string;
   sessionId: string;
   turnId: string;
   kind: "ask" | "ack";
@@ -93,6 +144,7 @@ export type PendingAskRow = {
 
 export type PendingAskRowInsert = {
   jobId: string;
+  kernelId?: string;
   sessionId: string;
   turnId: string;
   kind: "ask" | "ack";
@@ -105,6 +157,7 @@ export type SessionTurnStatus = "running" | "completed" | "cancelled" | "failed"
 
 export type SessionTurnRow = {
   turnId: string;
+  kernelId: string;
   sessionId: string;
   ordinal: number;
   prompt: string;
@@ -117,6 +170,7 @@ export type SessionTurnRow = {
 
 export type SessionTurnRowInsert = {
   turnId: string;
+  kernelId?: string;
   sessionId: string;
   ordinal: number;
   prompt: string;
@@ -129,6 +183,7 @@ export type SessionTurnRowInsert = {
 
 export type SessionNodeRow = {
   id: string;
+  kernelId: string;
   sessionId: string;
   nodeId: string;
   tag: string;
@@ -139,6 +194,7 @@ export type SessionNodeRow = {
 
 export type SessionNodeRowInsert = {
   id: string;
+  kernelId?: string;
   sessionId: string;
   nodeId: string;
   tag: string;
@@ -149,6 +205,7 @@ export type SessionNodeRowInsert = {
 
 export type SessionEffectRow = {
   id: string;
+  kernelId: string;
   sessionId: string;
   effectKey: string;
   kind: "commit" | "command" | "effect";
@@ -161,6 +218,7 @@ export type SessionEffectRow = {
 
 export type SessionEffectRowInsert = {
   id: string;
+  kernelId?: string;
   sessionId: string;
   effectKey: string;
   kind: "commit" | "command" | "effect";
@@ -173,6 +231,7 @@ export type SessionEffectRowInsert = {
 
 export type SessionBlobRow = {
   id: string;
+  kernelId: string;
   sessionId: string;
   blobId: string;
   turnId: string | null;
@@ -181,8 +240,60 @@ export type SessionBlobRow = {
 
 export type SessionBlobRowInsert = {
   id: string;
+  kernelId?: string;
   sessionId: string;
   blobId: string;
   turnId?: string | null;
   createdAtMs: number;
+};
+
+export type ScmResourceScope = "kernel" | "project";
+export type ScmResourceKind = "policy" | "bot" | "command" | "behavior";
+
+export type ScmResourceRow = {
+  id: string;
+  kernelId: string;
+  scope: ScmResourceScope;
+  scopeId: string;
+  kind: ScmResourceKind;
+  name: string;
+  source: string;
+  sha256: string;
+  updatedAtMs: number;
+};
+
+export type ScmResourceRowInsert = {
+  id: string;
+  kernelId?: string;
+  scope: ScmResourceScope;
+  scopeId: string;
+  kind: ScmResourceKind;
+  name: string;
+  source: string;
+  sha256: string;
+  updatedAtMs: number;
+};
+
+export type PluginStateScope = "global" | "project";
+
+export type PluginStateLogRow = {
+  id: string;
+  kernelId: string;
+  plugin: string;
+  scope: PluginStateScope;
+  scopeId: string;
+  namespace: string;
+  logJson: string;
+  updatedAtMs: number;
+};
+
+export type PluginStateLogRowInsert = {
+  id: string;
+  kernelId?: string;
+  plugin: string;
+  scope: PluginStateScope;
+  scopeId: string;
+  namespace?: string;
+  logJson?: string;
+  updatedAtMs: number;
 };

@@ -1,30 +1,25 @@
-import {
-  createScopePlane,
-  pairId,
-  type Cell,
-  type Row,
-  type RowPlane,
-  type ScopePlane,
-  type TableName,
-} from "@inhuman.tools/scope-plane";
+import type { Cell, Row, RowPlane, TableName } from "@inhuman.tools/scope-plane";
 import { createStore, type Store } from "tinybase";
 import { createFilePersister, type FilePersister } from "tinybase/persisters/persister-file";
 
 /**
  * Hermetic local plane. One process, one plain store.
- * Another machine uses its own adapter over the same scope API.
+ * Another machine uses its own adapter over the same 11-table RowPlane API.
  */
 export type TinybaseScopeOptions = {
   /** JSON file. Absent keeps the store in memory only. */
   readonly file?: string;
 };
 
-export type OpenScopePlane = {
-  readonly plane: ScopePlane;
+export type OpenTinybaseRowPlane = {
+  readonly rows: RowPlane;
+  readonly plane: RowPlane;
   /** A successful file save is an awaited atomic rename, not an fsync guarantee. */
   flush(): Promise<FlushOutcome>;
   close(): Promise<void>;
 };
+
+export type OpenScopePlane = OpenTinybaseRowPlane;
 
 export type FlushOutcome =
   | { readonly status: "memory" }
@@ -116,30 +111,10 @@ export function createTinybaseRowPlane(store: Store): RowPlane {
       const captured = createStore().setTables(store.getTables());
       return read(createTinybaseRowPlane(captured));
     },
-    async commitOwned(claim, mutation) {
-      return store.transaction(() => {
-        const owner = store.getRow("generations", claim.sessionId);
-        if (
-          claim.holder === "" ||
-          owner.scopeId !== claim.scopeId ||
-          owner.generation !== claim.generation ||
-          owner.holder !== claim.holder
-        )
-          return false;
-        const exists = store.hasRow(mutation.table, mutation.id);
-        const current = store.getRow(mutation.table, mutation.id);
-        if (exists && !Object.entries(mutation.existing).every(([key, value]) => current[key] === value)) return false;
-        if (mutation.row == null) {
-          if (!exists) return false;
-          store.delRow(mutation.table, mutation.id);
-        } else write(mutation.table, mutation.id, mutation.row);
-        return true;
-      });
-    },
   };
 }
 
-export async function createTinybaseScopePlane(options?: TinybaseScopeOptions): Promise<OpenScopePlane> {
+export async function openTinybaseRowPlane(options?: TinybaseScopeOptions): Promise<OpenTinybaseRowPlane> {
   const store = createStore();
   let persister: FilePersister | undefined;
   let errors: unknown[] = [];
@@ -148,24 +123,6 @@ export async function createTinybaseScopePlane(options?: TinybaseScopeOptions): 
       errors.push(error);
     });
     await persister.load();
-    store.transaction(() => {
-      for (const [table, part] of [
-        ["kv", "key"],
-        ["roster", "name"],
-        ["termContinue", "key"],
-        ["modelUsage", "key"],
-        ["lastUsedModel", "connection"],
-      ] as const) {
-        store.forEachRow(table, (id) => {
-          const scope = store.getCell(table, id, "scopeId");
-          const key = store.getCell(table, id, part);
-          if (typeof scope !== "string" || typeof key !== "string" || id !== `${scope}\0${key}`) return;
-          const next = pairId(scope, key);
-          if (!store.hasRow(table, next)) store.setRow(table, next, store.getRow(table, id));
-          store.delRow(table, id);
-        });
-      }
-    });
     await persister.startAutoSave();
   }
   let flushTail: Promise<FlushOutcome> = Promise.resolve({ status: "memory" });
@@ -183,8 +140,10 @@ export async function createTinybaseScopePlane(options?: TinybaseScopeOptions): 
     });
     return flushTail;
   };
+  const rows = createTinybaseRowPlane(store);
   return {
-    plane: createScopePlane(createTinybaseRowPlane(store)),
+    rows,
+    plane: rows,
     flush,
     async close() {
       const outcome = await flush();
@@ -193,3 +152,5 @@ export async function createTinybaseScopePlane(options?: TinybaseScopeOptions): 
     },
   };
 }
+
+export const createTinybaseScopePlane = openTinybaseRowPlane;

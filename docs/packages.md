@@ -55,7 +55,7 @@ when their documented interface fits your use case.
 | Source | Packages and responsibilities |
 | --- | --- |
 | [harness](../packages/harness) | `@inhuman.tools/harness`: daemon, runtime, providers, and sync composition |
-| [harness-tui](../packages/harness-tui), [harness-web-app](../packages/harness-web-app) | Terminal client and browser client with loopback web server |
+| [tui](../surfaces/tui), [web](../surfaces/web) | Terminal client and browser client with loopback web server |
 | [quickdraw](../packages/quickdraw) | Internal terminal rendering framework: paint, layout, input, and widgets |
 | [pretty-mcp](../packages/pretty-mcp) | Human-readable MCP and toolkit call summaries used by the clients |
 | [harness-transcript](../packages/harness-transcript) | Browser transcript components; private, bundled into the web client |
@@ -69,7 +69,7 @@ when their documented interface fits your use case.
 | [chunked-websocket](../packages/chunked-websocket), [error-with-invariant](../packages/error-with-invariant) | WebSocket chunk transport and invariant error helper |
 | [qd platform packages](../packages) | `@inhuman.tools/qd-{darwin,linux}-{arm64,x64}`: prebuilt native renderer binaries produced by release CI |
 | [harness-relay](../packages/harness-relay) | Private Cloudflare remote-access relay |
-| [scope-plane](../packages/scope-plane), [scope-plane-electric](../packages/scope-plane-electric), [scope-plane-tinybase](../packages/scope-plane-tinybase) | Private scope-tree model and storage adapters |
+| [scope-plane](../packages/scope-plane), [scope-plane-electric](../packages/scope-plane-electric), [scope-plane-tinybase](../packages/scope-plane-tinybase) | Canonical `RowPlane`, `HarnessDatabase` (SQLite), `UpdateLaneHub`, and private Postgres/Electric + TinyBase storage adapters |
 | [internal](../internal) | Private ESLint and TypeScript configuration packages |
 
 For source setup and checks, see [CONTRIBUTING.md](../CONTRIBUTING.md). For the

@@ -2,7 +2,6 @@ import { Shape, ShapeStream } from "@electric-sql/client";
 import {
   coerceCell,
   columnOf,
-  createScopePlane,
   tables,
   type Cell,
   type ElectricShapeMessage,
@@ -11,7 +10,6 @@ import {
   type RowMatch,
   type RowPlane,
   type RowReader,
-  type ScopePlane,
   type TableName,
 } from "@inhuman.tools/scope-plane";
 
@@ -36,7 +34,7 @@ export type ElectricIo = {
 };
 
 function ident(sql: string): string {
-  if (!/^[a-z_]+$/.test(sql)) throw new Error(`refused sql identifier ${sql}`);
+  if (!/^[a-z_][a-z0-9_]*$/.test(sql)) throw new Error(`refused sql identifier ${sql}`);
   return sql;
 }
 
@@ -166,36 +164,6 @@ export function createElectricRowPlane(io: ElectricIo): RowPlane {
         onChange,
       );
     },
-    async commitOwned(claim, mutation) {
-      if (claim.holder === "") return false;
-      const def = tables[mutation.table];
-      const table = ident(def.sql);
-      const key = ident(def.keySql);
-      const params: unknown[] = [claim.sessionId, claim.scopeId, claim.generation, claim.holder, mutation.id];
-      const ownership =
-        "WITH ownership AS MATERIALIZED (SELECT session_id FROM generations WHERE session_id = $1 AND scope_id = $2 AND generation = $3 AND holder = $4 FOR UPDATE)";
-      const expected = Object.entries(mutation.existing).sort(([a], [b]) => a.localeCompare(b));
-      let sql: string;
-      if (mutation.row == null) {
-        const clauses = expected.map(([column, value]) => {
-          params.push(value);
-          return `${table}.${columnSql(mutation.table, column)} = $${params.length}`;
-        });
-        sql = `${ownership} DELETE FROM ${table} WHERE ${key} = $5 AND EXISTS (SELECT 1 FROM ownership)${clauses.map((clause) => ` AND ${clause}`).join("")} RETURNING ${key}`;
-      } else {
-        params.push(...rowValues(mutation.table, mutation.row));
-        const names = [key, ...def.columns.map((column) => ident(column.sql))];
-        const slots = names.map((_, index) => `$${index + 5}`);
-        const assignments = def.columns.map((column) => `${ident(column.sql)} = EXCLUDED.${ident(column.sql)}`);
-        const clauses = expected.map(([column, value]) => {
-          params.push(value);
-          return `${table}.${columnSql(mutation.table, column)} = $${params.length}`;
-        });
-        const where = clauses.length === 0 ? "" : ` WHERE ${clauses.join(" AND ")}`;
-        sql = `${ownership} INSERT INTO ${table} (${names.join(", ")}) SELECT ${slots.join(", ")} FROM ownership WHERE true ON CONFLICT (${key}) DO UPDATE SET ${assignments.join(", ")}${where} RETURNING ${key}`;
-      }
-      return (await io.sql.query(sql, params)).length > 0;
-    },
   };
   const snapshot = io.sql.snapshot;
   if (snapshot) {
@@ -203,10 +171,6 @@ export function createElectricRowPlane(io: ElectricIo): RowPlane {
       snapshot((sql) => read(createElectricRowPlane({ ...io, sql })));
   }
   return rows;
-}
-
-export function createElectricScopePlane(io: ElectricIo): ScopePlane {
-  return createScopePlane(createElectricRowPlane(io));
 }
 
 /** Live shape stream. The server product depends on `@electric-sql/client`. */

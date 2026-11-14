@@ -1,136 +1,110 @@
-import { ScopeCycle, ScopeKey, ScopeMissing, type ScopePlane, type ScopeView } from "@inhuman.tools/scope-plane";
+import { pairId, ScopeKey, tables, type Row, type RowPlane } from "@inhuman.tools/scope-plane";
 import { describe, expect, it } from "vitest";
 
-import { createElectricScopePlane } from "../index.js";
+import { createElectricRowPlane } from "../index.js";
 import { createSqlDouble } from "./sql-double.js";
 
-const glance = {
-  sessionId: "sess-1",
-  scopeId: "root",
-  title: "Notes",
-  lastMessageAt: 10,
-  recipeScope: "",
-  specName: "",
-  resident: false,
-  keepAlive: false,
-  oneShot: false,
-  model: "grok",
-  status: "writing",
-  midMotion: true,
-  openTurn: true,
-  openToolCount: 1,
-  periodArmed: false,
-  openCallbackCount: 0,
-  asking: false,
-  unfinished: "turn",
-  lastPrompt: "look",
-  askLine: "",
-  questionLine: "",
-};
-
-function open(): { plane: ScopePlane; texts: string[] } {
-  const sql = createSqlDouble();
-  return { plane: createElectricScopePlane({ sql, shapes: sql.shapes }), texts: sql.texts };
+function makeProjectRow(overrides: Partial<Row> = {}): Row {
+  return {
+    kernelId: "tenant-a",
+    title: "Cloud Project",
+    kind: "virtual",
+    defaultPermissionMode: "manual",
+    authorizationJson: "{}",
+    kvsJson: "{}",
+    lastUsedModelJson: "{}",
+    enabledPluginsJson: '["todos"]',
+    pluginConfigsJson: "{}",
+    botsRosterJson: "{}",
+    trusted: false,
+    revision: 0,
+    updatedAtMs: 1000,
+    ...overrides,
+  };
 }
 
-describe("electric SQL port with a statement double", () => {
-  it("overlays parent config through SQL and keeps the roster unique", async () => {
-    const { plane, texts } = open();
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    await plane.ensureScope({ id: "child", parentId: "root", path: "/work" });
-    expect(await plane.publishConfig("root", 0, { defaultPermissionMode: "manual", compactKeepTurns: 4 })).toBe(1);
-    expect(await plane.publishConfig("child", 0, { defaultPermissionMode: "ask" })).toBe(1);
-    await plane.putKv("child", "color", "red");
-    expect(await plane.insertRoster("child", "echo", "child-bot")).toBe(true);
-    expect(await plane.insertRoster("child", "echo", "other")).toBe(false);
-    const view = await plane.read("child");
-    expect(view).toMatchObject({
-      path: "/work",
-      chain: ["root", "child"],
-      config: { defaultPermissionMode: "ask", compactKeepTurns: 4 },
-      kv: { color: "red" },
-      roster: { echo: "child-bot" },
-    });
-    expect(await plane.publishConfig("child", 1, { statusline: "git" })).toBe(2);
-    expect(texts.some((text) => text.includes("ON CONFLICT (scope_id) DO NOTHING"))).toBe(true);
-    expect(texts.some((text) => text.includes("WHERE NOT EXISTS"))).toBe(false);
-    expect(texts.some((text) => text.startsWith("UPDATE config SET") && text.includes("AND generation ="))).toBe(true);
+function makeSessionRow(overrides: Partial<Row> = {}): Row {
+  return {
+    kernelId: "tenant-a",
+    projectId: "proj-1",
+    title: "Session 1",
+    workspacePath: "",
+    mode: "agentic",
+    permissionMode: "manual",
+    running: false,
+    depth: 0,
+    revision: 0,
+    createdAtMs: 1000,
+    lastActiveAtMs: 1000,
+    ...overrides,
+  };
+}
+
+function open(): { rows: RowPlane; texts: string[] } {
+  const sql = createSqlDouble();
+  return { rows: createElectricRowPlane({ sql, shapes: sql.shapes }), texts: sql.texts };
+}
+
+describe("electric SQL RowPlane over canonical 11-table contract", () => {
+  it("performs get, list, put, replaceIf, replaceIfMatch, removeIf, and SQL statement shaping", async () => {
+    const { rows, texts } = open();
+
+    const p0 = makeProjectRow();
+    expect(await rows.insertIfAbsent("projects", "proj-1", p0)).toBe(true);
+    expect(await rows.insertIfAbsent("projects", "proj-1", p0)).toBe(false);
+    expect(await rows.get("projects", "proj-1")).toEqual(p0);
+
+    const p1 = makeProjectRow({ title: "Updated", revision: 1, trusted: true, updatedAtMs: 2000 });
+    expect(await rows.replaceIf("projects", "proj-1", "revision", 0, p1)).toBe(true);
+    expect(await rows.replaceIf("projects", "proj-1", "revision", 0, p0)).toBe(false);
+
+    const p2 = makeProjectRow({ title: "CAS Matched", revision: 2, updatedAtMs: 3000 });
+    expect(await rows.replaceIfMatch("projects", "proj-1", { kernelId: "tenant-a", revision: 1 }, p2)).toBe(true);
+    expect(await rows.replaceIfMatch("projects", "proj-1", { revision: 1 }, p2)).toBe(false);
+
+    const s0 = makeSessionRow({ running: true });
+    await rows.put("sessions", "sess-1", s0);
+    expect((await rows.list("sessions", "projectId", "proj-1")).map((entry) => entry.id)).toEqual(["sess-1"]);
+
+    expect(await rows.removeIf("projects", "proj-1", { revision: 99 })).toBe(false);
+    expect(await rows.removeIf("projects", "proj-1", { revision: 2 })).toBe(true);
+    expect(await rows.get("projects", "proj-1")).toBeUndefined();
+
+    expect(texts.some((text) => text.includes("ON CONFLICT (project_id) DO NOTHING"))).toBe(true);
+    expect(texts.some((text) => text.startsWith("UPDATE projects SET") && text.includes("AND revision ="))).toBe(true);
   });
 
-  it("rejects a stale lease and wakes from the shape", async () => {
-    const { plane } = open();
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    expect(await plane.claimGeneration("sess", "root", 0, "worker-a")).toBe(1);
-    expect(await plane.claimGeneration("sess", "root", 0, "worker-b")).toBeNull();
-    expect(await plane.releaseGeneration("sess", 1, "worker-b")).toBe(false);
-    expect(await plane.releaseGeneration("sess", 1, "worker-a")).toBe(true);
-    expect(await plane.claimGeneration("sess", "root", 0, "worker-a")).toBe(2);
-    expect(await plane.releaseGeneration("sess", 1, "worker-a")).toBe(false);
+  it("wakes watch subscribers on commits and enforces pairId/required column checks", async () => {
+    const { rows } = open();
 
-    let resolveArmed: () => void = () => undefined;
-    const armed = new Promise<void>((resolve) => {
-      resolveArmed = resolve;
+    let changes = 0;
+    const stop = rows.watch("scm_resources", { column: "scopeId", equals: "proj-1" }, () => {
+      changes += 1;
     });
-    let resolveSeen: (view: ScopeView | null) => void = () => undefined;
-    const seen = new Promise<ScopeView | null>((resolve) => {
-      resolveSeen = resolve;
+    const scmId = pairId("project", "proj-1:bot/research");
+    await rows.put("scm_resources", scmId, {
+      kernelId: "tenant-a",
+      scope: "project",
+      scopeId: "proj-1",
+      kind: "bot",
+      name: "research.scm",
+      source: "(bot)",
+      sha256: "deadbeef",
+      updatedAtMs: 5000,
     });
-    const stop = plane.watch("root", (view) => {
-      resolveArmed();
-      if (view?.overviews[0]?.title === "Notes") resolveSeen(view);
-    });
-    await armed;
-    await plane.writeOverview(glance);
-    const view = await seen;
     stop();
-    expect(view?.overviews.map((row) => row.sessionId)).toEqual(["sess-1"]);
+    expect(changes).toBe(1);
+    expect((await rows.list("scm_resources", "scopeId", "proj-1"))[0]?.row.name).toBe("research.scm");
+
+    expect(() => pairId("kernel", "bad\0id")).toThrow(ScopeKey);
+    await expect(rows.put("projects", "bad-proj", { title: "Missing required columns" })).rejects.toThrow(
+      /missing projects\./,
+    );
+    expect(Object.keys(tables)).toHaveLength(11);
   });
 
-  it("refuses a cycle and a NUL key", async () => {
-    const { plane } = open();
-    await plane.ensureScope({ id: "child", parentId: "gone", path: null });
-    await expect(plane.read("child")).rejects.toBeInstanceOf(ScopeMissing);
-    await plane.ensureScope({ id: "a", parentId: "b", path: null });
-    await plane.ensureScope({ id: "b", parentId: "a", path: null });
-    await expect(plane.read("a")).rejects.toBeInstanceOf(ScopeCycle);
-    await expect(plane.putKv("a", "bad\0key", "x")).rejects.toBeInstanceOf(ScopeKey);
-  });
-
-  it("keeps pane, usage, and calls on this scope and overlays last-used models", async () => {
-    const { plane } = open();
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    await plane.ensureScope({ id: "child", parentId: "root", path: "/work", trusted: true, contentHash: "abc" });
-    await plane.putTermContinue("child", "desk", "sess-1");
-    await plane.stampModelUsage("child", "grok/grok-4", 9);
-    await plane.putLastUsedModel("root", "grok", "grok-4");
-    await plane.putLastUsedModel("child", "openai", "gpt");
-    await plane.writeAgentCall({
-      callId: "call-1",
-      scopeId: "child",
-      callerSessionId: "a",
-      workerSessionId: "b",
-      spec: "bot",
-      oneShot: true,
-      completed: false,
-    });
-    const view = await plane.read("child");
-    expect(view).toMatchObject({
-      trusted: true,
-      contentHash: "abc",
-      termContinue: { desk: "sess-1" },
-      modelsUsage: { "grok/grok-4": 9 },
-      lastUsedConnectionModel: { grok: "grok-4", openai: "gpt" },
-    });
-    expect(view?.agentCalls.map((call) => call.callId)).toEqual(["call-1"]);
-    await plane.removeAgentCall("call-1");
-    const cleared = await plane.read("child");
-    expect(cleared?.agentCalls).toEqual([]);
-  });
-
-  it("refuses to advertise a snapshot when no SQL transaction port was supplied", async () => {
-    const { plane } = open();
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
-    expect((await plane.read("root"))?.consistency).toBe("observed");
-    await expect(plane.readSnapshot("root")).rejects.toThrow("does not support atomic snapshots");
+  it("refuses atomic snapshot when no SQL transaction port is supplied", async () => {
+    const { rows } = open();
+    expect(rows.snapshot).toBeUndefined();
   });
 });

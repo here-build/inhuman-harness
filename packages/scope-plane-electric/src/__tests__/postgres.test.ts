@@ -1,12 +1,12 @@
-import { execFile, spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { schemaSql, tables, type GenerationClaim } from "@inhuman.tools/scope-plane";
+import { pairId, schemaSql, tables } from "@inhuman.tools/scope-plane";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createElectricRowPlane, createElectricScopePlane, type ElectricSql } from "../index.js";
+import { createElectricRowPlane, type ElectricSql } from "../index.js";
 
 const run = promisify(execFile);
 const enabled = process.env.SCOPE_PLANE_POSTGRES_TEST === "1";
@@ -50,7 +50,7 @@ function literal(value: unknown): string {
 }
 
 /** Uses an owned temporary cluster and psql, never an ambient database URL. */
-describe.skipIf(!enabled)("PostgreSQL qualification (no Electric server)", () => {
+describe.skipIf(!enabled)("PostgreSQL qualification over canonical 11-table schema", () => {
   let dir = "";
   let args: string[] = [];
   let started = false;
@@ -75,7 +75,6 @@ describe.skipIf(!enabled)("PostgreSQL qualification (no Electric server)", () =>
     },
   };
   const shapes = { subscribe: () => () => undefined };
-  const plane = createElectricScopePlane({ sql, shapes });
   const rows = createElectricRowPlane({ sql, shapes });
 
   beforeAll(async () => {
@@ -111,7 +110,6 @@ describe.skipIf(!enabled)("PostgreSQL qualification (no Electric server)", () =>
       "postgres",
     ];
     await run("psql", [...args, "--command", schemaSql()]);
-    await plane.ensureScope({ id: "root", parentId: null, path: null });
   });
 
   afterAll(async () => {
@@ -123,152 +121,49 @@ describe.skipIf(!enabled)("PostgreSQL qualification (no Electric server)", () =>
     }
   });
 
-  it("rejects the previous NUL-separated IDs in every composite-key table", async () => {
-    for (const name of ["kv", "roster", "termContinue", "modelUsage", "lastUsedModel"] as const) {
-      const table = tables[name];
-      const columns = [table.keySql, ...table.columns.map((column) => column.sql)];
-      const values = table.columns.map((column) =>
-        column.name === "scopeId" ? "'root'" : column.kind === "number" ? "1" : "'legacy'",
-      );
-      // Construct the old bytes on the server, beyond the test parameter serializer.
-      const legacyId = "convert_from(decode('726f6f74006c6567616379', 'hex'), 'UTF8')";
-      await expect(
-        sql.query(`INSERT INTO ${table.sql} (${columns.join(", ")}) VALUES (${[legacyId, ...values].join(", ")})`, []),
-      ).rejects.toThrow(/invalid byte sequence for encoding "UTF8": 0x00/);
-    }
-  });
+  it("rejects NUL-byte IDs across composite-keyed tables and supports projects/sessions CRUD", async () => {
+    const table = tables.scope_nodes;
+    const cols = [table.keySql, ...table.columns.map((c) => c.sql)];
+    const legacyId = "convert_from(decode('726f6f74006c6567616379', 'hex'), 'UTF8')";
+    await expect(
+      sql.query(
+        `INSERT INTO ${table.sql} (${cols.join(", ")}) VALUES (${legacyId}, 'local', 'kernel', 'n1', 'node', false, 1, '{}')`,
+        [],
+      ),
+    ).rejects.toThrow(/invalid byte sequence for encoding "UTF8": 0x00/);
 
-  it("updates and removes composite rows without shadows and rejects a concurrent duplicate roster name", async () => {
-    await plane.ensureScope({ id: "composite", parentId: null, path: null });
-    await plane.putKv("composite", "color", "blue");
-    await plane.putKv("composite", "color", "red");
-    await plane.putTermContinue("composite", "pane", "old");
-    await plane.putTermContinue("composite", "pane", "new");
-    await plane.stampModelUsage("composite", "connection/model", 1);
-    await plane.stampModelUsage("composite", "connection/model", 2);
-    await plane.putLastUsedModel("composite", "connection", "old");
-    await plane.putLastUsedModel("composite", "connection", "new");
-    expect(await plane.read("composite")).toMatchObject({
-      kv: { color: "red" },
-      termContinue: { pane: "new" },
-      modelsUsage: { "connection/model": 2 },
-      lastUsedConnectionModel: { connection: "new" },
-    });
-    for (const name of ["kv", "termContinue", "modelUsage", "lastUsedModel"] as const) {
-      expect(await rows.list(name, "scopeId", "composite")).toHaveLength(1);
-    }
-    await plane.putKv("composite", "color", null);
-    await plane.putTermContinue("composite", "pane", null);
-    await plane.putLastUsedModel("composite", "connection", null);
-    expect(await plane.read("composite")).toMatchObject({ kv: {}, termContinue: {}, lastUsedConnectionModel: {} });
-    for (const name of ["kv", "termContinue", "lastUsedModel"] as const) {
-      expect(await rows.list(name, "scopeId", "composite")).toEqual([]);
-    }
-    const inserted = await Promise.all([
-      plane.insertRoster("composite", "worker", "one"),
-      plane.insertRoster("composite", "worker", "two"),
-    ]);
-    expect(inserted.sort()).toEqual([false, true]);
-    expect(await rows.list("roster", "scopeId", "composite")).toHaveLength(1);
-  });
-
-  it("uses valid text composite keys and makes concurrent absent inserts conflict-safe", async () => {
-    await plane.putKv("root", "colon:quote'☃", "value");
-    expect((await plane.read("root"))?.kv["colon:quote'☃"]).toBe("value");
-    const won = await Promise.all([
-      rows.insertIfAbsent("roster", "race", { scopeId: "root", name: "race", sessionId: "one" }),
-      rows.insertIfAbsent("roster", "race", { scopeId: "root", name: "race", sessionId: "two" }),
-    ]);
-    expect(won.sort()).toEqual([false, true]);
-    const generations = await Promise.all([
-      plane.claimGeneration("race-session", "root", 0, "a"),
-      plane.claimGeneration("race-session", "root", 0, "b"),
-    ]);
-    expect(generations.filter((generation) => generation === 1)).toHaveLength(1);
-    expect(generations.filter((generation) => generation == null)).toHaveLength(1);
-  });
-
-  it("rejects a reused holder's stale token and enforces call ownership in the mutation", async () => {
-    const old: GenerationClaim = { sessionId: "caller", scopeId: "root", generation: 1, holder: "worker" };
-    await plane.claimGeneration("caller", "root", 0, "worker");
-    expect(await plane.releaseGeneration("caller", 1, "worker")).toBe(true);
-    expect(await plane.claimGeneration("caller", "root", 0, "worker")).toBe(2);
-    const call = {
-      callId: "call",
-      scopeId: "root",
-      callerSessionId: "caller",
-      workerSessionId: "child",
-      spec: "",
-      oneShot: true,
-      completed: false,
+    const projectRow = {
+      kernelId: "tenant-pg",
+      title: "PG Project",
+      kind: "remote",
+      defaultPermissionMode: "manual",
+      authorizationJson: "{}",
+      kvsJson: "{}",
+      lastUsedModelJson: "{}",
+      enabledPluginsJson: "[]",
+      pluginConfigsJson: "{}",
+      botsRosterJson: "{}",
+      trusted: true,
+      revision: 1,
+      updatedAtMs: 1000,
     };
-    expect(await plane.writeAgentCallOwned(old, call)).toBe(false);
-    const current = { ...old, generation: 2 };
-    expect(await plane.writeAgentCallOwned(current, call)).toBe(true);
-    await plane.claimGeneration("other", "root", 0, "worker");
-    const other = { ...old, sessionId: "other" };
-    expect(await plane.writeAgentCallOwned(other, { ...call, callerSessionId: "other" })).toBe(false);
-    expect(await plane.removeAgentCallOwned(other, "call")).toBe(false);
-    expect(await plane.releaseGeneration("caller", 1, "worker")).toBe(false);
-    expect(await plane.removeAgentCallOwned(current, "call")).toBe(true);
-  });
+    expect(await rows.insertIfAbsent("projects", "pg-proj", projectRow)).toBe(true);
+    expect(await rows.insertIfAbsent("projects", "pg-proj", projectRow)).toBe(false);
+    expect(await rows.get("projects", "pg-proj")).toMatchObject({ title: "PG Project", trusted: true });
 
-  it("rechecks ownership after a concurrent takeover releases the generation lock", async () => {
-    const claim = { sessionId: "blocked", scopeId: "root", generation: 1, holder: "old" };
-    await plane.claimGeneration("blocked", "root", 0, "old");
-    const blocker = spawn("psql", args, { stdio: ["pipe", "pipe", "pipe"] });
-    let errorText = "";
-    blocker.stderr.on("data", (chunk: Buffer) => {
-      errorText += chunk.toString();
+    const scmId = pairId("kernel", "tenant-pg:policy/default");
+    await rows.put("scm_resources", scmId, {
+      kernelId: "tenant-pg",
+      scope: "kernel",
+      scopeId: "tenant-pg",
+      kind: "policy",
+      name: "default.scm",
+      source: "(allow)",
+      sha256: "abc",
+      updatedAtMs: 1001,
     });
-    const finished = new Promise<void>((resolve, reject) => {
-      blocker.on("error", reject);
-      blocker.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(errorText))));
-    });
-    const locked = new Promise<void>((resolve, reject) => {
-      let output = "";
-      blocker.stdout.on("data", (chunk: Buffer) => {
-        output += chunk.toString();
-        if (output.includes("LOCKED")) resolve();
-      });
-      blocker.on("error", reject);
-    });
-    blocker.stdin.write(
-      "BEGIN; UPDATE generations SET generation = 2, holder = 'new' WHERE session_id = 'blocked';\n\\echo LOCKED\n",
-    );
-    await locked;
-    let ended = false;
-    try {
-      const writing = plane.writeAgentCallOwned(claim, {
-        callId: "blocked-call",
-        scopeId: "root",
-        callerSessionId: "blocked",
-        workerSessionId: "child",
-        spec: "",
-        oneShot: false,
-        completed: false,
-      });
-      let waiting = false;
-      for (let i = 0; i < 100; i++) {
-        const records = await sql.query(
-          "SELECT count(*) AS waiting FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE 'SET standard_conforming_strings = on; WITH ownership%'",
-          [],
-        );
-        if (records[0]?.waiting === "1") {
-          waiting = true;
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
-      expect(waiting).toBe(true);
-      blocker.stdin.end("COMMIT;\n");
-      ended = true;
-      await finished;
-      expect(await writing).toBe(false);
-      expect(await rows.get("agentCalls", "blocked-call")).toBeUndefined();
-    } finally {
-      if (!ended) blocker.stdin.end("ROLLBACK;\n");
-      await finished;
-    }
+    expect(await rows.list("scm_resources", "kernelId", "tenant-pg")).toHaveLength(1);
+    await rows.remove("scm_resources", scmId);
+    expect(await rows.list("scm_resources", "kernelId", "tenant-pg")).toEqual([]);
   });
 });

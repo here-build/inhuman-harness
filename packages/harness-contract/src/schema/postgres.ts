@@ -6,15 +6,40 @@
 
 export const HARNESS_POSTGRES_DDL = [
   `CREATE TABLE IF NOT EXISTS kernel_state (
-  id TEXT PRIMARY KEY DEFAULT 'singleton',
+  id TEXT PRIMARY KEY DEFAULT 'local',
+  kernel_id TEXT NOT NULL DEFAULT 'local',
   default_model TEXT NOT NULL DEFAULT '',
-  permission_mode TEXT NOT NULL DEFAULT 'ask',
+  permission_mode TEXT NOT NULL DEFAULT 'manual',
+  enabled_plugins_json TEXT NOT NULL DEFAULT '[]',
   kvs_json TEXT NOT NULL DEFAULT '{}',
   updated_at_ms BIGINT NOT NULL
 );`,
+  `CREATE INDEX IF NOT EXISTS idx_kernel_state_kernel ON kernel_state (kernel_id);`,
   `ALTER TABLE kernel_state REPLICA IDENTITY FULL;`,
+  `CREATE TABLE IF NOT EXISTS projects (
+  project_id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
+  title TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL DEFAULT 'local',
+  workspace_path TEXT,
+  default_permission_mode TEXT NOT NULL DEFAULT 'manual',
+  authorization_json TEXT NOT NULL DEFAULT '{}',
+  kvs_json TEXT NOT NULL DEFAULT '{}',
+  last_used_model_json TEXT NOT NULL DEFAULT '{}',
+  enabled_plugins_json TEXT NOT NULL DEFAULT '[]',
+  plugin_configs_json TEXT NOT NULL DEFAULT '{}',
+  bots_roster_json TEXT NOT NULL DEFAULT '{}',
+  trusted BOOLEAN NOT NULL DEFAULT FALSE,
+  content_hash TEXT,
+  revision INTEGER NOT NULL DEFAULT 0,
+  updated_at_ms BIGINT NOT NULL
+);`,
+  `CREATE INDEX IF NOT EXISTS idx_projects_kernel ON projects (kernel_id, updated_at_ms);`,
+  `CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects (kernel_id, workspace_path);`,
+  `ALTER TABLE projects REPLICA IDENTITY FULL;`,
   `CREATE TABLE IF NOT EXISTS scope_nodes (
   id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
   scope_id TEXT NOT NULL,
   node_id TEXT NOT NULL,
   tag TEXT NOT NULL,
@@ -23,13 +48,16 @@ export const HARNESS_POSTGRES_DDL = [
   row_json TEXT NOT NULL
 );`,
   `CREATE INDEX IF NOT EXISTS idx_scope_nodes_scope ON scope_nodes (scope_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_scope_nodes_kernel_scope ON scope_nodes (kernel_id, scope_id);`,
   `ALTER TABLE scope_nodes REPLICA IDENTITY FULL;`,
   `CREATE TABLE IF NOT EXISTS sessions (
   session_id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
+  project_id TEXT NOT NULL DEFAULT '',
   title TEXT NOT NULL DEFAULT '',
   workspace_path TEXT NOT NULL DEFAULT '',
   mode TEXT NOT NULL DEFAULT 'assistant',
-  permission_mode TEXT NOT NULL DEFAULT 'ask',
+  permission_mode TEXT NOT NULL DEFAULT 'manual',
   running BOOLEAN NOT NULL DEFAULT FALSE,
   head_turn_id TEXT,
   parent_session_id TEXT,
@@ -41,11 +69,14 @@ export const HARNESS_POSTGRES_DDL = [
   archived_at_ms BIGINT
 );`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_active_recent ON sessions (archived_at_ms, running, last_active_at_ms);`,
+  `CREATE INDEX IF NOT EXISTS idx_sessions_kernel_active_recent ON sessions (kernel_id, archived_at_ms, running, last_active_at_ms);`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions (parent_session_id, parent_call_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_workspace ON sessions (workspace_path, last_active_at_ms);`,
+  `CREATE INDEX IF NOT EXISTS idx_sessions_kernel_project ON sessions (kernel_id, project_id, last_active_at_ms);`,
   `ALTER TABLE sessions REPLICA IDENTITY FULL;`,
   `CREATE TABLE IF NOT EXISTS pending_asks (
   job_id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
   session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
   turn_id TEXT NOT NULL,
   kind TEXT NOT NULL,
@@ -54,9 +85,11 @@ export const HARNESS_POSTGRES_DDL = [
   created_at_ms BIGINT NOT NULL
 );`,
   `CREATE INDEX IF NOT EXISTS idx_pending_asks_session ON pending_asks (session_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_pending_asks_kernel_session ON pending_asks (kernel_id, session_id);`,
   `ALTER TABLE pending_asks REPLICA IDENTITY FULL;`,
   `CREATE TABLE IF NOT EXISTS session_turns (
   turn_id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
   session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
   ordinal INTEGER NOT NULL,
   prompt TEXT NOT NULL,
@@ -67,9 +100,11 @@ export const HARNESS_POSTGRES_DDL = [
   ended_at_ms BIGINT
 );`,
   `CREATE INDEX IF NOT EXISTS idx_session_turns_order ON session_turns (session_id, ordinal);`,
+  `CREATE INDEX IF NOT EXISTS idx_session_turns_kernel_order ON session_turns (kernel_id, session_id, ordinal);`,
   `ALTER TABLE session_turns REPLICA IDENTITY FULL;`,
   `CREATE TABLE IF NOT EXISTS session_nodes (
   id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
   session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
   node_id TEXT NOT NULL,
   tag TEXT NOT NULL,
@@ -78,9 +113,11 @@ export const HARNESS_POSTGRES_DDL = [
   row_json TEXT NOT NULL
 );`,
   `CREATE INDEX IF NOT EXISTS idx_session_nodes_session ON session_nodes (session_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_session_nodes_kernel_session ON session_nodes (kernel_id, session_id);`,
   `ALTER TABLE session_nodes REPLICA IDENTITY FULL;`,
   `CREATE TABLE IF NOT EXISTS session_effects (
   id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
   session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
   effect_key TEXT NOT NULL,
   kind TEXT NOT NULL,
@@ -91,15 +128,43 @@ export const HARNESS_POSTGRES_DDL = [
   created_at_ms BIGINT NOT NULL
 );`,
   `CREATE INDEX IF NOT EXISTS idx_session_effects_session ON session_effects (session_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_session_effects_kernel_session ON session_effects (kernel_id, session_id);`,
   `CREATE TABLE IF NOT EXISTS session_blobs (
   id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
   session_id TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
   blob_id TEXT NOT NULL,
   turn_id TEXT,
   created_at_ms BIGINT NOT NULL
 );`,
   `CREATE INDEX IF NOT EXISTS idx_session_blobs_session ON session_blobs (session_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_session_blobs_kernel_session ON session_blobs (kernel_id, session_id);`,
   `CREATE INDEX IF NOT EXISTS idx_session_blobs_blob_id ON session_blobs (blob_id);`,
+  `CREATE TABLE IF NOT EXISTS scm_resources (
+  id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
+  scope TEXT NOT NULL,
+  scope_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  name TEXT NOT NULL,
+  source TEXT NOT NULL,
+  sha256 TEXT NOT NULL,
+  updated_at_ms BIGINT NOT NULL
+);`,
+  `CREATE INDEX IF NOT EXISTS idx_scm_resources_kernel_scope ON scm_resources (kernel_id, scope, scope_id, kind);`,
+  `ALTER TABLE scm_resources REPLICA IDENTITY FULL;`,
+  `CREATE TABLE IF NOT EXISTS plugin_state_logs (
+  id TEXT PRIMARY KEY,
+  kernel_id TEXT NOT NULL DEFAULT 'local',
+  plugin TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  scope_id TEXT NOT NULL,
+  namespace TEXT NOT NULL DEFAULT 'default',
+  log_json TEXT NOT NULL DEFAULT '[]',
+  updated_at_ms BIGINT NOT NULL
+);`,
+  `CREATE INDEX IF NOT EXISTS idx_plugin_state_logs_kernel_scope ON plugin_state_logs (kernel_id, plugin, scope, scope_id);`,
+  `ALTER TABLE plugin_state_logs REPLICA IDENTITY FULL;`,
 ] as const;
 
 export const bootstrapHarnessPostgresSql = `${HARNESS_POSTGRES_DDL.join("\n\n")}\n`;
