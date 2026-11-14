@@ -1,5 +1,8 @@
 # Harness Architecture Rebuild: Strategy & Implementation DAG
 
+> [!IMPORTANT]
+> **Исторический план первой фазы (переход с Yjs/Plexus).** Актуальный нормативный словарь, трехбазовая серверная топология (`Agent DB` / `Secrets DB` / `Product DB`), модель `Project` с `pluginConfigs`, `FS + shell` как `inhuman`-плагин и финальный план волн 0–5 зафиксированы в [канонической архитектуре](../architecture/README.md).
+
 ## 1. Executive Summary & Foundational Principles
 
 `@inhuman.tools/harness` was originally built on `@here.build/plexus` and **Yjs** (`Y.Doc`) as a unified reactive state and wire synchronization layer. While Yjs accelerated initial prototyping, a thorough audit of both `inhuman-harness-public` and its cloud counterpart `../kley` confirms that **a multi-writer CRDT is fundamentally mismatched to Harness's authority model**:
