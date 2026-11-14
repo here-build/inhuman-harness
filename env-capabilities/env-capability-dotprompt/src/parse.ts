@@ -4,10 +4,10 @@
  * JSON text is produced where a job or completion request is written.
  * Own fields remain readable through Arrival's object membrane.
  */
+import { REASONING_EFFORTS, type ReasoningEffort } from "@inhuman.tools/harness-contract";
 import { z } from "zod";
 
-export const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
-export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+export { REASONING_EFFORTS, type ReasoningEffort };
 
 export type PromptRole = "system" | "user" | "assistant";
 

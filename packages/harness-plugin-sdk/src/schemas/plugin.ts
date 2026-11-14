@@ -5,6 +5,7 @@
  */
 import type { EnvCapability } from "@here.build/arrival";
 import { type ToolContinuation, asSystemPrompt } from "@inhuman.tools/harness-commons";
+import { REASONING_EFFORTS } from "@inhuman.tools/harness-contract";
 import { z } from "zod";
 
 export const inhumanBrand = {
@@ -149,7 +150,7 @@ export const envCapability = z.custom<EnvCapability>(
   { message: "must be Arrival EnvCapability" },
 );
 
-export const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+export { REASONING_EFFORTS };
 
 const nonempty = z.string().trim().min(1);
 

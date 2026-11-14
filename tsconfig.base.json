@@ -6,6 +6,8 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2024", "ESNext.Collection", "ESNext.Disposable"],
     "strict": true,
+    // exactOptionalPropertyTypes is intentionally NOT enabled (not planned):
+    // it conflicts with zod .optional() patterns across the codebase; cost outweighs benefit.
     "skipLibCheck": true,
     "declaration": true,
     "declarationMap": true,

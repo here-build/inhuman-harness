@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@inhuman.tools/harness-commons": "workspace:^",
+    "@inhuman.tools/harness-contract": "workspace:^",
     "zod": "^4.6.7"
   },
   "peerDependencies": {
