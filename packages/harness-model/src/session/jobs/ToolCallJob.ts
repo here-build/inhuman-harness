@@ -7,8 +7,8 @@
  * callback, and notify are COMM FIRST — they skip the floor. Child tools
  * still license.
  */
+import { type JobResolution } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import { type JobResolution } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
 

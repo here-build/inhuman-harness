@@ -140,7 +140,7 @@ describe("plugin ABI step 2", () => {
       compiledHasWorker: kernel.catalog.compiledRecipes.some((recipe) => recipe.spec.name === "worker"),
       workerCategory: kernel.catalog.recipe("worker")?.category,
       quickSearchCategory: kernel.catalog.recipe("quick-search")?.category,
-      authoredBots: Object.keys(kernel.plexus.root.bots),
+      authoredBots: Object.keys(kernel.doc.root.bots),
     }).toEqual({
       recipesHasWorker: false,
       compiledHasWorker: true,

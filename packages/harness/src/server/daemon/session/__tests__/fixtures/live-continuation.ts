@@ -7,7 +7,7 @@ import type { SessionEffectRow } from "@inhuman.tools/harness-contract/schema";
 import {
   CompletionJob,
   ReACTChunk,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -34,7 +34,7 @@ export const boundaries = (turn: SessionTurn) =>
 
 export function captureCut(live: {
   readonly kernel: KernelDaemon;
-  readonly session: { readonly sessionId: string; readonly root: { readonly uuid: string }; readonly doc: SessionPlexus["doc"] };
+  readonly session: { readonly sessionId: string; readonly root: { readonly uuid: string }; readonly doc: SessionDocument };
 }): SessionCut {
   return {
     rootId: live.session.root.uuid,
@@ -109,8 +109,8 @@ export async function startTurn(live: Awaited<ReturnType<typeof liveSession>>, t
   return { turn };
 }
 
-export function replicaOf(session: Awaited<ReturnType<typeof liveSession>>["session"]): SessionPlexus {
-  const replica = SessionPlexus.fromNodeRows(session.doc.toNodeRows(), {
+export function replicaOf(session: Awaited<ReturnType<typeof liveSession>>["session"]): SessionDocument {
+  const replica = SessionDocument.fromNodeRows(session.doc.toNodeRows(), {
     rootId: session.root.uuid,
     sessionId: session.sessionId,
     revision: session.doc.revision,
@@ -121,7 +121,7 @@ export function replicaOf(session: Awaited<ReturnType<typeof liveSession>>["sess
 }
 
 export async function configureJudge(live: Awaited<ReturnType<typeof liveSession>>) {
-  live.kernel.plexus.root.reActLoopIntentDetectedTrigger.enabled = true;
+  live.kernel.doc.root.reActLoopIntentDetectedTrigger.enabled = true;
   await live.session.handleRequest("kv/set", { key: "judgeConnection", value: scriptedConnectionId() });
   await live.session.handleRequest("kv/set", { key: "judgeModel", value: "grok-4.6" });
 }

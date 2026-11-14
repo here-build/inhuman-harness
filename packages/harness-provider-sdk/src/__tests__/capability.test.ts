@@ -19,7 +19,7 @@ import {
 } from "../index.js";
 
 describe("capability shape", () => {
-  it("names the shipped PEW/model kinds and no others", () => {
+  it("names the shipped Expectation/model kinds and no others", () => {
     expect(CAPABILITY_KINDS).toEqual(["completion", "mcp", "web-search", "web-extract"]);
     expect(CAPABILITY_EXPECTATION).toEqual({
       completion: CompletionExpectation.modelName,

@@ -1,5 +1,5 @@
 import { prompt } from "@inhuman.tools/harness-commons";
-import { SessionPlexus, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
+import { SessionDocument, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { bindSessionCatalog, KernelToolCatalog, type CatalogEntry } from "@/tool-catalog";
@@ -43,23 +43,23 @@ describe("deny/ask do not start the effect", () => {
         arguments: JSON.stringify({ command: "echo hi" }),
       },
     });
-    const plexus = SessionPlexus.create("deny-license", "/tmp/deny-license");
-    onTestFinished(() => plexus.destroy());
+    const session = SessionDocument.create("deny-license", "/tmp/deny-license");
+    onTestFinished(() => session.destroy());
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`p`,
       queue: [],
     });
     turn.pushChild(job);
-    plexus.root.head = turn;
-    bindSessionCatalog(plexus.root, catalog);
+    session.root.head = turn;
+    bindSessionCatalog(session.root, catalog);
 
     const decision = await guardHostTool({
       job: job as SystemToolJob,
       origin: "rpc",
       agent: null,
       behaviorEntries: [],
-      guardedCall: (leaf) => guardedCallOf(leaf, plexus.root.path),
+      guardedCall: (leaf) => guardedCallOf(leaf, session.root.path),
       license: async () => false,
       turnId: turn.uuid,
       onUnentered: stampUnentered,

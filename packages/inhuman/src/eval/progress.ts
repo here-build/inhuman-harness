@@ -15,8 +15,8 @@ const STATUS_CAP = 80;
 export function visitEvalProgress(program: ProgrammaticJob, emit: (id: string, line: string) => void): void {
   for (const [index, note] of program.notifications.entries()) emitNote(note, `note:${index}`, emit);
   for (const [index, child] of program.children.entries()) {
-    const pew = tapeCompletion(child);
-    if (pew != null) emitPew(pew, `pew:${index}`, emit);
+    const completion = tapeCompletion(child);
+    if (completion != null) emitCompletion(completion, `completion:${index}`, emit);
   }
 }
 
@@ -26,14 +26,18 @@ function emitNote(note: AgentCallNotification, fallbackId: string, emit: (id: st
   emit(stableId(note, fallbackId), `  ${text}`);
 }
 
-function emitPew(chunk: CompletionExpectation, fallbackId: string, emit: (id: string, line: string) => void): void {
+function emitCompletion(
+  chunk: CompletionExpectation,
+  fallbackId: string,
+  emit: (id: string, line: string) => void,
+): void {
   const name = chunk.model.trim() !== "" ? chunk.model.trim() : "completion";
   const id = stableId(chunk, fallbackId);
   if (!chunk.isDone) {
     emit(`${id}:live`, `  ${name}  live`);
     return;
   }
-  emit(`${id}:done`, `  ${name}  ${pewStatus(chunk)}`);
+  emit(`${id}:done`, `  ${name}  ${completionStatus(chunk)}`);
 }
 
 function stableId(node: { readonly uuid?: string }, fallback: string): string {
@@ -41,12 +45,12 @@ function stableId(node: { readonly uuid?: string }, fallback: string): string {
     const id = node.uuid;
     if (typeof id === "string" && id !== "") return id;
   } catch {
-    /* PLEXUS_UUID: unmaterialized Yjs accessor throws */
+    /* UNMATERIALIZED_UUID: unmaterialized model accessor throws */
   }
   return fallback;
 }
 
-function pewStatus(chunk: CompletionExpectation): string {
+function completionStatus(chunk: CompletionExpectation): string {
   if (chunk.outcome === "failed") {
     const picked = chunk.failReason ?? chunk.endDetail ?? "failed";
     return clampStatus(picked.trim().replaceAll(/\s+/g, " "));

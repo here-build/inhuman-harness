@@ -2,7 +2,7 @@
  * Process-local credentials view. Durable storage stays with the runtime
  * host; this package never keeps a second secrets table.
  */
-import type { ConnectionSecretsView } from "@inhuman.tools/plexus-expectations/driver";
+import type { ConnectionSecretsView } from "@inhuman.tools/expectations/driver";
 
 export type ConnectionSecrets = Readonly<Record<string, string>>;
 

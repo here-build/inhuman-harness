@@ -1,4 +1,4 @@
-/** Harness PEW product kinds. Work truth = PEW + awareness progress. */
+/** Harness expectation product kinds. Work truth = WorkExpectation + awareness progress. */
 export * from "./CompletionExpectation.js";
 export * from "./PromptMessage.js";
 export * from "./ResponseCall.js";

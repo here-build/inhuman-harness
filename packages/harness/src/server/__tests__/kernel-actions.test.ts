@@ -234,10 +234,10 @@ describe("kernel actions", () => {
       ok: true,
     });
     expect((await configOf(root)).authorization).toEqual({ auto: { preset: "full" } });
-    expect(JSON.parse(daemon.plexus.root.authorizationJson)).toEqual({ auto: { preset: "full" } });
+    expect(JSON.parse(daemon.doc.root.authorizationJson)).toEqual({ auto: { preset: "full" } });
     await expect(daemon.handleRequest("config/set", { authorization: null })).resolves.toEqual({ ok: true });
     expect((await configOf(root)).authorization).toBeUndefined();
-    expect(daemon.plexus.root.authorizationJson).toBe("");
+    expect(daemon.doc.root.authorizationJson).toBe("");
   });
 
   it("stored grants validate scope, persist, revoke, and expire", async () => {
@@ -272,13 +272,13 @@ describe("kernel actions", () => {
     expect(timed.row.expiresAtMs).toBeGreaterThan(Date.now());
     const storedRows = (await daemon.handleRequest("grant/list", {})) as { rows: Array<{ id: string }> };
     expect(storedRows.rows.map((row) => row.id).toSorted()).toEqual([added.row.id, timed.row.id].toSorted());
-    expect(JSON.parse(daemon.plexus.root.grantsJson)).toHaveLength(2);
+    expect(JSON.parse(daemon.doc.root.grantsJson)).toHaveLength(2);
     await expect(daemon.handleRequest("grant/list", { scope: "global" })).resolves.toMatchObject({
       rows: [{ id: timed.row.id }],
     });
     await expect(daemon.handleRequest("grant/revoke", { id: added.row.id })).resolves.toEqual({ ok: true });
     await expect(daemon.handleRequest("grant/revoke", { id: added.row.id })).resolves.toEqual({ ok: false });
-    expect(JSON.parse(daemon.plexus.root.grantsJson)).toHaveLength(1);
+    expect(JSON.parse(daemon.doc.root.grantsJson)).toHaveLength(1);
     // an expired row is not listed and is swept
     expect(daemon.sweepGrants(Date.now() + 10_000)).toBe(1);
     await expect(daemon.handleRequest("grant/list", { includeExpired: true })).resolves.toEqual({ rows: [] });
@@ -417,7 +417,7 @@ describe("kernel actions", () => {
       expect({
         result,
         secrets: await readJson(join(root, "secrets.json")),
-        models: daemon.plexus.root.connections[adopted.id]?.live.models,
+        models: daemon.doc.root.connections[adopted.id]?.live.models,
         configuration: (await configOf(root)).connections[adopted.id]?.settings,
       }).toEqual({
         result: { ok: true },

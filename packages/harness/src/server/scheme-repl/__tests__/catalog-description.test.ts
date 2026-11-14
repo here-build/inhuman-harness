@@ -1,3 +1,4 @@
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { SCHEME_REPL_TOOL_NAME } from "@inhuman.tools/harness-model";
 import {
   schemeReplDescription,
@@ -6,7 +7,6 @@ import {
   AGENT_BRIEF_GUIDANCE,
   AGENT_STATUS_GUIDANCE,
 } from "@inhuman.tools/harness-scheme";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { describe, expect, it } from "vitest";
 
 import { schemeWatchTool } from "@/builtin-tools";

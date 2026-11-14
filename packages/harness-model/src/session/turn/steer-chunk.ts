@@ -2,9 +2,9 @@
  * Human inject at a model-input boundary. Render is `steerText`; the model
  * sees a user-role cell.
  */
+import { WorkContainer } from "@inhuman.tools/expectations";
 import { prompt, type UserPrompt } from "@inhuman.tools/harness-commons";
 import { model, state } from "@inhuman.tools/model";
-import { WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 @model("harness:session:turn-steer")

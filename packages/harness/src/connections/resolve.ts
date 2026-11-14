@@ -2,8 +2,8 @@
  * One driver-class resolver for adopt, discovery, and execution.
  * Registered classes win; unregistered importPath uses the injected loader.
  */
+import { isDriverConnectionClass, type DriverConnectionClass } from "@inhuman.tools/expectations/driver";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
-import { isDriverConnectionClass, type DriverConnectionClass } from "@inhuman.tools/plexus-expectations/driver";
 
 export type ResolvePurpose = "adopt" | "discovery" | "execution";
 

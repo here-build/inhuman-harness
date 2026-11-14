@@ -20,20 +20,20 @@ export interface TurnResolverHost {
 export function createTurnResolvers(host: TurnResolverHost): TurnResolvers {
   return {
     async completion(job, signal) {
-      const pew = job.expectation;
-      if (pew == null || pew.isDone) return;
+      const expectation = job.expectation;
+      if (expectation == null || expectation.isDone) return;
       try {
         await host.complete({
-          connectionId: pew.connectionId,
-          model: pew.model,
-          promptText: pew.userPrompt,
-          round: pew,
+          connectionId: expectation.connectionId,
+          model: expectation.model,
+          promptText: expectation.userPrompt,
+          round: expectation,
           signal,
         });
       } catch (error) {
         // A park aborts with the reason "park" and leaves the round open for the next wrap.
-        if (!signal.aborted && pew.outcome == null && error !== "park") {
-          pew.fail("crash", error instanceof Error ? error.message : String(error), "null");
+        if (!signal.aborted && expectation.outcome == null && error !== "park") {
+          expectation.fail("crash", error instanceof Error ? error.message : String(error), "null");
         }
       }
     },

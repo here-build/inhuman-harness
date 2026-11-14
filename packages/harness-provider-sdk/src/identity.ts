@@ -1,6 +1,6 @@
 import { PROVIDER_SDK_CONTRACT } from "./schemas/provider.js";
 
-/** Process-local brands. Not plugin-sdk InhumanPlugin and not a PEW kind. */
+/** Process-local brands. Not plugin-sdk InhumanPlugin and not an Expectation kind. */
 export const providerBrand = {
   descriptor: Symbol.for("@inhuman.tools/harness-provider-sdk:descriptor"),
   registration: Symbol.for("@inhuman.tools/harness-provider-sdk:registration"),

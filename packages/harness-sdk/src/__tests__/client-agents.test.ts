@@ -5,9 +5,9 @@
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   KernelAgentRelation,
-  KernelPlexus,
+  KernelDocument,
   KernelRoot,
-  ProjectPlexus,
+  ProjectDocument,
   SessionOverview,
   publishKernelSeat,
 } from "@inhuman.tools/harness-model/kernel";
@@ -15,7 +15,7 @@ import {
   AgentCallJob,
   BotCallJob,
   ProgrammaticJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SuccessfulOutcome,
@@ -555,7 +555,7 @@ describe("client agents", () => {
       title: "Quiet",
       lastMessageAt: 10,
     });
-    publishKernelSeat(client.kernelPlexus.awareness, "s-other");
+    publishKernelSeat(client.kernelDoc.awareness, "s-other");
     const drawer = projectAgentDrawer(client);
     expect({
       face: [
@@ -715,9 +715,9 @@ describe("client agents", () => {
       "/tmp/k",
       "/tmp/p",
       "s",
-      KernelPlexus.bootstrap(new KernelRoot()),
-      ProjectPlexus.create("/tmp/p"),
-      SessionPlexus.create("s", "/tmp/p"),
+      KernelDocument.bootstrap(new KernelRoot()),
+      ProjectDocument.create("/tmp/p"),
+      SessionDocument.create("s", "/tmp/p"),
     );
     clients.push(client);
     return client;

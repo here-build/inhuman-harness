@@ -2,7 +2,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompactJob,
   ProgrammaticJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
@@ -16,15 +16,15 @@ import { executeSystemTool } from "@/tool-runtime";
 import { KernelToolCatalog } from "../tool-table.js";
 
 function fixture() {
-  const plexus = SessionPlexus.create("exec-meta", "/tmp/exec-meta");
+  const doc = SessionDocument.create("exec-meta", "/tmp/exec-meta");
   const catalog = new KernelToolCatalog();
   onTestFinished(() => {
     catalog[Symbol.dispose]();
-    plexus.destroy();
+    doc.destroy();
   });
-  bindSessionCatalog(plexus.root, catalog);
+  bindSessionCatalog(doc.root, catalog);
   const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`p`, queue: [] });
-  plexus.root.head = turn;
+  doc.root.head = turn;
   function call(name: string, args: Record<string, unknown>, home = turn) {
     const job = new SystemToolJob({
       triggersReactLoop: catalog.catalogEntry(name)?.triggersReactLoop ?? true,
@@ -43,34 +43,34 @@ function fixture() {
     job.markComplete();
     return job.outcomeSnap;
   }
-  return { plexus, turn, call, execute };
+  return { doc, turn, call, execute };
 }
 
 it("metadata applies only after execution, clamps, preserves arguments, and rewinds", async () => {
-  const { plexus, turn, call, execute } = fixture();
+  const { doc, turn, call, execute } = fixture();
   const title = `Fix ${"x".repeat(100)}`;
   const first = call("update_metadata", { current_turn_title: title, current_turn_description: " patched " });
-  expect(plexus.root.title).toBe("p");
+  expect(doc.root.title).toBe("p");
   expect(await execute(first)).toEqual({
     ok: true,
     value: { current_turn_title: title.slice(0, 80), current_turn_description: "patched" },
   });
   expect({
-    title: plexus.root.title,
-    description: plexus.root.turnDescription,
+    title: doc.root.title,
+    description: doc.root.turnDescription,
     args: first.args?.current_turn_title,
   }).toEqual({ title: title.slice(0, 80), description: "patched", args: title });
 
   const next = new SessionTurn({ turnTail: turn, prompt: prompt.user`next`, queue: [] });
-  plexus.root.head = next;
+  doc.root.head = next;
   await execute(call("update_metadata", { current_turn_title: "Later" }, next));
-  expect(plexus.root.title).toBe("Later");
-  plexus.root.head = turn;
-  expect(plexus.root.title).toBe(title.slice(0, 80));
+  expect(doc.root.title).toBe("Later");
+  doc.root.head = turn;
+  expect(doc.root.title).toBe(title.slice(0, 80));
 });
 
 it("failed, blank, and cancelled metadata calls cannot change session state", async () => {
-  const { plexus, turn, call, execute } = fixture();
+  const { doc, turn, call, execute } = fixture();
   await execute(call("update_metadata", { current_turn_title: "Kept" }));
   const invalid = call("update_metadata", { current_turn_title: 42 });
   const blank = call("update_metadata", { current_turn_title: "   " });
@@ -83,7 +83,7 @@ it("failed, blank, and cancelled metadata calls cannot change session state", as
   abort.abort("cancel");
   await executeSystemTool(cancelled, abort.signal);
   expect({
-    title: plexus.root.title,
+    title: doc.root.title,
     need: turn.contextNeed,
     metas: [invalid.pluginMeta, blank.pluginMeta, cancelled.pluginMeta],
   }).toEqual({ title: "Kept", need: null, metas: [{}, {}, {}] });
@@ -115,8 +115,8 @@ it("context requests execute inside Scheme programs, normalize, and expire at su
 });
 
 it("recall executes through its catalog body, pages results, and preserves image metadata", async () => {
-  const { plexus, turn, call, execute } = fixture();
-  plexus.root.path = "";
+  const { doc, turn, call, execute } = fixture();
+  doc.root.path = "";
   const source = call("read_file", { path: "note.txt" });
   source.outcomeSnap = { ok: true, value: "abcdefghij" };
   source.markComplete();
@@ -130,11 +130,11 @@ it("recall executes through its catalog body, pages results, and preserves image
   expect(asToolResult(direct)).toMatchObject({ ok: true, json: { visualId: "picture" } });
   expect(await execute(visual)).toMatchObject({ ok: true, json: { visualId: "picture" } });
   const branch = new SessionTurn({ turnTail: turn, prompt: prompt.user`branch`, queue: [] });
-  plexus.root.head = branch;
+  doc.root.head = branch;
   const abandoned = call("read_file", { path: "other.txt" }, branch);
   abandoned.outcomeSnap = { ok: true, value: "other" };
   abandoned.markComplete();
   const abandonedRef = `job:${abandoned.uuid.slice(0, 8)}`;
-  plexus.root.head = turn;
+  doc.root.head = turn;
   expect(await execute(call("context_recall", { ref: abandonedRef }))).toMatchObject({ ok: false });
 });

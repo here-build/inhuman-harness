@@ -1,4 +1,4 @@
-import type { SessionPlexus } from "@inhuman.tools/harness-peer";
+import type { SessionDocument } from "@inhuman.tools/harness-peer";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { runInAction } from "mobx";
 import { expect, userEvent, waitFor, within } from "storybook/test";
@@ -50,7 +50,7 @@ export const ApprovalShell: Story = { args: { stage: sessionStage(() => approval
 /** The proposed operation has only arguments to show. */
 export const ApprovalArguments: Story = { args: { stage: sessionStage(() => approval("args")) } };
 
-let drafting: SessionPlexus | null = null;
+let drafting: SessionDocument | null = null;
 
 /** An ask lands while you type: the cover holds its buttons for a beat, then arms. */
 export const ApprovalWhileDrafting: Story = {

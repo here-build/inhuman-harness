@@ -3,7 +3,7 @@
  * that connection has been ensured. Source failure still mints intern (401,
  * not hang).
  *
- * Memo key is intern + current source so PEW ticks share one chain, while a
+ * Memo key is intern + current source so expectation ticks share one chain, while a
  * source A→B switch cannot reuse A's handshake. Kernel intern is keyed by
  * connection id only — changing the memo key is not enough; remint drops
  * the shared lease so the next ensure constructs against B.

@@ -1,5 +1,5 @@
 /**
- * Process-local connection secrets. Never a Plexus field, never config.json.
+ * Process-local connection secrets. Never a model field, never config.json.
  * Owner-only file next to the kernel root.
  */
 import { chmodSync, existsSync } from "node:fs";

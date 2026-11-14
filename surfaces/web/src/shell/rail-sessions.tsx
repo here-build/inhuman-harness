@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { isConversationOverview, type SessionOverview, type SessionRoot } from "@inhuman.tools/harness-model";
-import type { ProjectPlexus } from "@inhuman.tools/harness-peer";
+import type { ProjectDocument } from "@inhuman.tools/harness-peer";
 import { IconPlus } from "@tabler/icons-react";
 import { observer } from "mobx-react-lite";
 
@@ -306,7 +306,7 @@ function listedConversation(overview: SessionOverview | undefined, force: boolea
 
 function listedSessions(
   glances: { readonly [id: string]: SessionOverview | undefined },
-  held: ProjectPlexus,
+  held: ProjectDocument,
   selectedSessionId: string | null,
 ): string[] {
   return Object.keys(held.root.sessions).filter((sessionId) =>

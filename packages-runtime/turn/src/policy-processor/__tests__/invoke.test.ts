@@ -397,11 +397,11 @@ describe("remainder host", () => {
     expect({
       classifierResult: job.classifierResult,
       fail: job.classifierAbstain,
-      pews: childCompletions(job).length,
+      completions: childCompletions(job).length,
     }).toEqual({
       classifierResult: null,
       fail: "no model connection",
-      pews: 0,
+      completions: 0,
     });
   });
 

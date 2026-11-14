@@ -22,13 +22,13 @@ function completionHosting(job: ToolCallJob): CompletionExpectation | null {
   if (turn == null) return null;
   const tape = reactChunks(turn);
   for (let i = 0; i < tape.length; i += 1) {
-    const pew = tapeCompletion(tape[i]);
-    if (pew == null) continue;
-    if (pew.messages.includes(job)) return pew;
+    const completion = tapeCompletion(tape[i]);
+    if (completion == null) continue;
+    if (completion.messages.includes(job)) return completion;
     for (let index = i + 1; index < tape.length; index += 1) {
       const cell = tape[index];
       if (tapeCompletion(cell) != null) break;
-      if (cell === job) return pew;
+      if (cell === job) return completion;
     }
   }
   return null;

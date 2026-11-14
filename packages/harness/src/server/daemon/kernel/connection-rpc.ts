@@ -1,10 +1,10 @@
 /**
  * Kernel-plane ConnectionSpec RPC helpers.
- * List is generic PEW rows; optional `abilityClaim` filters DriverSpec.abilityClaim.
+ * List is generic expectation rows; optional `abilityClaim` filters DriverSpec.abilityClaim.
  * Secrets never appear in list/get.
  */
 import { type ConnectionListRow, type ConnectionStatus } from "@inhuman.tools/harness-contract";
-import type { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
+import type { ConnectionSpec } from "@inhuman.tools/expectations";
 
 import { loginMcpHttp, type McpOAuthHost, filterMcpToolNames, mcpToolsSettingOf } from "@/providers/mcp";
 

@@ -76,7 +76,7 @@ async function withPlugins(
   for (const [path, text] of Object.entries(opts.files ?? {})) {
     writeFileSync(join(workspace, path), text);
   }
-  reflectKernel(system, kernel.plexus.root);
+  reflectKernel(system, kernel.doc.root);
   const project = new ProjectDaemon(kernel, workspace);
   await project.ready;
   const session = await project.session("s1");
@@ -94,8 +94,8 @@ async function withPlugins(
 function completionsOf(turn: SessionTurn) {
   const out = [];
   for (const chunk of reactChunks(turn)) {
-    const pew = tapeCompletion(chunk);
-    if (pew != null) out.push(pew);
+    const expectation = tapeCompletion(chunk);
+    if (expectation != null) out.push(expectation);
   }
   return out;
 }
@@ -199,7 +199,7 @@ test("a plugin command calls its plugin's own state; the kernel lists /goal with
   const set = { method: "set", args: '{"loops": 32}', field: "text" };
 
   expect({
-    body: kernel.plexus.root.commands.goal?.body,
+    body: kernel.doc.root.commands.goal?.body,
     empty: await call({ ...set, input: "  " }),
     set: await call({ ...set, input: "ship it" }),
     get: await call({ method: "get" }),
@@ -421,7 +421,7 @@ test("a plugin bot is a named agent whose worker runs its pinned behavior", asyn
   await when(() => (call()?.workerSessionId ?? "") !== "", {
     timeout: TIMEOUT,
   });
-  const worker = kernel.sessionPlexus(call()!.workerSessionId)!;
+  const worker = kernel.sessionDoc(call()!.workerSessionId)!;
   const workerTurn = () => (worker.root.head instanceof SessionTurn ? worker.root.head : null);
   await when(() => workerTurn() != null && completionsOf(workerTurn()!).length === 1, { timeout: TIMEOUT });
   const pin = JSON.parse(worker.root.agent.spec.behaviorPin) as {
@@ -625,9 +625,9 @@ test.each(["pre", "post"] as const)(
       modelOf(session).reply({ text: "done" });
     }
     await callback.entered;
-    const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
+    const replacement = new SessionRuntime(session.doc, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
-    const before = JSON.stringify(session.plexus.doc.toNodeRows());
+    const before = JSON.stringify(session.doc.toNodeRows());
     callback.release();
     await callback.returned;
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -636,7 +636,7 @@ test.each(["pre", "post"] as const)(
       current: session.sessionRuntime.isCurrent,
       exited: turn.reducerExited,
       completed: turn.completed,
-      state: JSON.stringify(session.plexus.doc.toNodeRows()),
+      state: JSON.stringify(session.doc.toNodeRows()),
       log: kernel.behavior.directory.get(ownerId).log.map(toJS),
       notes: latePluginNotes(kernel),
     }).toEqual({ current: false, exited: false, completed: false, state: before, log: [], notes: [] });
@@ -741,7 +741,7 @@ test.each(["finish", "timeout", "nested owner"] as const)(
         .flatMap((program) => program.children)
         .find((child): child is BotCallJob => child instanceof BotCallJob);
     await when(() => (call()?.workerSessionId ?? "") !== "", { timeout: TIMEOUT });
-    const worker = kernel.sessionPlexus(call()!.workerSessionId)!;
+    const worker = kernel.sessionDoc(call()!.workerSessionId)!;
     await when(() => worker.root.head instanceof SessionTurn && completionsOf(worker.root.head).length === 1, {
       timeout: TIMEOUT,
     });

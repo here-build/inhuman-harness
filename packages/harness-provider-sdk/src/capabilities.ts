@@ -1,7 +1,7 @@
 /**
  * Known capability kinds and request/result envelopes.
  *
- * `can` on a driver is these short names (product law). PEW/model kinds stay
+ * `can` on a driver is these short names (product law). Expectation/model kinds stay
  * the existing Expectation classes — v1 does not invent third-party wire kinds.
  */
 import type {
@@ -18,7 +18,7 @@ import { CAPABILITY_KINDS, capabilityKindSchema, capabilityRequestSchema } from 
 
 export type CapabilityKind = (typeof CAPABILITY_KINDS)[number];
 
-/** Sync tags of the harness-model PEW kinds each `can` token claims. */
+/** Sync tags of the harness-model Expectation kinds each `can` token claims. */
 export const CAPABILITY_EXPECTATION = {
   completion: "harness:expectation:completion",
   mcp: "harness:expectation:mcp-tool",
@@ -52,7 +52,7 @@ export type CompleteFields = {
   readonly responseSchemaJson?: string;
   readonly systemNote?: string;
   readonly signal?: AbortSignal;
-  /** Required. Homed on a session plexus. Mutated in place. */
+  /** Required. Homed on a session document. Mutated in place. */
   readonly round: CompletionExpectation;
 };
 

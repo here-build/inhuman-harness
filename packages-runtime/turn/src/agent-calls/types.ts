@@ -2,8 +2,8 @@
  * Catalog and replica surfaces this package observes.
  * Creation/activation of sessions stays in runtime composition.
  */
+import type { Job } from "@inhuman.tools/expectations";
 import type { SessionRoot } from "@inhuman.tools/harness-model/session";
-import type { Job } from "@inhuman.tools/plexus-expectations";
 
 import type { CatalogEntry } from "../tool-catalog/index.js";
 

@@ -1,6 +1,6 @@
 /**
  * ProductionRuntime + HarnessDatabase SQLite storage: node rows round-trip
- * through flushSession, and sessionPlexus stays memory-only.
+ * through flushSession, and sessionDoc stays memory-only.
  */
 import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -40,18 +40,18 @@ describe("local SQLite/runtime integration", () => {
     const session = await project.session("s1");
     await session.park();
     session.root.applyKvs([{ form: "kv-set", key: "mark", value: "hello" }]);
-    await kernel.flushSession(session.plexus);
+    await kernel.flushSession(session.doc);
     kernel[Symbol.dispose]();
 
     const restored = new KernelDaemon(system);
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
-    expect(restored.sessionPlexus("s1")).toBeUndefined();
+    expect(restored.sessionDoc("s1")).toBeUndefined();
     const acquired = await restored.acquireSession("s1");
     expect({
       mark: acquired?.root.kvs.mark,
       live: restored.liveSession("s1"),
-      loaded: restored.sessionPlexus("s1")?.doc === acquired?.doc,
+      loaded: restored.sessionDoc("s1") === acquired,
     }).toEqual({ mark: "hello", live: undefined, loaded: true });
   });
 
@@ -64,7 +64,7 @@ describe("local SQLite/runtime integration", () => {
     const project = new ProjectDaemon(kernel, workspace);
     await project.ready;
     const session = await project.session("s1");
-    await kernel.flushSession(session.plexus);
+    await kernel.flushSession(session.doc);
     kernel.db.sqlite.pragma("query_only = ON");
     onTestFinished(() => {
       try {
@@ -72,16 +72,16 @@ describe("local SQLite/runtime integration", () => {
       } catch {}
     });
     session.root.applyKvs([{ form: "kv-set", key: "mark", value: "dirty" }]);
-    await expect(kernel.flushSession(session.plexus)).rejects.toThrow();
+    await expect(kernel.flushSession(session.doc)).rejects.toThrow();
     kernel.db.sqlite.pragma("query_only = OFF");
     expect({
       mark: session.root.kvs.mark,
-      loaded: kernel.sessionPlexus("s1")?.doc === session.plexus.doc,
-      dirty: session.plexus.doc.peekNodeDelta().upserts.length > 0,
+      loaded: kernel.sessionDoc("s1") === session.doc,
+      dirty: session.doc.peekNodeDelta().upserts.length > 0,
     }).toEqual({ mark: "dirty", loaded: true, dirty: true });
   });
 
-  it("sessionPlexus does not intern a cold session; acquireSession hydrates without SessionDaemon", async () => {
+  it("sessionDoc does not intern a cold session; acquireSession hydrates without SessionDaemon", async () => {
     const system = await openKernel("cold-k");
     const workspace = await openKernel("cold-p");
     const kernel = new KernelDaemon(system);
@@ -89,21 +89,21 @@ describe("local SQLite/runtime integration", () => {
     const project = new ProjectDaemon(kernel, workspace);
     await project.ready;
     const session = await project.session("idle");
-    await kernel.flushSession(session.plexus);
+    await kernel.flushSession(session.doc);
     kernel[Symbol.dispose]();
 
     const restored = new KernelDaemon(system);
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
     expect({
-      plexus: restored.sessionPlexus("idle"),
+      doc: restored.sessionDoc("idle"),
       live: restored.liveSession("idle"),
-    }).toEqual({ plexus: undefined, live: undefined });
+    }).toEqual({ doc: undefined, live: undefined });
     const acquired = await restored.acquireSession("idle");
     expect({
       id: acquired?.root.sessionId,
       live: restored.liveSession("idle"),
-      loaded: restored.sessionPlexus("idle")?.doc === acquired?.doc,
+      loaded: restored.sessionDoc("idle") === acquired,
     }).toEqual({ id: "idle", live: undefined, loaded: true });
   });
 
@@ -116,17 +116,17 @@ describe("local SQLite/runtime integration", () => {
     await project.ready;
     const session = await project.session("seated");
     session.root.agent.spec.resident = true;
-    await kernel.flushSession(session.plexus);
+    await kernel.flushSession(session.doc);
     kernel.flushKernel();
-    expect(kernel.plexus.root.sessions.seated?.resident).toBe(true);
+    expect(kernel.doc.root.sessions.seated?.resident).toBe(true);
     kernel[Symbol.dispose]();
 
     const restored = new KernelDaemon(system);
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
     expect({
-      resident: restored.plexus.root.sessions.seated?.resident,
-      ids: Object.keys(restored.plexus.root.sessions),
+      resident: restored.doc.root.sessions.seated?.resident,
+      ids: Object.keys(restored.doc.root.sessions),
     }).toEqual({
       resident: true,
       ids: ["seated"],
@@ -140,8 +140,8 @@ describe("local SQLite/runtime integration", () => {
     await kernel.ready;
     const project = new ProjectDaemon(kernel, workspace);
     await project.ready;
-    const awareness = project.plexus.awareness;
-    const doc = project.plexus.doc;
+    const awareness = project.doc.awareness;
+    const doc = project.doc;
     let stopped = false;
     awareness.on("destroy", () => {
       stopped = true;
@@ -174,14 +174,14 @@ describe("local SQLite/runtime integration", () => {
     s1.root.applyKvs([{ form: "kv-set", key: "mark", value: "left" }]);
     s2.root.applyKvs([{ form: "kv-set", key: "mark", value: "right" }]);
     expect({
-      samePlexus: s1.plexus === s2.plexus,
-      k1SeesK2: k1.sessionPlexus("same") === s2.plexus,
-      k2SeesK1: k2.sessionPlexus("same") === s1.plexus,
-      loadedSameDoc: k1.sessionPlexus("same")?.doc === k2.sessionPlexus("same")?.doc,
+      sameDoc: s1.doc === s2.doc,
+      k1SeesK2: k1.sessionDoc("same") === s2.doc,
+      k2SeesK1: k2.sessionDoc("same") === s1.doc,
+      loadedSameDoc: k1.sessionDoc("same") === k2.sessionDoc("same"),
       marks: [s1.root.kvs.mark, s2.root.kvs.mark],
       dbs: k1.db === k2.db,
     }).toEqual({
-      samePlexus: false,
+      sameDoc: false,
       k1SeesK2: false,
       k2SeesK1: false,
       loadedSameDoc: false,

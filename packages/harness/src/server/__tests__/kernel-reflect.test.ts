@@ -8,7 +8,7 @@ import {
   DEFAULT_CONTEXT_GLOW_REMAINING,
   DEFAULT_SHELL_TAIL_BYTES,
   DEFAULT_SUPER_KEY,
-  KernelPlexus,
+  KernelDocument,
   type KernelRoot,
   MAX_SHELL_TAIL_BYTES,
 } from "@inhuman.tools/harness-model";
@@ -24,8 +24,8 @@ describe("kernel reflect", () => {
     const genesisDir = await mkdtemp(join(tmpdir(), "harness-corecmd-"));
     using daemon = new KernelDaemon(genesisDir);
     await daemon.ready;
-    const connect = daemon.plexus.root.commands.connect;
-    const effort = daemon.plexus.root.commands.effort;
+    const connect = daemon.doc.root.commands.connect;
+    const effort = daemon.doc.root.commands.effort;
     expect({
       source: connect?.source,
       nonempty: (connect?.body.length ?? 0) > 0,
@@ -65,7 +65,7 @@ describe("kernel reflect", () => {
     // Boot heals the invalid floor in-place; the file is the source of truth.
     const healed = (await readJson(join(genesisDir, "config.json"))) as { compactKeepTurns: number };
     expect(healed.compactKeepTurns).toBe(DEFAULT_COMPACT_KEEP_TURNS);
-    expect(daemon.plexus.root.compactKeepTurns).toBe(DEFAULT_COMPACT_KEEP_TURNS);
+    expect(daemon.doc.root.compactKeepTurns).toBe(DEFAULT_COMPACT_KEEP_TURNS);
   }, 15_000);
 
   it("leaves a valid compactKeepTurns untouched at boot", async () => {
@@ -76,7 +76,7 @@ describe("kernel reflect", () => {
 
     const kept = (await readJson(join(genesisDir, "config.json"))) as { compactKeepTurns: number };
     expect(kept.compactKeepTurns).toBe(5);
-    expect(daemon.plexus.root.compactKeepTurns).toBe(5);
+    expect(daemon.doc.root.compactKeepTurns).toBe(5);
   }, 15_000);
 
   const CONFIG_ROWS: Array<{
@@ -347,10 +347,10 @@ describe("kernel reflect", () => {
   it.each(CONFIG_ROWS)("config.json $name", async ({ config, read, want }) => {
     const system = await mkdtemp(join(tmpdir(), "harness-reflect-"));
     await writeJson(join(system, "config.json"), config);
-    const plexus = KernelPlexus.bootstrap();
-    reflectKernel(system, plexus.root);
-    expect(read(plexus.root)).toEqual(want);
-    plexus.doc.destroy();
+    const doc = KernelDocument.bootstrap();
+    reflectKernel(system, doc.root);
+    expect(read(doc.root)).toEqual(want);
+    doc.destroy();
   });
 
   it("leftover kernel image without reActLoopIntentDetectedTrigger still reflects config.json", async () => {
@@ -359,26 +359,26 @@ describe("kernel reflect", () => {
       connections: {},
       reActLoopIntentDetectedTrigger: { enabled: true, models: { "c:m": true } },
     });
-    const plexus = KernelPlexus.bootstrap();
-    plexus.root.reActLoopIntentDetectedTrigger = null as unknown as ReActLoopIntentDetectedTrigger;
-    reflectKernel(system, plexus.root);
+    const doc = KernelDocument.bootstrap();
+    doc.root.reActLoopIntentDetectedTrigger = null as unknown as ReActLoopIntentDetectedTrigger;
+    reflectKernel(system, doc.root);
     expect({
-      enabled: plexus.root.reActLoopIntentDetectedTrigger.enabled,
-      models: { ...plexus.root.reActLoopIntentDetectedTrigger.models },
+      enabled: doc.root.reActLoopIntentDetectedTrigger.enabled,
+      models: { ...doc.root.reActLoopIntentDetectedTrigger.models },
     }).toEqual({ enabled: true, models: { "c:m": true } });
-    plexus.doc.destroy();
+    doc.destroy();
   });
 
   it("a config.json that stops parsing drops the user authorization layer (dist defaults)", async () => {
     const system = await mkdtemp(join(tmpdir(), "harness-reflect-"));
     await writeJson(join(system, "config.json"), { connections: {}, authorization: { yolo: { default: "deny" } } });
-    const plexus = KernelPlexus.bootstrap();
-    reflectKernel(system, plexus.root);
-    expect(JSON.parse(plexus.root.authorizationJson)).toEqual({ yolo: { default: "deny" } });
+    const doc = KernelDocument.bootstrap();
+    reflectKernel(system, doc.root);
+    expect(JSON.parse(doc.root.authorizationJson)).toEqual({ yolo: { default: "deny" } });
     await writeFile(join(system, "config.json"), '{ "authorization": { "yolo": ');
-    reflectKernel(system, plexus.root);
-    expect(plexus.root.authorizationJson).toBe("");
-    plexus.doc.destroy();
+    reflectKernel(system, doc.root);
+    expect(doc.root.authorizationJson).toBe("");
+    doc.destroy();
   });
 
   it("grants.json is reflected: valid rows only, an unreadable file grants nothing", async () => {
@@ -395,17 +395,17 @@ describe("kernel reflect", () => {
     };
     await writeJson(join(system, "config.json"), { connections: {} });
     await writeJson(join(system, "grants.json"), [row, { id: "bad" }]);
-    const plexus = KernelPlexus.bootstrap();
-    reflectKernel(system, plexus.root);
+    const doc = KernelDocument.bootstrap();
+    reflectKernel(system, doc.root);
     // a row that does not parse invalidates the file: fail closed, nothing is granted
-    expect(plexus.root.grantsJson).toBe("");
+    expect(doc.root.grantsJson).toBe("");
     await writeJson(join(system, "grants.json"), [row]);
-    reflectKernel(system, plexus.root);
-    expect(JSON.parse(plexus.root.grantsJson)).toEqual([row]);
+    reflectKernel(system, doc.root);
+    expect(JSON.parse(doc.root.grantsJson)).toEqual([row]);
     await writeFile(join(system, "grants.json"), "[");
-    reflectKernel(system, plexus.root);
-    expect(plexus.root.grantsJson).toBe("");
-    plexus.doc.destroy();
+    reflectKernel(system, doc.root);
+    expect(doc.root.grantsJson).toBe("");
+    doc.destroy();
   });
 });
 
@@ -420,9 +420,9 @@ it("nous connection projects web-nous intern; drop removes it", async () => {
       },
     },
   });
-  const plexus = KernelPlexus.bootstrap();
-  reflectKernel(system, plexus.root);
-  const intern = plexus.root.connections["web-nous"];
+  const doc = KernelDocument.bootstrap();
+  reflectKernel(system, doc.root);
+  const intern = doc.root.connections["web-nous"];
   expect({
     name: intern?.name,
     annotation: intern?.annotation,
@@ -439,11 +439,11 @@ it("nous connection projects web-nous intern; drop removes it", async () => {
       sourceConnection: "nous-portal",
     },
   });
-  plexus.doc.destroy();
+  doc.destroy();
 
   await writeJson(join(system, "config.json"), { connections: {} });
-  const gone = KernelPlexus.bootstrap();
+  const gone = KernelDocument.bootstrap();
   reflectKernel(system, gone.root);
   expect(gone.root.connections["web-nous"]).toBeUndefined();
-  gone.doc.destroy();
+  gone.destroy();
 });

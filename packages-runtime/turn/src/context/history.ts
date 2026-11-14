@@ -296,10 +296,10 @@ function toolContent(
 
 // --- pictures -------------------------------------------------------------------------------
 
-function tapeIndexOf(tape: readonly unknown[], pew: CompletionExpectation): number {
+function tapeIndexOf(tape: readonly unknown[], completion: CompletionExpectation): number {
   for (let i = 0; i < tape.length; i += 1) {
     const cell = tape[i];
-    if (cell === pew || tapeCompletion(cell) === pew) return i;
+    if (cell === completion || tapeCompletion(cell) === completion) return i;
   }
   return -1;
 }
@@ -736,7 +736,7 @@ export function* projectModelHistory(
       .filter((part) => part !== "")
       .join("\n\n"),
   };
-  const root = tip.plexus?.root;
+  const root = tip.document?.root;
   const env = parts?.env ?? {};
   const envLines: string[] = [];
   if (root instanceof SessionRoot && root.path !== "") envLines.push(`Workspace: ${root.path}`);

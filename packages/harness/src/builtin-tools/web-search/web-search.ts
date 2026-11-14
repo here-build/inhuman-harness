@@ -1,4 +1,4 @@
-/** `web_search` catalog row. BODY is PEW intern, not this execute. */
+/** `web_search` catalog row. BODY is expectation intern, not this execute. */
 import { InhumanTool } from "@inhuman.tools/plugin-sdk";
 import { z } from "zod";
 
@@ -16,6 +16,6 @@ export const webSearchTool = new InhumanTool({
     provider: z.string().optional(),
   }),
   run: () => {
-    throw new Error("web_search is PEW intern, not catalog execute");
+    throw new Error("web_search is expectation intern, not catalog execute");
   },
 });

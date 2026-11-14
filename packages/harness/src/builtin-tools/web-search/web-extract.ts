@@ -1,4 +1,4 @@
-/** `web_extract` catalog row. BODY is PEW intern, not this execute. */
+/** `web_extract` catalog row. BODY is expectation intern, not this execute. */
 import { InhumanTool } from "@inhuman.tools/plugin-sdk";
 import { z } from "zod";
 
@@ -29,6 +29,6 @@ export const webExtractTool = new InhumanTool({
     truncated: z.boolean().optional(),
   }),
   run: () => {
-    throw new Error("web_extract is PEW intern, not catalog execute");
+    throw new Error("web_extract is expectation intern, not catalog execute");
   },
 });

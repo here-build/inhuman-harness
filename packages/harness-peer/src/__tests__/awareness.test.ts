@@ -1,43 +1,38 @@
-import { ReactiveAwareness, type PlexusAwareness } from "@inhuman.tools/model";
+import { ReactiveAwareness } from "@inhuman.tools/model";
 import { describe, expect, it } from "vitest";
 
-import {
-  bindPlexusAwareness,
-  encodeLocalAwarenessFrame,
-  forwardPlexusAwareness,
-  ingestPlexusAwareness,
-} from "../awareness.js";
+import { bindAwareness, encodeLocalAwarenessFrame, forwardAwareness, ingestAwareness } from "../awareness.js";
 
-function hubs(): { author: PlexusAwareness; replica: PlexusAwareness } {
+function hubs(): { author: ReactiveAwareness; replica: ReactiveAwareness } {
   return {
     author: new ReactiveAwareness(),
     replica: new ReactiveAwareness(),
   };
 }
 
-describe("plexus awareness plane", () => {
+describe("awareness plane", () => {
   it("forwards a local write onto a replica; remote ingest does not echo; bind sends local writes", () => {
     const forward = hubs();
     const outbound: string[] = [];
     const echoed: string[] = [];
-    const stopAuthor = forwardPlexusAwareness(forward.author, (frame) => outbound.push(frame));
-    const stopReplica = forwardPlexusAwareness(forward.replica, (frame) => echoed.push(frame));
+    const stopAuthor = forwardAwareness(forward.author, (frame) => outbound.push(frame));
+    const stopReplica = forwardAwareness(forward.replica, (frame) => echoed.push(frame));
     forward.author.setLocalStateField("role:expectation:live", {
       text: "hello ",
       thought: "",
     });
-    for (const frame of outbound) ingestPlexusAwareness(forward.replica, frame);
+    for (const frame of outbound) ingestAwareness(forward.replica, frame);
 
     const bind = hubs();
     const fromAuthor: string[] = [];
-    const stopBindAuthor = forwardPlexusAwareness(bind.author, (frame) => fromAuthor.push(frame));
+    const stopBindAuthor = forwardAwareness(bind.author, (frame) => fromAuthor.push(frame));
     bind.author.setLocalStateField("role:expectation:live", {
       text: "hi",
       thought: "hmm",
     });
     const fromReplica: string[] = [];
     let deliver: (frame: string) => void = () => undefined;
-    const stopBind = bindPlexusAwareness(bind.replica, {
+    const stopBind = bindAwareness(bind.replica, {
       send(frame) {
         fromReplica.push(frame);
       },
@@ -84,7 +79,7 @@ describe("plexus awareness plane", () => {
     author.setLocalStateField("seat", { sessionId: "s1" });
     const frame = encodeLocalAwarenessFrame(author);
     expect(frame).not.toBeNull();
-    ingestPlexusAwareness(replica, frame!);
+    ingestAwareness(replica, frame!);
     expect({
       attention: replica.getField("attention", author.clientID),
       seat: replica.getField("seat", author.clientID),

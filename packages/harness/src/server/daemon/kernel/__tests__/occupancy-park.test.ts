@@ -47,7 +47,7 @@ describe("kernel seat machine", () => {
 
     const globalHost = kernel.project(system);
     expect({
-      selfListed: kernel.plexus.root.projects[system],
+      selfListed: kernel.doc.root.projects[system],
       global: globalHost.globalHost,
       same: kernel.project(system) === globalHost,
     }).toEqual({ selfListed: undefined, global: true, same: true });
@@ -55,15 +55,15 @@ describe("kernel seat machine", () => {
     const conversation = await project.session("conversation");
     const worker = await project.session("worker");
     worker.root.agent.spec.recipeScope = "project";
-    kernel.internSession("worker", worker.plexus, worker);
+    kernel.internSession("worker", worker.doc, worker);
     expect({
-      project: kernel.plexus.root.projects[project.path],
+      project: kernel.doc.root.projects[project.path],
       conversation: project.root.sessions.conversation,
       worker: project.root.sessions.worker,
-      conversationGlance: kernel.plexus.root.sessions.conversation != null,
-      workerGlance: kernel.plexus.root.sessions.worker != null,
-      workerScope: kernel.plexus.root.sessions.worker?.recipeScope ?? null,
-      conversationTitle: kernel.plexus.root.sessions.conversation?.title ?? null,
+      conversationGlance: kernel.doc.root.sessions.conversation != null,
+      workerGlance: kernel.doc.root.sessions.worker != null,
+      workerScope: kernel.doc.root.sessions.worker?.recipeScope ?? null,
+      conversationTitle: kernel.doc.root.sessions.conversation?.title ?? null,
       conversationId: conversation.sessionId,
     }).toEqual({
       project: "",
@@ -76,27 +76,27 @@ describe("kernel seat machine", () => {
       conversationId: "conversation",
     });
 
-    const created = kernel.plexus.root.sessions.conversation;
+    const created = kernel.doc.root.sessions.conversation;
     expect({
       title: created?.title,
       stamped: (created?.lastMessageAt ?? 0) > 0,
-      mint: sessionMintKvs(kernel.plexus.root.kvs, project.root.kvs)
+      mint: sessionMintKvs(kernel.doc.root.kvs, project.root.kvs)
         .map((row) => row.key)
         .includes("conversation"),
-      kv: kernel.plexus.root.kvs.conversation,
+      kv: kernel.doc.root.kvs.conversation,
     }).toEqual({ title: "", stamped: true, mint: false, kv: undefined });
 
     created!.lastMessageAt = 1;
-    kernel.internSession("conversation", conversation.plexus, conversation);
-    expect({ recency: kernel.plexus.root.sessions.conversation?.lastMessageAt }).toEqual({ recency: 1 });
+    kernel.internSession("conversation", conversation.doc, conversation);
+    expect({ recency: kernel.doc.root.sessions.conversation?.lastMessageAt }).toEqual({ recency: 1 });
 
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`hello there`, queue: [] });
     turn.reducerExited = true;
     conversation.root.head = turn;
     expect({
-      title: kernel.plexus.root.sessions.conversation?.title,
-      lastPrompt: kernel.plexus.root.sessions.conversation?.lastPrompt,
-      recency: (kernel.plexus.root.sessions.conversation?.lastMessageAt ?? 0) > 1,
+      title: kernel.doc.root.sessions.conversation?.title,
+      lastPrompt: kernel.doc.root.sessions.conversation?.lastPrompt,
+      recency: (kernel.doc.root.sessions.conversation?.lastMessageAt ?? 0) > 1,
     }).toEqual({ title: "hello there", lastPrompt: "hello there", recency: true });
 
     const sitting = new SystemToolJob({
@@ -107,27 +107,27 @@ describe("kernel seat machine", () => {
     turn.pushChild(sitting);
     // The head is closed, so its leftover ask is not the session's ask.
     expect({
-      unfinished: kernel.plexus.root.sessions.conversation?.unfinished,
-      askLine: kernel.plexus.root.sessions.conversation?.askLine,
+      unfinished: kernel.doc.root.sessions.conversation?.unfinished,
+      askLine: kernel.doc.root.sessions.conversation?.askLine,
     }).toEqual({ unfinished: "tools", askLine: "" });
     sitting.humanApprove = true;
     sitting.completed = true;
     expect({
-      unfinished: kernel.plexus.root.sessions.conversation?.unfinished,
-      askLine: kernel.plexus.root.sessions.conversation?.askLine,
+      unfinished: kernel.doc.root.sessions.conversation?.unfinished,
+      askLine: kernel.doc.root.sessions.conversation?.askLine,
     }).toEqual({ unfinished: "", askLine: "" });
 
-    const tTurn = kernel.plexus.root.sessions.conversation!.lastMessageAt ?? 0;
+    const tTurn = kernel.doc.root.sessions.conversation!.lastMessageAt ?? 0;
     await conversation.handleRequest("rename", { title: "Auth refactor" });
     expect({
-      title: kernel.plexus.root.sessions.conversation?.title,
-      recency: kernel.plexus.root.sessions.conversation?.lastMessageAt,
+      title: kernel.doc.root.sessions.conversation?.title,
+      recency: kernel.doc.root.sessions.conversation?.lastMessageAt,
     }).toEqual({ title: "Auth refactor", recency: tTurn });
 
     await conversation.handleRequest("rename", { title: "" });
     expect({
-      title: kernel.plexus.root.sessions.conversation?.title,
-      recency: kernel.plexus.root.sessions.conversation?.lastMessageAt,
+      title: kernel.doc.root.sessions.conversation?.title,
+      recency: kernel.doc.root.sessions.conversation?.lastMessageAt,
     }).toEqual({ title: "hello there", recency: tTurn });
 
     turn.doneWork.push(
@@ -144,12 +144,12 @@ describe("kernel seat machine", () => {
       }),
     );
     expect({
-      title: kernel.plexus.root.sessions.conversation?.title,
-      recency: kernel.plexus.root.sessions.conversation?.lastMessageAt,
+      title: kernel.doc.root.sessions.conversation?.title,
+      recency: kernel.doc.root.sessions.conversation?.lastMessageAt,
     }).toEqual({ title: "Fix login", recency: tTurn });
 
     admitSteer(conversation.root, prompt.user`more`, turn.uuid);
-    expect({ recency: (kernel.plexus.root.sessions.conversation!.lastMessageAt ?? 0) > tTurn }).toEqual({
+    expect({ recency: (kernel.doc.root.sessions.conversation!.lastMessageAt ?? 0) > tTurn }).toEqual({
       recency: true,
     });
 
@@ -163,7 +163,7 @@ describe("kernel seat machine", () => {
       prompt: prompt.user`check`,
       queue: [new TurnPromptChunk()],
     });
-    const glance = kernel.plexus.root.sessions.worker;
+    const glance = kernel.doc.root.sessions.worker;
     expect({
       specName: glance?.specName,
       scope: glance?.recipeScope,
@@ -193,24 +193,24 @@ describe("kernel seat machine", () => {
     const recency = glance!.lastMessageAt;
     worker.root.head!.reducerExited = true;
     expect({
-      midMotion: kernel.plexus.root.sessions.worker?.midMotion,
-      openTurn: kernel.plexus.root.sessions.worker?.openTurn,
-      recency: kernel.plexus.root.sessions.worker?.lastMessageAt,
+      midMotion: kernel.doc.root.sessions.worker?.midMotion,
+      openTurn: kernel.doc.root.sessions.worker?.openTurn,
+      recency: kernel.doc.root.sessions.worker?.lastMessageAt,
     }).toEqual({ midMotion: false, openTurn: false, recency });
 
     const leftover = new SystemToolJob({ toolCallId: "t-open", name: "read_file" });
     worker.root.head!.pushChild(leftover);
     expect({
-      midMotion: kernel.plexus.root.sessions.worker?.midMotion,
-      openTurn: kernel.plexus.root.sessions.worker?.openTurn,
-      openToolCount: kernel.plexus.root.sessions.worker?.openToolCount,
-      unfinished: kernel.plexus.root.sessions.worker?.unfinished,
-      recency: kernel.plexus.root.sessions.worker?.lastMessageAt,
+      midMotion: kernel.doc.root.sessions.worker?.midMotion,
+      openTurn: kernel.doc.root.sessions.worker?.openTurn,
+      openToolCount: kernel.doc.root.sessions.worker?.openToolCount,
+      unfinished: kernel.doc.root.sessions.worker?.unfinished,
+      recency: kernel.doc.root.sessions.worker?.lastMessageAt,
     }).toEqual({ midMotion: true, openTurn: false, openToolCount: 1, unfinished: "tools", recency });
     leftover.completed = true;
     expect({
-      midMotion: kernel.plexus.root.sessions.worker?.midMotion,
-      openToolCount: kernel.plexus.root.sessions.worker?.openToolCount,
+      midMotion: kernel.doc.root.sessions.worker?.midMotion,
+      openToolCount: kernel.doc.root.sessions.worker?.openToolCount,
     }).toEqual({ midMotion: false, openToolCount: 0 });
 
     const watch = new ProgrammaticJob({
@@ -218,29 +218,29 @@ describe("kernel seat machine", () => {
       periodWaitUntilMs: Date.now() + 60_000,
     });
     worker.root.head!.pushChild(watch);
-    expect({ periodArmed: kernel.plexus.root.sessions.worker?.periodArmed }).toEqual({ periodArmed: true });
+    expect({ periodArmed: kernel.doc.root.sessions.worker?.periodArmed }).toEqual({ periodArmed: true });
     watch.completed = true;
-    expect({ periodArmed: kernel.plexus.root.sessions.worker?.periodArmed }).toEqual({ periodArmed: false });
+    expect({ periodArmed: kernel.doc.root.sessions.worker?.periodArmed }).toEqual({ periodArmed: false });
 
     worker.root.agent.spec.resident = true;
-    expect({ resident: kernel.plexus.root.sessions.worker?.resident }).toEqual({ resident: true });
+    expect({ resident: kernel.doc.root.sessions.worker?.resident }).toEqual({ resident: true });
 
     const ask = await project.session("ask-1");
     ask.root.agent.spec = new AskAgentSpec({ name: "explore" });
-    kernel.internSession("ask-1", ask.plexus, ask);
+    kernel.internSession("ask-1", ask.doc, ask);
     expect({
-      oneShot: kernel.plexus.root.sessions["ask-1"]?.oneShot,
-      specName: kernel.plexus.root.sessions["ask-1"]?.specName,
+      oneShot: kernel.doc.root.sessions["ask-1"]?.oneShot,
+      specName: kernel.doc.root.sessions["ask-1"]?.specName,
       conversation: project.root.sessions["ask-1"],
     }).toEqual({ oneShot: true, specName: "explore", conversation: undefined });
 
     const seated = await project.session("seated");
     await project.session("idle");
-    const hub = kernel.plexus.awareness;
+    const hub = kernel.doc.awareness;
     expect({
       seated: kernel.liveSession("seated") != null,
       idle: kernel.liveSession("idle") != null,
-      resident: kernel.plexus.root.sessions.seated?.resident,
+      resident: kernel.doc.root.sessions.seated?.resident,
     }).toEqual({ seated: true, idle: true, resident: false });
 
     publishKernelSeat(hub, "seated");
@@ -253,14 +253,14 @@ describe("kernel seat machine", () => {
     });
 
     seated.root.agent.spec.resident = true;
-    await when(() => kernel.plexus.root.sessions.seated?.resident === true, { timeout: TIMEOUT });
+    await when(() => kernel.doc.root.sessions.seated?.resident === true, { timeout: TIMEOUT });
     const woken = await kernel.attachSession("seated");
     expect({ woken: woken != null && kernel.liveSession("seated") === woken }).toEqual({ woken: true });
 
     project[Symbol.dispose]();
     expect({
-      project: kernel.plexus.root.projects[project.path],
-      conversationGlance: kernel.plexus.root.sessions.conversation != null,
+      project: kernel.doc.root.projects[project.path],
+      conversationGlance: kernel.doc.root.sessions.conversation != null,
     }).toEqual({ project: "", conversationGlance: true });
 
     kernel.flushKernel();
@@ -271,7 +271,7 @@ describe("kernel seat machine", () => {
     expect({
       seated: restored.liveSession("seated") != null,
       idleGone: restored.liveSession("idle") == null,
-      resident: restored.plexus.root.sessions.seated?.resident,
+      resident: restored.doc.root.sessions.seated?.resident,
     }).toEqual({ seated: true, idleGone: true, resident: true });
 
     const clientKernel = await realpath(await mkdtemp(join(tmpdir(), "harness-seat-client-k-")));
@@ -285,9 +285,9 @@ describe("kernel seat machine", () => {
     const started = await Client.start(clientKernel, clientWorkspace);
     try {
       await using watcher = await Client.kernel(clientKernel);
-      await when(() => sessionIsOccupied(watcher.plexus.awareness, started.sessionId), { timeout: TIMEOUT });
+      await when(() => sessionIsOccupied(watcher.doc.awareness, started.sessionId), { timeout: TIMEOUT });
       await started[Symbol.asyncDispose]();
-      await when(() => !sessionIsOccupied(watcher.plexus.awareness, started.sessionId), { timeout: TIMEOUT });
+      await when(() => !sessionIsOccupied(watcher.doc.awareness, started.sessionId), { timeout: TIMEOUT });
     } finally {
       await started[Symbol.asyncDispose]().catch(() => undefined);
     }

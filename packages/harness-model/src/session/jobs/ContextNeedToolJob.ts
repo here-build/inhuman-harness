@@ -1,6 +1,6 @@
 /** Legacy serialized context calls use the normal system-tool executor. New calls are SystemToolJobs. */
+import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/expectations";
 import { model } from "@inhuman.tools/model";
-import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { SystemToolJob } from "./SystemToolJob.js";

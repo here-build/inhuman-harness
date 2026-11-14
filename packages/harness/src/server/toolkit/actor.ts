@@ -1,5 +1,5 @@
 /**
- * Pack catalog load. Tools run as Job executors, not PEW honor.
+ * Pack catalog load. Tools run as Job executors, not expectation actors.
  * Wire prefixes `mcp__`, `call__`, `agent__` are reserved — colliding pack
  * tools are skipped, they do not overlay.
  */

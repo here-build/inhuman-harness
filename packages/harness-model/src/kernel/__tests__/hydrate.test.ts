@@ -2,24 +2,24 @@ import { expect, test } from "vitest";
 
 import { ReActLoopIntentDetectedTrigger } from "../../shared/ReActLoopIntentDetectedTrigger.js";
 import { InstalledPlugin } from "../InstalledPlugin.js";
-import { KernelPlexus } from "../KernelPlexus.js";
+import { KernelDocument } from "../KernelDocument.js";
 import { SessionGlance } from "../SessionOverview.js";
 
 test("connect hydrates leftover reActLoopIntentDetectedTrigger omitted from the kernel image", () => {
-  const source = KernelPlexus.bootstrap();
+  const source = KernelDocument.bootstrap();
   source.root.reActLoopIntentDetectedTrigger = null as unknown as ReActLoopIntentDetectedTrigger;
   const snapshot = source.toSnapshot();
   source.destroy();
-  const plexus = KernelPlexus.connect(snapshot);
+  const doc = KernelDocument.connect(snapshot);
   expect({
-    present: plexus.root.reActLoopIntentDetectedTrigger != null,
-    enabled: plexus.root.reActLoopIntentDetectedTrigger.enabled,
+    present: doc.root.reActLoopIntentDetectedTrigger != null,
+    enabled: doc.root.reActLoopIntentDetectedTrigger.enabled,
   }).toEqual({ present: true, enabled: true });
-  plexus.destroy();
+  doc.destroy();
 });
 
 test("connect reads a session-glance row and copies the old field names once", () => {
-  const source = KernelPlexus.bootstrap();
+  const source = KernelDocument.bootstrap();
   const glance = new SessionGlance({ title: "kept" });
   glance.scope = "project";
   glance.daemon = true;
@@ -27,8 +27,8 @@ test("connect reads a session-glance row and copies the old field names once", (
   source.root.sessions.kept = glance;
   const snapshot = source.toSnapshot();
   source.destroy();
-  const plexus = KernelPlexus.connect(snapshot);
-  const row = plexus.root.sessions.kept;
+  const doc = KernelDocument.connect(snapshot);
+  const row = doc.root.sessions.kept;
   expect({
     title: row?.title ?? "",
     recipeScope: row?.recipeScope ?? "",
@@ -48,17 +48,17 @@ test("connect reads a session-glance row and copies the old field names once", (
     daemon: false,
     blocked: false,
   });
-  plexus.destroy();
+  doc.destroy();
 });
 
 test("connect leaves leftover plugin.problem omitted from the kernel image as null", () => {
-  const source = KernelPlexus.bootstrap();
+  const source = KernelDocument.bootstrap();
   const plugin = new InstalledPlugin({ pluginName: "demo" });
   source.root.plugins.demo = plugin;
   plugin.problem = null;
   const snapshot = source.toSnapshot();
   source.destroy();
-  const plexus = KernelPlexus.connect(snapshot);
-  expect(plexus.root.plugins.demo?.problem).toBeNull();
-  plexus.destroy();
+  const doc = KernelDocument.connect(snapshot);
+  expect(doc.root.plugins.demo?.problem).toBeNull();
+  doc.destroy();
 });

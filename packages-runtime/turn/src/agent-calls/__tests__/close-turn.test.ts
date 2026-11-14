@@ -15,15 +15,15 @@ import { describe, expect, it } from "vitest";
 import { closeTurn, forceStopLoop } from "../index.js";
 import { sessionOf } from "./fixtures.js";
 
-function openTurn(): { turn: SessionTurn; pew: CompletionExpectation; tool: SystemToolJob } {
-  const pew = new CompletionExpectation({ connectionId: "c", model: "m" });
+function openTurn(): { turn: SessionTurn; completion: CompletionExpectation; tool: SystemToolJob } {
+  const completion = new CompletionExpectation({ connectionId: "c", model: "m" });
   const tool = new SystemToolJob({ toolCallId: "t1", name: "echo", argsJson: "{}", humanApprove: true });
   const turn = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     queue: [],
-    doneWork: [new CompletionJob({ expectation: pew }), tool],
+    doneWork: [new CompletionJob({ expectation: completion }), tool],
   });
-  return { turn, pew, tool };
+  return { turn, completion, tool };
 }
 
 function row(against: string): SessionAdmission {
@@ -32,28 +32,28 @@ function row(against: string): SessionAdmission {
 
 describe("closeTurn", () => {
   it("a broke ending records the error and closes the open completion and tool", () => {
-    const { turn, pew, tool } = openTurn();
+    const { turn, completion, tool } = openTurn();
     sessionOf("broke").root.head = turn;
     closeTurn(turn, { kind: "broke", detail: "history exploded" });
     expect({
       broke: turn.broke,
       exited: turn.reducerExited,
       completed: turn.completed,
-      pewDone: pew.isDone,
+      completionDone: completion.isDone,
       toolCompleted: tool.completed,
-    }).toEqual({ broke: "history exploded", exited: true, completed: true, pewDone: true, toolCompleted: true });
+    }).toEqual({ broke: "history exploded", exited: true, completed: true, completionDone: true, toolCompleted: true });
   });
 
   it("a finish leaves open work alone", () => {
-    const { turn, pew, tool } = openTurn();
+    const { turn, completion, tool } = openTurn();
     sessionOf("finish").root.head = turn;
     closeTurn(turn, { kind: "finish" });
     expect({
       exited: turn.reducerExited,
-      pewDone: pew.isDone,
+      completionDone: completion.isDone,
       toolCompleted: tool.completed,
       broke: turn.broke,
-    }).toEqual({ exited: true, pewDone: false, toolCompleted: false, broke: "" });
+    }).toEqual({ exited: true, completionDone: false, toolCompleted: false, broke: "" });
   });
 
   it("a cancel acks with cancelled and moves the steers composed against the turn to the queue lane", () => {
@@ -95,13 +95,13 @@ describe("closeTurn", () => {
   });
 
   it("forceStopLoop fails the completion it leaves open", () => {
-    const { turn, pew } = openTurn();
+    const { turn, completion } = openTurn();
     const root = sessionOf("forced").root;
     root.head = turn;
     forceStopLoop(root);
-    expect({ exited: turn.reducerExited, pewDone: pew.isDone, endCause: pew.endCause }).toEqual({
+    expect({ exited: turn.reducerExited, completionDone: completion.isDone, endCause: completion.endCause }).toEqual({
       exited: true,
-      pewDone: true,
+      completionDone: true,
       endCause: "cancel",
     });
   });

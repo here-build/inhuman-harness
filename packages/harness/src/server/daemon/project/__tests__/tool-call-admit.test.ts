@@ -15,7 +15,7 @@ import {
   ContextNeedToolJob,
   FileMutateToolJob,
   MCPToolJob,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -359,9 +359,9 @@ describe("ToolCallHandler.admit", () => {
     const job = handler.admit(invocation("read_file", '{"path":"/tmp/x"}'));
     const over = "x".repeat(SQUEEZE_COMPACT_CHARS + 50);
     if (job instanceof ToolCallJob) job.receiptJson = JSON.stringify({ ok: false, text: over });
-    const plexus = SessionPlexus.create(sessionId);
-    onTestFinished(() => plexus.destroy());
-    plexus.root.head = new SessionTurn({
+    const doc = SessionDocument.create(sessionId);
+    onTestFinished(() => doc.destroy());
+    doc.root.head = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`p`,
       doneWork: [job],

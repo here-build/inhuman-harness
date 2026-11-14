@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, realpathSync, statSync } from "node:fs";
 
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
-import { projectBotSpecs, ProjectPlexus, type SessionPlexus } from "@inhuman.tools/harness-model";
+import { projectBotSpecs, ProjectDocument, type SessionDocument } from "@inhuman.tools/harness-model";
 import type { KvProposal, PermissionMode } from "@inhuman.tools/harness-model/shared";
 import { projectSessionsDir } from "@inhuman.tools/harness-sdk/paths";
 import { namedWorkerIds } from "@inhuman.tools/turn/agent-calls";
@@ -27,7 +27,7 @@ import { SessionDaemon } from "../session/SessionDaemon.js";
 
 export class ProjectDaemon extends RequestHost implements Disposable {
   readonly path: string;
-  plexus!: ProjectPlexus;
+  doc!: ProjectDocument;
   readonly toolCalls: ToolCallHandler;
   readonly ready: Promise<void>;
   @observable.shallow accessor sessions: Record<string, SessionDaemon> = {};
@@ -52,7 +52,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     kernel.registerProject(this);
     this.toolCalls = new ToolCallHandler(kernel);
     const pluginRoots = new Map<string, string>();
-    for (const [key, spec] of Object.entries(kernel.plexus.root.plugins)) {
+    for (const [key, spec] of Object.entries(kernel.doc.root.plugins)) {
       const name = spec.pluginName.trim() === "" ? key : spec.pluginName;
       pluginRoots.set(name, spec.rootPath);
     }
@@ -60,8 +60,8 @@ export class ProjectDaemon extends RequestHost implements Disposable {
       catalog: kernel.catalog,
       workspacePath: path,
       pluginRoots,
-      connections: kernel.plexus.root.connections,
-      drivers: kernel.plexus.root.drivers,
+      connections: kernel.doc.root.connections,
+      drivers: kernel.doc.root.drivers,
       writeSecrets: (id, secrets) => writeConnectionSecrets(kernel.root, id, { ...secrets }),
     });
     bindProjectPrivateMcpHost(this.kernel.catalog, path, this.#privateMcpHost);
@@ -69,13 +69,13 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     this.ready = (async () => {
       const loaded = await kernel.loadProjectDoc(path);
       if (kernel.disposed) return;
-      this.plexus = loaded.existing ? ProjectPlexus.connect(loaded.doc) : ProjectPlexus.create(path, loaded.doc);
-      if (this.plexus.root.path !== path) {
+      this.doc = loaded.existing ? ProjectDocument.connect(loaded.doc) : ProjectDocument.create(path, loaded.doc);
+      if (this.doc.root.path !== path) {
         runInAction(() => {
-          this.plexus.root.path = path;
+          this.doc.root.path = path;
         });
       }
-      this.#presence = new PresenceRoom(this.plexus.awareness);
+      this.#presence = new PresenceRoom(this.doc.awareness);
       this.#syncProjectBots(false);
       this.#botsWatcher = new BotsWatcher(projectBotsDir(path), () => this.#syncProjectBots(true));
       if (kernel.disposed) return;
@@ -88,7 +88,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
   }
 
   get root() {
-    return this.plexus.root;
+    return this.doc.root;
   }
 
   writeKvs(proposals: readonly KvProposal[]): void {
@@ -127,11 +127,11 @@ export class ProjectDaemon extends RequestHost implements Disposable {
    * Idle roster names stay on the document, not bootstrapped.
    */
   async bootstrapMidMotionNamed(): Promise<void> {
-    const ids = new Set(Object.values(this.globalHost ? this.kernel.plexus.root.botsRoster : this.root.botsRoster));
+    const ids = new Set(Object.values(this.globalHost ? this.kernel.doc.root.botsRoster : this.root.botsRoster));
     for (const id of ids) {
       if (this.sessions[id] != null) continue;
-      const plexus = await this.#peer(id);
-      if (!plexus?.root.isMidMotion()) continue;
+      const sessionDoc = await this.#peer(id);
+      if (!sessionDoc?.root.isMidMotion()) continue;
       if (!this.kernel.graphEligibleSessionIds().has(id)) continue;
       await this.#attach(id, false);
     }
@@ -168,7 +168,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     }
     const existing = this.sessions[id];
     if (existing !== undefined && existing.interpreting) {
-      this.kernel.internSession(id, existing.plexus, existing);
+      this.kernel.internSession(id, existing.doc, existing);
       step(`session attach ${id}`);
       await this.#reattachNamed(existing);
       return existing;
@@ -181,7 +181,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     }
     const live = this.kernel.liveSession(id);
     if (live != null) {
-      this.kernel.internSession(id, live.plexus, live);
+      this.kernel.internSession(id, live.doc, live);
       step(`session intern ${id}`);
       return live;
     }
@@ -203,7 +203,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
           runInAction(() => {
             this.sessions[id] = ready;
           });
-          this.kernel.internSession(id, ready.plexus, ready);
+          this.kernel.internSession(id, ready.doc, ready);
           await ready.ready;
           return ready;
         } catch (error) {
@@ -215,7 +215,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
         }
       }
     }
-    const interned = this.kernel.sessionPlexus(id) ?? (await this.kernel.acquireSession(id));
+    const interned = this.kernel.sessionDoc(id) ?? (await this.kernel.acquireSession(id));
     if (interned?.root.agent.spec.recipeScope === "global" && !this.globalHost) return this.kernel.globalSession(id);
     if (interned != null && interned.root.path !== this.path) {
       const host = this.kernel.project(interned.root.path);
@@ -225,7 +225,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
       interned == null
         ? new SessionDaemon(this, id, await this.kernel.mintSessionDocument(id, this.path), false)
         : new SessionDaemon(this, id, interned, true);
-    this.kernel.internSession(id, created.plexus);
+    this.kernel.internSession(id, created.doc);
     step(interned == null ? `session mint ${id}` : `session rebootstrap ${id}`);
     try {
       await created.recover();
@@ -238,7 +238,7 @@ export class ProjectDaemon extends RequestHost implements Disposable {
         runInAction(() => {
           this.sessions[id] = created;
         });
-        this.kernel.internSession(id, created.plexus, created);
+        this.kernel.internSession(id, created.doc, created);
       } else {
         this.#readySessions.set(id, created);
         created.releaseReady();
@@ -262,8 +262,8 @@ export class ProjectDaemon extends RequestHost implements Disposable {
       for (const id of namedWorkerIds(session.root)) {
         if (id === session.sessionId) continue;
         if (this.#attaching.has(id)) continue;
-        const plexus = await this.#peer(id);
-        if (this.sessions[id] == null && plexus == null) continue;
+        const sessionDoc = await this.#peer(id);
+        if (this.sessions[id] == null && sessionDoc == null) continue;
         if (this.kernel.graphEligibleSessionIds().has(id)) await this.#attach(id, false);
       }
       for (const callerId of new Set(Object.values(session.root.agentCallbacks))) {
@@ -279,9 +279,9 @@ export class ProjectDaemon extends RequestHost implements Disposable {
   }
 
   /** A peer that cannot open is logged; it does not fail this project's attach. */
-  async #peer(id: string): Promise<SessionPlexus | undefined> {
+  async #peer(id: string): Promise<SessionDocument | undefined> {
     try {
-      return this.kernel.sessionPlexus(id) ?? (await this.kernel.acquireSession(id));
+      return this.kernel.sessionDoc(id) ?? (await this.kernel.acquireSession(id));
     } catch (error) {
       fail(`session ${id}`, error);
       return undefined;
@@ -335,6 +335,6 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     });
     this.#presence?.close(1001, "project disposed");
     this.#presence = null;
-    if (this.kernel.disposed) this.plexus?.awareness.destroy();
+    if (this.kernel.disposed) this.doc?.awareness.destroy();
   }
 }

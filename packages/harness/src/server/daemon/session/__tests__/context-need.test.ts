@@ -43,8 +43,8 @@ const TIMEOUT = 10_000;
 function completionsOf(turn: SessionTurn): CompletionExpectation[] {
   const out: CompletionExpectation[] = [];
   for (const chunk of reactChunks(turn)) {
-    const pew = tapeCompletion(chunk);
-    if (pew != null) out.push(pew);
+    const expectation = tapeCompletion(chunk);
+    if (expectation != null) out.push(expectation);
   }
   return out;
 }

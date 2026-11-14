@@ -14,7 +14,7 @@ import { looseSessionHref, projectHref, sessionHref, type RouteTarget } from "..
 
 // Keep the actual router, context, layout, Composer, Tape, and title handling.
 // Only model traversal is replaced: these fixtures are plain observable Dial
-// snapshots rather than Plexus/Y.Doc sessions, and never open a websocket.
+// snapshots rather than live SessionDocument instances, and never open a websocket.
 vi.mock("../shell/tape-read.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../shell/tape-read.js")>();
   return {

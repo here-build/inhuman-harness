@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ConnectionSpec } from "@inhuman.tools/expectations";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -18,7 +19,6 @@ import {
   systemPartsOf,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
-import { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
 import { mkdtemp, writeJson } from "fs-extra";
 import { describe, expect, it } from "vitest";
 
@@ -88,7 +88,7 @@ describe("SessionUnit", () => {
         connections: {},
         plugins: { "demo-pack": { enabled: false } },
       });
-      await waitFor(() => kernel.plexus.root.plugins["demo-pack"]?.enabled === false);
+      await waitFor(() => kernel.doc.root.plugins["demo-pack"]?.enabled === false);
 
       inherited.reducerExited = true;
       await session.handleRequest("turn", { prompt: "after drop" });
@@ -110,9 +110,9 @@ describe("SessionUnit", () => {
       await session.handleRequest("turn", { prompt: "after compact" });
       const afterCompact = session.root.head!;
 
-      const mcpDriver = kernel.plexus.root.drivers["mcp-stdio"];
-      kernel.plexus.root.connections = {
-        ...kernel.plexus.root.connections,
+      const mcpDriver = kernel.doc.root.drivers["mcp-stdio"];
+      kernel.doc.root.connections = {
+        ...kernel.doc.root.connections,
         github: new ConnectionSpec({ driver: mcpDriver!, name: "github" }),
       };
       afterCompact.reducerExited = true;

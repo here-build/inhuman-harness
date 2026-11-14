@@ -1,5 +1,5 @@
 /**
- * compactDecision on constructed Plexus turns — one occupancy table.
+ * compactDecision on constructed SessionDocument turns — one occupancy table.
  */
 import { prompt } from "@inhuman.tools/harness-commons";
 import {

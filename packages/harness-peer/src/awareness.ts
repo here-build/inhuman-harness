@@ -5,7 +5,7 @@
  * Frames applied with {@link REMOTE_AWARENESS_ORIGIN} do not echo back onto
  * the wire.
  */
-import { PlexusAwareness, type PresenceEntry } from "@inhuman.tools/model";
+import { ReactiveAwareness, type PresenceEntry } from "@inhuman.tools/model";
 
 import { decodePlaneFrame, encodePresenceUpdate, type PlaneWireFrame } from "./frames.js";
 
@@ -18,8 +18,8 @@ export type AwarenessUpdate = {
   removed: number[];
 };
 
-/** Send local Plexus awareness updates over the plane socket as JSON text frames. */
-export function forwardPlexusAwareness(hub: PlexusAwareness, send: (frame: string) => void): () => void {
+/** Send local awareness updates over the plane socket as JSON text frames. */
+export function forwardAwareness(hub: ReactiveAwareness, send: (frame: string) => void): () => void {
   const onUpdate = (changed: AwarenessUpdate, origin?: unknown): void => {
     if (origin === REMOTE_AWARENESS_ORIGIN) return;
     const clients = [...changed.added, ...changed.updated, ...changed.removed];
@@ -36,8 +36,8 @@ export function forwardPlexusAwareness(hub: PlexusAwareness, send: (frame: strin
   return () => hub.off("update", onUpdate);
 }
 
-/** Apply a peer presence JSON frame (or parsed frame) onto a Plexus hub. No-op if not a presence frame. */
-export function ingestPlexusAwareness(hub: PlexusAwareness, frame: string | PlaneWireFrame): void {
+/** Apply a peer presence JSON frame (or parsed frame) onto an awareness hub. No-op if not a presence frame. */
+export function ingestAwareness(hub: ReactiveAwareness, frame: string | PlaneWireFrame): void {
   const parsed = typeof frame === "string" ? decodePlaneFrame(frame) : frame;
   if (parsed === null) return;
   if (parsed.kind !== "presence/update" && parsed.kind !== "presence/state") return;
@@ -54,9 +54,9 @@ export type AwarenessPlane = {
 };
 
 /** Bidirectional plane: local writes out, inbound frames onto the hub. */
-export function bindPlexusAwareness(hub: PlexusAwareness, plane: AwarenessPlane): () => void {
-  const stopForward = forwardPlexusAwareness(hub, (frame) => plane.send(frame));
-  const stopIngest = plane.subscribe((frame) => ingestPlexusAwareness(hub, frame));
+export function bindAwareness(hub: ReactiveAwareness, plane: AwarenessPlane): () => void {
+  const stopForward = forwardAwareness(hub, (frame) => plane.send(frame));
+  const stopIngest = plane.subscribe((frame) => ingestAwareness(hub, frame));
   return () => {
     stopForward();
     stopIngest();
@@ -64,7 +64,7 @@ export function bindPlexusAwareness(hub: PlexusAwareness, plane: AwarenessPlane)
 }
 
 /** Snapshot of this hub's own channels. Reconnect must re-enter occupancy without a new write. */
-export function encodeLocalAwarenessFrame(hub: PlexusAwareness): string | null {
+export function encodeLocalAwarenessFrame(hub: ReactiveAwareness): string | null {
   const clients = [...hub.getStates().keys()].filter((id) => hub.ownsKey(id));
   if (clients.length === 0) return null;
   const entries = hub.toPresenceEntries(clients);
@@ -72,4 +72,4 @@ export function encodeLocalAwarenessFrame(hub: PlexusAwareness): string | null {
   return encodePresenceUpdate(entries);
 }
 
-export { PlexusAwareness } from "@inhuman.tools/model";
+export { ReactiveAwareness } from "@inhuman.tools/model";

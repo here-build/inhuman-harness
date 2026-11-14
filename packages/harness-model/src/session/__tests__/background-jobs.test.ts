@@ -7,7 +7,7 @@ import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
 import { programKindNow } from "../program-kind.js";
 import { SCHEME_WATCH_TOOL_NAME } from "../scheme-syntax.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
 import { attached } from "./_helpers/fixtures.js";
@@ -155,7 +155,7 @@ describe("background jobs", () => {
 
   it("lists a live background program", async () => {
     const session = attached({ sessionId: "s-jobs", path: "/tmp/j" });
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
     const bag = new ProgrammaticJob({
       toolCallId: "job-scheme",
       toolName: "scheme_repl",
@@ -192,7 +192,7 @@ describe("background jobs", () => {
       ],
       card: 'background jobs:\njob-scheme workflow (begin (shell "a") (agent/ask \'explore "x"))\njob-shell command npm run dev',
     });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("lists scheme_watch without the flag and skips a background write", async () => {

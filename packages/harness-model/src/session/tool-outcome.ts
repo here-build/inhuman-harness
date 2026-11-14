@@ -1,4 +1,4 @@
-import type { JobResolution } from "@inhuman.tools/plexus-expectations";
+import type { JobResolution } from "@inhuman.tools/expectations";
 
 import { deepFreeze, syncingText } from "../json-record.js";
 import { toolOutcomeSnapSchema, type ToolOutcomeSnap } from "../schemas/tool-outcome.js";

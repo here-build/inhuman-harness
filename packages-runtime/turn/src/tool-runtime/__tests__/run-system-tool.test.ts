@@ -1,6 +1,6 @@
 /** Missing catalog seals a fail receipt instead of leaving outcomeJson empty. */
 import { prompt } from "@inhuman.tools/harness-commons";
-import { SessionPlexus, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
+import { SessionDocument, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { expect, it, onTestFinished } from "vitest";
 
 import { SessionRuntime } from "../../session-runtime/index.js";
@@ -9,8 +9,8 @@ import { runWithExtraRoot } from "../extra-root.js";
 import { extraRootAllowed, executeSystemTool, sealToolCall } from "../index.js";
 
 it("drops a late tool receipt and stream after another runtime binds the same document", async () => {
-  const plexus = SessionPlexus.create("late-tool", "/tmp/late-tool");
-  const runtime = new SessionRuntime(plexus, { kind: "memory" });
+  const doc = SessionDocument.create("late-tool", "/tmp/late-tool");
+  const runtime = new SessionRuntime(doc, { kind: "memory" });
   const catalog = new KernelToolCatalog();
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
@@ -29,35 +29,35 @@ it("drops a late tool receipt and stream after another runtime binds the same do
       },
     },
   ]);
-  bindSessionCatalog(plexus.root, catalog);
+  bindSessionCatalog(doc.root, catalog);
   const job = new SystemToolJob({ toolCallId: "late-shell", name: "shell", argsJson: "{}" });
-  plexus.root.head = new SessionTurn({
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`run`,
     doneWork: [job],
   });
-  plexus.root.head.pushChild(job);
+  doc.root.head.pushChild(job);
   const running = executeSystemTool(job, new AbortController().signal, { canApplyResults: () => runtime.isCurrent });
   await entered.promise;
-  const replacement = new SessionRuntime(plexus, { kind: "memory" });
+  const replacement = new SessionRuntime(doc, { kind: "memory" });
   onTestFinished(async () => {
     await replacement[Symbol.asyncDispose]();
     await runtime[Symbol.asyncDispose]();
     catalog[Symbol.dispose]();
-    plexus.destroy();
+    doc.destroy();
   });
-  const before = plexus.toSnapshot();
+  const before = doc.toSnapshot();
   release.resolve();
   await running;
-  expect({ state: plexus.toSnapshot(), receipt: job.receiptJson }).toEqual({
+  expect({ state: doc.toSnapshot(), receipt: job.receiptJson }).toEqual({
     state: before,
     receipt: null,
   });
 });
 
 it("executeSystemTool seals { ok: false } when the session catalog is missing", async () => {
-  const plexus = SessionPlexus.create("exec-miss-catalog", "/tmp/exec-miss-catalog");
-  onTestFinished(() => plexus.destroy());
+  const doc = SessionDocument.create("exec-miss-catalog", "/tmp/exec-miss-catalog");
+  onTestFinished(() => doc.destroy());
   const job = new SystemToolJob({
     toolCallId: "c1",
     name: "read_file",
@@ -71,7 +71,7 @@ it("executeSystemTool seals { ok: false } when the session catalog is missing", 
     queue: [],
   });
   turn.pushChild(job);
-  plexus.root.head = turn;
+  doc.root.head = turn;
   await executeSystemTool(job, new AbortController().signal);
   expect(JSON.parse(job.receiptJson ?? "null")).toEqual({
     ok: false,
@@ -80,8 +80,8 @@ it("executeSystemTool seals { ok: false } when the session catalog is missing", 
 });
 
 it("a background tool keeps the release ack and records the real result", () => {
-  const plexus = SessionPlexus.create("exec-bg-result", "/tmp/exec-bg-result");
-  onTestFinished(() => plexus.destroy());
+  const doc = SessionDocument.create("exec-bg-result", "/tmp/exec-bg-result");
+  onTestFinished(() => doc.destroy());
   const job = new SystemToolJob({
     toolCallId: "job-shell",
     name: "shell",
@@ -99,7 +99,7 @@ it("a background tool keeps the release ack and records the real result", () => 
     queue: [],
   });
   turn.pushChild(job);
-  plexus.root.head = turn;
+  doc.root.head = turn;
   sealToolCall(job, { ok: true, value: { stdout: "ready" } });
   sealToolCall(job, { ok: false, text: "late" });
   expect({
@@ -114,9 +114,9 @@ it("a background tool keeps the release ack and records the real result", () => 
 });
 
 it("job_stop lists and stops through the host callback", async () => {
-  const plexus = SessionPlexus.create("exec-job-stop", "/tmp/exec-job-stop");
-  onTestFinished(() => plexus.destroy());
-  bindSessionCatalog(plexus.root, new KernelToolCatalog());
+  const doc = SessionDocument.create("exec-job-stop", "/tmp/exec-job-stop");
+  onTestFinished(() => doc.destroy());
+  bindSessionCatalog(doc.root, new KernelToolCatalog());
   const job = new SystemToolJob({
     toolCallId: "stop-1",
     name: "job_stop",
@@ -129,7 +129,7 @@ it("job_stop lists and stops through the host callback", async () => {
     queue: [],
   });
   turn.pushChild(job);
-  plexus.root.head = turn;
+  doc.root.head = turn;
   await executeSystemTool(job, new AbortController().signal, {
     stopJob: (jobId) => ({
       ok: true,
@@ -158,21 +158,21 @@ it("dispatches a registered catalog execute and never runs it when the job is al
       },
     },
   ]);
-  const plexus = SessionPlexus.create("exec-echo", "/tmp/exec-echo");
-  onTestFinished(() => plexus.destroy());
-  bindSessionCatalog(plexus.root, catalog);
+  const doc = SessionDocument.create("exec-echo", "/tmp/exec-echo");
+  onTestFinished(() => doc.destroy());
+  bindSessionCatalog(doc.root, catalog);
   const job = new SystemToolJob({
     toolCallId: "e1",
     name: "echo",
     argsJson: JSON.stringify({ text: "hi" }),
   });
-  plexus.root.head = new SessionTurn({
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`p`,
     doneWork: [job],
     queue: [],
   });
-  plexus.root.head.pushChild(job);
+  doc.root.head.pushChild(job);
   await executeSystemTool(job, new AbortController().signal);
   expect({
     cores,
@@ -188,10 +188,10 @@ it("dispatches a registered catalog execute and never runs it when the job is al
 it("declared behavior tools execute from the session WeakMap, not the kernel catalog field", async () => {
   let cores = 0;
   const catalog = new KernelToolCatalog();
-  const plexus = SessionPlexus.create("exec-declared", "/tmp/exec-declared");
-  onTestFinished(() => plexus.destroy());
-  bindSessionCatalog(plexus.root, catalog);
-  bindBehaviorEntries(plexus.root, [
+  const doc = SessionDocument.create("exec-declared", "/tmp/exec-declared");
+  onTestFinished(() => doc.destroy());
+  bindSessionCatalog(doc.root, catalog);
+  bindBehaviorEntries(doc.root, [
     {
       wireName: "echo",
       description: "echo",
@@ -209,13 +209,13 @@ it("declared behavior tools execute from the session WeakMap, not the kernel cat
     name: "echo",
     argsJson: "{}",
   });
-  plexus.root.head = new SessionTurn({
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`p`,
     doneWork: [job],
     queue: [],
   });
-  plexus.root.head.pushChild(job);
+  doc.root.head.pushChild(job);
   await executeSystemTool(job, new AbortController().signal);
   expect({
     cores,
@@ -238,21 +238,21 @@ it("a non-boolean ok is wrapped as a value, not a tool result", async () => {
       execute: async () => ({ ok: "yes", text: "nope" }),
     },
   ]);
-  const plexus = SessionPlexus.create("exec-odd", "/tmp/exec-odd");
-  onTestFinished(() => plexus.destroy());
-  bindSessionCatalog(plexus.root, catalog);
+  const doc = SessionDocument.create("exec-odd", "/tmp/exec-odd");
+  onTestFinished(() => doc.destroy());
+  bindSessionCatalog(doc.root, catalog);
   const job = new SystemToolJob({
     toolCallId: "o1",
     name: "odd",
     argsJson: "{}",
   });
-  plexus.root.head = new SessionTurn({
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`p`,
     doneWork: [job],
     queue: [],
   });
-  plexus.root.head.pushChild(job);
+  doc.root.head.pushChild(job);
   await executeSystemTool(job, new AbortController().signal);
   expect(JSON.parse(job.receiptJson ?? "null")).toEqual({
     ok: true,
@@ -271,11 +271,11 @@ it("extra-root isolation is per-run, not process-global", () => {
 it.each(["success", "failure", "throw", "abort", "abort-failure", "stale"] as const)(
   "commits proposed metadata only after a successful current execution: %s",
   async (mode) => {
-    const plexus = SessionPlexus.create(`proposal-${mode}`, "/tmp/proposal");
+    const doc = SessionDocument.create(`proposal-${mode}`, "/tmp/proposal");
     const catalog = new KernelToolCatalog();
     onTestFinished(() => {
       catalog[Symbol.dispose]();
-      plexus.destroy();
+      doc.destroy();
     });
     const controller = new AbortController();
     let current = true;
@@ -299,15 +299,15 @@ it.each(["success", "failure", "throw", "abort", "abort-failure", "stale"] as co
         },
       },
     ]);
-    bindSessionCatalog(plexus.root, catalog);
+    bindSessionCatalog(doc.root, catalog);
     const job = new SystemToolJob({ toolCallId: "proposal", name: "propose", argsJson: "{}" });
-    plexus.root.head = new SessionTurn({
+    doc.root.head = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`p`,
       doneWork: [job],
       queue: [],
     });
-    plexus.root.head.pushChild(job);
+    doc.root.head.pushChild(job);
     await executeSystemTool(job, controller.signal, { canApplyResults: () => current });
     expect(job.pluginMeta).toEqual(
       mode === "success" ? { proposal: JSON.stringify({ action: { changed: true } }) } : {},

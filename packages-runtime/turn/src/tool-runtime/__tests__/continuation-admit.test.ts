@@ -1,7 +1,7 @@
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   jobContinuationOf,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model/session";
@@ -82,7 +82,7 @@ it("continuation none and auxiliary cannot bypass a named worker's tool grants",
       continuation: kind === "none" ? { kind: "none" as const } : { kind: "auxiliary" as const },
     })),
   );
-  const session = SessionPlexus.create("worker-policy");
+  const session = SessionDocument.create("worker-policy");
   session.root.head = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`task`, queue: [] });
   onTestFinished(() => {
     catalog[Symbol.dispose]();

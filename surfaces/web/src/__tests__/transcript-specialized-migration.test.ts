@@ -356,7 +356,7 @@ describe("specialized transcript controls", () => {
   it("opens an agent through keyboard semantics and releases only after native close animation settles", async () => {
     const { worker, open, call } = await fixture(true);
     const release = vi.fn();
-    const peek = vi.spyOn(dial, "peek").mockResolvedValue({ plexus: worker, release });
+    const peek = vi.spyOn(dial, "peek").mockResolvedValue({ doc: worker, release });
     vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) {
       this.open = true;
     });

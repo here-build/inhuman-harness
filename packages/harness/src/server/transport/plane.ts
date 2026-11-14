@@ -5,7 +5,7 @@ import {
   encodePresenceState,
   encodePresenceUpdate,
 } from "@inhuman.tools/harness-peer";
-import { ReactiveAwareness as PlexusAwareness, type PresenceEntry } from "@inhuman.tools/model";
+import { ReactiveAwareness, type PresenceEntry } from "@inhuman.tools/model";
 import type { UpdateLaneHub } from "@inhuman.tools/scope-plane";
 import { WebSocket } from "ws";
 
@@ -80,15 +80,15 @@ export function wrapWebSocket(ws: WebSocket): PlaneSocket {
 }
 
 export class PresenceRoom {
-  readonly #hub: PlexusAwareness;
+  readonly #hub: ReactiveAwareness;
   readonly #ownsHub: boolean;
   readonly #sockets = new Set<PlaneSocket>();
   readonly #ownedClients = new Map<PlaneSocket, Set<number>>();
   readonly #stopForward: () => void;
 
-  constructor(hub?: PlexusAwareness) {
+  constructor(hub?: ReactiveAwareness) {
     this.#ownsHub = hub === undefined;
-    this.#hub = hub ?? new PlexusAwareness();
+    this.#hub = hub ?? new ReactiveAwareness();
     const onLocalUpdate = (
       { added, updated, removed }: { added: number[]; updated: number[]; removed: number[] },
       origin: unknown,
@@ -109,7 +109,7 @@ export class PresenceRoom {
     };
   }
 
-  get hub(): PlexusAwareness {
+  get hub(): ReactiveAwareness {
     return this.#hub;
   }
 

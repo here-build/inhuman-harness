@@ -18,7 +18,7 @@ import {
   MCPToolJob,
   McpToolExpectation,
   ProgrammaticJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
@@ -100,10 +100,10 @@ function bindSession(label: string) {
   const root = tempRoot(label);
   const dbPath = join(root, "harness.db");
   const db = new HarnessDatabase(dbPath);
-  const plexus = SessionPlexus.create(label, `/tmp/${label}`);
+  const doc = SessionDocument.create(label, `/tmp/${label}`);
   let closed = false;
   onTestFinished(() => {
-    if (!plexus.doc.isDestroyed) plexus.destroy();
+    if (!doc.isDestroyed) doc.destroy();
     if (!closed) {
       closed = true;
       db.close();
@@ -111,22 +111,22 @@ function bindSession(label: string) {
   });
   db.insertSession({
     sessionId: label,
-    workspacePath: plexus.root.path,
+    workspacePath: doc.root.path,
     createdAtMs: Date.now(),
     lastActiveAtMs: Date.now(),
   });
   const flush = (): void => {
-    const delta = plexus.doc.peekNodeDelta();
+    const delta = doc.peekNodeDelta();
     db.commitSessionNodes(label, {
-      rootId: plexus.root.uuid,
+      rootId: doc.root.uuid,
       revision: delta.revision,
       upserts: delta.upserts,
       deletes: delta.deletes,
     });
-    plexus.doc.commitNodeDelta(delta);
+    doc.commitNodeDelta(delta);
   };
   flush();
-  return { root, dbPath, db, sessionId: label, plexus, flush };
+  return { root, dbPath, db, sessionId: label, doc, flush };
 }
 
 /** Cold open from SQLite on disk, then recover: the rows a restart reads are the coverage. */
@@ -135,28 +135,28 @@ function restore(dbPath: string, sessionId: string, catalog?: CallsCatalog) {
   onTestFinished(() => cold.close());
   const loaded = cold.loadSessionNodes(sessionId);
   if (loaded === undefined) throw new Error(`open failed: not-found (${sessionId})`);
-  const plexus = SessionPlexus.fromNodeRows(loaded.rows, {
+  const doc = SessionDocument.fromNodeRows(loaded.rows, {
     rootId: loaded.rootId,
     sessionId,
     revision: loaded.revision,
     meta: cold.loadSessionRuntimeMeta(sessionId),
   });
   onTestFinished(() => {
-    if (!plexus.doc.isDestroyed) plexus.destroy();
+    if (!doc.isDestroyed) doc.destroy();
   });
-  return recoverSessionJobs(plexus.root, { catalog });
+  return recoverSessionJobs(doc.root, { catalog });
 }
 
 describe("intent gate on real SQLite storage", () => {
   it("intent/checkpoint roundtrip covers the flushed prefix", async () => {
-    const { db, sessionId, plexus, flush } = bindSession("roundtrip");
+    const { db, sessionId, doc, flush } = bindSession("roundtrip");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
       argsJson: "{}",
       orchestrationResult: true,
     });
-    plexus.root.head = closedTurn(job);
+    doc.root.head = closedTurn(job);
     const beforeRows = db.loadSessionNodes(sessionId)?.rows ?? [];
     expect(beforeRows.some((row) => row.uuid === job.uuid)).toBe(false);
     const gate = await persistJobIntent(flush, job);
@@ -175,14 +175,14 @@ describe("intent gate on real SQLite storage", () => {
   });
 
   it("failed write is not success and does not admit dispatch", async () => {
-    const { db, sessionId, plexus, flush } = bindSession("fail-write");
+    const { db, sessionId, doc, flush } = bindSession("fail-write");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
       argsJson: "{}",
       orchestrationResult: true,
     });
-    plexus.root.head = closedTurn(job);
+    doc.root.head = closedTurn(job);
     db.sqlite.pragma("query_only = ON");
     const gate = await persistJobIntent(flush, job);
     db.sqlite.pragma("query_only = OFF");
@@ -203,14 +203,14 @@ describe("intent gate on real SQLite storage", () => {
   });
 
   it("a cold database handle sees the durable intent flush", async () => {
-    const { dbPath, sessionId, plexus, flush } = bindSession("loaded");
+    const { dbPath, sessionId, doc, flush } = bindSession("loaded");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
       argsJson: "{}",
       orchestrationResult: true,
     });
-    plexus.root.head = closedTurn(job);
+    doc.root.head = closedTurn(job);
     const gate = await persistJobIntent(flush, job);
     expect(gate.ok).toBe(true);
     const cold = new HarnessDatabase(dbPath);
@@ -228,14 +228,14 @@ describe("intent gate on real SQLite storage", () => {
 
 describe("job recovery from real on-disk SQLite rows", () => {
   it("recovers an unsettled system tool as unknown-no-replay", async () => {
-    const { dbPath, sessionId, plexus, flush } = bindSession("unknown-sys");
+    const { dbPath, sessionId, doc, flush } = bindSession("unknown-sys");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
       argsJson: "{}",
       orchestrationResult: true,
     });
-    plexus.root.head = closedTurn(job);
+    doc.root.head = closedTurn(job);
     const gate = await persistJobIntent(flush, job);
     expect(gate.ok).toBe(true);
 
@@ -256,14 +256,14 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("does not replay an unsettled file mutate from disk", async () => {
-    const { dbPath, sessionId, plexus, flush } = bindSession("unknown-write");
+    const { dbPath, sessionId, doc, flush } = bindSession("unknown-write");
     const job = new FileMutateToolJob({
       toolCallId: "w1",
       name: "write_file",
       argsJson: JSON.stringify({ path: "a.txt", content: "x" }),
       orchestrationResult: true,
     });
-    plexus.root.head = closedTurn(job);
+    doc.root.head = closedTurn(job);
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
@@ -281,7 +281,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("treats dispatched MCP without a result as unknown", async () => {
-    const { dbPath, sessionId, plexus, flush } = bindSession("unknown-mcp");
+    const { dbPath, sessionId, doc, flush } = bindSession("unknown-mcp");
     const job = new MCPToolJob({
       toolCallId: "m1",
       name: "mcp__x__t",
@@ -293,7 +293,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
       }),
     });
     job.dispatched = true;
-    plexus.root.head = closedTurn(job);
+    doc.root.head = closedTurn(job);
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
@@ -303,12 +303,12 @@ describe("job recovery from real on-disk SQLite rows", () => {
     expect({
       action: row?.action,
       completed: row?.job.completed,
-      pew: mcp?.expectation.isDone,
-    }).toEqual({ action: "unknown", completed: true, pew: true });
+      expectation: mcp?.expectation.isDone,
+    }).toEqual({ action: "unknown", completed: true, expectation: true });
   });
 
   it("settles cancelRequested on a restored turn", async () => {
-    const { dbPath, sessionId, plexus, flush } = bindSession("cancel");
+    const { dbPath, sessionId, doc, flush } = bindSession("cancel");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -321,7 +321,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
       cancelRequested: true,
     });
     turn.pushChild(job);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
@@ -342,7 +342,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("resume-queued context-need is not completed as unknown", async () => {
-    const { dbPath, sessionId, plexus, flush } = bindSession("need");
+    const { dbPath, sessionId, doc, flush } = bindSession("need");
     const job = new ContextNeedToolJob({
       triggersReactLoop: false,
       tapeHidden: true,
@@ -350,7 +350,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
       name: "context_need",
       argsJson: "{}",
     });
-    plexus.root.head = closedTurn(job);
+    doc.root.head = closedTurn(job);
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
     flush();
@@ -371,13 +371,13 @@ describe("job recovery from real on-disk SQLite rows", () => {
   it.each([{ name: "child", CallType: AgentCallJob }])(
     "rejoins an owned $name invocation without adopting bot acceptance",
     async ({ name, CallType }) => {
-      const { dbPath, sessionId, plexus, flush } = bindSession(`${name}-rejoin`);
+      const { dbPath, sessionId, doc, flush } = bindSession(`${name}-rejoin`);
       const call = new CallType({
         name: "agent__ask",
         orchestrationResult: true,
         workerSessionId: "existing-child",
       });
-      plexus.root.head = closedTurn(call);
+      doc.root.head = closedTurn(call);
       const gate = await persistJobIntent(flush, call);
       expect(gate.ok).toBe(true);
       flush();
@@ -395,7 +395,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
 
   it("a recovered BotCall resumes; its join waits on the re-run delivery, not on caller fields", async () => {
     const catalog = catalogOf([botCall("offload")]);
-    const { dbPath, sessionId, plexus, flush } = bindSession("accept");
+    const { dbPath, sessionId, doc, flush } = bindSession("accept");
     const call = new BotCallJob({
       name: "offload",
       background: true,
@@ -404,7 +404,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
       preparedInputJson: JSON.stringify({ prepared: true }),
       workerSessionId: "worker",
     });
-    plexus.root.head = closedTurn(call);
+    doc.root.head = closedTurn(call);
     const gated = await persistJobIntent(flush, call);
     expect(gated.ok).toBe(true);
 
@@ -418,7 +418,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("cancelRequested without catalog skips call-lifetime Calls", () => {
-    const { dbPath, sessionId, plexus, flush } = bindSession("cancel-work");
+    const { dbPath, sessionId, doc, flush } = bindSession("cancel-work");
     const call = new BotCallJob({
       name: "offload",
       background: true,
@@ -432,7 +432,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
       cancelRequested: true,
     });
     turn.pushChild(call);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     flush();
 
     const recovered = restore(dbPath, sessionId);
@@ -444,12 +444,12 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("queued completion without intent is not auto-replayed after owner death once intended", async () => {
-    const { dbPath, sessionId, plexus, flush } = bindSession("completion");
+    const { dbPath, sessionId, doc, flush } = bindSession("completion");
     const job = new CompletionJob({
       expectation: new CompletionExpectation({ connectionId: "c" }),
       orchestrationResult: true,
     });
-    plexus.root.head = closedTurn(job);
+    doc.root.head = closedTurn(job);
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
@@ -459,15 +459,15 @@ describe("job recovery from real on-disk SQLite rows", () => {
     expect({
       action: row?.action,
       completed: row?.job.completed,
-      pew: completion?.expectation.isDone,
-    }).toEqual({ action: "unknown", completed: true, pew: true });
+      expectation: completion?.expectation.isDone,
+    }).toEqual({ action: "unknown", completed: true, expectation: true });
   });
 });
 
 describe("job recovery on a live replica", () => {
   it("stops repeated interrupted attempts at the recorded foreground limit", () => {
-    const plexus = SessionPlexus.create("recovery-limit");
-    onTestFinished(() => plexus.destroy());
+    const doc = SessionDocument.create("recovery-limit");
+    onTestFinished(() => doc.destroy());
     const completions = Array.from({ length: 3 }, () => {
       const expectation = new CompletionExpectation({ connectionId: "c" });
       expectation.stampRetryLimits({ maxMs: 0, maxAttempts: 3, backgroundMaxAttempts: 0 });
@@ -484,15 +484,15 @@ describe("job recovery on a live replica", () => {
       reducerExited: false,
       orchestrationResult: true,
     });
-    plexus.root.head = turn;
-    recoverSessionJobs(plexus.root);
+    doc.root.head = turn;
+    recoverSessionJobs(doc.root);
     expect(turn.reducerExited).toBe(true);
     expect(turn.broke).toContain("3 interrupted model attempts");
     expect(turn.queue).toHaveLength(0);
   });
   it("closes a cancelled program and completion a crash left open", () => {
-    const plexus = SessionPlexus.create("cancel-open", "/tmp/cancel-open");
-    onTestFinished(() => plexus.destroy());
+    const doc = SessionDocument.create("cancel-open", "/tmp/cancel-open");
+    onTestFinished(() => doc.destroy());
     const program = new ProgrammaticJob({ toolCallId: "p1", orchestrationResult: true, cancelled: true });
     const completion = new CompletionJob({
       expectation: new CompletionExpectation({ connectionId: "c" }),
@@ -502,8 +502,8 @@ describe("job recovery on a live replica", () => {
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], reducerExited: true });
     turn.pushChild(program);
     turn.pushChild(completion);
-    plexus.root.head = turn;
-    const rows = recoverSessionJobs(plexus.root);
+    doc.root.head = turn;
+    const rows = recoverSessionJobs(doc.root);
     expect({
       actions: rows.filter((row) => row.job !== turn).map((row) => row.action),
       program: [program.completed, program.receiptJson != null],
@@ -512,8 +512,8 @@ describe("job recovery on a live replica", () => {
   });
 
   it("puts back a round token a crash left behind its claim cells", () => {
-    const plexus = SessionPlexus.create("token", "/tmp/token");
-    onTestFinished(() => plexus.destroy());
+    const doc = SessionDocument.create("token", "/tmp/token");
+    onTestFinished(() => doc.destroy());
     const token = new TurnPromptChunk();
     const steer = new TurnSteerChunk();
     const turn = new SessionTurn({
@@ -523,8 +523,8 @@ describe("job recovery on a live replica", () => {
       reducerExited: false,
       orchestrationResult: true,
     });
-    plexus.root.head = turn;
-    recoverSessionJobs(plexus.root);
+    doc.root.head = turn;
+    recoverSessionJobs(doc.root);
     expect({ queue: turn.queue[0] === token, done: [...turn.doneWork], exited: turn.reducerExited }).toEqual({
       queue: true,
       done: [steer],
@@ -533,8 +533,8 @@ describe("job recovery on a live replica", () => {
   });
 
   it("closes a turn whose tape owes no round", () => {
-    const plexus = SessionPlexus.create("owed-none", "/tmp/owed-none");
-    onTestFinished(() => plexus.destroy());
+    const doc = SessionDocument.create("owed-none", "/tmp/owed-none");
+    onTestFinished(() => doc.destroy());
     const program = new ProgrammaticJob({ toolCallId: "p", orchestrationResult: true, completed: true });
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
@@ -543,9 +543,9 @@ describe("job recovery on a live replica", () => {
       reducerExited: false,
       orchestrationResult: true,
     });
-    plexus.root.head = turn;
-    recoverSessionJobs(plexus.root);
-    expect({ exited: turn.reducerExited, completed: turn.completed, open: plexus.root.openTurn }).toEqual({
+    doc.root.head = turn;
+    recoverSessionJobs(doc.root);
+    expect({ exited: turn.reducerExited, completed: turn.completed, open: doc.root.openTurn }).toEqual({
       exited: true,
       completed: true,
       open: false,
@@ -553,8 +553,8 @@ describe("job recovery on a live replica", () => {
   });
 
   it("leaves a round token whose completion is already queued", () => {
-    const plexus = SessionPlexus.create("token-owed", "/tmp/token-owed");
-    onTestFinished(() => plexus.destroy());
+    const doc = SessionDocument.create("token-owed", "/tmp/token-owed");
+    onTestFinished(() => doc.destroy());
     const token = new TurnPromptChunk();
     const completion = new CompletionJob({ expectation: new CompletionExpectation({ connectionId: "c" }) });
     const turn = new SessionTurn({
@@ -564,8 +564,8 @@ describe("job recovery on a live replica", () => {
       reducerExited: false,
       orchestrationResult: true,
     });
-    plexus.root.head = turn;
-    recoverSessionJobs(plexus.root);
+    doc.root.head = turn;
+    recoverSessionJobs(doc.root);
     expect({ queue: [...turn.queue], done: [...turn.doneWork], exited: turn.reducerExited }).toEqual({
       queue: [completion],
       done: [token],

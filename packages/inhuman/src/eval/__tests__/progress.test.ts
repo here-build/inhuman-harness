@@ -20,7 +20,7 @@ function collect(program: ProgrammaticJob, seen = new Set<string>()): string[] {
 }
 
 describe("eval progress", () => {
-  it("prints notifies and PEW live/done; sealed catch-up skips live; responseText stays off", () => {
+  it("prints notifies and completion live/done; sealed catch-up skips live; responseText stays off", () => {
     const seen = new Set<string>();
     const program = new ProgrammaticJob({ toolCallId: "p", argsJson: '{"expr":"1"}' });
     program.notifications.push(new AgentCallNotification({ message: "analyzing" }));

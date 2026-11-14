@@ -7,7 +7,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { KernelPlexus, SessionPlexus } from "@inhuman.tools/harness-peer";
+import { KernelDocument, SessionDocument } from "@inhuman.tools/harness-peer";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { Browser, type Room } from "./browser.js";
@@ -77,7 +77,7 @@ describe("relay chain", () => {
     scenario(async () => {
       const room = owner.room(machineId, "kernel", {}, "harness:kernel");
       await room.synced();
-      const kernel = KernelPlexus.connect(room.doc);
+      const kernel = KernelDocument.connect(room.doc);
       expect(Object.keys(kernel.root.plugins).length).toBeGreaterThan(0);
       const status = await room.call("remote/status");
       expect(status).toMatchObject({ loggedIn: true, email: OWNER.email, connected: true, machineId });
@@ -88,13 +88,13 @@ describe("relay chain", () => {
       sessionId = randomUUID();
       const room = owner.room(machineId, "session", { sessionId, path: stack.project }, `harness:session:${sessionId}`);
       await room.synced();
-      const plexus = SessionPlexus.connect(room.doc);
-      expect(plexus.root.path).toBe(stack.project);
+      const session = SessionDocument.connect(room.doc);
+      expect(session.root.path).toBe(stack.project);
       const revBefore = room.doc.revision;
       const result = await room.call("eval", { requestId: randomUUID(), expr: "(+ 1 2)", policy: "auto" });
       expect(result).toMatchObject({ ok: true });
       // The program's turn is written by the daemon into SQLite and arrives as a shape/delta update.
-      await until("daemon update", () => room.doc.revision > revBefore || plexus.root.head != null);
+      await until("daemon update", () => room.doc.revision > revBefore || session.root.head != null);
     }));
 
   it("4. two clients in one room get their own responses", () =>

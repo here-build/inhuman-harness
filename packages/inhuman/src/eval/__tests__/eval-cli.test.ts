@@ -6,11 +6,11 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 
+import { walkWork } from "@inhuman.tools/expectations";
 import { HarnessDaemon } from "@inhuman.tools/harness/testkit";
 import { ApprovableJob, evalProgramOf } from "@inhuman.tools/harness-model";
 import { Client } from "@inhuman.tools/harness-sdk";
 import { termSessionKey, type Streams } from "@inhuman.tools/harness-sdk/launch";
-import { walkWork } from "@inhuman.tools/plexus-expectations";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { openWorld } from "./world.js";
@@ -148,7 +148,7 @@ describe("eval CLI", () => {
         await using handle = await Client.kernel(kernel);
         expect({
           run: { code: result.code, sessionId, key },
-          stamped: handle.plexus.root.termContinue[key!],
+          stamped: handle.doc.root.termContinue[key!],
           exists: await Client.sessionExists(kernel, sessionId!),
         }).toEqual({
           run: {

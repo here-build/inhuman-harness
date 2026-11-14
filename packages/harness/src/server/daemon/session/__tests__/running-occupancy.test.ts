@@ -6,7 +6,7 @@ import { liveSession, rounds, startTurn, wait } from "./fixtures/live-continuati
 
 test("an open turn keeps its provider request across last-client loss and regains the foreground budget", async () => {
   const live = await liveSession();
-  const hub = live.kernel.plexus.awareness;
+  const hub = live.kernel.doc.awareness;
   publishKernelSeat(hub, "s1");
   let release = () => {};
   const gate = new Promise<void>((resolve) => {
@@ -27,7 +27,7 @@ test("an open turn keeps its provider request across last-client loss and regain
     expect(expectation.retryBackgroundMaxAttempts).toBe(0);
 
     runInAction(() => {
-      live.kernel.plexus.root.retryMaxAttempts = 7;
+      live.kernel.doc.root.retryMaxAttempts = 7;
     });
     publishKernelSeat(hub, "s1");
     await wait(() => expectation.retryForeground && expectation.retryMaxAttempts === 7);

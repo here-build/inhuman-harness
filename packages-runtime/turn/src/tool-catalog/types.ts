@@ -65,7 +65,7 @@ export type CatalogEntry = {
   readonly source: CatalogSource;
   /**
    * Pack / host plugins carry execute (InhumanTool.execute).
-   * Connection tools are projection-only — BODY is MCP PEW on the connection.
+   * Connection tools are projection-only — BODY is an MCP expectation on the connection.
    */
   readonly execute?: CatalogExecute;
   readonly packMeta?: PackToolMeta;

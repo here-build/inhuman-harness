@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { rowPairId, type SessionPatchBatch } from "@inhuman.tools/harness-contract";
-import { resolvedTip, SessionPlexus, SessionTurn, type SessionRoot } from "@inhuman.tools/harness-model/session";
+import { resolvedTip, SessionDocument, SessionTurn, type SessionRoot } from "@inhuman.tools/harness-model/session";
 import { type ModelPatch } from "@inhuman.tools/model";
 import { computed, observable, runInAction, when } from "mobx";
 import { z } from "zod";
@@ -57,7 +57,7 @@ export type SessionRecoveryPolicy =
   { readonly kind: "resume" } | { readonly kind: "interrupt"; readonly message: string };
 
 type Binding = { readonly incarnation: string; revoke(): void };
-const bindings = new WeakMap<SessionPlexus, Binding>();
+const bindings = new WeakMap<SessionDocument, Binding>();
 
 const commandResultSchema = z.union([
   z.object({ ok: z.literal(true), action: z.enum(["noop", "mint", "steer", "queue", "continue"]) }),
@@ -105,7 +105,7 @@ function serializeTurnRow(sessionId: string, turn: SessionTurn, ordinal: number)
   };
 }
 
-function hydrateSessionEffectsMeta(session: SessionPlexus, effectRecords: readonly NewSessionEffectRow[]): void {
+function hydrateSessionEffectsMeta(session: SessionDocument, effectRecords: readonly NewSessionEffectRow[]): void {
   if (effectRecords.length === 0) return;
   session.getMetaMap("harness:session-runtime").set("version", "2");
   const commits = session.getMetaMap("harness:session-commits");
@@ -146,7 +146,7 @@ function hydrateSessionEffectsMeta(session: SessionPlexus, effectRecords: readon
 }
 
 export class SessionRuntime implements AsyncDisposable {
-  readonly session: SessionPlexus;
+  readonly session: SessionDocument;
   readonly incarnation = crypto.randomUUID();
   readonly #durability: SessionDurability;
   readonly #controller = new AbortController();
@@ -165,7 +165,7 @@ export class SessionRuntime implements AsyncDisposable {
   @observable accessor phase: RuntimePhase = "hydrated";
   @observable accessor #holds = 0;
 
-  constructor(session: SessionPlexus, durability: SessionDurability) {
+  constructor(session: SessionDocument, durability: SessionDurability) {
     this.session = session;
     this.#durability = durability;
     if (session.isDestroyed) throw new Error("cannot bind a destroyed session document");
@@ -192,7 +192,7 @@ export class SessionRuntime implements AsyncDisposable {
   }
 
   static create(sessionId: string, durability: SessionDurability, workspacePath = ""): SessionRuntime {
-    return new SessionRuntime(SessionPlexus.create(sessionId, workspacePath), durability);
+    return new SessionRuntime(SessionDocument.create(sessionId, workspacePath), durability);
   }
 
   static restore(
@@ -200,9 +200,9 @@ export class SessionRuntime implements AsyncDisposable {
     source: SessionNodeRestoreState | SerializedSessionDocument,
     durability: SessionDurability,
   ): SessionRuntime {
-    let session: SessionPlexus;
+    let session: SessionDocument;
     if ("rows" in source) {
-      session = SessionPlexus.fromNodeRows(source.rows, {
+      session = SessionDocument.fromNodeRows(source.rows, {
         rootId: source.rootId,
         sessionId,
         revision: source.revision,
@@ -212,7 +212,7 @@ export class SessionRuntime implements AsyncDisposable {
         hydrateSessionEffectsMeta(session, source.effectRecords);
       }
     } else {
-      session = SessionPlexus.fromSnapshot(source, sessionId);
+      session = SessionDocument.fromSnapshot(source, sessionId);
     }
     if (session.root.sessionId !== sessionId) {
       session.destroy();

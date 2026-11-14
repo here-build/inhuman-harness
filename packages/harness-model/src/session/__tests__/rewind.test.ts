@@ -16,18 +16,18 @@ import {
   resolvedTip,
   rewindPinsFrom,
 } from "../rewind.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
 
-function replicaOf(owner: SessionPlexus): { readonly root: SessionPlexus["root"]; [Symbol.dispose](): void } {
-  const plexus = SessionPlexus.connect(owner);
+function replicaOf(owner: SessionDocument): { readonly root: SessionDocument["root"]; [Symbol.dispose](): void } {
+  const doc = SessionDocument.connect(owner);
   return {
     get root() {
-      return plexus.root;
+      return doc.root;
     },
     [Symbol.dispose]() {
-      plexus.destroy();
+      doc.destroy();
     },
   };
 }
@@ -38,12 +38,12 @@ function turn(tail: SessionSystemPrompt | SessionTurn, text: string): SessionTur
 
 describe("Agent.tip / rewind walks", () => {
   it("tip rehydrates next to head", () => {
-    const plexus = SessionPlexus.create("s-tip", "/tmp/tip");
+    const doc = SessionDocument.create("s-tip", "/tmp/tip");
     const a = turn(new SessionSystemPrompt(), "one");
     const b = turn(a, "two");
-    plexus.root.head = b;
-    plexus.root.tip = b;
-    using replica = replicaOf(plexus);
+    doc.root.head = b;
+    doc.root.tip = b;
+    using replica = replicaOf(doc);
     expect({
       head: replica.root.head?.uuid,
       tip: replica.root.tip?.uuid,
@@ -53,7 +53,7 @@ describe("Agent.tip / rewind walks", () => {
       tip: b.uuid,
       agentTip: b.uuid,
     });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("pins skip blanks; suffix tape keeps them; torn chain is at-tip", () => {

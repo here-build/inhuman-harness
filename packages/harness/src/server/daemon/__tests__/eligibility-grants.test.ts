@@ -67,8 +67,8 @@ describe("eligibility and delegated grants", () => {
     b.root.agent.spec.name = "beta";
     admitCall(a, b);
     admitCall(b, a);
-    await kernel.flushSession(a.plexus);
-    await kernel.flushSession(b.plexus);
+    await kernel.flushSession(a.doc);
+    await kernel.flushSession(b.doc);
     kernel[Symbol.dispose]();
 
     const restored = new KernelDaemon(system);
@@ -102,14 +102,14 @@ describe("eligibility and delegated grants", () => {
     await a.park();
     await b.park();
     await worker.park();
-    const pinnedA = kernel.sessionPlexus("a")!;
-    const pinnedB = kernel.sessionPlexus("b")!;
+    const pinnedA = kernel.sessionDoc("a")!;
+    const pinnedB = kernel.sessionDoc("b")!;
     pinnedA.root.botsRoster.shared = "w";
     pinnedB.root.botsRoster.shared = "w";
-    admitCall(pinnedA, kernel.sessionPlexus("w")!);
-    admitCall(pinnedB, kernel.sessionPlexus("w")!);
+    admitCall(pinnedA, kernel.sessionDoc("w")!);
+    admitCall(pinnedB, kernel.sessionDoc("w")!);
     expect(
-      collectDelegatedGrants({ replica: (id) => kernel.sessionPlexus(id) }, ["a", "b", "w"]).map(
+      collectDelegatedGrants({ replica: (id) => kernel.sessionDoc(id) }, ["a", "b", "w"]).map(
         (row) => `${row.callerSessionId}->${row.workerSessionId}`,
       ),
     ).toEqual(["a->w", "b->w"]);
@@ -131,7 +131,7 @@ describe("eligibility and delegated grants", () => {
     const project = new ProjectDaemon(kernel, workspace);
     await project.ready;
     const idle = await project.session("idle");
-    await kernel.flushSession(idle.plexus);
+    await kernel.flushSession(idle.doc);
     kernel[Symbol.dispose]();
 
     const restored = new KernelDaemon(system);
@@ -158,11 +158,11 @@ describe("eligibility and delegated grants", () => {
     worker.root.agent.spec.name = "reviewer";
     await caller.park();
     await worker.park();
-    const pinnedCaller = kernel.sessionPlexus("caller")!;
+    const pinnedCaller = kernel.sessionDoc("caller")!;
     pinnedCaller.root.botsRoster.reviewer = "w";
-    admitCall(pinnedCaller, kernel.sessionPlexus("w")!);
+    admitCall(pinnedCaller, kernel.sessionDoc("w")!);
     await kernel.flushSession(pinnedCaller);
-    await kernel.flushSession(kernel.sessionPlexus("w")!);
+    await kernel.flushSession(kernel.sessionDoc("w")!);
     kernel[Symbol.dispose]();
 
     const restored = new KernelDaemon(system);
@@ -182,13 +182,13 @@ describe("eligibility and delegated grants", () => {
       liveWorker: undefined,
     });
     expect(
-      collectDelegatedGrants({ replica: (id) => restored.sessionPlexus(id) }, ["caller", "w"]).map(
+      collectDelegatedGrants({ replica: (id) => restored.sessionDoc(id) }, ["caller", "w"]).map(
         (row) => row.workerSessionId,
       ),
     ).toEqual(["w"]);
 
-    publishKernelSeat(restored.plexus.awareness, "caller");
-    await when(() => sessionIsOccupied(restored.plexus.awareness, "caller"), {
+    publishKernelSeat(restored.doc.awareness, "caller");
+    await when(() => sessionIsOccupied(restored.doc.awareness, "caller"), {
       timeout: TIMEOUT,
     });
     await expect.poll(() => restored.liveSession("w")?.orchestrator.activated, { timeout: TIMEOUT }).toBe(true);

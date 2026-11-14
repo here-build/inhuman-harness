@@ -22,7 +22,7 @@ export function userEpoch(root: SessionRoot): number {
   return n;
 }
 
-/** Plexus identity of the nearest parent SessionTurn, or null if unhomed. */
+/** Document identity of the nearest parent SessionTurn, or null if unhomed. */
 export function owningTurnId(job: ToolCallJob): string | null {
   const seen = new Set<object>();
   let node: { parent: unknown } | null = job;

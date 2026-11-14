@@ -109,10 +109,6 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     }
   }
 
-  get doc(): this {
-    return this;
-  }
-
   get clientID(): number {
     return this.awareness.clientId;
   }

@@ -36,6 +36,7 @@ import {
 import { applyCallback, is_callable_value } from "@here.build/arrival/host-internals";
 import { arrivalLoaderCapability, type Loader } from "@here.build/arrival-modules";
 import { promptIsolatedCapability, type PromptComplete } from "@inhuman.tools/env-capability-module-prompt";
+import { Job } from "@inhuman.tools/expectations";
 import {
   CompactJob,
   CompletionExpectation,
@@ -47,7 +48,6 @@ import {
   TurnNotificationChunk,
   TurnSteerChunk,
 } from "@inhuman.tools/harness-model/session";
-import { Job } from "@inhuman.tools/plexus-expectations";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 
@@ -183,8 +183,8 @@ export const compactReducerCapability = EnvCapability.define("harness/compact", 
         { input: [transcript], output: [sz.boolean], provenance: "source" },
         (t: Transcript) =>
           t.cells.some((cell) => {
-            const pew = tapeCompletion(cell) ?? (cell instanceof CompletionExpectation ? cell : null);
-            return pew != null && pew.isWarm;
+            const completion = tapeCompletion(cell) ?? (cell instanceof CompletionExpectation ? cell : null);
+            return completion != null && completion.isWarm;
           }),
       ),
       // Frontier direction: preserve runs frontier → newest, compact runs
@@ -276,8 +276,8 @@ export const compactReducerCapability = EnvCapability.define("harness/compact", 
       "message/assistant?": symbol.rosetta`message/assistant?: eat cell is assistant-shaped`(
         { input: [chunk], output: [sz.boolean], provenance: "pipe" },
         (cell: unknown) => {
-          const pew = tapeCompletion(cell) ?? (cell instanceof CompletionExpectation ? cell : null);
-          return pew != null || (cell instanceof MessageChunk && cell.role === "assistant");
+          const completion = tapeCompletion(cell) ?? (cell instanceof CompletionExpectation ? cell : null);
+          return completion != null || (cell instanceof MessageChunk && cell.role === "assistant");
         },
       ),
       "message/tool?": symbol.rosetta`message/tool?: eat cell is a tool call`(
@@ -328,11 +328,11 @@ export const compactReducerCapability = EnvCapability.define("harness/compact", 
                 if (cell instanceof ProgrammaticJob) {
                   return `[scheme ${cell.toolCallId}]\n${cell.expr}\n${cell.resultText()}`.trim();
                 }
-                const pew = tapeCompletion(cell) ?? (cell instanceof CompletionExpectation ? cell : null);
-                if (pew == null) return "";
+                const completion = tapeCompletion(cell) ?? (cell instanceof CompletionExpectation ? cell : null);
+                if (completion == null) return "";
                 const parts: string[] = [];
-                if (pew.userPrompt !== "") parts.push(`user: ${pew.userPrompt}`);
-                if (pew.responseText !== "") parts.push(`assistant: ${pew.responseText}`);
+                if (completion.userPrompt !== "") parts.push(`user: ${completion.userPrompt}`);
+                if (completion.responseText !== "") parts.push(`assistant: ${completion.responseText}`);
                 return parts.join("\n");
               })
               .filter((line) => line !== "")

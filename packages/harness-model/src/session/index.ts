@@ -1,5 +1,5 @@
 /**
- * Session image: SessionRoot, PEW product kinds, session plexus.
+ * Session image: SessionRoot, Expectation product kinds, session document.
  * Kernel substrate is not re-exported.
  */
 
@@ -20,7 +20,7 @@ export * from "./document-root.js";
 export * from "./SessionRoot.js";
 export * from "./trajectory-projection.js";
 export * from "./projection-registry.js";
-export * from "./SessionPlexus.js";
+export * from "./SessionDocument.js";
 export * from "./SessionSystemPrompt.js";
 export * from "./SessionSystemPromptDerivation.js";
 export * from "./cluster.js";

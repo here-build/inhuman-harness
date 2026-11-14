@@ -95,14 +95,14 @@ const peer = vi.hoisted(() => {
 
 vi.mock("@inhuman.tools/harness-peer", () => ({
   KERNEL_DOC_GUID: "harness:kernel",
-  KernelPlexus: { connect: vi.fn(() => ({ awareness: {}, root: { projects: {}, sessions: peer.kernelSessions } })) },
-  ProjectPlexus: {
+  KernelDocument: { connect: vi.fn(() => ({ awareness: {}, root: { projects: {}, sessions: peer.kernelSessions } })) },
+  ProjectDocument: {
     connect: vi.fn(() => {
       const opened = [...peer.connections].reverse().find((conn) => conn.roomname === "project");
       return { root: { path: opened?.params.path ?? "" } };
     }),
   },
-  SessionPlexus: {
+  SessionDocument: {
     connect: vi.fn(() => ({ awareness: {}, root: peer.sessionRoot() })),
   },
   bindJsonRpc: peer.bindJsonRpc,
@@ -695,8 +695,8 @@ describe("Dial attachment safety", () => {
   });
 
   it("attaches every known project for the sidebar and keeps them across route changes", async () => {
-    const { KernelPlexus } = await import("@inhuman.tools/harness-peer");
-    vi.mocked(KernelPlexus.connect).mockReturnValueOnce({
+    const { KernelDocument } = await import("@inhuman.tools/harness-peer");
+    vi.mocked(KernelDocument.connect).mockReturnValueOnce({
       awareness: {},
       root: { projects: { "/workspace": "", "/other": "" } },
     } as never);
@@ -710,9 +710,9 @@ describe("Dial attachment safety", () => {
   });
 
   it("auto-attaches newly added projects when kernel.root.projects updates over the transport channel", async () => {
-    const { KernelPlexus } = await import("@inhuman.tools/harness-peer");
+    const { KernelDocument } = await import("@inhuman.tools/harness-peer");
     const projects = observable.object<Record<string, string>>({ "/workspace": "" });
-    vi.mocked(KernelPlexus.connect).mockReturnValueOnce({
+    vi.mocked(KernelDocument.connect).mockReturnValueOnce({
       awareness: {},
       root: { projects, sessions: peer.kernelSessions },
     } as never);

@@ -86,7 +86,7 @@ test("promised work with metadata consumes its persisted intent allowance and th
 
 test("reasoning repairs work without a judge and stop after their persisted allowance", async () => {
   const live = await liveSession();
-  live.kernel.plexus.root.reActLoopIntentDetectedTrigger.enabled = false;
+  live.kernel.doc.root.reActLoopIntentDetectedTrigger.enabled = false;
   const { turn } = await startTurn(live);
   for (let index = 0; index < 9; index += 1) {
     live.model.reply(index % 2 === 0 ? { thought: "plan" } : { text: "<think>still planning</think>" });

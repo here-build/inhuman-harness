@@ -2,8 +2,8 @@
  * Worker yield. Same mint ownership as {@link AgentCallbackJob}; appends
  * on the Call and does not complete it.
  */
+import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/expectations";
 import { model } from "@inhuman.tools/model";
-import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ToolCallJob } from "./ToolCallJob.js";

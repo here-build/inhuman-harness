@@ -1,5 +1,5 @@
 /**
- * openai-compat completion actor. The HTTP round is per PEW.
+ * openai-compat completion actor. The HTTP round is per expectation.
  *
  * Connection-wide `#emit` / `#abort` / `#turnModel` would make parallel
  * remainder and ReACT settle on each other's speech. The connection stays
@@ -18,6 +18,12 @@
 import { randomUUID } from "node:crypto";
 import { ReadableStreamReadResult } from "node:stream/web";
 
+import {
+  ConnectionMiss,
+  ConnectionNotReady,
+  ExpectationActor,
+  ExpectationInvariant,
+} from "@inhuman.tools/expectations/driver";
 import { fail, step, trace } from "@inhuman.tools/harness-diagnostics";
 import {
   assertResponseMatchesSchema,
@@ -32,12 +38,6 @@ import {
   type ToolTextPart,
 } from "@inhuman.tools/harness-model";
 import { readBlob, readVisual } from "@inhuman.tools/harness-provider-sdk";
-import {
-  ConnectionMiss,
-  ConnectionNotReady,
-  ExpectationActor,
-  ExpectationInvariant,
-} from "@inhuman.tools/plexus-expectations/driver";
 import {
   createStreamSession,
   mergeReasoning,
@@ -289,7 +289,7 @@ function toOpenAiTool(tool: {
 
 /** Catalog tools for this completion's wire. Frozen turn set wins so MCP churn cannot rewrite the prefix. */
 export function toolsFor(expectation: CompletionExpectation): readonly OpenAiTool[] {
-  const root = expectation.plexus?.root;
+  const root = expectation.document?.root;
   const live = completionCatalogOf(root);
   const tools = selectCompletionTools(expectation, live);
   const turn = owningTurn(expectation);
@@ -331,8 +331,8 @@ export function* viewWire(
 ): Generator<ChatMessage> {
   const echo = options.dialect?.echo ?? "omit-empty";
   const field = options.dialect?.chatField ?? "reasoning_content";
-  const catalog = completionCatalogOf(tip.plexus?.root);
-  const root = tip.plexus?.root;
+  const catalog = completionCatalogOf(tip.document?.root);
+  const root = tip.document?.root;
   const sessionId = root instanceof SessionRoot ? root.sessionId : "";
   for (const message of projectModelHistory(tip, {
     catalog,
@@ -774,7 +774,7 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
     });
   }
 
-  /** Abort the inter-attempt sleep. No-op if not sleeping. Does not fail the PEW. */
+  /** Abort the inter-attempt sleep. No-op if not sleeping. Does not fail the expectation. */
   skipBackoff(): void {
     this.#backoffAbort?.abort();
   }
@@ -1099,7 +1099,7 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
   }
 
   #dumpCacheRound(): string | null {
-    const root = this.expectation.plexus?.root;
+    const root = this.expectation.document?.root;
     const workspacePath = root instanceof SessionRoot ? root.path : "";
     return writeCacheDump({
       workspacePath,
@@ -1118,12 +1118,12 @@ export abstract class OpenAiCompatActor extends ExpectationActor<CompletionExpec
 
   /**
    * Live-tape ReACT keeps the session id. Remainder / compact / other
-   * off-spine PEWs share `${session}:off-spine` so they cluster with each
+   * off-spine expectations share `${session}:off-spine` so they cluster with each
    * other and do not occupy the tape replica — a different prefix on the
    * same `x-grok-conv-id` evicts the tape KV (xAI cache is per-server).
    */
   protected cacheSessionId(): string {
-    const root = this.expectation.plexus?.root;
+    const root = this.expectation.document?.root;
     const sessionId = root instanceof SessionRoot ? root.sessionId.trim() : "";
     const base = sessionId === "" ? this.driverConnection.connectionId : sessionId;
     if (owningTurn(this.expectation) != null) return base;

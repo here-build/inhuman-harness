@@ -5,11 +5,11 @@
  *
  * One Transport `fetch`: handshake while `!bootstrapDone` (401 on the wire),
  * send after `bootstrapDone` (wait then stamp). TFRP refresh lives on this
- * handle when `refresh_token` / `expires_at` exist — not on PEWDriver.
+ * handle when `refresh_token` / `expires_at` exist — not on ExpectationDriver.
  */
+import { ConnectionMiss } from "@inhuman.tools/expectations/driver";
 import { step } from "@inhuman.tools/harness-diagnostics";
 import type { McpToolExpectation } from "@inhuman.tools/harness-model";
-import { ConnectionMiss } from "@inhuman.tools/plexus-expectations/driver";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { action, computed, type IReactionDisposer, observable, reaction, runInAction, when } from "mobx";
 

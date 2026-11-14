@@ -1,12 +1,12 @@
 /**
  * MCP tool call. Identity and receipt live on {@link ToolCallJob}.
  * BODY is the Job executor after an allow-side guard.
- * mints PEW honored by `connectionKey`. Leftover intern PEW is a pre-set
+ * mints expectation honored by `connectionKey`. Leftover intern expectation is a pre-set
  * `expectation`; new BODY does not mint when it is already set. Retries
  * replace (do not append).
  */
+import { type JobEffectOwner, type UnknownOutcomeRecovery, WorkContainer } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import { type JobEffectOwner, type UnknownOutcomeRecovery, WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ToolCallJob, type ToolCallJobProps } from "./ToolCallJob.js";
@@ -21,7 +21,7 @@ export class MCPToolJob extends ToolCallJob {
   override readonly checkpoint: string =
     "session document prefix including orchestrationResult. MCPToolJob.dispatched and expectation.dispatched are live park pins, not receipts.";
   override readonly dispatch: string =
-    "Set dispatched immediately before interned callTool / leftover PEW dispatch. Same-runtime leftoverInFlight waits; it does not re-dispatch.";
+    "Set dispatched immediately before interned callTool / leftover expectation dispatch. Same-runtime leftoverInFlight waits; it does not re-dispatch.";
   override readonly settlement: string =
     "outcomeJson + expectation.isDone + completed. Park holds on-wire MCP until settlement.";
   override readonly cancel: string =
@@ -36,10 +36,10 @@ export class MCPToolJob extends ToolCallJob {
   @state accessor serverToolName: string = "";
   /**
    * `tools/call` has left this process. Park waits when true.
-   * Written immediately before interned `callTool` / leftover PEW dispatch.
+   * Written immediately before interned `callTool` / leftover expectation dispatch.
    */
   @state accessor dispatched: boolean = false;
-  /** Leftover intern PEW is a pre-set `expectation`; new BODY does not mint when it is already set. */
+  /** Leftover intern expectation is a pre-set `expectation`; new BODY does not mint when it is already set. */
   @state.child accessor expectation!: McpToolExpectation;
 
   constructor(

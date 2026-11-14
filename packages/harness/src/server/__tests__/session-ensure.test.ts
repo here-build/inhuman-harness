@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { Writable } from "node:stream";
 import { pathToFileURL } from "node:url";
 
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { dumpSkipped, mute } from "@inhuman.tools/harness-diagnostics";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { mkdtemp, writeFile } from "fs-extra";
 import { describe, expect, it } from "vitest";
 
@@ -13,7 +13,7 @@ import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../daemon/project/ProjectDaemon.js";
 
 const require = createRequire(import.meta.url);
-const DRIVER_HREF = pathToFileURL(require.resolve("@inhuman.tools/plexus-expectations/driver")).href;
+const DRIVER_HREF = pathToFileURL(require.resolve("@inhuman.tools/expectations/driver")).href;
 
 async function waitFor(pred: () => boolean, timeoutMs = 8_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -35,8 +35,8 @@ describe("session ensure", () => {
     const workspace = await mkdtemp(join(tmpdir(), "harness-ensure-p-"));
     await writeFile(
       join(system, "boom-driver.mjs"),
-      `import { PEWDriver } from ${JSON.stringify(DRIVER_HREF)};
-export default class BoomConnection extends PEWDriver {
+      `import { ExpectationDriver } from ${JSON.stringify(DRIVER_HREF)};
+export default class BoomConnection extends ExpectationDriver {
   async bootstrap() {
     throw new Error("openai-compat timeout after 2500ms: https://example.test/v1/models");
   }
@@ -55,8 +55,8 @@ export default class BoomConnection extends PEWDriver {
       abilityClaim: ["completion"],
       multiplicity: "add-by-default",
     });
-    kernel.plexus.root.drivers = { ...kernel.plexus.root.drivers, boom: driver };
-    kernel.plexus.root.connections = { boom: new ConnectionSpec({ driver, name: "boom" }) };
+    kernel.doc.root.drivers = { ...kernel.doc.root.drivers, boom: driver };
+    kernel.doc.root.connections = { boom: new ConnectionSpec({ driver, name: "boom" }) };
     const project = new ProjectDaemon(kernel, workspace);
     await project.ready;
 
@@ -66,18 +66,18 @@ export default class BoomConnection extends PEWDriver {
       void session.orchestrator.ensure("boom");
       await waitFor(
         () =>
-          kernel.plexus.root.connections.boom?.readyState === "failed" &&
-          /timeout after 2500ms/.test(kernel.plexus.root.connections.boom.error),
+          kernel.doc.root.connections.boom?.readyState === "failed" &&
+          /timeout after 2500ms/.test(kernel.doc.root.connections.boom.error),
       );
-      kernel.plexus.root.connections = {
-        ...kernel.plexus.root.connections,
+      kernel.doc.root.connections = {
+        ...kernel.doc.root.connections,
         boom2: new ConnectionSpec({ driver, name: "boom2" }),
       };
       await new Promise((resolve) => setImmediate(resolve));
       await new Promise((resolve) => setImmediate(resolve));
       expect({
-        readyState: kernel.plexus.root.connections.boom?.readyState,
-        error: kernel.plexus.root.connections.boom?.error,
+        readyState: kernel.doc.root.connections.boom?.readyState,
+        error: kernel.doc.root.connections.boom?.error,
         unhandled: seen,
       }).toEqual({
         readyState: "failed",

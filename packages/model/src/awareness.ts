@@ -342,6 +342,3 @@ export class FieldAwareness<
     this.hub.clearLane(this.field);
   }
 }
-
-export const PlexusAwareness = ReactiveAwareness;
-export type PlexusAwareness<S extends AwarenessShape = AwarenessShape> = ReactiveAwareness<S>;

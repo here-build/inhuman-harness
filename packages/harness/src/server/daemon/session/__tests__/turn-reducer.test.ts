@@ -318,8 +318,8 @@ async function runLoopEnd(session: SessionDaemon, row: Row): Promise<{ got: unkn
   if (row.metadata === true && (row.prose ?? "") === "") {
     got.description = root.turnDescription;
     got.glance = {
-      status: session.kernel.plexus.root.sessions[session.sessionId]?.status,
-      model: session.kernel.plexus.root.sessions[session.sessionId]?.model,
+      status: session.kernel.doc.root.sessions[session.sessionId]?.status,
+      model: session.kernel.doc.root.sessions[session.sessionId]?.model,
     };
     want.description = "doing it";
     want.glance = { status: "doing it", model: "grok-4.6" };
@@ -526,8 +526,8 @@ async function phaseMintReplicaSees(): Promise<unknown> {
 function completionsOf(turn: SessionTurn): CompletionExpectation[] {
   const out: CompletionExpectation[] = [];
   for (const chunk of reactChunks(turn)) {
-    const pew = tapeCompletion(chunk);
-    if (pew != null) out.push(pew);
+    const expectation = tapeCompletion(chunk);
+    if (expectation != null) out.push(expectation);
   }
   return out;
 }

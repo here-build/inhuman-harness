@@ -252,9 +252,9 @@ export function* walkTranscript(chunks: readonly unknown[]): Generator<Transcrip
       yield { kind: "compact", chunk };
       continue;
     }
-    const pew = tapeCompletion(chunk);
-    if (pew != null) {
-      yield { kind: "completion", chunk: pew };
+    const completion = tapeCompletion(chunk);
+    if (completion != null) {
+      yield { kind: "completion", chunk: completion };
       continue;
     }
     if (chunk instanceof CompletionExpectation) {
@@ -708,9 +708,9 @@ export function textOfCell(cell: unknown): string {
   if (cell instanceof ProgrammaticJob) {
     return `scheme ${cell.expr} ${cell.resultText()}`.trim();
   }
-  const pew = tapeCompletion(cell) ?? (cell instanceof CompletionExpectation ? cell : null);
-  if (pew != null) {
-    return `${pew.userPrompt}\n${pew.responseText}`.trim();
+  const completion = tapeCompletion(cell) ?? (cell instanceof CompletionExpectation ? cell : null);
+  if (completion != null) {
+    return `${completion.userPrompt}\n${completion.responseText}`.trim();
   }
   return "";
 }

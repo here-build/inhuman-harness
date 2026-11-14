@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chdir } from "node:process";
 
-import { KERNEL_DOC_GUID, SessionPlexus } from "@inhuman.tools/harness-model";
+import { KERNEL_DOC_GUID, SessionDocument } from "@inhuman.tools/harness-model";
 import { destroyRoomConnection, RoomConnection, waitForSync } from "@inhuman.tools/harness-peer";
 import { Client, RestoreNotFound } from "@inhuman.tools/harness-sdk";
 import { daemonSocketPath, projectSessionsDir } from "@inhuman.tools/harness-sdk/paths";
@@ -33,8 +33,8 @@ describe("Client", () => {
       expect({
         sessionPath: started.sessionRoot.path,
         sessionRootId: started.sessionRoot.sessionId,
-        projectPath: started.projectPlexus.root.path,
-        kernelGuid: started.kernelPlexus.doc.guid,
+        projectPath: started.projectDoc.root.path,
+        kernelGuid: started.kernelDoc.guid,
         minted: started.sessionId.length > 0,
       }).toEqual({
         sessionPath: workspace,
@@ -51,14 +51,14 @@ describe("Client", () => {
         viaProject: session.project === project,
         viaKernel: session.kernel === (await daemon.kernel()),
         sessionsDir: await pathExists(projectSessionsDir(workspace)),
-        guid: started.sessionPlexus.doc.guid,
-        uuid: started.sessionPlexus.root.uuid,
+        guid: started.sessionDoc.guid,
+        uuid: started.sessionDoc.root.uuid,
       }).toEqual({
         viaProject: true,
         viaKernel: true,
         sessionsDir: true,
-        guid: session.plexus.doc.guid,
-        uuid: session.plexus.root.uuid,
+        guid: session.doc.guid,
+        uuid: session.doc.root.uuid,
       });
 
       {
@@ -120,7 +120,7 @@ describe("Client", () => {
           adopted,
           file: await readJson(join(kernel, "config.json")),
           listed: listed.connections,
-          replicaName: kernelRpc.plexus.root.connections.work?.name,
+          replicaName: kernelRpc.doc.root.connections.work?.name,
         }).toMatchObject({
           adopted: { id: "work" },
           file: { connections: { work: { driver: "openai-compat", name: "Work" } } },
@@ -129,20 +129,20 @@ describe("Client", () => {
         });
 
         await started.kernelRequest("term-continue/set", { key: "emu=test", sessionId: started.sessionId });
-        await when(() => kernelRpc.plexus.root.termContinue["emu=test"] === started.sessionId, {
+        await when(() => kernelRpc.doc.root.termContinue["emu=test"] === started.sessionId, {
           timeout: REPLICA_MS,
         });
-        await when(() => kernelRpc.plexus.root.sessions[started.sessionId] != null, { timeout: REPLICA_MS });
+        await when(() => kernelRpc.doc.root.sessions[started.sessionId] != null, { timeout: REPLICA_MS });
         expect({
-          termContinue: kernelRpc.plexus.root.termContinue["emu=test"],
-          glanced: kernelRpc.plexus.root.sessions[started.sessionId] != null,
+          termContinue: kernelRpc.doc.root.termContinue["emu=test"],
+          glanced: kernelRpc.doc.root.sessions[started.sessionId] != null,
         }).toEqual({ termContinue: started.sessionId, glanced: true });
 
         const socketPath = daemonSocketPath(kernel);
         const sessionId = started.sessionId;
         const unknownId = randomUUID();
-        const attachedDoc = SessionPlexus.create(`harness:session:${sessionId}`);
-        const attachedProvider = new RoomConnection(`ws+unix://${socketPath}:`, "session", attachedDoc.doc, {
+        const attachedDoc = SessionDocument.create(`harness:session:${sessionId}`);
+        const attachedProvider = new RoomConnection(`ws+unix://${socketPath}:`, "session", attachedDoc, {
           WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
           params: { sessionId },
         });
@@ -161,9 +161,9 @@ describe("Client", () => {
           expect({
             path: replica.root.path,
             id: replica.root.sessionId,
-            guid: replica.doc.guid,
+            guid: replica.guid,
             restored: (await daemon.attachSession(sessionId))?.sessionId,
-            unknownLive: host.sessionPlexus(unknownId) != null,
+            unknownLive: host.sessionDoc(unknownId) != null,
             sessions: Object.keys(project.sessions),
             membership: unknownId in project.root.sessions,
           }).toEqual({
@@ -221,7 +221,7 @@ describe("Client", () => {
         if (catalogSession === undefined) throw new Error("missing session");
         void catalogSession.orchestrator.ensure("catalog");
         const owner = await daemon.kernel();
-        await when(() => owner.plexus.root.connections.catalog?.live.models?.[0] === "m1", { timeout: REPLICA_MS });
+        await when(() => owner.doc.root.connections.catalog?.live.models?.[0] === "m1", { timeout: REPLICA_MS });
         await when(() => started.kernelRoot.connections.catalog?.live.models?.[0] === "m1", { timeout: REPLICA_MS });
         await when(() => b.kernelRoot.connections.catalog?.live.models?.[0] === "m1", { timeout: REPLICA_MS });
         expect({

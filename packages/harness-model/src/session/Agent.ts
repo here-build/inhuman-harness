@@ -38,7 +38,7 @@ export class AgentSpec extends Model {
   /** Ask desk: drop write_file / edit_file / write-class MCP. Shell stays. */
   @state accessor readonly: boolean = false;
   /**
-   * Recipe snapshot. Null = omit on the PEW (vendor default).
+   * Recipe snapshot. Null = omit on the expectation (vendor default).
    * `none` disables when the dialect allows.
    */
   @state accessor reasoningEffort: ReasoningEffort | null = null;

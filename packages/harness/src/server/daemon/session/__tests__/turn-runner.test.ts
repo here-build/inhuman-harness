@@ -16,7 +16,7 @@ import {
   ToolCallJob,
   TurnPromptChunk,
 } from "@inhuman.tools/harness-model";
-import { walkWork } from "@inhuman.tools/plexus-expectations";
+import { walkWork } from "@inhuman.tools/expectations";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -37,8 +37,8 @@ const cancelled = {
 function completionsOf(turn: SessionTurn): CompletionExpectation[] {
   const out: CompletionExpectation[] = [];
   for (const chunk of reactChunks(turn)) {
-    const pew = tapeCompletion(chunk);
-    if (pew != null) out.push(pew);
+    const expectation = tapeCompletion(chunk);
+    if (expectation != null) out.push(expectation);
   }
   return out;
 }
@@ -131,26 +131,26 @@ describe("Turn interpret", () => {
     expect({
       gone: {
         outcome: gone.receiptJson,
-        pewDone: gone.expectation.isDone,
+        expectationDone: gone.expectation.isDone,
         orchestrated: gone.orchestrated,
         completed: gone.completed,
       },
       empty: {
         outcome: empty.receiptJson,
-        pewDone: empty.expectation.isDone,
+        expectationDone: empty.expectation.isDone,
         orchestrated: empty.orchestrated,
         completed: empty.completed,
       },
     }).toEqual({
       gone: {
         outcome: JSON.stringify({ ok: false, text: "gone: missing MCP connection" }),
-        pewDone: true,
+        expectationDone: true,
         orchestrated: true,
         completed: true,
       },
       empty: {
         outcome: JSON.stringify({ ok: false, text: "search: missing MCP connection" }),
-        pewDone: true,
+        expectationDone: true,
         orchestrated: true,
         completed: true,
       },

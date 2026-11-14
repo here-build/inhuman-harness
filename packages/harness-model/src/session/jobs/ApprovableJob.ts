@@ -15,8 +15,8 @@
  * licenses a `deny` or `ask` is the resolution table (authorization/resolve.ts) for the session's
  * mode, the call's cluster and the classes that voted.
  */
+import { Job, walkWork, type WorkContainer } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import { Job, walkWork, type WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import {

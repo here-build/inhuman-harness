@@ -1,6 +1,6 @@
 /**
  * @inhuman.tools/harness-provider-openai-compat — generic Chat Completions
- * and Responses codecs, PEW connection, leftover completion actors.
+ * and Responses codecs, ExpectationDriver connection, leftover completion actors.
  *
  * Vendor packages and product roster stay out. Generic endpoint registration
  * is `./register`.

@@ -2,7 +2,7 @@ import {
   CompletionExpectation,
   CompletionJob,
   ProgrammaticJob,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -26,7 +26,7 @@ describe("progress marks", () => {
     turn.pushChild(job);
     const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
     root.head = turn;
-    const doc = SessionPlexus.bootstrap(root);
+    const doc = SessionDocument.bootstrap(root);
     try {
       const cells = tapeCells(root);
       expect(cells.some((cell) => cell.kind === "tool" && cell.outcome === "failed")).toBe(true);
@@ -124,7 +124,7 @@ describe("progress marks", () => {
     });
     for (const chunk of turn.doneWork) turn.pushChild(chunk);
     root.head = turn;
-    const plexus = SessionPlexus.bootstrap(root);
+    const doc = SessionDocument.bootstrap(root);
     await schemeExprReady(expr);
     expect(schemeExprSettled(expr)).toBe(true);
     const cells = tapeCells(root);
@@ -146,7 +146,7 @@ describe("progress marks", () => {
       ["", ["speech"]],
     ]);
     expect(beats.map((beat) => beat.id)).toEqual([first.uuid, second.uuid, third.uuid]);
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("does not turn task and goal tool intentions into progress", () => {
@@ -177,11 +177,11 @@ describe("progress marks", () => {
     });
     for (const chunk of turn.doneWork) turn.pushChild(chunk);
     root.head = turn;
-    const plexus = SessionPlexus.bootstrap(root);
+    const doc = SessionDocument.bootstrap(root);
     const cells = tapeCells(root);
     expect(cells.map(face)).toEqual(["round", "progress:Ship the bar:Left pane", "speech", "reads"]);
     expect(cells.some((cell) => cell.kind === "tool" && /task__|goal__/.test(cell.summary))).toBe(false);
-    plexus.destroy();
+    doc.destroy();
   });
 });
 
@@ -261,10 +261,10 @@ describe("context_need", () => {
     });
     for (const chunk of turn.doneWork) turn.pushChild(chunk);
     root.head = turn;
-    const plexus = SessionPlexus.bootstrap(root);
+    const doc = SessionDocument.bootstrap(root);
     await schemeExprReady(mixed);
     expect(tapeCells(root).map(face)).toEqual(["round", "speech", "tool:shell pwd", "tool:shell pwd"]);
-    plexus.destroy();
+    doc.destroy();
   });
 });
 

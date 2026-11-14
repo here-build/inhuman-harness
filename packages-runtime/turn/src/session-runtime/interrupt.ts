@@ -1,3 +1,4 @@
+import { WorkExpectation, walkWork } from "@inhuman.tools/expectations";
 import {
   CallJob,
   CompactJob,
@@ -6,7 +7,6 @@ import {
   ToolCallJob,
   type SessionRoot,
 } from "@inhuman.tools/harness-model/session";
-import { WorkExpectation, walkWork } from "@inhuman.tools/plexus-expectations";
 import { runInAction } from "mobx";
 
 export function interruptSession(root: SessionRoot, message: string): void {

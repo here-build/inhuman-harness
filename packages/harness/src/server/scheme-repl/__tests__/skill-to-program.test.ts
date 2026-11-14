@@ -327,7 +327,7 @@ describe("skill-to-program eval", () => {
             programPath: passedJson.bundle?.programPath,
             audits: passedJson.audits?.length,
           },
-          pews: passed.children.filter((child) => child instanceof AgentCallJob).length,
+          calls: passed.children.filter((child) => child instanceof AgentCallJob).length,
           notes: passed.notifications.map((note) => note.message),
         },
         path: {
@@ -360,7 +360,7 @@ describe("skill-to-program eval", () => {
             programPath: "reverse.scm",
             audits: 3,
           },
-          pews: 6,
+          calls: 6,
           notes: [],
         },
         path: {

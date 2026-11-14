@@ -1,7 +1,7 @@
 {
   "name": "@inhuman.tools/harness-model",
   "version": "0.3.0",
-  "description": "Harness document models, Plexus wrappers, and model schemas. No client transport.",
+  "description": "Harness document models, reactive document containers, and model schemas. No client transport.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -75,7 +75,7 @@
     "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/harness-contract": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/expectations": "workspace:^",
     "@inhuman.tools/statusline": "workspace:^",
     "mobx": "6.16.1",
     "nanoid": "6.0.2",

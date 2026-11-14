@@ -52,7 +52,7 @@ export class WebDoorCommand extends KernelCommand {
       sockPath: sock,
       pages: "static" as const,
       staticDir: join(webAppRoot, "dist/client"),
-      fileRoots: () => [...new Set([process.cwd(), ...Object.keys(kernelClient?.plexus.root.projects ?? {})])],
+      fileRoots: () => [...new Set([process.cwd(), ...Object.keys(kernelClient?.doc.root.projects ?? {})])],
       extraOrigins: (process.env["HARNESS_WEB_ALLOWED_ORIGINS"] ?? "")
         .split(",")
         .map((origin) => origin.trim())

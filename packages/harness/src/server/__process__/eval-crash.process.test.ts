@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { walkWork } from "@inhuman.tools/expectations";
 import {
   SystemToolJob,
   evalProgramOf,
@@ -17,7 +18,6 @@ import {
 } from "@inhuman.tools/harness-model";
 import { Client } from "@inhuman.tools/harness-sdk";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
-import { walkWork } from "@inhuman.tools/plexus-expectations";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
 

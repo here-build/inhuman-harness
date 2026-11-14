@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   ProgrammaticJob,
   SCHEME_WATCH_TOOL_NAME,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -185,11 +185,11 @@ function projectNow(expr: string, tools: readonly SystemToolJob[], toolName = "s
   });
   turn.pushChild(program);
   root.head = turn;
-  const plexus = SessionPlexus.bootstrap(root);
+  const doc = SessionDocument.bootstrap(root);
   try {
     return tapeCells(root);
   } finally {
-    plexus.destroy();
+    doc.destroy();
   }
 }
 

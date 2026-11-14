@@ -1,7 +1,7 @@
 /**
  * Reasoning request dialect for openai-compat completions.
  *
- * Effort is a PEW field. Flavor is host identity — same split as
+ * Effort is a WorkExpectation field. Flavor is host identity — same split as
  * {@link cacheFlavorFromBaseUrl}. Local / unknown hosts get an empty bag:
  * extra keys 400 on LM Studio / Ollama.
  *

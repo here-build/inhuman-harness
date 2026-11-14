@@ -1,5 +1,5 @@
 /** Local durable-intent adapter; recovery itself belongs to the shared runtime. */
-import type { Job } from "@inhuman.tools/plexus-expectations";
+import type { Job } from "@inhuman.tools/expectations";
 
 export { recoverSessionJobs, type RecoveredJob, type JobRecoveryOptions } from "@inhuman.tools/turn/runtime";
 

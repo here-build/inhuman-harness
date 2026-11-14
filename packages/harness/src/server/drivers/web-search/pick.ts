@@ -6,7 +6,7 @@
  *
  * Product fallback policy lives here. Nous owns source/gateway credential lifecycle.
  */
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 
 import { NOUS_GATEWAY_CONNECTION_ID } from "@/providers/nous";
 

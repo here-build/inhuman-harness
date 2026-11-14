@@ -1,7 +1,7 @@
 export {
   mintProjectDocGuid as mintProjectDocGuid,
   PROJECT_DOC_KIND as PROJECT_DOC_KIND,
-  ProjectPlexus as ProjectPlexus,
+  ProjectDocument as ProjectDocument,
 } from "@inhuman.tools/harness-model/kernel";
 export * from "./paths.js";
 export { Client as Client, RestoreNotFound as RestoreNotFound, type KernelRpc as KernelRpc } from "./client.js";

@@ -11,9 +11,9 @@ export const compositionPackages = [
 export const modelPackage = "@inhuman.tools/harness-model";
 export const modelRange = "workspace:^";
 export const internSymbol = "const internByKernel";
-export const internFile = "packages/plexus-expectations/src/executor/kernel-intern.ts";
+export const internFile = "packages/expectations/src/executor/kernel-intern.ts";
 export const connectionsIntern = "packages/harness/src/connections/intern.ts";
-export const connectionsImport = /from "@inhuman\.tools\/plexus-expectations\/executor"/;
+export const connectionsImport = /from "@inhuman\.tools\/expectations\/executor"/;
 
 export const cli = {
   packageName: "inhuman",

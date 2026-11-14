@@ -7,7 +7,7 @@ import {
   applyDenyReceipt,
   SessionTurn,
   type PermissionMode,
-  type SessionPlexus,
+  type SessionDocument,
 } from "@inhuman.tools/harness-model";
 import { FieldAwareness } from "@inhuman.tools/model";
 import { when } from "mobx";
@@ -34,7 +34,7 @@ export function inboundTurnGuard(turn: SessionTurn): boolean | Promise<true> {
   })();
 }
 
-export function publishPolicyError(session: SessionPlexus, text: string | null): void {
+export function publishPolicyError(session: SessionDocument, text: string | null): void {
   try {
     const lane = new FieldAwareness(session.awareness, "policyError");
     if (text == null || text === "") lane.clear();

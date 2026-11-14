@@ -1,4 +1,4 @@
-import { ConnectionMiss } from "@inhuman.tools/plexus-expectations/driver";
+import { ConnectionMiss } from "@inhuman.tools/expectations/driver";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {

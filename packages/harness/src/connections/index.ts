@@ -1,8 +1,8 @@
 /**
  * @/connections — registered driver resolver and
- * PEW intern adapter for adopt, discovery, and execution.
+ * expectation intern adapter for adopt, discovery, and execution.
  *
- * One intern table (PEW). No vendor providers, no plugin loader.
+ * One intern table (expectations). No vendor providers, no plugin loader.
  */
 
 export * from "./adopt.js";

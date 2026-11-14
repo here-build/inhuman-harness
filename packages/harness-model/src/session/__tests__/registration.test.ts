@@ -10,7 +10,7 @@ import {
   CompactJob,
   FileMutateToolJob,
   ProgrammaticJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SuccessfulOutcome,
@@ -22,7 +22,7 @@ test("session registration restores nested work before the aggregate model entry
     legacyRegistered: getModelByTag("harness:text-only-continue") === TextOnlyContinue,
   }).toEqual({ kernelLoaded: false, legacyRegistered: true });
 
-  const owner = SessionPlexus.create("registered-session");
+  const owner = SessionDocument.create("registered-session");
   const file = new FileMutateToolJob({ toolCallId: "edit", name: "edit_file", priorContent: "before" });
   const program = new ProgrammaticJob({ toolCallId: "program", argsJson: '{"expr":"(edit)"}', children: [file] });
   program.modules["helper.scm"] = "(define helper 1)";
@@ -37,7 +37,7 @@ test("session registration restores nested work before the aggregate model entry
     prompt: asUserPrompt("keep this work"),
     queue: [program, call, new CompactJob({ resourceSnapshotJson: '{"revision":"one"}' })],
   });
-  const replica = SessionPlexus.connect(owner);
+  const replica = SessionDocument.connect(owner);
   try {
     const turn = replica.root.head;
     if (!(turn instanceof SessionTurn)) throw new TypeError("restored head is not a turn");
@@ -66,7 +66,7 @@ test("session registration restores nested work before the aggregate model entry
 
     const aggregate = await import("../../index.js");
     expect({
-      session: aggregate.SessionPlexus === SessionPlexus,
+      session: aggregate.SessionDocument === SessionDocument,
       turn: aggregate.SessionTurn === SessionTurn,
       file: aggregate.FileMutateToolJob === FileMutateToolJob,
       call: aggregate.BotCallJob === BotCallJob,

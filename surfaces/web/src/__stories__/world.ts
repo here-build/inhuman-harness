@@ -1,5 +1,5 @@
 /**
- * Frozen worlds for stories: real plexus documents built locally, the way the
+ * Frozen worlds for stories: real reactive documents built locally, the way the
  * daemon would have left them, and a dial that serves them without a socket.
  *
  * A world is plain construction. Build the models, bootstrap each document,
@@ -7,6 +7,7 @@
  * daemon's timing. A story that wants a later state mutates the same models.
  */
 import type { RegionGraph } from "@here.build/arrival-provenance";
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
@@ -17,11 +18,11 @@ import {
   FileMutateToolJob,
   InstalledPlugin,
   BotSpec,
-  KernelPlexus,
+  KernelDocument,
   KernelRoot,
   ProgrammaticJob,
   SessionOverview,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -34,8 +35,7 @@ import {
   type TurnChunk,
 } from "@inhuman.tools/harness-model";
 import { resolvedTip } from "@inhuman.tools/harness-model/session";
-import { ProjectPlexus } from "@inhuman.tools/harness-peer";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { ProjectDocument } from "@inhuman.tools/harness-peer";
 import { makeObservable, observable, runInAction } from "mobx";
 
 import { serveWorkflow, type WorkflowRun } from "./workflow-world.js";
@@ -271,17 +271,17 @@ export type SessionSpec = {
   readonly kvs?: Readonly<Record<string, string>>;
 };
 
-export function session(spec: SessionSpec): SessionPlexus {
+export function session(spec: SessionSpec): SessionDocument {
   const root = new SessionRoot({ sessionId: spec.id, path: spec.project ?? PROJECT });
   if (spec.title != null) root.manualTitle = spec.title;
   let head: SessionTurn | null = null;
   for (const next of spec.turns) head = turn(next, head ?? new SessionSystemPrompt());
   root.head = head;
-  const plexus = SessionPlexus.bootstrap(root);
+  const doc = SessionDocument.bootstrap(root);
   if (spec.kvs != null) {
-    plexus.root.applyKvs(Object.entries(spec.kvs).map(([key, value]) => ({ form: "kv-set", key, value })));
+    doc.root.applyKvs(Object.entries(spec.kvs).map(([key, value]) => ({ form: "kv-set", key, value })));
   }
-  return plexus;
+  return doc;
 }
 
 /* The kernel: connections, projects, and the glance rows the sidebar lists. */
@@ -462,8 +462,8 @@ function addWire(root: KernelRoot, wire: WireSpec): void {
   root.connections[wire.id] = connection;
 }
 
-function stampWire(plexus: KernelPlexus, wire: WireSpec): void {
-  plexus.root.connections[wire.id].stampProcess({
+function stampWire(doc: KernelDocument, wire: WireSpec): void {
+  doc.root.connections[wire.id].stampProcess({
     readyState: wire.failed == null ? "ready" : "failed",
     error: wire.failed ?? "",
     live: {
@@ -477,7 +477,7 @@ function stampWire(plexus: KernelPlexus, wire: WireSpec): void {
   });
 }
 
-export function kernel(spec: KernelSpec = {}): KernelPlexus {
+export function kernel(spec: KernelSpec = {}): KernelDocument {
   const root = new KernelRoot();
   root.approvalAskThrottleMs = 1000;
   for (const path of spec.projects ?? [PROJECT]) root.projects[path] = "";
@@ -499,20 +499,20 @@ export function kernel(spec: KernelSpec = {}): KernelPlexus {
   for (const [name, sessionId] of Object.entries(spec.bots ?? {})) root.botsRoster[name] = sessionId;
   for (const driver of driverCatalog(spec.local ?? [])) root.drivers[driver.name] = driver;
   for (const wire of spec.wires ?? WIRES) addWire(root, wire);
-  const plexus = KernelPlexus.bootstrap(root);
-  for (const wire of spec.wires ?? WIRES) stampWire(plexus, wire);
-  return plexus;
+  const doc = KernelDocument.bootstrap(root);
+  for (const wire of spec.wires ?? WIRES) stampWire(doc, wire);
+  return doc;
 }
 
 export function project(
   path: string,
   sessions: readonly string[],
   bots: Readonly<Record<string, string>> = {},
-): ProjectPlexus {
-  const plexus = ProjectPlexus.create(path);
-  for (const id of sessions) plexus.root.sessions[id] = "";
-  for (const [name, id] of Object.entries(bots)) plexus.root.botsRoster[name] = id;
-  return plexus;
+): ProjectDocument {
+  const doc = ProjectDocument.create(path);
+  for (const id of sessions) doc.root.sessions[id] = "";
+  for (const [name, id] of Object.entries(bots)) doc.root.botsRoster[name] = id;
+  return doc;
 }
 
 /**
@@ -520,14 +520,14 @@ export function project(
  * kernel lists it the way the daemon's glance would (its title, its prompt).
  */
 export function worldOf(
-  sessions: readonly SessionPlexus[],
+  sessions: readonly SessionDocument[],
   options: {
     readonly kernel?: Omit<KernelSpec, "sessions">;
     readonly extraSessions?: KernelSpec["sessions"];
     /** Worker sessions: the kernel glances them, no project lists them. */
     readonly workers?: KernelSpec["sessions"];
     /** Worker documents a peek opens. */
-    readonly peeks?: () => readonly SessionPlexus[];
+    readonly peeks?: () => readonly SessionDocument[];
     /** Program runs the daemon would stream, by the program's `toolCallId`. */
     readonly workflows?: Readonly<Record<string, WorkflowRun>>;
     readonly refuse?: boolean;
@@ -537,25 +537,25 @@ export function worldOf(
   } = {},
 ): StoryDial {
   const byProject = new Map<string, string[]>();
-  for (const plexus of sessions) {
-    const ids = byProject.get(plexus.root.path) ?? [];
-    ids.push(plexus.root.sessionId);
-    byProject.set(plexus.root.path, ids);
+  for (const doc of sessions) {
+    const ids = byProject.get(doc.root.path) ?? [];
+    ids.push(doc.root.sessionId);
+    byProject.set(doc.root.path, ids);
   }
   const extra = options.extraSessions ?? {};
   const listed = [...byProject.keys(), ...(options.kernel?.projects ?? [])];
   const paths = [...new Set(listed.length === 0 ? [PROJECT] : listed)];
   const rows: Record<string, GlanceRow> = { ...options.workers, ...extra };
-  for (const [index, plexus] of sessions.entries()) {
-    const head = plexus.root.head;
+  for (const [index, doc] of sessions.entries()) {
+    const head = doc.root.head;
     // The fields the daemon's glance reads off the same root.
-    rows[plexus.root.sessionId] = {
-      title: plexus.root.title,
+    rows[doc.root.sessionId] = {
+      title: doc.root.title,
       lastPrompt: head == null ? "" : String(head.prompt),
       at: Date.now() - index * 60_000,
-      openTurn: plexus.root.openTurn,
-      asking: plexus.root.asking,
-      unfinished: plexus.root.unfinished,
+      openTurn: doc.root.openTurn,
+      asking: doc.root.asking,
+      unfinished: doc.root.unfinished,
     };
   }
   return new StoryDial({
@@ -576,9 +576,9 @@ export function worldOf(
 /* The dial: the same surface the frame reads, over frozen documents. */
 
 export type WorldSpec = {
-  readonly kernel: KernelPlexus | null;
-  readonly projects?: readonly ProjectPlexus[];
-  readonly sessions?: readonly SessionPlexus[];
+  readonly kernel: KernelDocument | null;
+  readonly projects?: readonly ProjectDocument[];
+  readonly sessions?: readonly SessionDocument[];
   /** What the dial says about its line to the daemon. */
   readonly link?: Link;
   /** Hold every route in attaching: the frame's pending face. */
@@ -590,7 +590,7 @@ export type WorldSpec = {
   /** The kernel replica is up but no RPC port is bound yet: nothing can be written. */
   readonly portless?: boolean;
   /** Sessions only a peek opens: workers no project lists. */
-  readonly peeks?: readonly SessionPlexus[];
+  readonly peeks?: readonly SessionDocument[];
   /** Program runs the daemon would stream, by the program's `toolCallId`. */
   readonly workflows?: Readonly<Record<string, WorkflowRun>>;
 };
@@ -639,10 +639,10 @@ function rewindStory(root: SessionRoot, turnId: string): { ok: false } | { ok: t
 }
 
 export class StoryDial {
-  kernel: KernelPlexus | null;
-  readonly projects = new Map<string, ProjectPlexus>();
-  project: ProjectPlexus | null = null;
-  session: SessionPlexus | null = null;
+  kernel: KernelDocument | null;
+  readonly projects = new Map<string, ProjectDocument>();
+  project: ProjectDocument | null = null;
+  session: SessionDocument | null = null;
   sessionRpc: Port | null = null;
   kernelRpc: Port | null = null;
   target: RouteTarget = { kind: "kernel" };
@@ -650,8 +650,8 @@ export class StoryDial {
   link: Link | null;
   attaching: boolean;
   readonly calls: RpcCall[] = [];
-  readonly #sessions = new Map<string, SessionPlexus>();
-  readonly #peeks = new Map<string, SessionPlexus>();
+  readonly #sessions = new Map<string, SessionDocument>();
+  readonly #peeks = new Map<string, SessionDocument>();
   readonly #holdAttaching: boolean;
   readonly #refuse: boolean;
   readonly #scripts: ConnectScripts;
@@ -691,9 +691,9 @@ export class StoryDial {
 
   constructor(world: WorldSpec) {
     this.kernel = world.kernel;
-    for (const plexus of world.projects ?? []) this.projects.set(plexus.root.path, plexus);
-    for (const plexus of world.sessions ?? []) this.#sessions.set(plexus.root.sessionId, plexus);
-    for (const plexus of world.peeks ?? []) this.#peeks.set(plexus.root.sessionId, plexus);
+    for (const doc of world.projects ?? []) this.projects.set(doc.root.path, doc);
+    for (const doc of world.sessions ?? []) this.#sessions.set(doc.root.sessionId, doc);
+    for (const doc of world.peeks ?? []) this.#peeks.set(doc.root.sessionId, doc);
     this.link = world.link ?? null;
     this.#holdAttaching = world.attaching === true;
     this.#refuse = world.refuse === true;
@@ -719,10 +719,10 @@ export class StoryDial {
   look(): void {}
 
   /** A worker's document, as the daemon would sync it. One that is not built is unreachable. */
-  async peek(sessionId: string): Promise<{ plexus: SessionPlexus; release: () => void }> {
-    const plexus = this.#peeks.get(sessionId) ?? this.#sessions.get(sessionId);
-    if (plexus == null) throw new Error(`no session ${sessionId}`);
-    return { plexus, release: () => undefined };
+  async peek(sessionId: string): Promise<{ doc: SessionDocument; release: () => void }> {
+    const doc = this.#peeks.get(sessionId) ?? this.#sessions.get(sessionId);
+    if (doc == null) throw new Error(`no session ${sessionId}`);
+    return { doc, release: () => undefined };
   }
 
   /** The daemon's feed for one program: its run, served as frames. A program with no run kept has no graph. */
@@ -765,7 +765,7 @@ export class StoryDial {
     });
   }
 
-  async #request(opened: SessionPlexus, method: string, params: unknown): Promise<unknown> {
+  async #request(opened: SessionDocument, method: string, params: unknown): Promise<unknown> {
     this.calls.push({ method, params });
     if (this.#refuse) return { ok: false };
     if (method === "connect/adopt" || method === "ui/resolve") return this.#connect(opened, method, params);
@@ -953,7 +953,7 @@ export class StoryDial {
   }
 
   /** The connect flow the stories script. A session's port also points the session at what it connected. */
-  async #connect(opened: SessionPlexus | null, method: string, params: unknown): Promise<unknown> {
+  async #connect(opened: SessionDocument | null, method: string, params: unknown): Promise<unknown> {
     const args = (params ?? {}) as Record<string, unknown>;
     if (method === "connect/adopt") {
       const driver = String(args.driver);
@@ -974,7 +974,7 @@ export class StoryDial {
   }
 
   async #reply(
-    opened: SessionPlexus | null,
+    opened: SessionDocument | null,
     pending: string,
     park: { script: readonly ConnectReply[]; at: number; release?: () => void },
   ): Promise<unknown> {

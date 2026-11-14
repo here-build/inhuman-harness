@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { SessionPlexus } from "@inhuman.tools/harness-model";
+import { SessionDocument } from "@inhuman.tools/harness-model";
 import { runInAction } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -22,7 +22,7 @@ describe("session plugin state rewind", () => {
   it("restores session logs from the nearest turn snapshot; private stays in memory", () => {
     const root = mkdtempSync(join(tmpdir(), "ext-rewind-"));
     temps.push(root);
-    const session = SessionPlexus.create("s1", "/work");
+    const session = SessionDocument.create("s1", "/work");
     const store = new KernelStateStore(
       () => root,
       (id) => (id === "s1" ? session.root : undefined),

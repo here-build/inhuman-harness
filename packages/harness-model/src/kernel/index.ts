@@ -11,6 +11,6 @@ export * from "./agent-relations.js";
 export * from "./seat.js";
 export * from "./KernelRoot.js";
 export * from "./ProjectRoot.js";
-export * from "./ProjectPlexus.js";
+export * from "./ProjectDocument.js";
 export * from "./CommandSpec.js";
-export * from "./KernelPlexus.js";
+export * from "./KernelDocument.js";

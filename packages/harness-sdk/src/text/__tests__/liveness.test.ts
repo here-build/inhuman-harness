@@ -5,7 +5,7 @@ import {
   CompletionJob,
   ProgrammaticJob,
   ReACTChunk,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
@@ -35,7 +35,7 @@ function hostedTurn(opts: {
   policyResult: "ask" | "policyApprove" | "deny" | "block";
   permissionMode?: "manual" | "auto" | "yolo";
 }): { turn: SessionTurn; leaf: SystemToolJob } & Disposable {
-  const plexus = SessionPlexus.create("s", "/tmp/p");
+  const doc = SessionDocument.create("s", "/tmp/p");
   const leaf = new SystemToolJob({
     toolCallId: "call_1",
     name: opts.name,
@@ -50,13 +50,13 @@ function hostedTurn(opts: {
     queue: [],
   });
   cell.pushChild(leaf);
-  plexus.root.head = cell;
-  if (opts.permissionMode !== undefined) plexus.root.permissionMode = opts.permissionMode;
+  doc.root.head = cell;
+  if (opts.permissionMode !== undefined) doc.root.permissionMode = opts.permissionMode;
   return {
     turn: cell,
     leaf,
     [Symbol.dispose]() {
-      plexus.destroy();
+      doc.destroy();
     },
   };
 }
@@ -544,19 +544,19 @@ describe("liveness", () => {
     });
   });
 
-  it("leftover intern classifier PEW stays on the remainder leaf and keeps the row live", () => {
+  it("leftover intern classifier completion stays on the remainder leaf and keeps the row live", () => {
     using auto = hostedTurn({
       name: "shell",
       argsJson: '{"command":"curl x"}',
       policyResult: "ask",
       permissionMode: "auto",
     });
-    const pew = new CompletionExpectation({
+    const completion = new CompletionExpectation({
       connectionId: "lm-studio",
       model: "essentialai_rnj-1-instruct@q4_k_s",
     });
-    pew.markStarted(1_000);
-    auto.leaf.children.push(new CompletionJob({ expectation: pew }));
+    completion.markStarted(1_000);
+    auto.leaf.children.push(new CompletionJob({ expectation: completion }));
     expect({
       state: toolCellState(auto.leaf),
       live: turnLiveness(auto.turn),

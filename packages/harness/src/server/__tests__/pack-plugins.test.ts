@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { KernelPlexus } from "@inhuman.tools/harness-model";
+import { KernelDocument } from "@inhuman.tools/harness-model";
 import { mkdir, mkdtemp, readJson, writeFile, writeJson } from "fs-extra";
 import { describe, expect, it } from "vitest";
 
@@ -100,13 +100,13 @@ describe("pack plugins", () => {
       commands: { ping: PING },
       drivers: { ok: { importPath: "fake-plug/drivers/ok", abilityClaim: ["completion"] } },
     });
-    const leftoverPlexus = KernelPlexus.bootstrap();
-    reflectKernel(leftoverRoot, leftoverPlexus.root);
+    const leftoverDoc = KernelDocument.bootstrap();
+    reflectKernel(leftoverRoot, leftoverDoc.root);
     const leftover = {
-      plugin: leftoverPlexus.root.plugins["fake-plug"],
-      ping: leftoverPlexus.root.commands.ping,
+      plugin: leftoverDoc.root.plugins["fake-plug"],
+      ping: leftoverDoc.root.commands.ping,
     };
-    leftoverPlexus.doc.destroy();
+    leftoverDoc.destroy();
 
     const system = await mkdtemp(join(tmpdir(), "harness-pack-bad-"));
     await writeJson(join(system, "package.json"), {
@@ -169,19 +169,19 @@ describe("pack plugins", () => {
       kernel: {
         missingJs: existsSync(join(bad, "missing.js")),
         readFile: kernel.catalog.catalogEntry("read_file") != null,
-        demoPack: kernel.plexus.root.plugins["demo-pack"]?.modules,
-        demoPing: kernel.plexus.root.pluginTool("demo_ping")?.question,
-        taskCreate: kernel.plexus.root.pluginTool("task__create")?.question,
-        leftoverPlug: kernel.plexus.root.plugins["leftover-plug"],
-        ping: kernel.plexus.root.commands.ping,
-        extra: kernel.plexus.root.commands.extra?.source,
+        demoPack: kernel.doc.root.plugins["demo-pack"]?.modules,
+        demoPing: kernel.doc.root.pluginTool("demo_ping")?.question,
+        taskCreate: kernel.doc.root.pluginTool("task__create")?.question,
+        leftoverPlug: kernel.doc.root.plugins["leftover-plug"],
+        ping: kernel.doc.root.commands.ping,
+        extra: kernel.doc.root.commands.extra?.source,
         drivers: {
-          ok: kernel.plexus.root.drivers.ok?.importPath,
-          ghost: kernel.plexus.root.drivers.ghost,
-          nope: kernel.plexus.root.drivers.nope,
-          path: kernel.plexus.root.drivers.path,
+          ok: kernel.doc.root.drivers.ok?.importPath,
+          ghost: kernel.doc.root.drivers.ghost,
+          nope: kernel.doc.root.drivers.nope,
+          path: kernel.doc.root.drivers.path,
         },
-        work: kernel.plexus.root.connections.work?.name,
+        work: kernel.doc.root.connections.work?.name,
       },
     }).toEqual({
       host: {
@@ -244,20 +244,20 @@ describe("pack plugins", () => {
     });
     await writeJson(join(shipped, "config.json"), { connections: {} });
     const shippedGraph = buildPluginGraph({ installRoot: shipped });
-    const shippedPlexus = KernelPlexus.bootstrap();
-    reflectKernel(shipped, shippedPlexus.root);
+    const shippedDoc = KernelDocument.bootstrap();
+    reflectKernel(shipped, shippedDoc.root);
     expect({
       discovered: names.length > 0,
       errors: shippedGraph.errors,
       presence: shippedGraph.presence.map((row) => row.pluginName).sort(),
-      loaded: Object.keys(shippedPlexus.root.plugins).sort(),
+      loaded: Object.keys(shippedDoc.root.plugins).sort(),
     }).toEqual({
       discovered: true,
       errors: [],
       presence: [...names].sort(),
       loaded: [...names].sort(),
     });
-    shippedPlexus.doc.destroy();
+    shippedDoc.destroy();
   }, 15_000);
 });
 

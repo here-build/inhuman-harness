@@ -57,7 +57,7 @@
     "@inhuman.tools/harness-scheme": "workspace:^",
     "@inhuman.tools/harness-sdk": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/expectations": "workspace:^",
     "@inhuman.tools/plugin-fusion": "workspace:^",
     "@inhuman.tools/plugin-goal": "workspace:^",
     "@inhuman.tools/plugin-offload-tingle": "workspace:^",

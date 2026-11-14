@@ -23,7 +23,7 @@ import {
   deskPermissionSnap,
   type DeskPermissionSnap,
   hostingTurnOf,
-  type KernelPlexus,
+  type KernelDocument,
   McpToolExpectation,
   MCPToolJob,
   type JobStopReport,
@@ -32,7 +32,7 @@ import {
   ProgrammaticJob,
   projectWorkerPermissions,
   ReACTChunk,
-  type SessionPlexus,
+  type SessionDocument,
   SessionRoot,
   SessionTurn,
   SystemToolJob,
@@ -50,9 +50,9 @@ import {
   connectionSupports,
 } from "@inhuman.tools/harness-provider-sdk";
 import { interpretSchemeRepl, liveModelsOf } from "@inhuman.tools/harness-scheme";
-import { type DriverSpec, Job, walkWork, WorkExpectation } from "@inhuman.tools/plexus-expectations";
-import { ConnectionMiss, type DriverConnectionClass, type PEWDriver } from "@inhuman.tools/plexus-expectations/driver";
-import { dropConnection, Orchestrator } from "@inhuman.tools/plexus-expectations/executor";
+import { type DriverSpec, Job, walkWork, WorkExpectation } from "@inhuman.tools/expectations";
+import { ConnectionMiss, type DriverConnectionClass, type ExpectationDriver } from "@inhuman.tools/expectations/driver";
+import { dropConnection, Orchestrator } from "@inhuman.tools/expectations/executor";
 import { type ToolCall } from "@inhuman.tools/tool-call-normalize";
 import {
   closeTurn,
@@ -146,8 +146,8 @@ function licenseDecisionNow(job: ToolCallJob): boolean | null {
 }
 
 export class SessionOrchestrator extends Orchestrator implements Disposable {
-  declare readonly kernel: KernelPlexus;
-  declare readonly session: SessionPlexus;
+  declare readonly kernel: KernelDocument;
+  declare readonly session: SessionDocument;
   readonly #disposeConnections: () => void;
   readonly #disposeBoundWire: () => void;
   readonly #disposeLive: () => void;
@@ -169,7 +169,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   #completionBaseline: Set<CompletionJob> | null = null;
   readonly #loggedError = new Map<string, string>();
   readonly #loggedDriver = new Map<string, string | null>();
-  readonly #gatewayEnsure = new Map<string, Promise<PEWDriver>>();
+  readonly #gatewayEnsure = new Map<string, Promise<ExpectationDriver>>();
   readonly #behavior: SessionBehavior;
   /** One-shot recipe calls whose tools an agent guard narrowed, until the worker is minted. */
   readonly #agentTools = new Map<AgentCallJob, readonly string[]>();
@@ -179,7 +179,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 
   constructor(readonly sessionDaemon: SessionDaemon) {
-    super(sessionDaemon.kernel.plexus, sessionDaemon.plexus);
+    super(sessionDaemon.kernel.doc, sessionDaemon.doc);
     this.#behavior = new SessionBehavior(
       sessionDaemon.kernel.behavior,
       this.session.root,
@@ -449,7 +449,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
             }
           },
           connectionModels: (name) => {
-            const spec = this.sessionDaemon.kernel.plexus.root.connections[name];
+            const spec = this.sessionDaemon.kernel.doc.root.connections[name];
             invariant(spec != null, `unknown connection ${name}`);
             return liveModelsOf(spec);
           },
@@ -538,7 +538,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
                 );
               },
               closeRound: (settle) => this.#behavior.closeRound(turn, settle),
-              classifyIntent: (pew, abort) => this.#reActLoopIntentDetectedTrigger(turn, pew, abort),
+              classifyIntent: (expectation, abort) => this.#reActLoopIntentDetectedTrigger(turn, expectation, abort),
               startAmbientCompact: (options) => {
                 void startAmbientCompact({
                   ...options,
@@ -607,10 +607,10 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         for (const job of jobs) {
           if (baseline.has(job)) continue;
           baseline.add(job);
-          const pew = job.expectation;
-          void this.complete(completionRequest(pew)).catch((error: unknown) => {
-            if (!this.canApplyResults || pew.isDone || this.#flights.aborted(pew)) return;
-            pew.fail("crash", error instanceof Error ? error.message : String(error), "null");
+          const expectation = job.expectation;
+          void this.complete(completionRequest(expectation)).catch((error: unknown) => {
+            if (!this.canApplyResults || expectation.isDone || this.#flights.aborted(expectation)) return;
+            expectation.fail("crash", error instanceof Error ? error.message : String(error), "null");
           });
         }
       },
@@ -651,8 +651,8 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         const liveSig = `${spec.readyState}|${can.join(",")}|${models.length}|${models.slice(0, 8).join(",")}`;
         if (this.#loggedError.get(`live:${connectionId}`) !== liveSig) {
           this.#loggedError.set(`live:${connectionId}`, liveSig);
-          const authoring = spec.container?.container;
-          const transport = this.kernel.doc;
+          const authoring = spec.document;
+          const transport = this.kernel;
           step(
             `kernel live: connection=${connectionId} readyState=${spec.readyState} can=${can.join(",") || "(none)"} models=${models.length} ${models.length === 0 ? "(none)" : models.slice(0, 8).join(",")} shadow=${docTag(authoring)} main=${docTag(transport)} sameDoc=${authoring === transport}`,
           );
@@ -735,7 +735,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       return;
     }
     if (job.dispatched && !job.completed) {
-      const settled = await this.#settleLeftoverPew(job.expectation, key, "MCP connection", signal);
+      const settled = await this.#settleLeftoverExpectation(job.expectation, key, "MCP connection", signal);
       if (!this.canApplyResults) return;
       if (settled === "settled") {
         sealMcpIfSettled(job);
@@ -747,7 +747,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         return;
       }
       job.outcomeSnap ??= { ok: false, text: cancelOutcomeText(signal.reason) };
-      this.#terminatePew(job.expectation);
+      this.#terminateExpectation(job.expectation);
       job.markComplete();
       return;
     }
@@ -900,13 +900,18 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       }
       job.connectionKey = key;
       if (job.expectation.startedAtMs == null) job.expectation.connectionId = key;
-      const leftoverPew = job.expectation;
-      if (leftoverPew.startedAtMs != null && !leftoverPew.isDone) {
-        const settled = await this.#settleLeftoverPew(leftoverPew, key, `${web.ability} connection`, signal);
+      const leftoverExpectation = job.expectation;
+      if (leftoverExpectation.startedAtMs != null && !leftoverExpectation.isDone) {
+        const settled = await this.#settleLeftoverExpectation(
+          leftoverExpectation,
+          key,
+          `${web.ability} connection`,
+          signal,
+        );
         if (!this.canApplyResults) return;
         if (settled === "aborted") {
           job.outcomeSnap ??= { ok: false, text: cancelOutcomeText(signal.reason) };
-          this.#terminatePew(leftoverPew);
+          this.#terminateExpectation(leftoverExpectation);
         }
         return;
       }
@@ -950,20 +955,20 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 
   /**
-   * A PEW an earlier wrap started settles on its own; it fails here only when
-   * its connection is gone. Aborted leaves the PEW to the caller.
+   * An expectation an earlier wrap started settles on its own; it fails here only when
+   * its connection is gone. Aborted leaves the expectation to the caller.
    */
-  async #settleLeftoverPew(
-    pew: WorkExpectation,
+  async #settleLeftoverExpectation(
+    expectation: WorkExpectation,
     key: string,
     what: string,
     signal: AbortSignal,
   ): Promise<"settled" | "aborted"> {
-    const settled = await waitUntil(() => pew.isDone || this.#connectionFailure(key, what) !== null, signal);
+    const settled = await waitUntil(() => expectation.isDone || this.#connectionFailure(key, what) !== null, signal);
     if (!this.canApplyResults) return "aborted";
     if (settled === "aborted") return settled;
     const detail = this.#connectionFailure(key, what);
-    if (detail !== null && !pew.isDone) pew.fail("crash", detail, "null");
+    if (detail !== null && !expectation.isDone) expectation.fail("crash", detail, "null");
     return settled;
   }
 
@@ -1095,7 +1100,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     if (!delegatesPermissionMode(this.session.root)) return null;
     const id = permissionDeskSessionId(this.session.root, this.kernel.root);
     if (id === "" || id === this.session.root.sessionId) return null;
-    return this.sessionDaemon.kernel.sessionPlexus(id)?.root ?? null;
+    return this.sessionDaemon.kernel.sessionDoc(id)?.root ?? null;
   }
 
   #deskPermissionSnap(): DeskPermissionSnap | null {
@@ -1103,7 +1108,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     return desk == null ? null : deskPermissionSnap(desk);
   }
 
-  override ensure(connectionId: string): Promise<PEWDriver> {
+  override ensure(connectionId: string): Promise<ExpectationDriver> {
     if (connectionId === NOUS_GATEWAY_CONNECTION_ID) return this.#ensureBorrowedGateway();
     return this.#loggedEnsure(connectionId, this.isEnsured(connectionId), super.ensure(connectionId));
   }
@@ -1112,7 +1117,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
    * `web-nous` is one intern id whose person can move. Memo by intern+source;
    * {@link dropConnection} is the remint door so B is not A's lease.
    */
-  #ensureBorrowedGateway(): Promise<PEWDriver> {
+  #ensureBorrowedGateway(): Promise<ExpectationDriver> {
     const connectionId = NOUS_GATEWAY_CONNECTION_ID;
     const source = nousGatewaySourceOf(this.kernel.root, connectionId);
     const tracked = this.#gatewayEnsure.has(borrowedEnsureKey(connectionId, source));
@@ -1130,7 +1135,11 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     );
   }
 
-  #loggedEnsure(connectionId: string, tracked: boolean, pending: Promise<PEWDriver>): Promise<PEWDriver> {
+  #loggedEnsure(
+    connectionId: string,
+    tracked: boolean,
+    pending: Promise<ExpectationDriver>,
+  ): Promise<ExpectationDriver> {
     if (tracked) return pending;
     step(`ensure ${connectionId}`);
     void pending.then(
@@ -1140,7 +1149,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     return pending;
   }
 
-  protected override attachConnection(connectionId: string, instance: PEWDriver): void {
+  protected override attachConnection(connectionId: string, instance: ExpectationDriver): void {
     const kernel = this.sessionDaemon.kernel;
     instance.bindSettingsWriter((patch) => {
       kernel.adjustConfig((config) => {
@@ -1200,8 +1209,8 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     const open: CompletionJob[] = [];
     for (const node of this.reachableJobs) {
       if (!(node instanceof CompletionJob)) continue;
-      const pew = node.expectation;
-      if (pew.isDone || pew.startedAtMs != null) continue;
+      const expectation = node.expectation;
+      if (expectation.isDone || expectation.startedAtMs != null) continue;
       const parent = node.parent;
       if (parent instanceof SessionTurn && (parent.queue.includes(node) || parent.doneWork.includes(node))) continue;
       open.push(node);
@@ -1484,7 +1493,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
           node.markComplete();
         }
       }
-      if (node instanceof WorkExpectation && !node.isDone) this.#terminatePew(node);
+      if (node instanceof WorkExpectation && !node.isDone) this.#terminateExpectation(node);
     }
     let inFlight = false;
     for (const job of this.inFlightJobs()) {
@@ -1505,7 +1514,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     return {
       catalog: this.sessionDaemon.kernel.catalog,
       abort: (job) => (job instanceof ApprovableJob ? this.#abortLeaf(job) : this.abortJob(job)),
-      terminate: (expectation) => this.#terminatePew(expectation),
+      terminate: (expectation) => this.#terminateExpectation(expectation),
       releaseCall: (call) => {
         if (!call.completed) completeCallExceptionally(call, this.#agentHost(), "cancelled");
       },
@@ -1535,11 +1544,11 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         const reason = node.decision.detail?.trim() || "";
         if (reason !== "") stopDetail = reason;
       }
-      const pew = node instanceof CompletionExpectation ? node : tapeCompletion(node);
-      if (pew?.startedAtMs == null) continue;
+      const expectation = node instanceof CompletionExpectation ? node : tapeCompletion(node);
+      if (expectation?.startedAtMs == null) continue;
       hasCompletion = true;
-      if (pew.outcome !== "failed" || pew.endCause === "cancel") continue;
-      const text = pew.endDetail?.trim() || pew.failReason?.trim() || "model round failed";
+      if (expectation.outcome !== "failed" || expectation.endCause === "cancel") continue;
+      const text = expectation.endDetail?.trim() || expectation.failReason?.trim() || "model round failed";
       detail = text;
       break;
     }
@@ -1558,7 +1567,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
 
   /**
    * In-flight BODY abort. `abortJob` does not stop a worker session — AgentCall
-   * must complete exceptionally. MCP/web terminate PEW.
+   * must complete exceptionally. MCP/web terminate expectation.
    */
   #abortLeaf(leaf: ApprovableJob, reason?: unknown): void {
     this.abortJob(leaf, reason);
@@ -1570,8 +1579,8 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     }
     if (leaf instanceof MCPToolJob || leaf instanceof WebSearchToolJob || leaf instanceof WebExtractToolJob) {
       leaf.outcomeSnap ??= { ok: false, text: cancelOutcomeText(reason) };
-      const pew = leaf.expectation;
-      if (!pew.isDone) this.#terminatePew(pew);
+      const expectation = leaf.expectation;
+      if (!expectation.isDone) this.#terminateExpectation(expectation);
     }
   }
 
@@ -1580,7 +1589,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     else this.abortJob(job);
   }
 
-  #terminatePew(expectation: WorkExpectation): void {
+  #terminateExpectation(expectation: WorkExpectation): void {
     const actor = this.actorOf(expectation);
     if (actor !== undefined) actor.admitTermination();
     if (!expectation.isDone) expectation.fail("cancel", "terminate", "null");
@@ -1597,17 +1606,21 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
 
   async #reActLoopIntentDetectedTrigger(
     turn: SessionTurn,
-    pew: CompletionExpectation,
+    expectation: CompletionExpectation,
     signal: AbortSignal,
   ): Promise<IntentAssessment> {
     if (
-      !reActLoopIntentDetectedTriggerFor(this.kernel.root.reActLoopIntentDetectedTrigger, pew.connectionId, pew.model)
+      !reActLoopIntentDetectedTriggerFor(
+        this.kernel.root.reActLoopIntentDetectedTrigger,
+        expectation.connectionId,
+        expectation.model,
+      )
     )
       return { verdict: null, status: "disabled", detail: "Continuation judge is disabled." };
     const wire = internJudgeWire(this.session.root.kvs, this.kernel.root.kvs, (id) => this.#configuredModel(id));
     if (wire == null) return { verdict: null, status: "unconfigured", detail: "No continuation judge is configured." };
     return assessTextOnlyContinueIntern({
-      speech: pew.responseText,
+      speech: expectation.responseText,
       wire,
       haltKeys: this.#reActLoopIntentDetectedTriggerHaltKeys,
       home: turn,
@@ -1617,15 +1630,15 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 }
 
-function completionRequest(pew: CompletionExpectation): CompleteRequest {
+function completionRequest(expectation: CompletionExpectation): CompleteRequest {
   return {
-    connectionId: pew.connectionId,
-    model: pew.model,
-    promptText: pew.userPrompt,
-    messages: pew.messages,
-    responseSchemaJson: pew.responseSchema == null ? undefined : JSON.stringify(pew.responseSchema),
-    systemNote: pew.systemNote,
-    round: pew,
+    connectionId: expectation.connectionId,
+    model: expectation.model,
+    promptText: expectation.userPrompt,
+    messages: expectation.messages,
+    responseSchemaJson: expectation.responseSchema == null ? undefined : JSON.stringify(expectation.responseSchema),
+    systemNote: expectation.systemNote,
+    round: expectation,
   };
 }
 
@@ -1675,8 +1688,8 @@ function stampSessionPrograms(
 
 function closeMcpFailure(job: MCPToolJob, text: string): void {
   job.outcomeSnap ??= { ok: false, text };
-  const pew = job.expectation;
-  if (!pew.isDone) pew.fail("crash", text, "null");
+  const expectation = job.expectation;
+  if (!expectation.isDone) expectation.fail("crash", text, "null");
   if (!job.completed && !job.cancelled) job.markComplete();
 }
 

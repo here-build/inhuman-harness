@@ -20,7 +20,7 @@ import {
   FileMutateToolJob,
   parseStoredBlob,
   PromptMessage,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -34,8 +34,7 @@ import { projectModelHistory } from "@/context";
 import { vacuumDatabaseBlobs, vacuumSession, type BlobPut } from "../vacuum.js";
 
 const sha256Of = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
-const serializedBytes = (plexus: SessionPlexus): number =>
-  Buffer.byteLength(JSON.stringify(plexus.doc.toNodeRows()), "utf8");
+const serializedBytes = (doc: SessionDocument): number => Buffer.byteLength(JSON.stringify(doc.toNodeRows()), "utf8");
 
 /** An in-memory bucket: `put` as the daemon's writer, `read` as its reader. */
 function memoryBucket() {
@@ -70,7 +69,7 @@ function done(round: CompletionExpectation): CompletionExpectation {
 
 /** One session holding every seat, and the entities a test looks at. */
 function stored() {
-  const plexus = SessionPlexus.create("vacuum", "");
+  const doc = SessionDocument.create("vacuum", "");
   const bigPrior = new FileMutateToolJob({
     toolCallId: "p1",
     name: "edit_file",
@@ -143,11 +142,11 @@ function stored() {
       agent,
     ],
   });
-  plexus.root.head = turn;
+  doc.root.head = turn;
   const orphanBefore = settled.promptMessages[0]!;
   settled.promptMessages = [new PromptMessage({ role: "user", content: "ambient compact of a prefix of 4 cells" })];
   return {
-    plexus,
+    doc,
     bigPrior,
     smallPrior,
     alreadyBlob,
@@ -163,21 +162,21 @@ function stored() {
 
 describe("vacuumSession", () => {
   it("counts what would move on a dry run and changes nothing", () => {
-    const { plexus, bigPrior, summarizer, pasted, orphanBefore } = stored();
+    const { doc, bigPrior, summarizer, pasted, orphanBefore } = stored();
     try {
       const bucket = memoryBucket();
       let updates = 0;
-      const stop = plexus.doc.onPatch(() => {
+      const stop = doc.onPatch(() => {
         updates += 1;
       });
-      const before = serializedBytes(plexus);
-      const counts = vacuumSession(plexus.root, bucket.put, { dryRun: true, read: bucket.read });
+      const before = serializedBytes(doc);
+      const counts = vacuumSession(doc.root, bucket.put, { dryRun: true, read: bucket.read });
       stop();
       expect({
         counts,
         puts: bucket.puts.length,
         updates,
-        grew: serializedBytes(plexus) - before,
+        grew: serializedBytes(doc) - before,
         prior: bigPrior.priorContent === PRIOR,
         promptText: summarizer.promptText === TRANSCRIPT,
         message: summarizer.promptMessages[1]?.content === TRANSCRIPT,
@@ -200,19 +199,19 @@ describe("vacuumSession", () => {
         orphan: true,
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   it("moves each seat to a head and a reference, one update per entity", () => {
-    const { plexus, bigPrior, smallPrior, alreadyBlob, summarizer, pasted, orphanBefore, moved } = stored();
+    const { doc, bigPrior, smallPrior, alreadyBlob, summarizer, pasted, orphanBefore, moved } = stored();
     try {
       const bucket = memoryBucket();
       let updates = 0;
-      const stop = plexus.doc.onPatch(() => {
+      const stop = doc.onPatch(() => {
         updates += 1;
       });
-      const counts = vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
+      const counts = vacuumSession(doc.root, bucket.put, { dryRun: false, read: bucket.read });
       stop();
       const sha = (text: string) => sha256Of(Buffer.from(text, "utf8"));
       const referenceOf = (json: string | null) => {
@@ -264,15 +263,15 @@ describe("vacuumSession", () => {
         objects: [sha(PRIOR), sha(TRANSCRIPT), sha(ORPHAN)].sort(),
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   it("leaves a running completion and an agent call's prompt whole", () => {
-    const { plexus, running, agent } = stored();
+    const { doc, running, agent } = stored();
     try {
       const bucket = memoryBucket();
-      vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
+      vacuumSession(doc.root, bucket.put, { dryRun: false, read: bucket.read });
       expect({
         runningLine: running.promptText === TRANSCRIPT,
         runningMessage: running.promptMessages[0]?.content === TRANSCRIPT,
@@ -287,18 +286,18 @@ describe("vacuumSession", () => {
         agentSpeech: true,
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   it("shrinks the document by about what it moved, and a second run finds nothing", () => {
-    const { plexus } = stored();
+    const { doc } = stored();
     try {
       const bucket = memoryBucket();
-      const before = serializedBytes(plexus);
-      const first = vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
-      const after = serializedBytes(plexus);
-      const second = vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
+      const before = serializedBytes(doc);
+      const first = vacuumSession(doc.root, bucket.put, { dryRun: false, read: bucket.read });
+      const after = serializedBytes(doc);
+      const second = vacuumSession(doc.root, bucket.put, { dryRun: false, read: bucket.read });
       // The running round, the agent call and the pasted line keep 300 000 characters.
       // The tree from root shrinks by priorContent (9 000) and 2x TRANSCRIPT (240 000).
       const reachableMoved = Buffer.byteLength(PRIOR) + 2 * Buffer.byteLength(TRANSCRIPT);
@@ -316,12 +315,12 @@ describe("vacuumSession", () => {
         puts: 4,
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   it("leaves a text within the inline limit, and moves one code unit more", () => {
-    const plexus = SessionPlexus.create("vacuum-edge", "");
+    const doc = SessionDocument.create("vacuum-edge", "");
     try {
       const at = new FileMutateToolJob({
         toolCallId: "e1",
@@ -337,29 +336,29 @@ describe("vacuumSession", () => {
         existed: true,
         priorContent: "a".repeat(BLOB_INLINE_MAX_CHARS + 1),
       });
-      plexus.root.head = new SessionTurn({
+      doc.root.head = new SessionTurn({
         turnTail: new SessionSystemPrompt(),
         prompt: prompt.user`go`,
         queue: [],
         doneWork: [at, over],
       });
       const bucket = memoryBucket();
-      const counts = vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
+      const counts = vacuumSession(doc.root, bucket.put, { dryRun: false, read: bucket.read });
       expect({
         counts: counts.fileMutates,
         at: at.priorContent?.length,
         over: [over.priorContent, parseStoredBlob(over.priorBlobJson)?.bytes],
       }).toEqual({ counts: 1, at: BLOB_INLINE_MAX_CHARS, over: [null, BLOB_INLINE_MAX_CHARS + 1] });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   it("the wire still reads a vacuumed summarizer whole", () => {
-    const { plexus, summarizer } = stored();
+    const { doc, summarizer } = stored();
     try {
       const bucket = memoryBucket();
-      vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read });
+      vacuumSession(doc.root, bucket.put, { dryRun: false, read: bucket.read });
       const rows = [...projectModelHistory(summarizer, { readBlob: bucket.read })];
       const headOnly = [...projectModelHistory(summarizer)];
       expect({
@@ -370,13 +369,13 @@ describe("vacuumSession", () => {
         headOnly: ["Fold this prefix.".length, BLOB_HEAD_CHARS],
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   describe("a bucket that fails", () => {
     it("stops on a refused put and leaves the entity it was moving, and the ones after it, in the document", () => {
-      const { plexus, bigPrior, summarizer } = stored();
+      const { doc, bigPrior, summarizer } = stored();
       try {
         const bucket = memoryBucket();
         let calls = 0;
@@ -385,23 +384,23 @@ describe("vacuumSession", () => {
           if (calls > 1) throw new Error("ENOSPC");
           return bucket.put(bytes, mime);
         };
-        expect(() => vacuumSession(plexus.root, put, { dryRun: false, read: bucket.read })).toThrow("ENOSPC");
+        expect(() => vacuumSession(doc.root, put, { dryRun: false, read: bucket.read })).toThrow("ENOSPC");
         expect({
           movedFirst: bigPrior.priorContent === null && parseStoredBlob(bigPrior.priorBlobJson) !== null,
           stayedLine: summarizer.promptText === TRANSCRIPT,
           stayedMessage: summarizer.promptMessages[1]?.content === TRANSCRIPT,
         }).toEqual({ movedFirst: true, stayedLine: true, stayedMessage: true });
       } finally {
-        plexus.destroy();
+        doc.destroy();
       }
     });
 
     it("keeps the text when the blob does not read back whole", () => {
-      const { plexus, bigPrior } = stored();
+      const { doc, bigPrior } = stored();
       try {
         const bucket = memoryBucket();
         const lossy = (sha256: string): Uint8Array | null => bucket.read(sha256)?.subarray(0, 10) ?? null;
-        expect(() => vacuumSession(plexus.root, bucket.put, { dryRun: false, read: lossy })).toThrow(
+        expect(() => vacuumSession(doc.root, bucket.put, { dryRun: false, read: lossy })).toThrow(
           "did not read back whole",
         );
         expect({ prior: bigPrior.priorContent === PRIOR, reference: bigPrior.priorBlobJson }).toEqual({
@@ -409,20 +408,20 @@ describe("vacuumSession", () => {
           reference: null,
         });
       } finally {
-        plexus.destroy();
+        doc.destroy();
       }
     });
 
     it("keeps the text when the blob is gone", () => {
-      const { plexus, bigPrior } = stored();
+      const { doc, bigPrior } = stored();
       try {
         const bucket = memoryBucket();
-        expect(() => vacuumSession(plexus.root, bucket.put, { dryRun: false, read: () => null })).toThrow(
+        expect(() => vacuumSession(doc.root, bucket.put, { dryRun: false, read: () => null })).toThrow(
           "did not read back whole",
         );
         expect(bigPrior.priorContent === PRIOR).toBe(true);
       } finally {
-        plexus.destroy();
+        doc.destroy();
       }
     });
   });
@@ -430,15 +429,15 @@ describe("vacuumSession", () => {
   it("moves nothing from an empty session, or from a root that is in no document", () => {
     const bucket = memoryBucket();
     const none = { fileMutates: 0, promptMessages: 0, promptTexts: 0, bytesMoved: 0 };
-    const plexus = SessionPlexus.create("vacuum-empty", "");
+    const doc = SessionDocument.create("vacuum-empty", "");
     try {
       expect({
-        empty: vacuumSession(plexus.root, bucket.put, { dryRun: false, read: bucket.read }),
+        empty: vacuumSession(doc.root, bucket.put, { dryRun: false, read: bucket.read }),
         docless: vacuumSession(new SessionRoot({ sessionId: "docless", path: "" }), bucket.put, { dryRun: false }),
         puts: bucket.puts.length,
       }).toEqual({ empty: none, docless: none, puts: 0 });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 

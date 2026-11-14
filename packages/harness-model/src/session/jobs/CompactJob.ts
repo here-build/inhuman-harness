@@ -7,13 +7,8 @@
  * ContextNeed before the job (else the keep-turns dial). `reason` and the
  * dial reading are facts, because occupancy and config move.
  */
+import { Job, type JobEffectOwner, type JobResolution, type UnknownOutcomeRecovery } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import {
-  Job,
-  type JobEffectOwner,
-  type JobResolution,
-  type UnknownOutcomeRecovery,
-} from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 /** Why this compact ran, recorded before the cutoff changes context. */
@@ -23,7 +18,7 @@ export type CompactReason = "overflow" | "need" | "user";
 export class CompactJob extends Job<string, string> {
   override readonly owner: JobEffectOwner = "session-runtime";
   override readonly intent: string =
-    "None for the compact itself. Nested strategy complete() is CompletionJob/PEW and follows that row. CompactJob has no executor.";
+    "None for the compact itself. Nested strategy complete() is CompletionJob/expectation and follows that row. CompactJob has no executor.";
   override readonly checkpoint: string =
     "reason, keepTurns, kvKeepTurns, resourceSnapshotJson, card, failed, notice on the session document.";
   override readonly dispatch: string =

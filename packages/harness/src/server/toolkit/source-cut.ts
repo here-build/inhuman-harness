@@ -1,5 +1,5 @@
 /**
- * Bounded source cut from live Plexus entities at bot-call acceptance.
+ * Bounded source cut from live document entities at bot-call acceptance.
  * Captures tool-result text before later siblings can mutate shared refs.
  */
 import { createHash } from "node:crypto";
@@ -80,10 +80,10 @@ function sliceText(
   };
 }
 
-function tapeIndexOf(tape: readonly unknown[], pew: CompletionExpectation): number {
+function tapeIndexOf(tape: readonly unknown[], completion: CompletionExpectation): number {
   for (let i = 0; i < tape.length; i += 1) {
     const cell = tape[i];
-    if (cell === pew || tapeCompletion(cell) === pew) return i;
+    if (cell === completion || tapeCompletion(cell) === completion) return i;
   }
   return -1;
 }

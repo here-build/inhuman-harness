@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { admitPrivateMcpTool, type PrivateMcpInstallState, type PrivateMcpPluginRecord } from "@/extensions";

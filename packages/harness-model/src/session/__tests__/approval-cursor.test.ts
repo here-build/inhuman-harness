@@ -10,7 +10,7 @@ import { CompletionJob } from "../jobs/CompletionJob.js";
 import { MCPToolJob } from "../jobs/MCPToolJob.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
 import { attached } from "./_helpers/fixtures.js";
@@ -23,9 +23,9 @@ function leaf(approved: true | false | null = null): SystemToolJob {
 }
 
 describe("approval cursor", () => {
-  it("queue and head flatten pending leaves in tree order; skip deny, PEW, sequences", () => {
+  it("queue and head flatten pending leaves in tree order; skip deny, expectations, sequences", () => {
     const session = attached({ sessionId: "s-cursor", path: "/tmp/demo" });
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
 
     const first = leaf();
     const inner = leaf();
@@ -34,7 +34,7 @@ describe("approval cursor", () => {
       expectation: new McpToolExpectation({ connectionId: "mail" }),
     });
     mcp.policyResult = "ask";
-    const pew = new CompletionJob({ expectation: new CompletionExpectation({ connectionId: "c1" }) });
+    const completion = new CompletionJob({ expectation: new CompletionExpectation({ connectionId: "c1" }) });
     const program = new ProgrammaticJob();
     program.children.push(inner);
     const turn = new SessionTurn({
@@ -42,7 +42,7 @@ describe("approval cursor", () => {
       prompt: prompt.user`t`,
       queue: [],
     });
-    turn.children.push(first, program, denied, mcp, pew);
+    turn.children.push(first, program, denied, mcp, completion);
     session.head = turn;
 
     const start = {
@@ -75,6 +75,6 @@ describe("approval cursor", () => {
       done: { head: null, queue: [] },
     });
 
-    plexus.destroy();
+    doc.destroy();
   });
 });

@@ -2,7 +2,7 @@
  * Every exported Job kind declares its own effect contract. Live acceptance
  * fields are not durable proof; unknown outcome is not auto-retry.
  */
-import { Job } from "@inhuman.tools/plexus-expectations";
+import { Job } from "@inhuman.tools/expectations";
 import { describe, expect, it } from "vitest";
 
 import * as session from "../index.js";

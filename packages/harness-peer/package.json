@@ -46,7 +46,7 @@
     "@inhuman.tools/harness-contract": "workspace:^",
     "@inhuman.tools/harness-model": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^"
+    "@inhuman.tools/expectations": "workspace:^"
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",

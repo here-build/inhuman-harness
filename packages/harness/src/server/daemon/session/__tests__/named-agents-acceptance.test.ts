@@ -17,7 +17,7 @@ import {
   documentRoot,
   FailureOutcome,
   ProgrammaticJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   tapeCompletion,
@@ -25,7 +25,7 @@ import {
   SystemToolJob,
   USER_REFUSED,
 } from "@inhuman.tools/harness-model";
-import { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
+import { ConnectionSpec } from "@inhuman.tools/expectations";
 import { forceStopLoop, namedWorkerIds } from "@inhuman.tools/turn/agent-calls";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -118,20 +118,20 @@ function closedTurn(child: CallJob | AgentCallbackJob | AgentMessageJob | AgentN
 
 function putCompletion(kernel: KernelDaemon, id: string, models: readonly string[]): void {
   const driver =
-    kernel.plexus.root.drivers["openai-compat"] ??
-    Object.values(kernel.plexus.root.drivers).find((row) => row.abilityClaim.includes("completion"));
+    kernel.doc.root.drivers["openai-compat"] ??
+    Object.values(kernel.doc.root.drivers).find((row) => row.abilityClaim.includes("completion"));
   if (driver == null) throw new Error("no completion driver");
   const spec = new ConnectionSpec({ driver, name: id });
   spec.configuration = { baseUrl: "https://example.test/v1" };
   spec.live = { models: [...models] };
   spec.readyState = "ready";
-  kernel.plexus.root.connections[id] = spec;
+  kernel.doc.root.connections[id] = spec;
 }
 
 function workerDoc(id: string) {
-  const plexus = SessionPlexus.create(id);
-  onTestFinished(() => plexus.destroy());
-  return plexus.root;
+  const doc = SessionDocument.create(id);
+  onTestFinished(() => doc.destroy());
+  return doc.root;
 }
 
 describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
@@ -167,8 +167,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         unlicensed.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(unlicensed.workerSessionId)?.root.findTurnByAgentRequestId(unlicensed.uuid) !=
-          null,
+        project.kernel.sessionDoc(unlicensed.workerSessionId)?.root.findTurnByAgentRequestId(unlicensed.uuid) != null,
       { timeout: TIMEOUT },
     );
     expect({
@@ -212,7 +211,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
       minted:
         Object.keys(project.sessions).includes(self.workerSessionId) &&
         self.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(self.workerSessionId)?.root.findTurnByAgentRequestId(self.uuid) != null,
+        project.kernel.sessionDoc(self.workerSessionId)?.root.findTurnByAgentRequestId(self.uuid) != null,
     }).toEqual({
       outcome: { code: "denied", message: "echo cannot invoke echo" },
       roster: echoId,
@@ -260,7 +259,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         call.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
+        project.kernel.sessionDoc(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
       { timeout: TIMEOUT },
     );
     const first = call.workerSessionId;
@@ -387,7 +386,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         voidCall.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(voidCall.workerSessionId)?.root.findTurnByAgentRequestId(voidCall.uuid) != null,
+        project.kernel.sessionDoc(voidCall.workerSessionId)?.root.findTurnByAgentRequestId(voidCall.uuid) != null,
       { timeout: TIMEOUT },
     );
     const voidWorker = project.sessions[voidCall.workerSessionId]!;
@@ -429,7 +428,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         cancelled.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(cancelled.workerSessionId)?.root.findTurnByAgentRequestId(cancelled.uuid) != null,
+        project.kernel.sessionDoc(cancelled.workerSessionId)?.root.findTurnByAgentRequestId(cancelled.uuid) != null,
       { timeout: TIMEOUT },
     );
     const cancelledWorker = project.sessions[cancelled.workerSessionId]!;
@@ -460,7 +459,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         ask.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(ask.workerSessionId)?.root.findTurnByAgentRequestId(ask.uuid) != null,
+        project.kernel.sessionDoc(ask.workerSessionId)?.root.findTurnByAgentRequestId(ask.uuid) != null,
       { timeout: TIMEOUT },
     );
     const askWorker = project.sessions[ask.workerSessionId]!;
@@ -497,7 +496,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
       () =>
         bg.orchestrated &&
         bg.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(bg.workerSessionId)?.root.findTurnByAgentRequestId(bg.uuid) != null &&
+        project.kernel.sessionDoc(bg.workerSessionId)?.root.findTurnByAgentRequestId(bg.uuid) != null &&
         bgTurn.reducerExited,
       {
         timeout: TIMEOUT,
@@ -540,7 +539,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         call.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
+        project.kernel.sessionDoc(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
       { timeout: TIMEOUT },
     );
     const workerId = call.workerSessionId;
@@ -621,7 +620,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         glob.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(glob.workerSessionId)?.root.findTurnByAgentRequestId(glob.uuid) != null,
+        project.kernel.sessionDoc(glob.workerSessionId)?.root.findTurnByAgentRequestId(glob.uuid) != null,
       { timeout: TIMEOUT },
     );
     const globId = glob.workerSessionId;
@@ -651,7 +650,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await kernel.project(kernel.root).bootstrapMidMotionNamed();
     expect({
       idleOff: kernel.liveSession(globId) === undefined,
-      roster: kernel.plexus.root.botsRoster.glob,
+      roster: kernel.doc.root.botsRoster.glob,
     }).toEqual({ idleOff: true, roster: globId });
 
     const steal = new BotCallJob({
@@ -664,7 +663,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         steal.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(steal.workerSessionId)?.root.findTurnByAgentRequestId(steal.uuid) != null,
+        project.kernel.sessionDoc(steal.workerSessionId)?.root.findTurnByAgentRequestId(steal.uuid) != null,
       { timeout: TIMEOUT },
     );
     const first = kernel.liveSession(steal.workerSessionId);
@@ -724,8 +723,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     restoreCaller.root.head = closedTurn(restoreCall);
     await when(
       () =>
-        restoreCall.workerSessionId !== "" &&
-        restoreKernel.sessionPlexus(restoreCall.workerSessionId)?.root.head != null,
+        restoreCall.workerSessionId !== "" && restoreKernel.sessionDoc(restoreCall.workerSessionId)?.root.head != null,
       { timeout: TIMEOUT },
     );
     const restoreWorker = restoreKernel.liveSession(restoreCall.workerSessionId)!;
@@ -793,8 +791,8 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         freshCall.workerSessionId !== "" &&
-        freshKernel.sessionPlexus(freshCall.workerSessionId)?.root.findTurnByAgentRequestId(freshCall.uuid) != null &&
-        freshKernel.sessionPlexus(freshCall.workerSessionId)?.root.head != null,
+        freshKernel.sessionDoc(freshCall.workerSessionId)?.root.findTurnByAgentRequestId(freshCall.uuid) != null &&
+        freshKernel.sessionDoc(freshCall.workerSessionId)?.root.head != null,
       { timeout: TIMEOUT },
     );
     const freshWorker = freshKernel.liveSession(freshCall.workerSessionId)!;
@@ -845,9 +843,9 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     const restored = new KernelDaemon(freshSystem);
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
-    expect(restored.plexus.root.botsRoster.global).toBe(id);
-    expect(restored.sessionPlexus(id)?.root.head?.prompt).toBe("resume me");
-    expect(restored.sessionPlexus(id)?.root.isMidMotion()).toBe(true);
+    expect(restored.doc.root.botsRoster.global).toBe(id);
+    expect(restored.sessionDoc(id)?.root.head?.prompt).toBe("resume me");
+    expect(restored.sessionDoc(id)?.root.isMidMotion()).toBe(true);
     expect(restored.liveSession(id)).toBeUndefined();
     const resumed = (await restored.attachSession(id))!;
     const projectResumed = await restored.project(freshWorkspace).session("project-worker");
@@ -856,10 +854,10 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
       newRoot: resumed.root !== freshWorker.root,
       prompt: resumed.root.head!.prompt,
       callback: resumed.root.agentCallbacks[requestId],
-      interrupted: resumed.plexus.loadEntity<SystemToolJob>(interruptedId)?.receiptJson,
-      received: resumed.plexus.loadEntity<SystemToolJob>(receivedId)?.receiptJson,
+      interrupted: resumed.doc.loadEntity<SystemToolJob>(interruptedId)?.receiptJson,
+      received: resumed.doc.loadEntity<SystemToolJob>(receivedId)?.receiptJson,
       projectPrompt: projectResumed.root.head!.prompt,
-      pending: restored.sessionPlexus("caller")!.loadEntity<BotCallJob>(requestId)!.completed,
+      pending: restored.sessionDoc("caller")!.loadEntity<BotCallJob>(requestId)!.completed,
     }).toEqual({
       defined: true,
       newRoot: true,
@@ -870,7 +868,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
       projectPrompt: "project resume",
       pending: false,
     });
-    const pending = restored.sessionPlexus("caller")!.loadEntity<BotCallJob>(requestId)!;
+    const pending = restored.sessionDoc("caller")!.loadEntity<BotCallJob>(requestId)!;
     const respond = new AgentCallbackJob({
       name: "agent__respond",
       argsJson: JSON.stringify({ requestId, response: "after restart" }),
@@ -964,9 +962,9 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         a.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(a.workerSessionId)?.root.findTurnByAgentRequestId(a.uuid) != null &&
+        project.kernel.sessionDoc(a.workerSessionId)?.root.findTurnByAgentRequestId(a.uuid) != null &&
         b.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(b.workerSessionId)?.root.findTurnByAgentRequestId(b.uuid) != null,
+        project.kernel.sessionDoc(b.workerSessionId)?.root.findTurnByAgentRequestId(b.uuid) != null,
       { timeout: TIMEOUT },
     );
     const osWorker = project.sessions[a.workerSessionId]!;
@@ -1028,7 +1026,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         legal.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(legal.workerSessionId)?.root.findTurnByAgentRequestId(legal.uuid) != null,
+        project.kernel.sessionDoc(legal.workerSessionId)?.root.findTurnByAgentRequestId(legal.uuid) != null,
       { timeout: TIMEOUT },
     );
     expect({
@@ -1086,7 +1084,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         pinned.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(pinned.workerSessionId)?.root.findTurnByAgentRequestId(pinned.uuid) != null &&
+        project.kernel.sessionDoc(pinned.workerSessionId)?.root.findTurnByAgentRequestId(pinned.uuid) != null &&
         ghost.completed,
       { timeout: TIMEOUT },
     );
@@ -1095,7 +1093,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
       connection: pinnedWorker.root.kvs.connection,
       model: pinnedWorker.root.kvs.model,
       ghost: failOf(ghost),
-      usage: kernel.plexus.root.modelsUsage["openai/chatgpt-5.6-luna"],
+      usage: kernel.doc.root.modelsUsage["openai/chatgpt-5.6-luna"],
     }).toEqual({
       connection: "openai",
       model: "chatgpt-5.6-luna",
@@ -1129,7 +1127,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         send.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(send.workerSessionId)?.root.findTurnByAgentRequestId(send.uuid) != null,
+        project.kernel.sessionDoc(send.workerSessionId)?.root.findTurnByAgentRequestId(send.uuid) != null,
       { timeout: TIMEOUT },
     );
     const parentEcho = send.workerSessionId;
@@ -1144,7 +1142,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         ask.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(ask.workerSessionId)?.root.findTurnByAgentRequestId(ask.uuid) != null,
+        project.kernel.sessionDoc(ask.workerSessionId)?.root.findTurnByAgentRequestId(ask.uuid) != null,
       { timeout: TIMEOUT },
     );
     const oneShot = new AgentCallJob({
@@ -1159,7 +1157,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         oneShot.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(oneShot.workerSessionId)?.root.findTurnByAgentRequestId(oneShot.uuid) != null &&
+        project.kernel.sessionDoc(oneShot.workerSessionId)?.root.findTurnByAgentRequestId(oneShot.uuid) != null &&
         project.sessions[oneShot.workerSessionId] != null,
       {
         timeout: TIMEOUT,
@@ -1178,7 +1176,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         impl.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(impl.workerSessionId)?.root.findTurnByAgentRequestId(impl.uuid) != null,
+        project.kernel.sessionDoc(impl.workerSessionId)?.root.findTurnByAgentRequestId(impl.uuid) != null,
       { timeout: TIMEOUT },
     );
     const implWorker = project.sessions[impl.workerSessionId]!;
@@ -1193,7 +1191,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         childEcho.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(childEcho.workerSessionId)?.root.findTurnByAgentRequestId(childEcho.uuid) != null,
+        project.kernel.sessionDoc(childEcho.workerSessionId)?.root.findTurnByAgentRequestId(childEcho.uuid) != null,
       { timeout: TIMEOUT },
     );
     expect({
@@ -1242,7 +1240,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         askSettle.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(askSettle.workerSessionId)?.root.findTurnByAgentRequestId(askSettle.uuid) != null,
+        project.kernel.sessionDoc(askSettle.workerSessionId)?.root.findTurnByAgentRequestId(askSettle.uuid) != null,
       { timeout: TIMEOUT },
     );
     const askWorker = project.sessions[askSettle.workerSessionId]!;
@@ -1417,11 +1415,11 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     expect({ keepAlive: stretchLeft.completed }).toEqual({ keepAlive: false });
 
     const reclaimRoot = workerDoc("reclaim");
-    const pendingPew = new CompletionExpectation({
+    const pendingExpectation = new CompletionExpectation({
       promptText: prompt.user`go`,
       connectionId: "c",
     });
-    const pending = new CompletionJob({ expectation: pendingPew });
+    const pending = new CompletionJob({ expectation: pendingExpectation });
     const reclaimTurn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       queue: [],
@@ -1488,7 +1486,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         liveCall.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(liveCall.workerSessionId)?.root.findTurnByAgentRequestId(liveCall.uuid) != null,
+        project.kernel.sessionDoc(liveCall.workerSessionId)?.root.findTurnByAgentRequestId(liveCall.uuid) != null,
       { timeout: TIMEOUT },
     );
     const liveWorker = project.sessions[liveCall.workerSessionId]!;
@@ -1538,7 +1536,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         hold.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(hold.workerSessionId)?.root.findTurnByAgentRequestId(hold.uuid) != null,
+        project.kernel.sessionDoc(hold.workerSessionId)?.root.findTurnByAgentRequestId(hold.uuid) != null,
       { timeout: TIMEOUT },
     );
     const linger = project.sessions[hold.workerSessionId]!;
@@ -1589,9 +1587,9 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         rowA.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(rowA.workerSessionId)?.root.findTurnByAgentRequestId(rowA.uuid) != null &&
+        project.kernel.sessionDoc(rowA.workerSessionId)?.root.findTurnByAgentRequestId(rowA.uuid) != null &&
         rowB.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(rowB.workerSessionId)?.root.findTurnByAgentRequestId(rowB.uuid) != null,
+        project.kernel.sessionDoc(rowB.workerSessionId)?.root.findTurnByAgentRequestId(rowB.uuid) != null,
       { timeout: TIMEOUT },
     );
     const echoWorker = project.sessions[rowA.workerSessionId]!;
@@ -1645,9 +1643,9 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         a.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(a.workerSessionId)?.root.findTurnByAgentRequestId(a.uuid) != null &&
+        project.kernel.sessionDoc(a.workerSessionId)?.root.findTurnByAgentRequestId(a.uuid) != null &&
         b.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(b.workerSessionId)?.root.findTurnByAgentRequestId(b.uuid) != null,
+        project.kernel.sessionDoc(b.workerSessionId)?.root.findTurnByAgentRequestId(b.uuid) != null,
       { timeout: TIMEOUT },
     );
     const echo = project.sessions[a.workerSessionId]!;
@@ -1671,7 +1669,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         progress.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(progress.workerSessionId)?.root.findTurnByAgentRequestId(progress.uuid) != null,
+        project.kernel.sessionDoc(progress.workerSessionId)?.root.findTurnByAgentRequestId(progress.uuid) != null,
       { timeout: TIMEOUT },
     );
     const progressWorker = project.sessions[progress.workerSessionId]!;
@@ -1730,13 +1728,13 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         glob.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(glob.workerSessionId)?.root.findTurnByAgentRequestId(glob.uuid) != null,
+        project.kernel.sessionDoc(glob.workerSessionId)?.root.findTurnByAgentRequestId(glob.uuid) != null,
       { timeout: TIMEOUT },
     );
     expect({
       send: send.receiptJson,
       inbound: true,
-      globalRoster: kernel.plexus.root.botsRoster.glob,
+      globalRoster: kernel.doc.root.botsRoster.glob,
       projectRoster: project.root.botsRoster.glob,
     }).toEqual({
       send: JSON.stringify({ ok: true }),
@@ -1756,7 +1754,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         fromA.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(fromA.workerSessionId)?.root.findTurnByAgentRequestId(fromA.uuid) != null,
+        project.kernel.sessionDoc(fromA.workerSessionId)?.root.findTurnByAgentRequestId(fromA.uuid) != null,
       { timeout: TIMEOUT },
     );
     const fromB = new BotCallJob({
@@ -1769,7 +1767,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         fromB.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(fromB.workerSessionId)?.root.findTurnByAgentRequestId(fromB.uuid) != null,
+        project.kernel.sessionDoc(fromB.workerSessionId)?.root.findTurnByAgentRequestId(fromB.uuid) != null,
       { timeout: TIMEOUT },
     );
     const shelf = project.sessions[fromA.workerSessionId]!;
@@ -1840,9 +1838,8 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         parentReviewer.workerSessionId !== "" &&
-        project.kernel
-          .sessionPlexus(parentReviewer.workerSessionId)
-          ?.root.findTurnByAgentRequestId(parentReviewer.uuid) != null,
+        project.kernel.sessionDoc(parentReviewer.workerSessionId)?.root.findTurnByAgentRequestId(parentReviewer.uuid) !=
+          null,
       { timeout: TIMEOUT },
     );
     const parentImpl = new BotCallJob({
@@ -1855,8 +1852,7 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         parentImpl.workerSessionId !== "" &&
-        project.kernel.sessionPlexus(parentImpl.workerSessionId)?.root.findTurnByAgentRequestId(parentImpl.uuid) !=
-          null,
+        project.kernel.sessionDoc(parentImpl.workerSessionId)?.root.findTurnByAgentRequestId(parentImpl.uuid) != null,
       { timeout: TIMEOUT },
     );
     const implWorker = project.sessions[parentImpl.workerSessionId]!;
@@ -1871,9 +1867,8 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
     await when(
       () =>
         childReviewer.workerSessionId !== "" &&
-        project.kernel
-          .sessionPlexus(childReviewer.workerSessionId)
-          ?.root.findTurnByAgentRequestId(childReviewer.uuid) != null,
+        project.kernel.sessionDoc(childReviewer.workerSessionId)?.root.findTurnByAgentRequestId(childReviewer.uuid) !=
+          null,
       { timeout: TIMEOUT },
     );
     expect({
@@ -1908,17 +1903,17 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
       { timeout: TIMEOUT },
     );
     const stalledWorker = project.sessions[stalledCall.workerSessionId]!;
-    const failedPew = new CompletionExpectation({
+    const failedExpectation = new CompletionExpectation({
       connectionId: "c1",
       model: "gpt-5",
       promptText: prompt.user`work`,
     });
-    failedPew.startedAtMs = Date.now();
-    failedPew.fail("crash", "completion request stalled after 180000ms", "null");
+    failedExpectation.startedAtMs = Date.now();
+    failedExpectation.fail("crash", "completion request stalled after 180000ms", "null");
     const failedTurn = new SessionTurn({
       turnTail: stalledWorker.root.head!,
       agentRequestId: stalledCall.uuid,
-      doneWork: [new CompletionJob({ expectation: failedPew })],
+      doneWork: [new CompletionJob({ expectation: failedExpectation })],
       queue: [],
       reducerExited: false,
     });
@@ -1957,18 +1952,18 @@ describe("named-agents §12 fixture", { timeout: 40_000 }, () => {
       { timeout: TIMEOUT },
     );
     const silentWorker = project.sessions[silentCall.workerSessionId]!;
-    const completedPew = new CompletionExpectation({
+    const completedExpectation = new CompletionExpectation({
       connectionId: "c1",
       model: "gpt-5",
       promptText: prompt.user`answer me`,
     });
-    completedPew.startedAtMs = Date.now();
-    completedPew.responseText = "plain text without tool call";
-    completedPew.succeed("settled", "", "null");
+    completedExpectation.startedAtMs = Date.now();
+    completedExpectation.responseText = "plain text without tool call";
+    completedExpectation.succeed("settled", "", "null");
     const silentTurn = new SessionTurn({
       turnTail: silentWorker.root.head!,
       agentRequestId: silentCall.uuid,
-      doneWork: [new CompletionJob({ expectation: completedPew })],
+      doneWork: [new CompletionJob({ expectation: completedExpectation })],
       queue: [],
       reducerExited: false,
     });

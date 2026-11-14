@@ -1,5 +1,5 @@
 /**
- * Wait pin above the composer, chosen from plexus facts.
+ * Wait pin above the composer, chosen from session document facts.
  *
  * Host phase (opening, syncing, applying the model) is a present sentence
  * written by the host, not a session fact, so it is not an arm here.

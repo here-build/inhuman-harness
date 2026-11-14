@@ -2,8 +2,8 @@
  * Turn admission identity survives reconstruction; context follows the
  * owning turn, not session head.
  */
+import { type WorkContainer } from "@inhuman.tools/expectations";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { type WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { describe, expect, it } from "vitest";
 
 import { documentRoot } from "../document-root.js";
@@ -13,7 +13,7 @@ import { CompletionJob } from "../jobs/CompletionJob.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
 import { RegisteredToolsSet } from "../RegisteredToolsSet.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import type { SessionRoot } from "../SessionRoot.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionSystemPromptDerivation } from "../SessionSystemPromptDerivation.js";
@@ -44,21 +44,21 @@ function headOwned(turn: SessionTurn): boolean {
   return turn.parentFieldKey === "head" && documentRoot(turn) != null;
 }
 
-function replicaOf(owner: SessionPlexus): { readonly root: SessionPlexus["root"]; [Symbol.dispose](): void } {
-  const plexus = SessionPlexus.fromSnapshot(owner.toSnapshot());
+function replicaOf(owner: SessionDocument): { readonly root: SessionDocument["root"]; [Symbol.dispose](): void } {
+  const doc = SessionDocument.fromSnapshot(owner.toSnapshot());
   return {
     get root() {
-      return plexus.root;
+      return doc.root;
     },
     [Symbol.dispose]() {
-      plexus.destroy();
+      doc.destroy();
     },
   };
 }
 
 describe("SessionTurn admission and reconstruction", () => {
   it("skipped continuations survive reconstruction without reopening a finished turn", () => {
-    const owner = SessionPlexus.create("skipped-continuation", "/tmp/skipped-continuation");
+    const owner = SessionDocument.create("skipped-continuation", "/tmp/skipped-continuation");
     try {
       expect(new ReACTChunk().skipped).toBe(false);
       const completion = new CompletionExpectation({ connectionId: "mock" });
@@ -79,7 +79,7 @@ describe("SessionTurn admission and reconstruction", () => {
   });
 
   it("eval fields reconstruct; context follows the owning turn", () => {
-    const older = SessionPlexus.create("s-old", "/tmp/old");
+    const older = SessionDocument.create("s-old", "/tmp/old");
     older.root.head = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`hello`,
@@ -87,7 +87,7 @@ describe("SessionTurn admission and reconstruction", () => {
     });
     using olderReplica = replicaOf(older);
 
-    const evalPlexus = SessionPlexus.create("s-eval", "/tmp/eval");
+    const evalDoc = SessionDocument.create("s-eval", "/tmp/eval");
     const program = new ProgrammaticJob({
       toolCallId: "program",
       argsJson: JSON.stringify({ expr: "(+ 1 2)" }),
@@ -100,14 +100,14 @@ describe("SessionTurn admission and reconstruction", () => {
       cancelRequested: true,
       queue: [program],
     });
-    evalPlexus.root.head = evalTurn;
+    evalDoc.root.head = evalTurn;
     const turnId = evalTurn.uuid;
     const programId = program.uuid;
-    using evalReplica = replicaOf(evalPlexus);
+    using evalReplica = replicaOf(evalDoc);
     const found = findEvalTurnByRequestId(evalReplica.root, "req-1");
     const replicaProgram = found?.queue[0];
 
-    const ctxPlexus = SessionPlexus.create("s-ctx", "/tmp/ctx");
+    const ctxDoc = SessionDocument.create("s-ctx", "/tmp/ctx");
     const inner = new SystemToolJob({ name: "bash" });
     const ctxProgram = new ProgrammaticJob({
       toolCallId: "program",
@@ -121,13 +121,13 @@ describe("SessionTurn admission and reconstruction", () => {
       queue: [ctxProgram],
       reducerExited: true,
     });
-    ctxPlexus.root.head = owned;
-    ctxPlexus.root.head = new SessionTurn({
+    ctxDoc.root.head = owned;
+    ctxDoc.root.head = new SessionTurn({
       turnTail: owned,
       prompt: prompt.user`interactive follow-up`,
       queue: [],
     });
-    using ctxReplica = replicaOf(ctxPlexus);
+    using ctxReplica = replicaOf(ctxDoc);
     const replicaEval = findEvalTurnByRequestId(ctxReplica.root, "req-owned");
     const replicaInner = evalProgramOf(replicaEval!)?.toolCalls[0];
     const innerCtx = replicaInner ? evalContextOfJob(ctxReplica.root, replicaInner) : null;
@@ -186,12 +186,12 @@ describe("SessionTurn admission and reconstruction", () => {
       },
     });
     older.destroy();
-    evalPlexus.destroy();
-    ctxPlexus.destroy();
+    evalDoc.destroy();
+    ctxDoc.destroy();
   });
 
   it("connect hydrates leftover questionLine omitted from the session image", () => {
-    const source = SessionPlexus.create("s-ql", "/tmp/ql");
+    const source = SessionDocument.create("s-ql", "/tmp/ql");
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`hello`,
@@ -211,7 +211,7 @@ describe("SessionTurn admission and reconstruction", () => {
   });
 
   it("connect adopts a head saved without a parent edge", () => {
-    const source = SessionPlexus.create("s-reown", "/tmp/reown");
+    const source = SessionDocument.create("s-reown", "/tmp/reown");
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`hello`,
@@ -242,7 +242,7 @@ describe("SessionTurn admission and reconstruction", () => {
   });
 
   it("head owns the live turn and orphans the previous one", () => {
-    const plexus = SessionPlexus.create("s-own", "/tmp/own");
+    const doc = SessionDocument.create("s-own", "/tmp/own");
     const prior = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`prior`,
@@ -251,28 +251,28 @@ describe("SessionTurn admission and reconstruction", () => {
     });
     const leaf = new SystemToolJob({ name: "echo" });
     prior.pushChild(leaf);
-    plexus.root.head = prior;
-    plexus.root.tip = prior;
+    doc.root.head = prior;
+    doc.root.tip = prior;
     const head = new SessionTurn({
       turnTail: prior,
       prompt: prompt.user`head`,
       queue: [],
     });
-    plexus.root.head = head;
-    using replica = replicaOf(plexus);
+    doc.root.head = head;
+    using replica = replicaOf(doc);
     const replicaHead = replica.root.head;
     const replicaPrior = replicaHead instanceof SessionTurn ? replicaHead.turnTail : null;
     const owned = {
-      live: headOwned(head) && documentRoot(head) === plexus.root,
+      live: headOwned(head) && documentRoot(head) === doc.root,
       owner: head.parent?.constructor.name ?? null,
       recipeLink: head.parent?.parent ?? null,
     };
-    plexus.root.enqueueAgentRequest("req", "caller", prompt.user`in`);
-    const inbound = plexus.root.head;
+    doc.root.enqueueAgentRequest("req", "caller", prompt.user`in`);
+    const inbound = doc.root.head;
     expect({
       owned,
       prior: { live: headOwned(prior), parent: prior.parent, tail: head.turnTail === prior },
-      leaf: documentRoot(leaf) === plexus.root,
+      leaf: documentRoot(leaf) === doc.root,
       replica: {
         live:
           replicaHead instanceof SessionTurn && headOwned(replicaHead) && documentRoot(replicaHead) === replica.root,
@@ -286,11 +286,11 @@ describe("SessionTurn admission and reconstruction", () => {
       replica: { live: true, priorLive: false },
       inbound: true,
     });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("connect leaves leftover pluginProblem omitted from the session image as null", () => {
-    const source = SessionPlexus.create("s-pp", "/tmp/pp");
+    const source = SessionDocument.create("s-pp", "/tmp/pp");
     source.root.pluginProblem = null;
     using replica = replicaOf(source);
     expect(replica.root.pluginProblem).toBeNull();

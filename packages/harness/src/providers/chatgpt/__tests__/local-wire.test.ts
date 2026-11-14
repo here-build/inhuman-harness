@@ -4,7 +4,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -119,8 +119,8 @@ describe("chatgpt local wire", () => {
         all: () => secrets,
       },
     );
-    const plexus = SessionPlexus.create("sess-chatgpt", "/ws");
-    bindSessionCatalog(plexus.root, new KernelToolCatalog());
+    const doc = SessionDocument.create("sess-chatgpt", "/ws");
+    bindSessionCatalog(doc.root, new KernelToolCatalog());
     try {
       await connection.ensureBootstrapStarted();
       const modelsHit = wire.hits.find((hit) => hit.url.startsWith("/backend-api/codex/models"));
@@ -138,7 +138,7 @@ describe("chatgpt local wire", () => {
         promptText: prompt.user`hi`,
         connectionId: connection.connectionId,
       });
-      plexus.root.head = new SessionTurn({
+      doc.root.head = new SessionTurn({
         turnTail: new SessionSystemPrompt(),
         prompt: prompt.user`hi`,
         doneWork: [new CompletionJob({ expectation: round })],
@@ -163,7 +163,7 @@ describe("chatgpt local wire", () => {
       expect(body).not.toHaveProperty("prompt_cache_options");
       expect(body).not.toHaveProperty("prompt_cache_retention");
     } finally {
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
       await wire.close();
     }

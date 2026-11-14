@@ -20,7 +20,7 @@
  * same session id (sticky pair) and `x-grok-req-id` per invocation — unique
  * ids belong there, not on conv-id. `x-grok-turn-idx` is 1-based user-turn
  * depth (SessionTurn chain), stable across ReACT rounds of one prompt.
- * Remainder classifier PEWs must not reuse the live-tape id: they send a
+ * Remainder classifier expectations must not reuse the live-tape id: they send a
  * different prefix (`Reply in prose`, no tools) and evict the tape KV.
  *
  * CHATGPT / CODEX SUBSCRIPTION.

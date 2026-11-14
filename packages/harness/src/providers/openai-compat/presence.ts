@@ -1,4 +1,4 @@
-import type { DriverOffer } from "@inhuman.tools/plexus-expectations/driver";
+import type { DriverOffer } from "@inhuman.tools/expectations/driver";
 
 import { WELL_KNOWN_ENDPOINTS, wellKnownFromBaseUrl } from "./well-known.js";
 

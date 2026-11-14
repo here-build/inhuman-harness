@@ -9,6 +9,7 @@
  * `harness/notice`) are sugar over the same node. They bake `ui/resolve`
  * leaves with `pending`.
  */
+import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { parseUiDefinition, type UiDefinition } from "@inhuman.tools/harness-contract";
 import {
   formatReasoningEffortLabel,
@@ -21,7 +22,6 @@ import {
   type SessionRoot,
   willEffortSwitchDropCache,
 } from "@inhuman.tools/harness-model";
-import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 
 export type UiHealth = "ok" | "degraded" | "failed";
 export type RpcCall = (method: string, params?: unknown) => unknown;

@@ -5,13 +5,13 @@
 import { EnvCapability } from "@here.build/arrival";
 import { arrivalLoaderCapability } from "@here.build/arrival-modules";
 import { dotpromptCapability, ParsedPrompt } from "@inhuman.tools/env-capability-dotprompt";
+import { Job } from "@inhuman.tools/expectations";
 import {
   CompletionExpectation,
   CompletionJob,
   ProgrammaticJob,
   PromptMessage,
 } from "@inhuman.tools/harness-model/session";
-import { Job } from "@inhuman.tools/plexus-expectations";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 

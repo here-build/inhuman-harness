@@ -60,8 +60,8 @@ test("cancel during a compact resource checkpoint stays visible before the inter
   const releaseSecond = Promise.withResolvers<void>();
   const flushSession = kernel.flushSession.bind(kernel);
   let checkpoints = 0;
-  vi.spyOn(kernel, "flushSession").mockImplementation(async (plexus, options) => {
-    if (plexus === session.plexus && job.resourceSnapshotJson !== "") {
+  vi.spyOn(kernel, "flushSession").mockImplementation(async (doc, options) => {
+    if (doc === session.doc && job.resourceSnapshotJson !== "") {
       checkpoints += 1;
       if (checkpoints === 1) {
         enteredFirst.resolve();
@@ -71,7 +71,7 @@ test("cancel during a compact resource checkpoint stays visible before the inter
         await releaseSecond.promise;
       }
     }
-    await flushSession(plexus, options);
+    await flushSession(doc, options);
   });
   runInAction(() => {
     session.root.head = turn;

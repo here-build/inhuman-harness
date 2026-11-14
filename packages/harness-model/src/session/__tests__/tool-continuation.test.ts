@@ -3,7 +3,7 @@ import { expect, it, onTestFinished } from "vitest";
 
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { jobContinuationOf } from "../tool-continuation.js";
 import { SessionTurn } from "../turn/session-turn.js";
@@ -29,7 +29,7 @@ it("validates stamps and confines name/boolean compatibility to unstamped jobs",
 });
 
 it("retains tool and program policies when the session is reloaded", () => {
-  const session = SessionPlexus.create("continuation-stamps");
+  const session = SessionDocument.create("continuation-stamps");
   const policy = { kind: "auxiliary", note: "Resume after reload" };
   const tool = new SystemToolJob({ name: "custom", continuationJson: JSON.stringify(policy), triggersReactLoop: true });
   const program = new ProgrammaticJob({ continuationJson: JSON.stringify({ kind: "none" }) });
@@ -39,7 +39,7 @@ it("retains tool and program policies when the session is reloaded", () => {
     doneWork: [tool, program],
     queue: [],
   });
-  const restored = SessionPlexus.fromSnapshot(session.toSnapshot());
+  const restored = SessionDocument.fromSnapshot(session.toSnapshot());
   onTestFinished(() => {
     restored.destroy();
     session.destroy();
@@ -52,7 +52,7 @@ it("retains tool and program policies when the session is reloaded", () => {
 });
 
 it("applies committed metadata independently of continuation mode", () => {
-  const session = SessionPlexus.create("metadata-independent");
+  const session = SessionDocument.create("metadata-independent");
   onTestFinished(() => session.destroy());
   const tool = new SystemToolJob({
     name: "custom",

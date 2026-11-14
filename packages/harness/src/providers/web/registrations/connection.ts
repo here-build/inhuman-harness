@@ -1,7 +1,8 @@
 /**
- * Shared PEW connection for web-search vendor drivers.
+ * Shared ExpectationDriver connection for web-search vendor drivers.
  * Bootstrap is a no-op — HTTP is per interned method.
  */
+import { ConnectionMiss, type ExpectationActor, ExpectationDriver } from "@inhuman.tools/expectations/driver";
 import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
 import {
   WebExtractExpectation,
@@ -9,7 +10,6 @@ import {
   WebSearchExpectation,
   type WebSearchResult,
 } from "@inhuman.tools/harness-model";
-import { ConnectionMiss, type ExpectationActor, PEWDriver } from "@inhuman.tools/plexus-expectations/driver";
 import { computed, when } from "mobx";
 
 import { WebSearchActor } from "./actor.js";
@@ -18,7 +18,7 @@ import { WebExtractActor } from "./extract-actor.js";
 import { extractWithFailover, searchWithFailover } from "./ring.js";
 import { extractVendor, KEYLESS_SESSION_ID, publicHttpUrl, searchVendor, type KeylessVendor } from "../wire/index.js";
 
-export abstract class WebSearchDriverConnection extends PEWDriver<
+export abstract class WebSearchDriverConnection extends ExpectationDriver<
   WebSearchExpectation | WebExtractExpectation,
   Readonly<Record<string, unknown>>
 > {

@@ -9,7 +9,7 @@ import { PRODUCT_PROVIDERS } from "../../../composition.js";
 import { FileSetWatcher } from "../../fs/watchFiles.js";
 
 /**
- * Reflect kernel configuration files into the plexus root, and keep it in sync.
+ * Reflect kernel configuration files into the kernel root, and keep it in sync.
  *
  * The watched set is derived from configuration — `compact.scm` and friends are
  * not hardcoded; they are whatever `config.json` (or a default) points at. So

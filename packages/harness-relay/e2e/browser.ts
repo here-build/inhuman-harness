@@ -9,10 +9,10 @@ import {
   bindTextFrames,
   destroyRoomConnection,
   detachLocalPresence,
-  KernelPlexus,
-  ProjectPlexus,
+  KernelDocument,
+  ProjectDocument,
   RoomConnection,
-  SessionPlexus,
+  SessionDocument,
   waitForSync,
   type JsonRpcPort,
 } from "@inhuman.tools/harness-peer";
@@ -100,10 +100,10 @@ export class Browser {
     }
     const doc =
       name === "kernel"
-        ? KernelPlexus.bootstrap().doc
+        ? KernelDocument.bootstrap()
         : name === "project"
-          ? ProjectPlexus.create(params.path ?? "").doc
-          : SessionPlexus.create(params.sessionId ?? "e2e", params.path ?? "").doc;
+          ? ProjectDocument.create(params.path ?? "")
+          : SessionDocument.create(params.sessionId ?? "e2e", params.path ?? "");
     const provider = new RoomConnection(`${origin}/m/${machineId}/room`, name, doc, {
       params,
       ...(name === "kernel"

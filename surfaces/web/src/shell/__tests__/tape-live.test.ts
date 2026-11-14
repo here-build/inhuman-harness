@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import {
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -85,7 +85,7 @@ describe("tape projection", () => {
     seat(turn, [speech]);
     const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
     root.head = turn;
-    const booted = SessionPlexus.bootstrap(root);
+    const booted = SessionDocument.bootstrap(root);
     release = () => booted.destroy();
     state.dial.session = { root };
     await act(async () => {
@@ -122,7 +122,7 @@ describe("tape projection", () => {
     const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
     root.head = turn;
     root.writePluginLog("inhuman-plugin-goal:state", JSON.stringify([{ type: "set", text: "Early goal", loops: 2 }]));
-    const booted = SessionPlexus.bootstrap(root);
+    const booted = SessionDocument.bootstrap(root);
     release = () => booted.destroy();
     state.dial.session = { root };
     await act(async () => {
@@ -152,7 +152,7 @@ describe("tape projection", () => {
     seat(newer, [stable, growing]);
     const root = new SessionRoot({ sessionId: "s", path: "/tmp/web" });
     root.head = newer;
-    const booted = SessionPlexus.bootstrap(root);
+    const booted = SessionDocument.bootstrap(root);
     release = () => {
       booted.destroy();
     };

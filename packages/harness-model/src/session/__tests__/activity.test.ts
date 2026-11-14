@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { CompletionExpectation } from "../expectations/CompletionExpectation.js";
 import { CompletionJob } from "../jobs/CompletionJob.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
 
 describe("session activity", () => {
   it("prefers the current provider over a predecessor's unfinished isolated completion", () => {
-    const session = SessionPlexus.create("activity-current");
+    const session = SessionDocument.create("activity-current");
     try {
       const old = new CompletionJob({
         expectation: new CompletionExpectation({ connectionId: "c", completionMode: "isolated" }),
@@ -30,7 +30,7 @@ describe("session activity", () => {
     }
   });
   it("projects provider phases and failed attempts through a stored replica", () => {
-    const session = SessionPlexus.create("activity");
+    const session = SessionDocument.create("activity");
     try {
       const expectation = new CompletionExpectation({ connectionId: "c" });
       const job = new CompletionJob({ expectation });
@@ -43,7 +43,7 @@ describe("session activity", () => {
       expect(session.root.activity.kind).toBe("responding");
       expectation.recordAttemptFailure("Connection timed out");
       expectation.retryUntilMs = Date.now() + 1_000;
-      const copy = SessionPlexus.fromNodeRows(session.doc.toNodeRows(), {
+      const copy = SessionDocument.fromNodeRows(session.toNodeRows(), {
         sessionId: "activity",
         rootId: session.root.uuid,
       });

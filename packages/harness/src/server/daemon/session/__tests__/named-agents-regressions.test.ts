@@ -84,7 +84,7 @@ async function invoke(env: Awaited<ReturnType<typeof setup>>, name = "worker") {
     humanApprove: true,
   });
   env.caller.root.head = closed(call);
-  await when(() => call.workerSessionId !== "" && env.kernel.sessionPlexus(call.workerSessionId)?.root.head != null, {
+  await when(() => call.workerSessionId !== "" && env.kernel.sessionDoc(call.workerSessionId)?.root.head != null, {
     timeout,
   });
   return { call, worker: env.kernel.liveSession(call.workerSessionId)! };
@@ -93,15 +93,15 @@ describe("named agents review regressions", { timeout: 15_000 }, () => {
   it("enforces omitted tool ceilings at wire, admission, and execution even for an approved forged job", async () => {
     const env = await setup();
     const { worker } = await invoke(env);
-    const pew = new CompletionExpectation({ connectionId: "dummy" });
+    const expectation = new CompletionExpectation({ connectionId: "dummy" });
     worker.root.head = new SessionTurn({
       turnTail: worker.root.head!,
-      doneWork: [new CompletionJob({ expectation: pew })],
+      doneWork: [new CompletionJob({ expectation })],
       queue: [],
       reducerExited: true,
     });
-    const respond = toolsFor(pew).find((tool) => tool.function.name === "agent__respond");
-    const workerWires = toolsFor(pew).map((tool) => tool.function.name);
+    const respond = toolsFor(expectation).find((tool) => tool.function.name === "agent__respond");
+    const workerWires = toolsFor(expectation).map((tool) => tool.function.name);
     const target = join(env.workspace, "untouched.txt");
     await writeFile(target, "before");
     const argsJson = JSON.stringify({ command: `echo after > ${target}` });
@@ -196,10 +196,10 @@ describe("named agents review regressions", { timeout: 15_000 }, () => {
     await when(
       () =>
         nested.workerSessionId !== "" &&
-        nestedEnv.kernel.sessionPlexus(nested.workerSessionId)?.root.agentCallbacks[nested.uuid] != null,
+        nestedEnv.kernel.sessionDoc(nested.workerSessionId)?.root.agentCallbacks[nested.uuid] != null,
       { timeout },
     );
-    const leaf = nestedEnv.kernel.sessionPlexus(nested.workerSessionId)!;
+    const leaf = nestedEnv.kernel.sessionDoc(nested.workerSessionId)!;
     const callback = new AgentCallbackJob({
       name: "agent__respond",
       argsJson: JSON.stringify({ requestId: nestedInvoke.call.uuid, response: "done" }),

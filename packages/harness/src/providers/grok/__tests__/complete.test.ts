@@ -2,7 +2,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -11,8 +11,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GROK_CLIENT_VERSION, GrokDriverConnection } from "../index.js";
 import { installGrokFetch, listenGrok } from "./grok-server.js";
 
-function homeRound(plexus: SessionPlexus, round: CompletionExpectation): void {
-  plexus.root.head = new SessionTurn({
+function homeRound(doc: SessionDocument, round: CompletionExpectation): void {
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: round.promptText,
     doneWork: [new CompletionJob({ expectation: round })],
@@ -32,7 +32,7 @@ describe("Grok completion on scripted HTTP", () => {
   it("stamps subscription headers and returns the wire text", async () => {
     const grok = await listenGrok({ reply: () => "from-grok" });
     const connection = new GrokDriverConnection("row-grok", { baseUrl: grok.baseUrl }, { apiKey: "grok-at" });
-    const plexus = SessionPlexus.create("grok-complete", "/ws");
+    const doc = SessionDocument.create("grok-complete", "/ws");
     try {
       await connection.ensureBootstrapStarted();
       const round = new CompletionExpectation({
@@ -40,7 +40,7 @@ describe("Grok completion on scripted HTTP", () => {
         connectionId: "row-grok",
         model: "grok-4",
       });
-      homeRound(plexus, round);
+      homeRound(doc, round);
       const result = await connection.complete({
         model: "grok-4",
         promptText: "hi",
@@ -58,7 +58,7 @@ describe("Grok completion on scripted HTTP", () => {
         authorization: "Bearer grok-at",
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
       await grok.close();
     }

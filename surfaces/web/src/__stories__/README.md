@@ -5,7 +5,7 @@
 story fails the gate.
 
 Every story is the real app — router, frame, tape, composer — at one route. Only the
-dial is the story's: `world.ts` builds plexus documents locally (kernel, projects,
+dial is the story's: `world.ts` builds documents locally (kernel, projects,
 sessions with real turns and jobs) and `StoryDial` serves them without a socket. The
 session port writes back into the same models (and `connect/adopt` / `ui/resolve` follow a script per provider, see `onboarding.stories.tsx`), so a story stays live: a picked
 model lands in `kvs`, a sent message opens a turn, Stop seals it. A job binds to one

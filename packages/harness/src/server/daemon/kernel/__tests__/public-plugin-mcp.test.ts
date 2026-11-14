@@ -2,8 +2,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 
-import { KernelPlexus, type KernelRoot } from "@inhuman.tools/harness-model";
-import { PEWDriver } from "@inhuman.tools/plexus-expectations/driver";
+import { KernelDocument, type KernelRoot } from "@inhuman.tools/harness-model";
+import { ExpectationDriver } from "@inhuman.tools/expectations/driver";
 import { observable, when } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -62,7 +62,7 @@ describe("public plugin MCP reflection", () => {
       { name: "default-private", command: "secret" },
       { name: "no-command", visibility: "public" },
     ]);
-    const kernel = KernelPlexus.bootstrap().root;
+    const kernel = KernelDocument.bootstrap().root;
     reflectKernel(root, kernel);
 
     const connections = publicConnections(kernel);
@@ -109,7 +109,7 @@ describe("public plugin MCP reflection", () => {
       const root = fixture({ "first-plugin": "1.0.0", "second-plugin": "1.0.0" });
       plugin(root, "first-plugin", "first", [{ name: "shared", command: "driver", visibility: "public" }]);
       plugin(root, "second-plugin", "second", [{ name: "shared", command: "driver", visibility: "public" }]);
-      const kernel = KernelPlexus.bootstrap().root;
+      const kernel = KernelDocument.bootstrap().root;
       reflectKernel(root, kernel);
       return publicConnections(kernel).map(([id, connection]) => [id, connection.name]);
     }
@@ -124,7 +124,7 @@ describe("public plugin MCP reflection", () => {
     const server = [{ name: "shared", command: "driver", visibility: "public" }];
     plugin(root, "parent-plugin", "parent", server, { "child-plugin": "1.0.0" });
     plugin(root, "child-plugin", "child", server);
-    const kernel = KernelPlexus.bootstrap().root;
+    const kernel = KernelDocument.bootstrap().root;
     reflectKernel(root, kernel);
     const ids = publicConnections(kernel)
       .map(([id]) => id)
@@ -160,7 +160,7 @@ describe("public plugin MCP reflection", () => {
   it("never overwrites config connections, including a colliding generated ID", () => {
     const root = fixture();
     plugin(root, "test-plugin", "desktop", [{ name: "shared", command: "driver", visibility: "public" }]);
-    const kernel = KernelPlexus.bootstrap().root;
+    const kernel = KernelDocument.bootstrap().root;
     reflectKernel(root, kernel);
     const id = publicConnections(kernel)[0]![0];
     const user = {
@@ -186,7 +186,7 @@ describe("public plugin MCP reflection", () => {
   it("does not replace config rows with unavailable drivers or invent a missing stdio driver", () => {
     const root = fixture();
     plugin(root, "test-plugin", "desktop", [{ name: "shared", command: "driver", visibility: "public" }]);
-    const kernel = KernelPlexus.bootstrap().root;
+    const kernel = KernelDocument.bootstrap().root;
     reflectKernel(root, kernel);
     const id = publicConnections(kernel)[0]![0];
     json(join(root, "config.json"), { connections: { [id]: { driver: "missing", settings: {} } } });
@@ -205,7 +205,7 @@ it("retires a public plugin transport on descriptor changes and disable, then re
   const servers = (command: string) => [{ name: "shared", command, visibility: "public", scope: "global" }];
   plugin(root, "test-plugin", "desktop", servers("first-driver"));
   const disposed = observable.array<string>();
-  class OwnedMcp extends PEWDriver {
+  class OwnedMcp extends ExpectationDriver {
     override async bootstrap(): Promise<void> {}
     protected override resolve(): never {
       throw new Error("fixture has no requests");
@@ -220,9 +220,9 @@ it("retires a public plugin transport on descriptor changes and disable, then re
   );
   await using kernel = new KernelDaemon(root, registry);
   await kernel.ready;
-  const id = publicConnections(kernel.plexus.root)[0]![0];
+  const id = publicConnections(kernel.doc.root)[0]![0];
   const credentials = memoryCredentialsStore();
-  const ensure = () => kernel.runtime.internDiscovery(kernel.plexus.root, kernel.runtime, id, { secrets: credentials });
+  const ensure = () => kernel.runtime.internDiscovery(kernel.doc.root, kernel.runtime, id, { secrets: credentials });
   const first = await ensure();
   plugin(root, "test-plugin", "desktop", servers("replacement-driver"));
   kernel.adjustConfig(() => {});
@@ -235,7 +235,7 @@ it("retires a public plugin transport on descriptor changes and disable, then re
   });
   await kernel.handleRequest("plugin/set", { name: "desktop", enabled: false });
   await when(() => disposed.length === 2, { timeout: 2_000 });
-  expect({ present: kernel.plexus.root.connections[id] != null, disposed: [...disposed] }).toEqual({
+  expect({ present: kernel.doc.root.connections[id] != null, disposed: [...disposed] }).toEqual({
     present: false,
     disposed: ["first-driver", "replacement-driver"],
   });
@@ -262,7 +262,7 @@ it("retires a public plugin transport on descriptor changes and disable, then re
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect({
     ownedByUser: (await ensure()) === user,
-    name: kernel.plexus.root.connections[id]?.name,
+    name: kernel.doc.root.connections[id]?.name,
     disposed: [...disposed],
   }).toEqual({
     ownedByUser: true,
@@ -278,10 +278,10 @@ it.each(["session", "workspace"] as const)(
     plugin(root, "test-plugin", "scoped", [{ name: "local", command: "driver", visibility: "public", scope }]);
     await using kernel = new KernelDaemon(root);
     await kernel.ready;
-    await when(() => kernel.plexus.root.plugins.scoped?.problem != null, { timeout: 2_000 });
+    await when(() => kernel.doc.root.plugins.scoped?.problem != null, { timeout: 2_000 });
     expect({
-      connections: publicConnections(kernel.plexus.root),
-      problem: kernel.plexus.root.plugins.scoped?.problem,
+      connections: publicConnections(kernel.doc.root),
+      problem: kernel.doc.root.plugins.scoped?.problem,
     }).toEqual({
       connections: [],
       problem: expect.stringContaining(

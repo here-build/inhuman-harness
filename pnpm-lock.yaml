@@ -1057,6 +1057,9 @@ importers:
       '@inhuman.tools/error-with-invariant':
         specifier: workspace:^
         version: link:../../packages/error-with-invariant
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../../packages/expectations
       '@inhuman.tools/harness-commons':
         specifier: workspace:^
         version: link:../../packages/harness-commons
@@ -1072,9 +1075,6 @@ importers:
       '@inhuman.tools/model':
         specifier: workspace:^
         version: link:../../packages/model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../../packages/plexus-expectations
       '@inhuman.tools/plugin-sdk':
         specifier: workspace:^
         version: link:../../packages/harness-plugin-sdk
@@ -1216,15 +1216,15 @@ importers:
       '@inhuman.tools/env-capability-dotprompt':
         specifier: workspace:^
         version: link:../../env-capabilities/env-capability-dotprompt
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../expectations
       '@inhuman.tools/harness-commons':
         specifier: workspace:^
         version: link:../harness-commons
       '@inhuman.tools/harness-model':
         specifier: workspace:^
         version: link:../harness-model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../plexus-expectations
       handlebars:
         specifier: ^4.7.10
         version: 4.7.10
@@ -1272,6 +1272,55 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/expectations:
+    dependencies:
+      '@here.build/collections':
+        specifier: 0.10.0
+        version: 0.10.0(mobx@6.16.1)
+      '@inhuman.tools/error-with-invariant':
+        specifier: workspace:^
+        version: link:../error-with-invariant
+      '@inhuman.tools/model':
+        specifier: workspace:^
+        version: link:../model
+      mobx:
+        specifier: 6.16.1
+        version: 6.16.1
+      tiny-invariant:
+        specifier: ^1.3.3
+        version: 1.3.3
+      tslib:
+        specifier: 2.8.1
+        version: 2.8.1
+      xstate:
+        specifier: 5.33.3
+        version: 5.33.3
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@-internal-/eslint-configs':
+        specifier: workspace:*
+        version: link:../../internal/eslint-config
+      '@-internal-/tsconfig':
+        specifier: workspace:*
+        version: link:../../internal/tsconfig
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      eslint:
+        specifier: 10.13.0
+        version: 10.13.0(jiti@2.7.0)
+      prettier:
+        specifier: 3.9.10
+        version: 3.9.10
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@24.19.2)(happy-dom@21.0.4)(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/harness:
     dependencies:
       '@ff-labs/fff-node':
@@ -1310,6 +1359,9 @@ importers:
       '@inhuman.tools/error-with-invariant':
         specifier: workspace:^
         version: link:../error-with-invariant
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../expectations
       '@inhuman.tools/harness-commons':
         specifier: workspace:^
         version: link:../harness-commons
@@ -1337,9 +1389,6 @@ importers:
       '@inhuman.tools/model':
         specifier: workspace:^
         version: link:../model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../plexus-expectations
       '@inhuman.tools/plugin-fusion':
         specifier: workspace:^
         version: link:../../plugins/inhuman-plugin-fusion
@@ -1587,6 +1636,9 @@ importers:
       '@inhuman.tools/continuation':
         specifier: workspace:^
         version: link:../../packages-continuation/continuation
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../expectations
       '@inhuman.tools/harness-commons':
         specifier: workspace:^
         version: link:../harness-commons
@@ -1596,9 +1648,6 @@ importers:
       '@inhuman.tools/model':
         specifier: workspace:^
         version: link:../model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../plexus-expectations
       '@inhuman.tools/statusline':
         specifier: workspace:^
         version: link:../../packages-statusline/statusline
@@ -1636,6 +1685,9 @@ importers:
 
   packages/harness-peer:
     dependencies:
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../expectations
       '@inhuman.tools/harness-contract':
         specifier: workspace:^
         version: link:../harness-contract
@@ -1645,9 +1697,6 @@ importers:
       '@inhuman.tools/model':
         specifier: workspace:^
         version: link:../model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../plexus-expectations
     devDependencies:
       '@-internal-/eslint-configs':
         specifier: workspace:*
@@ -1701,12 +1750,12 @@ importers:
 
   packages/harness-provider-sdk:
     dependencies:
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../expectations
       '@inhuman.tools/harness-model':
         specifier: workspace:^
         version: link:../harness-model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../plexus-expectations
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -1787,12 +1836,12 @@ importers:
       '@inhuman.tools/env-capability-module-prompt':
         specifier: workspace:^
         version: link:../env-capability-module-prompt
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../expectations
       '@inhuman.tools/harness-model':
         specifier: workspace:^
         version: link:../harness-model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../plexus-expectations
       '@inhuman.tools/scheme-program':
         specifier: workspace:^
         version: link:../../packages-runtime/scheme-program
@@ -1857,6 +1906,9 @@ importers:
       '@here.build/collections':
         specifier: ^0.10.0
         version: 0.10.0(mobx@6.16.1)
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../expectations
       '@inhuman.tools/harness-diagnostics':
         specifier: workspace:^
         version: link:../harness-diagnostics
@@ -1869,9 +1921,6 @@ importers:
       '@inhuman.tools/model':
         specifier: workspace:^
         version: link:../model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../plexus-expectations
       '@inhuman.tools/pretty-mcp':
         specifier: workspace:^
         version: link:../pretty-mcp
@@ -2019,15 +2068,15 @@ importers:
       '@here.build/arrival':
         specifier: ^0.10.2
         version: 0.10.3(typescript@6.0.3)
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../expectations
       '@inhuman.tools/harness-commons':
         specifier: workspace:^
         version: link:../harness-commons
       '@inhuman.tools/harness-peer':
         specifier: workspace:^
         version: link:../harness-peer
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../plexus-expectations
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -2059,55 +2108,6 @@ importers:
       eslint:
         specifier: 10.13.0
         version: 10.13.0(jiti@2.7.0)
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 5.0.5
-        version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@24.19.2)(happy-dom@21.0.4)(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
-
-  packages/plexus-expectations:
-    dependencies:
-      '@here.build/collections':
-        specifier: 0.10.0
-        version: 0.10.0(mobx@6.16.1)
-      '@inhuman.tools/error-with-invariant':
-        specifier: workspace:^
-        version: link:../error-with-invariant
-      '@inhuman.tools/model':
-        specifier: workspace:^
-        version: link:../model
-      mobx:
-        specifier: 6.16.1
-        version: 6.16.1
-      tiny-invariant:
-        specifier: ^1.3.3
-        version: 1.3.3
-      tslib:
-        specifier: 2.8.1
-        version: 2.8.1
-      xstate:
-        specifier: 5.33.3
-        version: 5.33.3
-      zod:
-        specifier: ^4.6.7
-        version: 4.6.7
-    devDependencies:
-      '@-internal-/eslint-configs':
-        specifier: workspace:*
-        version: link:../../internal/eslint-config
-      '@-internal-/tsconfig':
-        specifier: workspace:*
-        version: link:../../internal/tsconfig
-      '@types/node':
-        specifier: ^24.19.2
-        version: 24.19.2
-      eslint:
-        specifier: 10.13.0
-        version: 10.13.0(jiti@2.7.0)
-      prettier:
-        specifier: 3.9.10
-        version: 3.9.10
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -2367,12 +2367,12 @@ importers:
       '@-internal-/eslint-configs':
         specifier: workspace:*
         version: link:../../internal/eslint-config
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../../packages/expectations
       '@inhuman.tools/harness-model':
         specifier: workspace:^
         version: link:../../packages/harness-model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../../packages/plexus-expectations
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0
@@ -2399,6 +2399,9 @@ importers:
       '@here.build/collections':
         specifier: ^0.10.0
         version: 0.10.0(mobx@6.16.1)
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../../packages/expectations
       '@inhuman.tools/harness-contract':
         specifier: workspace:^
         version: link:../../packages/harness-contract
@@ -2417,9 +2420,6 @@ importers:
       '@inhuman.tools/model':
         specifier: workspace:^
         version: link:../../packages/model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../../packages/plexus-expectations
       '@inhuman.tools/policy':
         specifier: workspace:^
         version: link:../../packages-policy/policy
@@ -2500,6 +2500,9 @@ importers:
       '@inhuman.tools/chunked-websocket':
         specifier: workspace:^
         version: link:../../packages/chunked-websocket
+      '@inhuman.tools/expectations':
+        specifier: workspace:^
+        version: link:../../packages/expectations
       '@inhuman.tools/harness-commons':
         specifier: workspace:^
         version: link:../../packages/harness-commons
@@ -2521,9 +2524,6 @@ importers:
       '@inhuman.tools/model':
         specifier: workspace:^
         version: link:../../packages/model
-      '@inhuman.tools/plexus-expectations':
-        specifier: workspace:^
-        version: link:../../packages/plexus-expectations
       '@inhuman.tools/scope-plane':
         specifier: workspace:^
         version: link:../../packages/scope-plane

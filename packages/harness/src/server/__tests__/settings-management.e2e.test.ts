@@ -1,6 +1,6 @@
 /**
  * Settings writes go through the kernel RPC, then the assertion reads the
- * plexus document that session is running on. The RPC return is only the ack.
+ * session document that session is running on. The RPC return is only the ack.
  */
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -118,7 +118,7 @@ describe("settings management", () => {
         keepAlive: false,
         behavior: { program: "./keep.scm" },
       });
-      await when(() => kernel.plexus.root.bots.keeper?.behaviorJson != null, { timeout: FACE_TIMEOUT });
+      await when(() => kernel.doc.root.bots.keeper?.behaviorJson != null, { timeout: FACE_TIMEOUT });
       botWriteOutput.parse(
         await kernel.handleRequest("bot/write", {
           scope: "home",
@@ -131,7 +131,7 @@ describe("settings management", () => {
           keepAlive: false,
         }),
       );
-      await when(() => kernel.plexus.root.bots.keeper?.description === "Keeps", { timeout: FACE_TIMEOUT });
+      await when(() => kernel.doc.root.bots.keeper?.description === "Keeps", { timeout: FACE_TIMEOUT });
 
       botWriteOutput.parse(
         await kernel.handleRequest("bot/write", {
@@ -145,7 +145,7 @@ describe("settings management", () => {
           keepAlive: false,
         }),
       );
-      await when(() => kernel.plexus.root.bots.scribe != null, { timeout: FACE_TIMEOUT });
+      await when(() => kernel.doc.root.bots.scribe != null, { timeout: FACE_TIMEOUT });
       botWriteOutput.parse(
         await kernel.handleRequest("bot/write", {
           scope: "home",
@@ -162,7 +162,7 @@ describe("settings management", () => {
           mcp: [{ server: "notes", tools: ["search"], account: "desk" }],
         }),
       );
-      await when(() => kernel.plexus.root.bots.glance?.reasoningEffort === "low", { timeout: FACE_TIMEOUT });
+      await when(() => kernel.doc.root.bots.glance?.reasoningEffort === "low", { timeout: FACE_TIMEOUT });
       botWriteOutput.parse(
         await kernel.handleRequest("bot/write", {
           scope: "home",
@@ -175,9 +175,9 @@ describe("settings management", () => {
           keepAlive: false,
         }),
       );
-      await when(() => kernel.plexus.root.bots.glance?.description === "Edits notes", { timeout: FACE_TIMEOUT });
-      const glance = kernel.plexus.root.bots.glance;
-      const kept: unknown = JSON.parse(kernel.plexus.root.bots.keeper?.behaviorJson ?? "null");
+      await when(() => kernel.doc.root.bots.glance?.description === "Edits notes", { timeout: FACE_TIMEOUT });
+      const glance = kernel.doc.root.bots.glance;
+      const kept: unknown = JSON.parse(kernel.doc.root.bots.keeper?.behaviorJson ?? "null");
       const glanceMcp: unknown = JSON.parse(glance?.mcpJson || "[]");
       const glanceFace = {
         description: glance?.description,
@@ -209,7 +209,7 @@ describe("settings management", () => {
       );
       await when(() => project.root.bots.note == null, { timeout: FACE_TIMEOUT });
       botRemoveOutput.parse(await kernel.handleRequest("bot/remove", { scope: "home", name: "glance" }));
-      await when(() => kernel.plexus.root.bots.glance == null, { timeout: FACE_TIMEOUT });
+      await when(() => kernel.doc.root.bots.glance == null, { timeout: FACE_TIMEOUT });
 
       const adopted = mcpServerAdoptOutput.parse(
         await kernel.handleRequest("mcp-server/adopt", {
@@ -225,7 +225,7 @@ describe("settings management", () => {
           settings: { command: "printf" },
         }),
       );
-      const connection = kernel.plexus.root.connections[adopted.id];
+      const connection = kernel.doc.root.connections[adopted.id];
       const connectionFace = {
         driver: connection?.driver.name,
         name: connection?.name,
@@ -233,17 +233,17 @@ describe("settings management", () => {
         args: connection?.configuration.args,
       };
 
-      const seededPlugins = Object.keys(kernel.plexus.root.plugins).sort();
-      const seededCommands = ["goal", "plan", "plugins"].filter((verb) => kernel.plexus.root.commands[verb] != null);
+      const seededPlugins = Object.keys(kernel.doc.root.plugins).sort();
+      const seededCommands = ["goal", "plan", "plugins"].filter((verb) => kernel.doc.root.commands[verb] != null);
       const installed = pluginInstallOutput.parse(
         await kernel.handleRequest("plugin/install", { spec: pathToFileURL(TASKS).href }),
       );
       pluginSetOutput.parse(
         await kernel.handleRequest("plugin/set", { name: "tasks", enabled: false, foreground: false }),
       );
-      const disabled = kernel.plexus.root.plugins.tasks;
+      const disabled = kernel.doc.root.plugins.tasks;
       pluginRemoveOutput.parse(await kernel.handleRequest("plugin/remove", { name: "tasks" }));
-      const removed = kernel.plexus.root.plugins.tasks == null;
+      const removed = kernel.doc.root.plugins.tasks == null;
       const reinstalled = pluginInstallOutput.parse(
         await kernel.handleRequest("plugin/install", { spec: "@inhuman.tools/plugin-tasks" }),
       );
@@ -253,7 +253,7 @@ describe("settings management", () => {
         glance: glanceFace,
         note: noteMcp,
         noteGone: project.root.bots.note == null,
-        glanceGone: kernel.plexus.root.bots.glance == null,
+        glanceGone: kernel.doc.root.bots.glance == null,
         connection: connectionFace,
         seededPlugins,
         seededCommands,
@@ -261,7 +261,7 @@ describe("settings management", () => {
         disabled: { enabled: disabled?.enabled, foreground: disabled?.foreground },
         removed,
         reinstalled,
-        restoredEnabled: kernel.plexus.root.plugins.tasks?.enabled,
+        restoredEnabled: kernel.doc.root.plugins.tasks?.enabled,
       }).toEqual({
         keeper: { program: "./keep.scm" },
         glance: {

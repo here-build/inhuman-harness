@@ -2,12 +2,18 @@ import { randomUUID } from "node:crypto";
 import { realpath } from "node:fs/promises";
 
 import { DefaultedMap } from "@here.build/collections";
+import {
+  revalidationDemandRefFromSpec,
+  type RevalidationDemandSource,
+  type RevalidationDemandSubject,
+  collectRevalidationDemandRefs,
+  publishRevalidationDemand,
+  publishRevalidationDemandFocus,
+} from "@inhuman.tools/expectations";
 import { trace } from "@inhuman.tools/harness-diagnostics";
 import {
   KernelDocument,
-  KernelPlexus,
   ProjectDocument,
-  ProjectPlexus,
   ProjectRoot,
   publishKernelSeat,
   type KernelRoot,
@@ -20,7 +26,6 @@ import {
   ProgrammaticJob,
   projectWorkerPermissions,
   SessionDocument,
-  SessionPlexus,
   SessionRoot,
   type SessionTurn,
 } from "@inhuman.tools/harness-model/session";
@@ -33,15 +38,7 @@ import {
   type JsonRpcPort,
   type PlaneWireFrame,
 } from "@inhuman.tools/harness-peer";
-import type { DocumentContainer, PlexusAwareness } from "@inhuman.tools/model";
-import {
-  revalidationDemandRefFromSpec,
-  type RevalidationDemandSource,
-  type RevalidationDemandSubject,
-  collectRevalidationDemandRefs,
-  publishRevalidationDemand,
-  publishRevalidationDemandFocus,
-} from "@inhuman.tools/plexus-expectations";
+import type { DocumentContainer, ReactiveAwareness } from "@inhuman.tools/model";
 import { comparer, computed, type IComputedValue, type IReactionDisposer, reaction } from "mobx";
 
 import { ClientAgent, type AgentRosterRow, type AgentRosterScope } from "./client-agents.js";
@@ -60,14 +57,14 @@ export type KernelRpc = {
 
 /** Kernel room with the live image. RPC is the same port. */
 export type KernelHandle = KernelRpc & {
-  readonly plexus: KernelPlexus;
+  readonly doc: KernelDocument;
 };
 
 type SessionViewSlot = "peek" | "ask";
 
 type SessionView = {
   readonly sessionId: string;
-  readonly plexus: SessionPlexus;
+  readonly doc: SessionDocument;
   readonly stop: (() => void) | null;
 };
 
@@ -112,12 +109,12 @@ export class Client implements AsyncDisposable {
     const providers: RoomConnection[] = [];
     const awarenessStops: Array<() => void> = [];
     try {
-      const plexus = await Client.#open(
+      const doc = await Client.#open(
         socketPath,
         "kernel",
         {},
         KernelDocument.create(),
-        (doc) => KernelPlexus.connect(doc),
+        (container) => KernelDocument.connect(container),
         providers,
         awarenessStops,
         opts == null
@@ -132,13 +129,13 @@ export class Client implements AsyncDisposable {
       if (provider == null) throw new Error("client kernel: no provider");
       const rpc = bindJsonRpc(provider);
       return {
-        plexus,
+        doc,
         request: (method, params) => rpc.request(method, params),
         async [Symbol.asyncDispose](): Promise<void> {
           rpc.rejectAll(new Error("kernel rpc disposed"));
           for (const stop of awarenessStops.splice(0)) stop();
           for (const item of providers.splice(0)) destroyRoomConnection(item);
-          plexus.destroy();
+          doc.destroy();
         },
       };
     } catch (error) {
@@ -200,29 +197,29 @@ export class Client implements AsyncDisposable {
         sessionParams = { path: project, sessionId: session };
       }
       opts.phase?.("syncing the session...");
-      const sessionPlexus = await Client.#open(
+      const sessionDoc = await Client.#open(
         socketPath,
         "session",
         sessionParams,
         SessionDocument.create(new SessionRoot({ sessionId: session, path: project })),
-        (doc) => SessionPlexus.connect(doc),
+        (container) => SessionDocument.connect(container),
         providers,
         awarenessStops,
         unixOpts,
       );
       if (restore) {
-        const path = sessionPlexus.root.path;
+        const path = sessionDoc.root.path;
         if (path === "") throw new Error("client restore: session has no path");
         project = await realpath(path);
       }
       const sessionProvider = providers.at(-1) ?? null;
       opts.phase?.("syncing the kernel...");
-      const kernelPlexus = await Client.#open(
+      const kernelDoc = await Client.#open(
         socketPath,
         "kernel",
         {},
         KernelDocument.create(),
-        (doc) => KernelPlexus.connect(doc),
+        (container) => KernelDocument.connect(container),
         providers,
         awarenessStops,
         undefined,
@@ -231,22 +228,22 @@ export class Client implements AsyncDisposable {
       );
       const kernelProvider = providers.at(-1) ?? null;
       opts.phase?.("syncing the project...");
-      const projectPlexus = await Client.#open(
+      const projectDoc = await Client.#open(
         socketPath,
         "project",
         { path: project },
         ProjectDocument.create(project),
-        (doc) => ProjectPlexus.connect(doc),
+        (container) => ProjectDocument.connect(container),
         providers,
         awarenessStops,
       );
       const client = new Client(
         kernel,
         project,
-        sessionPlexus.root.sessionId,
-        kernelPlexus,
-        projectPlexus,
-        sessionPlexus,
+        sessionDoc.root.sessionId,
+        kernelDoc,
+        projectDoc,
+        sessionDoc,
         sessionProvider,
         kernelProvider,
       );
@@ -281,7 +278,7 @@ export class Client implements AsyncDisposable {
     providers.push(provider);
     step(`client synced ${room}`);
     const instance = attach(doc);
-    const hub = (instance as { awareness?: PlexusAwareness }).awareness;
+    const hub = (instance as { awareness?: ReactiveAwareness }).awareness;
     if (hub !== undefined) {
       awarenessStops.push(bindRoomAwareness(hub, provider));
       if (room === "kernel") {
@@ -311,47 +308,47 @@ export class Client implements AsyncDisposable {
     readonly kernelPath: string,
     readonly projectPath: string,
     readonly sessionId: string,
-    readonly kernelPlexus: KernelPlexus,
-    readonly projectPlexus: ProjectPlexus,
-    readonly sessionPlexus: SessionPlexus,
+    readonly kernelDoc: KernelDocument,
+    readonly projectDoc: ProjectDocument,
+    readonly sessionDoc: SessionDocument,
     readonly sessionProvider: RoomConnection | null = null,
     kernelProvider: RoomConnection | null = null,
   ) {
     this.#rpc = sessionProvider === null ? null : bindJsonRpc(sessionProvider);
     this.#kernelRpc = kernelProvider === null ? null : bindJsonRpc(kernelProvider);
-    publishKernelSeat(this.kernelPlexus.awareness, sessionId);
+    publishKernelSeat(this.kernelDoc.awareness, sessionId);
   }
 
   get kernelRoot(): KernelRoot {
-    return this.kernelPlexus.root;
+    return this.kernelDoc.root;
   }
 
   get projectRoot(): ProjectRoot {
-    return this.projectPlexus.root;
+    return this.projectDoc.root;
   }
 
   get sessionRoot(): SessionRoot {
-    return this.sessionPlexus.root;
+    return this.sessionDoc.root;
   }
 
   /** Peeked worker tape. Null when no sneak-peek is interned. */
-  get peekPlexus(): SessionPlexus | null {
-    return this.#peek?.plexus ?? null;
+  get peekDoc(): SessionDocument | null {
+    return this.#peek?.doc ?? null;
   }
 
   /** Asking worker tape for the host cover. Null when none is interned. */
-  get askPlexus(): SessionPlexus | null {
-    return this.#ask?.plexus ?? null;
+  get askDoc(): SessionDocument | null {
+    return this.#ask?.doc ?? null;
   }
 
-  /** Local intern. Tests / already-open plexus. Does not own destroy. */
-  adoptPeek(plexus: SessionPlexus): void {
-    this.#adoptView("peek", plexus);
+  /** Local intern. Tests / already-open doc. Does not own destroy. */
+  adoptPeek(doc: SessionDocument): void {
+    this.#adoptView("peek", doc);
   }
 
-  /** Local intern for the host cover. Tests / already-open plexus. */
-  adoptAsk(plexus: SessionPlexus): void {
-    this.#adoptView("ask", plexus);
+  /** Local intern for the host cover. Tests / already-open doc. */
+  adoptAsk(doc: SessionDocument): void {
+    this.#adoptView("ask", doc);
   }
 
   /**
@@ -377,9 +374,9 @@ export class Client implements AsyncDisposable {
     this.#releaseView("ask");
   }
 
-  #adoptView(slot: SessionViewSlot, plexus: SessionPlexus): void {
+  #adoptView(slot: SessionViewSlot, doc: SessionDocument): void {
     this.#releaseView(slot);
-    this.#setView(slot, { sessionId: plexus.root.sessionId, plexus, stop: null });
+    this.#setView(slot, { sessionId: doc.root.sessionId, doc, stop: null });
   }
 
   #releaseView(slot: SessionViewSlot): void {
@@ -401,7 +398,7 @@ export class Client implements AsyncDisposable {
   #bindAskDesk(): void {
     this.#askDeskStop?.();
     this.#askDeskStop = null;
-    const worker = this.#ask?.plexus.root;
+    const worker = this.#ask?.doc.root;
     if (worker == null) return;
     this.#askDeskStop = reaction(
       () => {
@@ -433,27 +430,27 @@ export class Client implements AsyncDisposable {
       for (const provider of providers.splice(0)) destroyRoomConnection(provider);
     };
     try {
-      const plexus = await Client.#open(
+      const doc = await Client.#open(
         daemonSocketPath(kernel),
         "session",
         { sessionId: id },
         SessionDocument.create(new SessionRoot({ sessionId: id })),
-        (doc) => SessionPlexus.connect(doc),
+        (container) => SessionDocument.connect(container),
         providers,
         awarenessStops,
         { reconnect: false },
       );
       if (gen !== this.#viewGen[slot]) {
         drop();
-        plexus.destroy();
+        doc.destroy();
         return;
       }
       this.#setView(slot, {
         sessionId: id,
-        plexus,
+        doc,
         stop: () => {
           drop();
-          plexus.destroy();
+          doc.destroy();
         },
       });
     } catch (error) {
@@ -550,7 +547,7 @@ export class Client implements AsyncDisposable {
     this.#attentionStop?.();
     this.#attentionStop = reaction(
       () => collectRevalidationDemandRefs(fn()),
-      (refs) => publishRevalidationDemand(this.kernelPlexus.awareness, refs),
+      (refs) => publishRevalidationDemand(this.kernelDoc.awareness, refs),
       { equals: comparer.structural, fireImmediately: true },
     );
   }
@@ -567,7 +564,7 @@ export class Client implements AsyncDisposable {
         const spec = fn();
         return spec == null ? null : revalidationDemandRefFromSpec(spec);
       },
-      (ref) => publishRevalidationDemandFocus(this.kernelPlexus.awareness, ref),
+      (ref) => publishRevalidationDemandFocus(this.kernelDoc.awareness, ref),
       { equals: comparer.structural, fireImmediately: true },
     );
   }
@@ -600,9 +597,9 @@ export class Client implements AsyncDisposable {
     this.#attentionStop = null;
     this.#revalidationDemandFocusStop?.();
     this.#revalidationDemandFocusStop = null;
-    publishKernelSeat(this.kernelPlexus.awareness, null);
-    publishRevalidationDemand(this.kernelPlexus.awareness, []);
-    publishRevalidationDemandFocus(this.kernelPlexus.awareness, null);
+    publishKernelSeat(this.kernelDoc.awareness, null);
+    publishRevalidationDemand(this.kernelDoc.awareness, []);
+    publishRevalidationDemandFocus(this.kernelDoc.awareness, null);
     for (const stop of this.#awarenessStops.splice(0)) stop();
     this.#rpc?.rejectAll(new Error("client disposed"));
     this.#kernelRpc?.rejectAll(new Error("client disposed"));
@@ -610,9 +607,9 @@ export class Client implements AsyncDisposable {
       destroyRoomConnection(provider);
     }
     this.#agents.clear();
-    this.kernelPlexus.destroy();
-    this.projectPlexus.destroy();
-    this.sessionPlexus.destroy();
+    this.kernelDoc.destroy();
+    this.projectDoc.destroy();
+    this.sessionDoc.destroy();
   }
 }
 

@@ -14,7 +14,7 @@ import {
   FileMutateToolJob,
   parseStoredBlob,
   PromptMessage,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -48,7 +48,7 @@ const PRIOR = body("prior", 12_000);
 const TRANSCRIPT = body("transcript", 600_000);
 
 /** What an older build left in the session: a file's prior text inline, and a summarizer holding its prefix twice. */
-function seed(plexus: SessionPlexus) {
+function seed(doc: SessionDocument) {
   const prior = new FileMutateToolJob({
     toolCallId: "p1",
     name: "edit_file",
@@ -66,7 +66,7 @@ function seed(plexus: SessionPlexus) {
     ],
   });
   summarizer.succeed("settled", "ok", "null", { result: { text: "ok" } });
-  plexus.root.head = new SessionTurn({
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`go`,
     queue: [],
@@ -83,8 +83,8 @@ function imageSize(kernel: KernelDaemon): number {
 describe("blob/vacuum", () => {
   it("a dry run counts what would move and leaves the document and the image alone", async () => {
     const { session, kernel } = await open();
-    const { prior, summarizer } = seed(session.plexus);
-    await kernel.flushSession(session.plexus);
+    const { prior, summarizer } = seed(session.doc);
+    await kernel.flushSession(session.doc);
     const size = imageSize(kernel);
     const reply = await session.handleRequest("blob/vacuum", { dryRun: true });
     expect({
@@ -110,8 +110,8 @@ describe("blob/vacuum", () => {
 
   it("moves the text to the bucket and rewrites the image as one snapshot that reads back", async () => {
     const { session, kernel } = await open();
-    const { prior, summarizer } = seed(session.plexus);
-    await kernel.flushSession(session.plexus);
+    const { prior, summarizer } = seed(session.doc);
+    await kernel.flushSession(session.doc);
     const size = imageSize(kernel);
     const reply = (await session.handleRequest("blob/vacuum", {})) as {
       readonly fileMutates: number;
@@ -150,7 +150,7 @@ describe("blob/vacuum", () => {
     // What is in SQLite is normalized rows of the vacuumed document, and it opens as a session.
     const loaded = kernel.db.loadSessionNodes("s-vacuum");
     if (loaded === undefined) throw new Error("the session nodes did not read");
-    const restored = SessionPlexus.fromNodeRows(loaded.rows, {
+    const restored = SessionDocument.fromNodeRows(loaded.rows, {
       rootId: loaded.rootId,
       sessionId: "s-vacuum",
       revision: loaded.revision,
@@ -177,8 +177,8 @@ describe("blob/vacuum", () => {
 
   it("a second run finds nothing to move", async () => {
     const { session, kernel } = await open();
-    seed(session.plexus);
-    await kernel.flushSession(session.plexus);
+    seed(session.doc);
+    await kernel.flushSession(session.doc);
     await session.handleRequest("blob/vacuum", {});
     const settled = imageSize(kernel);
     const reply = await session.handleRequest("blob/vacuum", {});

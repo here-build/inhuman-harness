@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { SessionPlexus, SessionRoot, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
+import { SessionDocument, SessionRoot, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
 import { BeatTimeline, Tape } from "@inhuman.tools/harness-transcript";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -92,7 +92,7 @@ describe("Tape", () => {
     };
     state.dial.kernel = { root: { sessions: {}, projects: {} } };
     const echoed = seat();
-    const echoedDoc = SessionPlexus.bootstrap(echoed);
+    const echoedDoc = SessionDocument.bootstrap(echoed);
     state.dial.session = { root: echoed };
     const hidden = render();
     echoedDoc.destroy();
@@ -101,7 +101,7 @@ describe("Tape", () => {
     expect(hidden).toContain(`class="user-text">${said}</p>`);
 
     const renamed = seat("Renamed");
-    const renamedDoc = SessionPlexus.bootstrap(renamed);
+    const renamedDoc = SessionDocument.bootstrap(renamed);
     state.dial.session = { root: renamed };
     const shown = render();
     renamedDoc.destroy();

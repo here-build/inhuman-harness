@@ -2,11 +2,13 @@
  * Test orchestrator: real Job claim, license as the guard.
  * Programs are stamped on the session root before enqueue.
  */
+import type { DriverConnectionClass } from "@inhuman.tools/expectations/driver";
+import { Orchestrator } from "@inhuman.tools/expectations/executor";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
-  KernelPlexus,
+  KernelDocument,
   KernelRoot,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -18,8 +20,6 @@ import {
   type PermissionMode,
   type TurnChunk,
 } from "@inhuman.tools/harness-model";
-import type { DriverConnectionClass } from "@inhuman.tools/plexus-expectations/driver";
-import { Orchestrator } from "@inhuman.tools/plexus-expectations/executor";
 import { reaction, runInAction, type IReactionDisposer } from "mobx";
 
 import { childCompletions, completedAssistant, sealedObservation } from "./jobs.js";
@@ -67,7 +67,7 @@ export function setup(opts: {
   enqueue(job: ToolCallJob): void;
   [Symbol.dispose](): void;
 } {
-  const kernel = KernelPlexus.bootstrap(new KernelRoot());
+  const kernel = KernelDocument.bootstrap(new KernelRoot());
   const root = new SessionRoot({
     sessionId: "s-lic",
     path: opts.path ?? "/tmp/lic",
@@ -79,7 +79,7 @@ export function setup(opts: {
     grantsJson: opts.grants === undefined ? "" : JSON.stringify(opts.grants),
     readRoots: Object.fromEntries((opts.readRoots ?? []).map((path) => [path, "session"])),
   });
-  const session = SessionPlexus.bootstrap(root);
+  const session = SessionDocument.bootstrap(root);
   const doneWork: TurnChunk[] = [];
   if (opts.priorTurn !== undefined && opts.priorTurn !== "") doneWork.push(completedAssistant(opts.priorTurn));
   if (opts.quarantined !== undefined && opts.quarantined !== "") doneWork.push(sealedObservation(opts.quarantined));

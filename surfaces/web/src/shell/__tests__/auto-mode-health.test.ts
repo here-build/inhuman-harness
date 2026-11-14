@@ -1,5 +1,5 @@
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { KernelRoot, SessionRoot } from "@inhuman.tools/harness-model";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { expect, it } from "vitest";
 
 import { autoModeProblem } from "../auto-mode-health.js";

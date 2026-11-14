@@ -4,7 +4,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -69,13 +69,13 @@ async function run(
   }
   const Driver = responses ? ResponsesDriver : OpenAiCompatDriverConnection;
   const connection = new Driver("row", { baseUrl: server.baseUrl, model: "m1" });
-  const plexus = SessionPlexus.create("retry-and-stop", "/ws");
-  bindSessionCatalog(plexus.root, new KernelToolCatalog());
+  const doc = SessionDocument.create("retry-and-stop", "/ws");
+  bindSessionCatalog(doc.root, new KernelToolCatalog());
   try {
     await connection.ensureBootstrapStarted();
     const round = new CompletionExpectation({ promptText: prompt.user`hi`, connectionId: "row", model: "m1" });
     setup?.(round);
-    plexus.root.head = new SessionTurn({
+    doc.root.head = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: round.promptText,
       doneWork: [new CompletionJob({ expectation: round })],
@@ -91,7 +91,7 @@ async function run(
     await actor.settled;
     return { round, posts: server.posts(), ms: Date.now() - started };
   } finally {
-    plexus.destroy();
+    doc.destroy();
     await connection[Symbol.asyncDispose]();
     await server.close();
   }

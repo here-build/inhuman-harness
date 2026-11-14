@@ -1,4 +1,5 @@
 /** Session job recovery is shared by local and embedded hosts. */
+import { Job, WorkExpectation } from "@inhuman.tools/expectations";
 import {
   CallJob,
   ApprovableJob,
@@ -14,7 +15,6 @@ import {
   WebSearchToolJob,
 } from "@inhuman.tools/harness-model/session";
 import { getModelTag } from "@inhuman.tools/model";
-import { Job, WorkExpectation } from "@inhuman.tools/plexus-expectations";
 import { runInAction } from "mobx";
 
 import { closeTurn, restorePendingRound, settleCancelledTurn, type CallsCatalog } from "../agent-calls/index.js";

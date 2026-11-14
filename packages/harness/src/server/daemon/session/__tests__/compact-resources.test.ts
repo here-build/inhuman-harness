@@ -7,7 +7,7 @@ import {
   CompactJob,
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -69,7 +69,7 @@ test("local nested imports replay from the durable captured closure after the so
   );
   await writeFile(join(root, "steps/card.scm"), '(define card (require "../card.txt"))');
   await writeFile(join(root, "card.txt"), "local captured card");
-  const session = SessionPlexus.create("local-compact-replay", root);
+  const session = SessionDocument.create("local-compact-replay", root);
   onTestFinished(() => session.destroy());
   const seen: CompletionExpectation[] = [];
   const tail = new SessionTurn({
@@ -90,7 +90,7 @@ test("local nested imports replay from the durable captured closure after the so
   const turn = new SessionTurn({ turnTail: tail, prompt: prompt.user`keep`, queue: [], doneWork: [job] });
   turn.pushChild(job);
   session.root.head = turn;
-  let committed: { readonly rootId: string; readonly rows: ReturnType<typeof session.doc.toNodeRows> } | undefined;
+  let committed: { readonly rootId: string; readonly rows: ReturnType<typeof session.toNodeRows> } | undefined;
   await runCompactJob(job, {
     turn,
     session: session.root,
@@ -99,7 +99,7 @@ test("local nested imports replay from the durable captured closure after the so
     model: "summarizer",
     program: loadCompactProgram("./compact.scm", root),
     async checkpoint() {
-      committed = { rootId: session.root.uuid, rows: session.doc.toNodeRows() };
+      committed = { rootId: session.root.uuid, rows: session.toNodeRows() };
     },
   });
   expect(job.standIn).toBe("local captured card");
@@ -107,7 +107,7 @@ test("local nested imports replay from the durable captured closure after the so
   expect(job.resourceSnapshotJson).toContain('"card.txt":');
   if (committed === undefined) throw new Error("missing resource checkpoint");
   await rm(root, { recursive: true, force: true });
-  const restored = SessionPlexus.fromNodeRows(committed.rows, {
+  const restored = SessionDocument.fromNodeRows(committed.rows, {
     rootId: committed.rootId,
     sessionId: session.root.sessionId,
   });

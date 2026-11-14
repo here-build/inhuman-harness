@@ -5,7 +5,7 @@
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   ProgrammaticJob,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -20,7 +20,7 @@ function nest(opts: { readonly prompt: string; readonly expr: string }): {
   [Symbol.dispose](): void;
 } {
   const root = new SessionRoot({ sessionId: "s-ev", path: "/tmp/ev" });
-  const plexus = SessionPlexus.bootstrap(root);
+  const doc = SessionDocument.bootstrap(root);
   const inner = new SystemToolJob({
     name: "list_dir",
     argsJson: JSON.stringify({ path: ".." }),
@@ -38,7 +38,7 @@ function nest(opts: { readonly prompt: string; readonly expr: string }): {
   return {
     inner,
     [Symbol.dispose]() {
-      plexus.destroy();
+      doc.destroy();
     },
   };
 }
@@ -56,7 +56,7 @@ describe("evidenceCuts scheme inner", () => {
 
   it("a turn-level tool with no prompt and no tail stays empty", () => {
     const root = new SessionRoot({ sessionId: "s-bare", path: "/tmp/bare" });
-    const plexus = SessionPlexus.bootstrap(root);
+    const doc = SessionDocument.bootstrap(root);
     const leaf = new SystemToolJob({
       name: "list_dir",
       argsJson: JSON.stringify({ path: ".." }),
@@ -67,12 +67,12 @@ describe("evidenceCuts scheme inner", () => {
       queue: [leaf],
     });
     expect(evidenceCuts(leaf).privileged).toBe("");
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("continue empty prompt uses tail user messages", () => {
     const root = new SessionRoot({ sessionId: "s-cont", path: "/tmp/cont" });
-    const plexus = SessionPlexus.bootstrap(root);
+    const doc = SessionDocument.bootstrap(root);
     const prior = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`what do you think about the tools`,
@@ -92,7 +92,7 @@ describe("evidenceCuts scheme inner", () => {
     expect(evidenceCuts(leaf).privileged).toBe("what do you think about the tools");
     head.prompt = prompt.user`fix the vocabulary first`;
     expect(evidenceCuts(leaf).privileged).toBe("what do you think about the tools\nfix the vocabulary first");
-    plexus.destroy();
+    doc.destroy();
   });
 });
 

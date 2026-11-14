@@ -47,7 +47,7 @@ function installPlugin(kernelRoot: string, kernel: KernelDaemon, npmName: string
   } catch (error) {
     if (!(error instanceof Error) || !("code" in error) || error.code !== "EEXIST") throw error;
   }
-  reflectKernel(kernelRoot, kernel.plexus.root);
+  reflectKernel(kernelRoot, kernel.doc.root);
 }
 
 function setEnabled(kernelRoot: string, kernel: KernelDaemon, pluginName: string, enabled: boolean): void {
@@ -125,15 +125,15 @@ describe("plugin lifecycle", () => {
     await when(() => packWires(kernel, TASKS_NAME).includes("task__create"), { timeout: TIMEOUT });
     const shell = packWires(kernel, "shell");
     const namedAgents = packWires(kernel, "named-agents");
-    const taskQuestion = kernel.plexus.root.pluginTool("task__create")?.question ?? "";
+    const taskQuestion = kernel.doc.root.pluginTool("task__create")?.question ?? "";
     setEnabled(system, kernel, TASKS_NAME, false);
     await when(() => packWires(kernel, TASKS_NAME).length === 0, { timeout: TIMEOUT });
     const disabled = {
       tasks: packWires(kernel, TASKS_NAME),
       shell: packWires(kernel, "shell"),
       namedAgents: packWires(kernel, "named-agents"),
-      taskFace: kernel.plexus.root.pluginTool("task__create")?.question ?? null,
-      shellFace: kernel.plexus.root.pluginTool("shell") != null,
+      taskFace: kernel.doc.root.pluginTool("task__create")?.question ?? null,
+      shellFace: kernel.doc.root.pluginTool("shell") != null,
     };
     setEnabled(system, kernel, TASKS_NAME, true);
     await when(() => packWires(kernel, TASKS_NAME).includes("task__create"), { timeout: TIMEOUT });
@@ -143,7 +143,7 @@ describe("plugin lifecycle", () => {
       hostShellPresent: shell.length > 0,
       hostAgentsPresent: namedAgents.length > 0,
       disabled,
-      restored: kernel.plexus.root.pluginTool("task__create")?.question ?? "",
+      restored: kernel.doc.root.pluginTool("task__create")?.question ?? "",
     }).toEqual({
       taskQuestionLoaded: true,
       hostShellPresent: true,

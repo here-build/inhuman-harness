@@ -2,8 +2,8 @@
  * Worker return. Completes when kernel has written the Call. Mints only
  * if this session has an open `agentCallbacks` row for the requestId.
  */
+import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/expectations";
 import { model } from "@inhuman.tools/model";
-import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ToolCallJob } from "./ToolCallJob.js";

@@ -6,10 +6,10 @@ import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
+import { ExpectationDriver, type ExpectationActor } from "@inhuman.tools/expectations/driver";
 import type { ResponseCall } from "@inhuman.tools/harness-model";
 import type { CompleteResult, ConnectionCompleteRequest } from "@inhuman.tools/harness-provider-sdk";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
-import { PEWDriver, type ExpectationActor } from "@inhuman.tools/plexus-expectations/driver";
 import { normalizeMessage } from "@inhuman.tools/tool-call-normalize";
 import { reaction } from "mobx";
 
@@ -82,11 +82,11 @@ class ReplyQueue {
   }
 }
 
-export class ScriptedCompletionConnection extends PEWDriver {
+export class ScriptedCompletionConnection extends ExpectationDriver {
   readonly #queue: ReplyQueue;
   readonly #judge: ReplyQueue;
 
-  constructor(connectionId: string, settings: unknown, secrets?: ConstructorParameters<typeof PEWDriver>[2]) {
+  constructor(connectionId: string, settings: unknown, secrets?: ConstructorParameters<typeof ExpectationDriver>[2]) {
     super(connectionId, settings, secrets);
     const scriptId = this.settings.scriptId;
     const queue = typeof scriptId === "string" ? queues.get(scriptId) : undefined;
@@ -178,7 +178,7 @@ export function installScriptedModel(kernel: KernelDaemon, connectionId = "c1"):
   });
   const connection = new ConnectionSpec({ driver, name: id });
   connection.configuration = { scriptId };
-  const root = kernel.plexus.root;
+  const root = kernel.doc.root;
   const keep = (): void => {
     if (root.drivers.scripted !== driver) root.drivers = { ...root.drivers, scripted: driver };
     if (root.connections[id] !== connection) root.connections = { ...root.connections, [id]: connection };

@@ -1,5 +1,5 @@
 import { prompt } from "@inhuman.tools/harness-commons";
-import { SessionPlexus, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
+import { SessionDocument, SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import {
@@ -21,11 +21,11 @@ function tool(text: string, extra?: { regenerateable?: boolean; name?: string })
 }
 
 function homed(call: SystemToolJob, sessionId: string): SystemToolJob {
-  const plexus = SessionPlexus.create(sessionId);
-  onTestFinished(() => plexus.destroy());
+  const doc = SessionDocument.create(sessionId);
+  onTestFinished(() => doc.destroy());
   call.humanApprove = true;
   call.completed = true;
-  plexus.root.head = new SessionTurn({
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`p`,
     doneWork: [call],

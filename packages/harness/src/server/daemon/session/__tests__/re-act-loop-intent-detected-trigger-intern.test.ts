@@ -1,4 +1,4 @@
-import { CompletionJob, publishKernelSeat, SessionPlexus, SessionTurn } from "@inhuman.tools/harness-model";
+import { CompletionJob, publishKernelSeat, SessionDocument, SessionTurn } from "@inhuman.tools/harness-model";
 import { expect, onTestFinished, test } from "vitest";
 
 import { assessTextOnlyContinueIntern } from "../re-act-loop-intent-detected-trigger.js";
@@ -92,7 +92,7 @@ test.each([
 
 test("caches unsupported schema only for that configured judge wire", async () => {
   const live = await liveSession();
-  publishKernelSeat(live.kernel.plexus.awareness, "s1");
+  publishKernelSeat(live.kernel.doc.awareness, "s1");
   await configureJudge(live);
   live.model.judge({ fail: "json_schema unsupported: judge" });
   for (const expectedChildren of [1, 0]) {
@@ -149,10 +149,10 @@ test("the production judge deadline bounds a provider that ignores abort, and it
 }, 40_000);
 
 test("an already-aborted assessment settles without dispatching the provider", async () => {
-  const plexus = SessionPlexus.create("cancelled-assessment", "");
-  onTestFinished(() => plexus.destroy());
+  const doc = SessionDocument.create("cancelled-assessment", "");
+  onTestFinished(() => doc.destroy());
   const turn = new SessionTurn({ queue: [] });
-  plexus.root.head = turn;
+  doc.root.head = turn;
   let dispatches = 0;
   const result = await assessTextOnlyContinueIntern({
     speech: "I will edit now.",

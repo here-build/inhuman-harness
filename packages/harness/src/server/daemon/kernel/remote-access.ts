@@ -1,6 +1,6 @@
 /**
  * Daemon side of remote access: WorkOS device login, token storage and
- * refresh, the machine identity. A kernel service, not a PEW connection:
+ * refresh, the machine identity. A kernel service, not an expectation connection:
  * it provides no ability, has no model catalog and no per-connection config.
  * Tokens and the machine id live in the kernel's durable credentials under
  * reserved ids; the connector (phase 3b) calls {@link RemoteAccess.accessToken}.

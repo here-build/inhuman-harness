@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { KernelPlexus, KernelRoot, SessionPlexus, SessionRoot } from "@inhuman.tools/harness-model";
+import { KernelDocument, KernelRoot, SessionDocument, SessionRoot } from "@inhuman.tools/harness-model";
 import { DocumentContainer } from "@inhuman.tools/model";
 import { mkdtemp, readJson } from "fs-extra";
 import { autorun } from "mobx";
@@ -20,13 +20,13 @@ describe("session kv", () => {
     const snapshots: Array<Record<string, string>> = [];
     const stopWatch = autorun(() => {
       snapshots.push({
-        theme: kernel.plexus.root.kvs.theme ?? "<absent>",
-        editor: kernel.plexus.root.kvs.editor ?? "<absent>",
-        connection: kernel.plexus.root.kvs.connection ?? "<absent>",
-        scratch: kernel.plexus.root.kvs.scratch ?? "<absent>",
+        theme: kernel.doc.root.kvs.theme ?? "<absent>",
+        editor: kernel.doc.root.kvs.editor ?? "<absent>",
+        connection: kernel.doc.root.kvs.connection ?? "<absent>",
+        scratch: kernel.doc.root.kvs.scratch ?? "<absent>",
       });
     });
-    kernel.plexus.root.applyKvs([
+    kernel.doc.root.applyKvs([
       { form: "kv-set", key: "theme", value: "kernel" },
       { form: "kv-set", key: "editor", value: "vim" },
       { form: "kv-set", key: "connection", value: "grok" },
@@ -47,7 +47,7 @@ describe("session kv", () => {
     const session = await project.session("s1");
     expect({
       session: session.root.kvs,
-      kernelTheme: kernel.plexus.root.kvs.theme,
+      kernelTheme: kernel.doc.root.kvs.theme,
       projectEditor: project.root.kvs.editor,
     }).toEqual({
       session: SEEDED,
@@ -55,11 +55,11 @@ describe("session kv", () => {
       projectEditor: undefined,
     });
 
-    using sessionReplica = liveSessionReplica(session.plexus);
-    using kernelReplica = liveKernelReplica(kernel.plexus);
+    using sessionReplica = liveSessionReplica(session.doc);
+    using kernelReplica = liveKernelReplica(kernel.doc);
     expect(sessionReplica.root.kvs).toEqual(SEEDED);
 
-    kernel.plexus.root.applyKvs([{ form: "kv-set", key: "later", value: "nope" }]);
+    kernel.doc.root.applyKvs([{ form: "kv-set", key: "later", value: "nope" }]);
     const attached = await project.session("s1");
     expect({ same: attached === session, kvs: attached.root.kvs }).toEqual({ same: true, kvs: SEEDED });
 
@@ -78,9 +78,9 @@ describe("session kv", () => {
     expect({
       session: session.root.kvs.model,
       project: project.root.kvs.model,
-      kernel: kernel.plexus.root.kvs.model,
+      kernel: kernel.doc.root.kvs.model,
       replica: sessionReplica.root.kvs.model,
-      used: kernel.plexus.root.modelsUsage["grok/m1"],
+      used: kernel.doc.root.modelsUsage["grok/m1"],
       file: await readJson(join(kernel.root, "kv.json")),
       s3: (await project.session("s3")).root.kvs.model,
     }).toEqual({
@@ -98,7 +98,7 @@ describe("session kv", () => {
     expect({
       session: session.root.kvs.theme,
       project: project.root.kvs.theme,
-      kernel: kernel.plexus.root.kvs.theme,
+      kernel: kernel.doc.root.kvs.theme,
       file: await readJson(join(kernel.root, "kv.json")),
       s4: (await project.session("s4")).root.kvs.theme,
     }).toEqual({
@@ -113,12 +113,12 @@ describe("session kv", () => {
     expect({
       project: project.root.kvs.goal,
       session: session.root.kvs.goal,
-      kernel: kernel.plexus.root.kvs.goal,
+      kernel: kernel.doc.root.kvs.goal,
     }).toEqual({ project: "other", session: "ship", kernel: undefined });
 
     await session.handleRequest("kv/set", { key: "font", value: "mono", scope: "kernel" });
     expect({
-      kernel: kernel.plexus.root.kvs.font,
+      kernel: kernel.doc.root.kvs.font,
       replica: kernelReplica.root.kvs.font,
       session: session.root.kvs.font,
       project: project.root.kvs.font,
@@ -133,7 +133,7 @@ describe("session kv", () => {
 
     await session.handleRequest("kv/clear", { key: "font", scope: "kernel" });
     expect({
-      kernel: kernel.plexus.root.kvs.font,
+      kernel: kernel.doc.root.kvs.font,
       replica: kernelReplica.root.kvs.font,
       file: await readJson(join(kernel.root, "kv.json")),
     }).toEqual({
@@ -145,14 +145,14 @@ describe("session kv", () => {
     expect({
       session: session.root.permissionMode,
       project: project.root.defaultPermissionMode,
-      kernel: kernel.plexus.root.defaultPermissionMode,
+      kernel: kernel.doc.root.defaultPermissionMode,
     }).toEqual({ session: "manual", project: "", kernel: "manual" });
 
     session.root.permissionMode = "yolo";
     expect({
       session: session.root.permissionMode,
       project: project.root.defaultPermissionMode,
-      kernel: kernel.plexus.root.defaultPermissionMode,
+      kernel: kernel.doc.root.defaultPermissionMode,
       config: await configPolicy(kernel.root),
     }).toEqual({ session: "yolo", project: "", kernel: "manual", config: undefined });
 
@@ -161,7 +161,7 @@ describe("session kv", () => {
       session: session.root.permissionMode,
       standing: session.root.standingPermissionMode,
       project: project.root.defaultPermissionMode,
-      kernel: kernel.plexus.root.defaultPermissionMode,
+      kernel: kernel.doc.root.defaultPermissionMode,
       config: await configPolicy(kernel.root),
     }).toEqual({ session: "auto", standing: "auto", project: "auto", kernel: "auto", config: "auto" });
 
@@ -182,14 +182,14 @@ describe("session kv", () => {
     expect({
       session: fresh.root.permissionMode,
       project: other.root.defaultPermissionMode,
-      kernel: kernel.plexus.root.defaultPermissionMode,
+      kernel: kernel.doc.root.defaultPermissionMode,
     }).toEqual({ session: "yolo", project: "", kernel: "yolo" });
 
     await expect(fresh.handleRequest("policy/set", { policy: "manual" })).resolves.toEqual({ ok: true });
     expect({
       other: other.root.defaultPermissionMode,
       original: project.root.defaultPermissionMode,
-      kernel: kernel.plexus.root.defaultPermissionMode,
+      kernel: kernel.doc.root.defaultPermissionMode,
       config: await configPolicy(kernel.root),
       s3: (await project.session("s5")).root.permissionMode,
       p2: (await other.session("p2-s2")).root.permissionMode,
@@ -207,7 +207,7 @@ describe("session kv", () => {
     using hosts = await fixture();
     const { kernel, project } = hosts;
 
-    kernel.plexus.root.stampModelUsage("work", "gpt-4");
+    kernel.doc.root.stampModelUsage("work", "gpt-4");
     const seeded = await project.session("lucm-s1");
     expect(seeded.root.lastUsedConnectionModel).toEqual({ work: "gpt-4" });
 
@@ -228,10 +228,10 @@ describe("session kv", () => {
       projectModel: project.root.kvs.model,
       projectEffort: project.root.kvs.reasoningEffort,
       projectLast: project.root.lastUsedConnectionModel.work,
-      kernelModel: kernel.plexus.root.kvs.model,
-      kernelEffort: kernel.plexus.root.kvs.reasoningEffort,
-      kernelLast: kernel.plexus.root.lastUsedConnectionModel.work,
-      used: kernel.plexus.root.modelsUsage["work/gpt-5"],
+      kernelModel: kernel.doc.root.kvs.model,
+      kernelEffort: kernel.doc.root.kvs.reasoningEffort,
+      kernelLast: kernel.doc.root.lastUsedConnectionModel.work,
+      used: kernel.doc.root.modelsUsage["work/gpt-5"],
     }).toEqual({
       sessionModel: "gpt-5",
       sessionEffort: "medium",
@@ -252,10 +252,10 @@ describe("session kv", () => {
     expect({
       session: merged.root.lastUsedConnectionModel.work,
       project: project.root.lastUsedConnectionModel.work,
-      kernel: kernel.plexus.root.lastUsedConnectionModel.work,
+      kernel: kernel.doc.root.lastUsedConnectionModel.work,
       sessionEffort: merged.root.kvs.reasoningEffort,
       projectEffort: project.root.kvs.reasoningEffort,
-      kernelEffort: kernel.plexus.root.kvs.reasoningEffort,
+      kernelEffort: kernel.doc.root.kvs.reasoningEffort,
     }).toEqual({
       session: "gpt-5",
       project: "gpt-5",
@@ -309,12 +309,12 @@ async function configPolicy(root: string): Promise<unknown> {
   return ((await readJson(join(root, "config.json"))) as { defaultPermissionMode?: unknown }).defaultPermissionMode;
 }
 
-function liveSessionReplica(owner: SessionPlexus): { root: SessionPlexus["root"]; [Symbol.dispose](): void } {
+function liveSessionReplica(owner: SessionDocument): { root: SessionDocument["root"]; [Symbol.dispose](): void } {
   const root = new SessionRoot({ sessionId: owner.root.sessionId, path: owner.root.path });
   const replica = new DocumentContainer(root);
-  replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.doc.toNodeRows(), reset: true });
-  const stop = owner.doc.onPatch(() => {
-    replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.doc.toNodeRows(), reset: true });
+  replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.toNodeRows(), reset: true });
+  const stop = owner.onPatch(() => {
+    replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.toNodeRows(), reset: true });
   });
   return {
     get root() {
@@ -327,12 +327,12 @@ function liveSessionReplica(owner: SessionPlexus): { root: SessionPlexus["root"]
   };
 }
 
-function liveKernelReplica(owner: KernelPlexus): { root: KernelPlexus["root"]; [Symbol.dispose](): void } {
+function liveKernelReplica(owner: KernelDocument): { root: KernelDocument["root"]; [Symbol.dispose](): void } {
   const root = new KernelRoot();
   const replica = new DocumentContainer(root);
-  replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.doc.toNodeRows(), reset: true });
-  const stop = owner.doc.onPatch(() => {
-    replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.doc.toNodeRows(), reset: true });
+  replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.toNodeRows(), reset: true });
+  const stop = owner.onPatch(() => {
+    replica.applyNodeRows({ rootId: owner.root.uuid, upserts: owner.toNodeRows(), reset: true });
   });
   return {
     get root() {

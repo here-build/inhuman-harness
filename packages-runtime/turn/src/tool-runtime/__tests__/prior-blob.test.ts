@@ -15,7 +15,7 @@ import {
   BLOB_INLINE_MAX_CHARS,
   FileMutateToolJob,
   parseStoredBlob,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -384,9 +384,9 @@ describe("the licensed body stamps the prior text", () => {
         },
       }),
     ]);
-    const plexus = SessionPlexus.create("exec-prior-blob", "/tmp/exec-prior-blob");
-    onTestFinished(() => plexus.destroy());
-    bindSessionCatalog(plexus.root, catalog);
+    const doc = SessionDocument.create("exec-prior-blob", "/tmp/exec-prior-blob");
+    onTestFinished(() => doc.destroy());
+    bindSessionCatalog(doc.root, catalog);
     const job = new FileMutateToolJob({
       toolCallId: "p1",
       name: "edit_file",
@@ -400,7 +400,7 @@ describe("the licensed body stamps the prior text", () => {
       queue: [],
     });
     turn.pushChild(job);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     await executeSystemTool(job, new AbortController().signal);
     return { job };
   }

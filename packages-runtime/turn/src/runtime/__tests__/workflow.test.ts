@@ -3,7 +3,7 @@ import {
   ReACTChunk,
   RegisteredToolsSet,
   responseCall,
-  SessionPlexus,
+  SessionDocument,
   SessionTurn,
   SystemToolJob,
   ToolSpec,
@@ -19,11 +19,11 @@ import { executeSystemTool } from "../../tool-runtime/run-system-tool.js";
 import { iterateTurn, type TurnIteratorHost } from "../index.js";
 
 it("admits a supplied tool and waits for its actual receipt before the successor request", async () => {
-  const plexus = SessionPlexus.create("embedded-turn");
+  const doc = SessionDocument.create("embedded-turn");
   const catalog = new KernelToolCatalog();
   onTestFinished(() => {
     catalog[Symbol.dispose]();
-    plexus.destroy();
+    doc.destroy();
   });
   const effects: string[] = [];
   const entered = Promise.withResolvers<void>();
@@ -45,7 +45,7 @@ it("admits a supplied tool and waits for its actual receipt before the successor
       },
     },
   ]);
-  const session = plexus.root;
+  const session = doc.root;
   bindSessionCatalog(session, catalog);
   session.applyKvs([
     { form: "kv-set", key: "connection", value: "supplied-model" },

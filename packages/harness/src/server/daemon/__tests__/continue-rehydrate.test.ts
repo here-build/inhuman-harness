@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { KERNEL_SCOPE_ID } from "@inhuman.tools/harness-contract/schema";
-import { KernelPlexus, SessionPlexus, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
+import { KernelDocument, SessionDocument, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
 import { bindJsonRpc, destroyRoomConnection, RoomConnection, waitForSync } from "@inhuman.tools/harness-peer";
 import { Client } from "@inhuman.tools/harness-sdk";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
@@ -31,7 +31,7 @@ describe("continue rehydrate", () => {
       await client.request("kv/set", { key: "head", value: "yes" });
       const host = await daemon.kernel();
       const project = await daemon.project(workspace);
-      await host.flushSession(project.sessions[sessionId].plexus);
+      await host.flushSession(project.sessions[sessionId].doc);
       host.flushKernel();
     } finally {
       await client[Symbol.asyncDispose]();
@@ -42,26 +42,26 @@ describe("continue rehydrate", () => {
     try {
       const loadedSession = db.loadSessionNodes(sessionId);
       if (loadedSession === undefined) throw new Error("missing session rows");
-      const sessionDoc = SessionPlexus.fromNodeRows(loadedSession.rows, {
+      const sessionDoc = SessionDocument.fromNodeRows(loadedSession.rows, {
         rootId: loadedSession.rootId,
         sessionId,
         revision: loadedSession.revision,
       });
       sessionDoc.root.applyKvs([{ form: "kv-set", key: "tail", value: "yes" }]);
-      const sessionDelta = sessionDoc.doc.peekNodeDelta();
+      const sessionDelta = sessionDoc.peekNodeDelta();
       db.commitSessionNodes(sessionId, sessionDelta);
       sessionDoc.destroy();
 
       const loadedKernel = db.loadScopeNodes(KERNEL_SCOPE_ID);
       if (loadedKernel === undefined) throw new Error("missing kernel rows");
-      const kernelDoc = KernelPlexus.fromNodeRows(loadedKernel.rows, {
+      const kernelDoc = KernelDocument.fromNodeRows(loadedKernel.rows, {
         rootId: loadedKernel.rootId,
         revision: loadedKernel.revision,
       });
       runInAction(() => {
         kernelDoc.root.termContinue.desk = sessionId;
       });
-      const kernelDelta = kernelDoc.doc.peekNodeDelta();
+      const kernelDelta = kernelDoc.peekNodeDelta();
       db.commitScopeNodes(KERNEL_SCOPE_ID, kernelDelta);
       kernelDoc.destroy();
     } finally {
@@ -137,8 +137,8 @@ describe("continue rehydrate", () => {
           restoreSession.root.tip = restoreTurn;
         });
 
-        await host.flushSession(webSession.plexus);
-        await host.flushSession(restoreSession.plexus);
+        await host.flushSession(webSession.doc);
+        await host.flushSession(restoreSession.doc);
         host.flushKernel();
       } finally {
         await daemon[Symbol.asyncDispose]();
@@ -150,8 +150,8 @@ describe("continue rehydrate", () => {
     try {
       // 1. Web reconnect pattern: `/session?sessionId=<id>` without `path` and before any `/kernel` seat.
       const socketPath = daemonSocketPath(kernel);
-      const webDoc = SessionPlexus.create(`harness:session:${webSessionId}`);
-      const webConn = new RoomConnection(`ws+unix://${socketPath}:`, "session", webDoc.doc, {
+      const webDoc = SessionDocument.create(`harness:session:${webSessionId}`);
+      const webConn = new RoomConnection(`ws+unix://${socketPath}:`, "session", webDoc, {
         WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
         params: { sessionId: webSessionId },
       });

@@ -1,4 +1,4 @@
-import type { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
+import type { ConnectionSpec } from "@inhuman.tools/expectations";
 
 export type ClassifierRouteOpts = {
   /** Kernel last-choice. Session mint is a snapshot; this overlay is live. */

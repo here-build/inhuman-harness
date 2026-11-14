@@ -1,4 +1,4 @@
-import { CallJob, SessionPlexus, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
+import { CallJob, SessionDocument, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
 import { onTestFinished } from "vitest";
 
 import { KernelToolCatalog, type CatalogEntry } from "../../tool-catalog/index.js";
@@ -51,10 +51,10 @@ export function callsCatalog(
   };
 }
 
-export function sessionOf(id: string): SessionPlexus {
-  const plexus = SessionPlexus.create(id, `/tmp/agent-calls/${id}`);
-  onTestFinished(() => plexus.destroy());
-  return plexus;
+export function sessionOf(id: string): SessionDocument {
+  const doc = SessionDocument.create(id, `/tmp/agent-calls/${id}`);
+  onTestFinished(() => doc.destroy());
+  return doc;
 }
 
 export function closedTurn(child: CallJob): SessionTurn {
@@ -67,14 +67,18 @@ export function closedTurn(child: CallJob): SessionTurn {
   return turn;
 }
 
-export function scopeOf(...plexuses: SessionPlexus[]): AgentCallScope {
-  const map = new Map(plexuses.map((plexus) => [plexus.root.sessionId, plexus]));
+export function scopeOf(...docs: SessionDocument[]): AgentCallScope {
+  const map = new Map(docs.map((doc) => [doc.root.sessionId, doc]));
   return {
     replica: (id) => map.get(id),
   };
 }
 
-export function hostOf(caller: SessionPlexus, catalog: CallsCatalog, extra: SessionPlexus[] = []): AgentRuntimeHost {
+export function hostOf(
+  caller: SessionDocument,
+  catalog: CallsCatalog,
+  extra: SessionDocument[] = [],
+): AgentRuntimeHost {
   return {
     caller: caller.root,
     catalog,

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { prompt } from "@inhuman.tools/harness-commons";
-import { ProgrammaticJob, SessionPlexus, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
+import { ProgrammaticJob, SessionDocument, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { compactToolLine, SQUEEZE_COMPACT_CHARS, squeezeObservation } from "../squeeze.js";
@@ -16,11 +16,11 @@ describe("programmatic results are bounded", () => {
       completed: true,
       outcomeJson: JSON.stringify({ ok: true, text: huge }),
     });
-    const plexus = SessionPlexus.create("squeeze-programmatic");
-    onTestFinished(() => plexus.destroy());
+    const doc = SessionDocument.create("squeeze-programmatic");
+    onTestFinished(() => doc.destroy());
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`p`, queue: [] });
     turn.pushChild(job);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     const line = compactToolLine(job);
     expect(line.length).toBeLessThan(SQUEEZE_COMPACT_CHARS + 300);
     expect(line).toContain(`;;full response: context_recall {"ref":"job:${job.uuid.slice(0, 8)}"}`);

@@ -48,7 +48,7 @@
     "@here.build/arrival-serializer": "^0.10.2",
     "@inhuman.tools/env-capability-module-prompt": "workspace:^",
     "@inhuman.tools/harness-model": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/expectations": "workspace:^",
     "@inhuman.tools/scheme-program": "workspace:^",
     "@inhuman.tools/scheme-watch": "workspace:^",
     "@inhuman.tools/substrate": "workspace:^",

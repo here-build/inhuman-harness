@@ -287,7 +287,7 @@ export function flattenAgentDrawer(proj: AgentDrawerProjection): readonly AgentD
 }
 
 export function projectRecentSessions(client: Client): readonly AgentDrawerSession[] {
-  const occupied = occupiedSessionIds(client.kernelPlexus.awareness);
+  const occupied = occupiedSessionIds(client.kernelDoc.awareness);
   const rows: AgentDrawerSession[] = [];
   for (const id of Object.keys(client.projectRoot.sessions)) {
     const sessionId = id.trim();

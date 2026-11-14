@@ -25,7 +25,7 @@ export function liveCatalogOf(
   expectation: CompletionExpectation,
   catalog?: KernelToolCatalog,
 ): KernelToolCatalog | undefined {
-  return catalog ?? catalogOf(expectation.plexus?.root);
+  return catalog ?? catalogOf(expectation.document?.root);
 }
 
 /** Frozen turn set wins so MCP churn cannot rewrite the prefix. */
@@ -33,7 +33,7 @@ export function selectCompletionTools(
   expectation: CompletionExpectation,
   catalog?: KernelToolCatalog,
 ): readonly ContextTool[] {
-  const root = expectation.plexus?.root;
+  const root = expectation.document?.root;
   invariant(root instanceof SessionRoot, "selectCompletionTools: expectation must be wired on a SessionRoot");
   if (expectation.completionMode === "isolated") return [];
   if (expectation.parent instanceof ApprovableJob) return [];

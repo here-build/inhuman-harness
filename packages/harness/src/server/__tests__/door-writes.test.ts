@@ -43,7 +43,7 @@ describe("client writes through the session door", () => {
     const session = await openSession();
     attachScriptedModel(session.kernel, session);
     await session.handleRequest("kv/set", { key: "connection", value: scriptedConnectionId() });
-    publishKernelSeat(session.kernel.plexus.awareness, "s1");
+    publishKernelSeat(session.kernel.doc.awareness, "s1");
     session.root.head = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`write` });
     modelOf(session).reply({
       calls: [responseCall("w1", "write_file", JSON.stringify({ path: "README.md", content: "hi" }))],

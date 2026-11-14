@@ -147,15 +147,15 @@ describe("compaction actor", () => {
   });
 
   it("runCompactJob logs a diagnostic when it runs on the failsafe", async () => {
-    const plexus = sessionOf("failsafe");
+    const doc = sessionOf("failsafe");
     const seen: CompletionExpectation[] = [];
     const priors = [20, 40, 80].map((used, i) => {
-      const pew = new CompletionExpectation({ connectionId: "c1", messages: [...seen] });
-      seen.push(pew);
-      pew.totalTokens = used;
-      pew.contextLimit = 100;
-      pew.responseText = `hello ${i}`;
-      return new CompletionJob({ expectation: pew });
+      const completion = new CompletionExpectation({ connectionId: "c1", messages: [...seen] });
+      seen.push(completion);
+      completion.totalTokens = used;
+      completion.contextLimit = 100;
+      completion.responseText = `hello ${i}`;
+      return new CompletionJob({ expectation: completion });
     });
     const job = new CompactJob({ reason: "user" });
     const turn = new SessionTurn({
@@ -171,11 +171,11 @@ describe("compaction actor", () => {
       doneWork: [job],
     });
     turn.pushChild(job);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     const failures: Array<[string, unknown]> = [];
     await runCompactJob(job, {
       turn,
-      session: plexus.root,
+      session: doc.root,
       compactKeepTurns: 1,
       compactStrategy: "",
       kernelFsRoot: "",
@@ -194,13 +194,13 @@ describe("compaction actor", () => {
   });
 
   it("runCompactJob writes a keep-first card onto the CompactJob", async () => {
-    const plexus = sessionOf("prefix");
+    const doc = sessionOf("prefix");
     const priors = [20, 40, 80].map((used, i) => {
-      const pew = new CompletionExpectation({ connectionId: "c1" });
-      pew.totalTokens = used;
-      pew.contextLimit = 100;
-      pew.responseText = `hello ${i}`;
-      return new CompletionJob({ expectation: pew });
+      const completion = new CompletionExpectation({ connectionId: "c1" });
+      completion.totalTokens = used;
+      completion.contextLimit = 100;
+      completion.responseText = `hello ${i}`;
+      return new CompletionJob({ expectation: completion });
     });
     const tail = new SessionTurn({
       turnTail: new SessionSystemPrompt({ constitution: HARNESS_CONSTITUTION }),
@@ -217,10 +217,10 @@ describe("compaction actor", () => {
       doneWork: [job],
     });
     turn.pushChild(job);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     await runCompactJob(job, {
       turn,
-      session: plexus.root,
+      session: doc.root,
       compactKeepTurns: 1,
       compactStrategy: "",
       kernelFsRoot: "",
@@ -235,19 +235,19 @@ describe("compaction actor", () => {
   });
 
   it("runCompactJob returns on abort without waiting for the summarizer, which joins the abort", async () => {
-    const plexus = sessionOf("abort");
+    const doc = sessionOf("abort");
     const dir = mkdtempSync(join(tmpdir(), "session-compact-abort-"));
     writeFileSync(join(dir, "hang.prompt"), '{{role "user"}}\nsummarize\n');
     const source = `(define summarize (require "hang.prompt"))
 (define (compact compact-transcript full-transcript) (list (message/user (summarize))))`;
     const seen: CompletionExpectation[] = [];
     const rounds = [20, 40, 80].map((used) => {
-      const pew = new CompletionExpectation({ connectionId: "c1", messages: [...seen] });
-      seen.push(pew);
-      pew.totalTokens = used;
-      pew.contextLimit = 100;
-      pew.responseText = `reply ${used}`;
-      return new CompletionJob({ expectation: pew });
+      const completion = new CompletionExpectation({ connectionId: "c1", messages: [...seen] });
+      seen.push(completion);
+      completion.totalTokens = used;
+      completion.contextLimit = 100;
+      completion.responseText = `reply ${used}`;
+      return new CompletionJob({ expectation: completion });
     });
     const job = new CompactJob({ reason: "overflow" });
     const turn = new SessionTurn({
@@ -257,14 +257,14 @@ describe("compaction actor", () => {
       doneWork: [...rounds, job],
     });
     turn.pushChild(job);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     const abort = new AbortController();
     const joined: AbortSignal[] = [];
     const running = runCompactJob(
       job,
       {
         turn,
-        session: plexus.root,
+        session: doc.root,
         compactKeepTurns: 1,
         compactStrategy: "",
         kernelFsRoot: "",
@@ -305,7 +305,7 @@ describe("compaction actor", () => {
   });
 
   it("runCompactJob completes a rejected empty eat without running a strategy", async () => {
-    const plexus = sessionOf("empty-prefix");
+    const doc = sessionOf("empty-prefix");
     const job = new CompactJob({ reason: "user" });
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt({ constitution: HARNESS_CONSTITUTION }),
@@ -313,11 +313,11 @@ describe("compaction actor", () => {
       queue: [job],
     });
     turn.pushChild(job);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     let loaded = 0;
     await runCompactJob(job, {
       turn,
-      session: plexus.root,
+      session: doc.root,
       compactKeepTurns: 1,
       compactStrategy: "",
       kernelFsRoot: "",

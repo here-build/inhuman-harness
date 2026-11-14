@@ -1,5 +1,5 @@
 /** MCP HTTP TFRP freshness: handshake on the wire; send waits; audience is this row. */
-import { extraLiveFromState } from "@inhuman.tools/plexus-expectations/driver";
+import { extraLiveFromState } from "@inhuman.tools/expectations/driver";
 import { runInAction } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 

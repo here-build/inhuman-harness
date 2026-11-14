@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SessionPlexus } from "@inhuman.tools/harness-peer";
+import type { SessionDocument } from "@inhuman.tools/harness-peer";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 
 import { type StoryDial, worldOf } from "./world.js";
@@ -25,8 +25,8 @@ export function StoryApp({ stage }: { readonly stage: () => Staged }) {
 
 /** A session's page, in a world that lists it and the `others` beside it. */
 export function sessionStage(
-  build: () => SessionPlexus,
-  options: Parameters<typeof worldOf>[1] & { readonly others?: () => readonly SessionPlexus[] } = {},
+  build: () => SessionDocument,
+  options: Parameters<typeof worldOf>[1] & { readonly others?: () => readonly SessionDocument[] } = {},
 ): () => Staged {
   return () => {
     const open = build();

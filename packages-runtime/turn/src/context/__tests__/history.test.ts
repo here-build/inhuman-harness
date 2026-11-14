@@ -13,7 +13,7 @@ import {
   ProgrammaticJob,
   PromptMessage,
   responseCall,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
@@ -93,10 +93,10 @@ function mount(
   }
 }
 
-function session(id: string, path = ""): SessionPlexus {
-  const plexus = SessionPlexus.create(id, path);
-  onTestFinished(() => plexus.destroy());
-  return plexus;
+function session(id: string, path = ""): SessionDocument {
+  const doc = SessionDocument.create(id, path);
+  onTestFinished(() => doc.destroy());
+  return doc;
 }
 
 function history(
@@ -110,7 +110,7 @@ function history(
     readonly echoEmptyThought?: boolean;
   },
 ): HistoryMessage[] {
-  const plexus = session(id, extra?.path ?? "");
+  const doc = session(id, extra?.path ?? "");
   const last = cells.at(-1);
   if (!(last instanceof CompletionExpectation))
     throw new TypeError("history: last cell is not a CompletionExpectation");
@@ -131,7 +131,7 @@ function history(
       note: prompt.system`${extra.emitNote}`,
     });
   mount(turn, ...cells);
-  plexus.root.head = turn;
+  doc.root.head = turn;
   return [...projectModelHistory(tip, { echoEmptyThought: extra?.echoEmptyThought })];
 }
 
@@ -328,8 +328,8 @@ describe("projectModelHistory", () => {
       sourcePath: n === 5 ? "shot.png" : null,
     }));
     const tip = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`see` });
-    const plexus = session("pics", "/work");
-    plexus.root.head = new SessionTurn({
+    const doc = session("pics", "/work");
+    doc.root.head = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`see`,
       visualsJson: userVisualsJson(visuals),
@@ -540,10 +540,10 @@ describe("bodies stored beside the document", () => {
       promptText: prompt.user`${HEAD}`,
       promptTextBlobJson: storedBody(OTHER, `${FULL} (again)`),
     });
-    const plexus = session("stored-line", "/work");
+    const doc = session("stored-line", "/work");
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`q`, queue: [] });
     mount(turn, prior, tip);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     const users = (readBlob?: (sha256: string) => Uint8Array | null) =>
       [...projectModelHistory(tip, readBlob === undefined ? {} : { readBlob })]
         .filter((row) => row.role === "user")
@@ -565,10 +565,10 @@ describe("bodies stored beside the document", () => {
         new PromptMessage({ role: "user", content: HEAD, contentBlobJson: storedBody(SHA, FULL) }),
       ],
     });
-    const plexus = session("stored-messages", "/work");
+    const doc = session("stored-messages", "/work");
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`q`, queue: [] });
     mount(turn, tip);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     const user = [...projectModelHistory(tip, { readBlob: reader({ [SHA]: FULL }) })].find(
       (row) => row.role === "user",
     );

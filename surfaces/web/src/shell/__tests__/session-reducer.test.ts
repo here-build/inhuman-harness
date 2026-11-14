@@ -3,7 +3,7 @@ import {
   CompletionJob,
   FileMutateToolJob,
   ProgrammaticJob,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -36,14 +36,14 @@ it("user turn projection keeps the complete diff despite model argument retentio
   const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], doneWork: [job] });
   turn.pushChild(job);
   root.head = turn;
-  const plexus = SessionPlexus.bootstrap(root);
+  const doc = SessionDocument.bootstrap(root);
   try {
     expect(diffs(projectUserTurn(turn, root.path))[0]).toMatchObject({
       body: { kind: "diff", path: "plan.md", newText: content },
     });
     expect(job.args).toEqual({ path: "plan.md", content });
   } finally {
-    plexus.destroy();
+    doc.destroy();
   }
 });
 
@@ -214,11 +214,11 @@ function projectJobs(jobs: SystemToolJob[]): TapeCell[] {
   const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], doneWork: jobs });
   for (const job of jobs) turn.pushChild(job);
   root.head = turn;
-  const plexus = SessionPlexus.bootstrap(root);
+  const doc = SessionDocument.bootstrap(root);
   try {
     return tapeCells(root);
   } finally {
-    plexus.destroy();
+    doc.destroy();
   }
 }
 
@@ -314,11 +314,11 @@ it("shows an edit inside the working directory as a relative path", () => {
   const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [], doneWork: [job] });
   turn.pushChild(job);
   root.head = turn;
-  const plexus = SessionPlexus.bootstrap(root);
+  const doc = SessionDocument.bootstrap(root);
   try {
     expect(diffs(tapeCells(root))[0]).toMatchObject({ body: { path: "src/a.ts" } });
   } finally {
-    plexus.destroy();
+    doc.destroy();
   }
 });
 
@@ -350,7 +350,7 @@ it("projects actual direct and Scheme mutations into one cumulative diff across 
   });
   for (const chunk of turn.doneWork) turn.pushChild(chunk);
   root.head = turn;
-  const plexus = SessionPlexus.bootstrap(root);
+  const doc = SessionDocument.bootstrap(root);
   try {
     const cells = tapeCells(root);
     const merged = diffs(cells);
@@ -363,7 +363,7 @@ it("projects actual direct and Scheme mutations into one cumulative diff across 
     expect(cells.at(-1)).toMatchObject({ kind: "tool", nested: [{ id: first.uuid }] });
     expect(tapeCells(root)).toEqual(cells);
   } finally {
-    plexus.destroy();
+    doc.destroy();
   }
 });
 

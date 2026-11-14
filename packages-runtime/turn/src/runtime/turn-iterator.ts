@@ -103,11 +103,11 @@ export async function iterateTurn(turn: SessionTurn, host: TurnIteratorHost, sig
         if (chunk instanceof ReACTChunk) {
           if (chunk.decision == null) {
             if (!chunk.roundClosed) {
-              const pew = chunk.source?.expectation;
+              const completion = chunk.source?.expectation;
               await host.closeRound(
-                pew?.outcome === "failed"
-                  ? { ok: false, error: pew.failReason ?? pew.endDetail ?? "model round failed" }
-                  : { ok: true, value: pew?.responseText || false },
+                completion?.outcome === "failed"
+                  ? { ok: false, error: completion.failReason ?? completion.endDetail ?? "model round failed" }
+                  : { ok: true, value: completion?.responseText || false },
               );
               if (turnLoopStopped(turn, signal)) return;
               chunk.roundClosed = true;
@@ -186,18 +186,18 @@ export async function iterateTurn(turn: SessionTurn, host: TurnIteratorHost, sig
         break;
       }
       case chunk instanceof CompletionJob: {
-        const pew = chunk.expectation;
-        if (pew == null) break;
-        if (!pew.isDone) await host.resolvers.completion(chunk, signal);
+        const completion = chunk.expectation;
+        if (completion == null) break;
+        if (!completion.isDone) await host.resolvers.completion(chunk, signal);
         if (turnLoopStopped(turn, signal)) return;
         if (chunk.responseExpanded) break;
-        if (pew.outcome !== "successful") {
+        if (completion.outcome !== "successful") {
           turn.finishResponseExpansion(chunk);
           break;
         }
-        const filtered = pew.finishReason === CONTENT_FILTER_STOP;
-        const refusals = pew.responseCalls.filter((call) => filtered || call.dropReason !== "");
-        const calls = pew.responseCalls.filter((call) => !refusals.includes(call)).map(toolCallFromResponse);
+        const filtered = completion.finishReason === CONTENT_FILTER_STOP;
+        const refusals = completion.responseCalls.filter((call) => filtered || call.dropReason !== "");
+        const calls = completion.responseCalls.filter((call) => !refusals.includes(call)).map(toolCallFromResponse);
         const order = new ResponseCallOrder({
           entryClass: (name) => catalogOf(session)?.catalogEntry(name)?.class,
           remoteMcp: (key) => host.remoteMcp?.(key) ?? false,

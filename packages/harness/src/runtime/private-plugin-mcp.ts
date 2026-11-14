@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { action, autorun, type IReactionDisposer, observable } from "mobx";
 
 import { pluginContributionRevision, type PrivateMcpInstallState, type PrivateMcpPluginRecord } from "@/extensions";

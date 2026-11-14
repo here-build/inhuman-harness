@@ -4,6 +4,7 @@
  *
  * Omnibox winner lives in omnibox-seat.ts, CHANGE ONLY.
  */
+import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { isUiForm, type UiForm } from "@inhuman.tools/harness-contract";
 import { fail, step, trace } from "@inhuman.tools/harness-diagnostics";
 import {
@@ -35,7 +36,7 @@ import {
   type GrantRow,
   type GrantSubject,
   layersOf,
-  type SessionPlexus,
+  type SessionDocument,
   SessionRoot,
   SessionTurn,
   sessionDisplayTitle,
@@ -66,7 +67,6 @@ import {
   formatMcpArgs,
   mcpConfirmViewport,
 } from "@inhuman.tools/harness-sdk/text";
-import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { CLASSES } from "@inhuman.tools/policy/floor";
 import { action, comparer, computed, type IReactionDisposer, observable, reaction, runInAction, when } from "mobx";
 import invariant from "tiny-invariant";
@@ -204,8 +204,8 @@ export class Tea implements Disposable {
   @observable accessor #agentsHover: string | null = null;
   @observable accessor #agentsScroll = 0;
   @observable accessor #agentsPreview: string | null = null;
-  @observable.ref accessor #peekPlexus: SessionPlexus | null = null;
-  @observable.ref accessor #askPlexus: SessionPlexus | null = null;
+  @observable.ref accessor #peekDoc: SessionDocument | null = null;
+  @observable.ref accessor #askDoc: SessionDocument | null = null;
   /** Turns this client asked the daemon to cancel; only `turn/cancel` writes `cancelRequested`. */
   readonly #cancelAsked = observable.set<SessionTurn>([], { deep: false });
   #askedPolicy: (typeof PERMISSION_MODES)[number] | null = null;
@@ -342,7 +342,7 @@ export class Tea implements Disposable {
         () =>
           this.#paint.syncPreviewSpine(
             this.#agentsPreview === null ? null : this.#previewSpineTurns(),
-            this.#peekPlexus?.root.kvs.model,
+            this.#peekDoc?.root.kvs.model,
           ),
         { fireImmediately: true, equals: trackEqual },
       ),
@@ -510,11 +510,11 @@ export class Tea implements Disposable {
 
   #openAgentsPreview(key: string, sessionId: string): void {
     this.#agentsPreview = key;
-    if (this.client.peekPlexus?.root.sessionId === sessionId) {
-      this.#peekPlexus = this.client.peekPlexus;
+    if (this.client.peekDoc?.root.sessionId === sessionId) {
+      this.#peekDoc = this.client.peekDoc;
       return;
     }
-    this.#peekPlexus = null;
+    this.#peekDoc = null;
     this.client.releasePeek();
     if (sessionId === "") return;
     const token = key;
@@ -523,7 +523,7 @@ export class Tea implements Disposable {
       .then(() => {
         return runInAction(() => {
           if (this.#agentsPreview !== token) return;
-          this.#peekPlexus = this.client.peekPlexus;
+          this.#peekDoc = this.client.peekDoc;
         });
       })
       .catch(() => undefined);
@@ -531,7 +531,7 @@ export class Tea implements Disposable {
 
   #closeAgentsPreview(): void {
     this.#agentsPreview = null;
-    this.#peekPlexus = null;
+    this.#peekDoc = null;
     this.client.releasePeek();
   }
 
@@ -539,14 +539,14 @@ export class Tea implements Disposable {
     const gen = ++this.#askBindGen;
     if (id == null) {
       runInAction(() => {
-        this.#askPlexus = null;
+        this.#askDoc = null;
       });
       this.client.releaseAsk();
       return;
     }
-    if (this.client.askPlexus?.root.sessionId === id) {
+    if (this.client.askDoc?.root.sessionId === id) {
       runInAction(() => {
-        this.#askPlexus = this.client.askPlexus;
+        this.#askDoc = this.client.askDoc;
       });
       return;
     }
@@ -561,7 +561,7 @@ export class Tea implements Disposable {
     if (gen !== this.#askBindGen) return;
     runInAction(() => {
       if (hostAskEscalateSessionId(this.client) !== id) return;
-      this.#askPlexus = this.client.askPlexus;
+      this.#askDoc = this.client.askDoc;
     });
   }
 
@@ -738,7 +738,7 @@ export class Tea implements Disposable {
 
   #previewSpineTurns(): SessionTurn[] {
     if (this.#agentsPreview == null) return [];
-    return tapeSpine(this.#peekPlexus?.root.head ?? null);
+    return tapeSpine(this.#peekDoc?.root.head ?? null);
   }
 
   #paintTrackSpine(): unknown {
@@ -756,14 +756,14 @@ export class Tea implements Disposable {
     return [
       this.#agentsPreview,
       this.client.kernelRoot.hideFloorTools,
-      this.#peekPlexus?.root.kvs.model ?? "",
+      this.#peekDoc?.root.kvs.model ?? "",
       this.#trackSpine(this.#previewSpineTurns()),
     ];
   }
 
   /**
    * Structure only — turn/chunk identity, cutoff, ask pin, hidden tools.
-   * PEW field values belong to per-cell reactions in PaintController.
+   * Completion expectation field values belong to per-cell reactions in PaintController.
    */
   #trackSpine(turns: readonly SessionTurn[]): unknown {
     return turns.map((turn) => [trackTurn(turn), this.#cancelAsked.has(turn)]);
@@ -774,8 +774,8 @@ export class Tea implements Disposable {
     const host = this.client.sessionRoot.findRunningTurn()?.approvalHead ?? null;
     if (host != null) return host;
     const id = hostAskEscalateSessionId(this.client);
-    if (id == null || this.#askPlexus?.root.sessionId !== id) return null;
-    return this.#askPlexus.root.findRunningTurn()?.approvalHead ?? null;
+    if (id == null || this.#askDoc?.root.sessionId !== id) return null;
+    return this.#askDoc.root.findRunningTurn()?.approvalHead ?? null;
   }
 
   /** The acknowledgement the asked call carries, when a flag still waits on a person. */
@@ -822,7 +822,7 @@ export class Tea implements Disposable {
     const host = this.client.sessionRoot;
     if (host.findRunningTurn()?.approvalHead != null) return host;
     const id = hostAskEscalateSessionId(this.client);
-    if (id != null && this.#askPlexus?.root.sessionId === id) return this.#askPlexus.root;
+    if (id != null && this.#askDoc?.root.sessionId === id) return this.#askDoc.root;
     return host;
   }
 
@@ -1031,7 +1031,7 @@ export class Tea implements Disposable {
   }
 
   /**
-   * Plexus facts for the pin. The paint tree is MST, so the constructor
+   * Session document facts for the pin. The paint tree is MST, so the constructor
    * reaction stamps this through `projectWait`.
    */
   @computed.struct
@@ -1333,7 +1333,7 @@ export class Tea implements Disposable {
     });
     const choices =
       surface instanceof UiNode ? surface.choices.filter((child) => child.name !== "").length : "no-surface";
-    const replica = this.client.kernelPlexus.doc;
+    const replica = this.client.kernelDoc;
     const line = `command evaluation: current connection=${session.kvs.connection ?? ""} model=${session.kvs.model ?? ""} surface=${choices} replica=guid=${replica.guid} client=${replica.clientID} ${connections.join("; ") || "connections=(none)"}`;
     if (line === this.#lastModelEvalLog) return;
     this.#lastModelEvalLog = line;
@@ -1823,10 +1823,10 @@ export class Tea implements Disposable {
     if (head instanceof SessionTurn && !isRetrying(head, this.#now())) {
       const chunks = reactChunks(head);
       for (let i = chunks.length - 1; i >= 0; i -= 1) {
-        const pew = tapeCompletion(chunks[i]);
-        if (pew == null || pew.outcome !== "failed") continue;
-        if (isCompletionCutoff(pew)) continue;
-        const picked = pew.endDetail ?? pew.failReason;
+        const completion = tapeCompletion(chunks[i]);
+        if (completion == null || completion.outcome !== "failed") continue;
+        if (isCompletionCutoff(completion)) continue;
+        const picked = completion.endDetail ?? completion.failReason;
         return { level: "error", message: picked == null ? "turn failed" : picked.trim() };
       }
     }
@@ -2057,7 +2057,7 @@ export class Tea implements Disposable {
               ? { scope: opts.remember, subject: picked.subject }
               : undefined;
       const own = desk.findRunningTurn()?.approvalHead === leaf;
-      const sessionId = own ? desk.sessionId : (this.#askPlexus?.root.sessionId ?? desk.sessionId);
+      const sessionId = own ? desk.sessionId : (this.#askDoc?.root.sessionId ?? desk.sessionId);
       if (ack.variant === "ack") {
         // Allowed by policy; only the acknowledgement is asked.
         void this.client
@@ -2096,7 +2096,7 @@ export class Tea implements Disposable {
     const own = desk.findRunningTurn()?.approvalHead === leaf;
     void this.client
       .request("ask/answer", {
-        sessionId: own ? desk.sessionId : (this.#askPlexus?.root.sessionId ?? desk.sessionId),
+        sessionId: own ? desk.sessionId : (this.#askDoc?.root.sessionId ?? desk.sessionId),
         jobId: leaf.uuid,
         allow,
         ...(comment === "" ? {} : { comment }),
@@ -2310,7 +2310,7 @@ export class Tea implements Disposable {
     // The turn is shared. Cancel only when this window is the last seat —
     // another open window is still watching the loop.
     const running =
-      otherSessionSeatCount(this.client.kernelPlexus.awareness, this.client.sessionId) === 0
+      otherSessionSeatCount(this.client.kernelDoc.awareness, this.client.sessionId) === 0
         ? this.client.sessionRoot.findRunningTurn()
         : null;
     Object.assign(this.draft, { draft: "", cursor: 0, mark: null });
@@ -2914,10 +2914,10 @@ function isRetrying(turn: SessionTurn | null, now: number): boolean {
   if (turn == null) return false;
   const chunks = reactChunks(turn);
   for (let i = chunks.length - 1; i >= 0; i -= 1) {
-    const pew = tapeCompletion(chunks[i]);
-    if (pew == null) continue;
-    if (pew.outcome != null) return false;
-    const retryUntilMs = pew.report?.retryUntilMs;
+    const completion = tapeCompletion(chunks[i]);
+    if (completion == null) continue;
+    if (completion.outcome != null) return false;
+    const retryUntilMs = completion.report?.retryUntilMs;
     return typeof retryUntilMs === "number" && retryUntilMs > now;
   }
   return false;

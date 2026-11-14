@@ -2,7 +2,7 @@
  * The class is the driver; an instance is one live openai-compat connection.
  * Bootstrap handshakes GET {baseUrl}/models. The actor owns the chat turn.
  *
- * Wire history is viewWire over the PEW spine, not a connection bag.
+ * Wire history is viewWire over the completion spine, not a connection bag.
  *
  * Adopt parks an optional API key via `callback("UI", …)`; bootstrap reads
  * `apiKey` from `this.secrets`.
@@ -21,16 +21,16 @@
  *   `when ((ready && fresh) || needsAuth || failed)` then stamp (stamp wins
  *   `init.headers`) then fetch once.
  */
-import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
-import { step, trace } from "@inhuman.tools/harness-diagnostics";
-import { CompletionExpectation } from "@inhuman.tools/harness-model";
-import type { CompleteResult, ConnectionCompleteRequest } from "@inhuman.tools/harness-provider-sdk";
 import {
   ConnectionMiss,
   type DriverOffer,
   type ExpectationActor,
-  PEWDriver,
-} from "@inhuman.tools/plexus-expectations/driver";
+  ExpectationDriver,
+} from "@inhuman.tools/expectations/driver";
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
+import { step, trace } from "@inhuman.tools/harness-diagnostics";
+import { CompletionExpectation } from "@inhuman.tools/harness-model";
+import type { CompleteResult, ConnectionCompleteRequest } from "@inhuman.tools/harness-provider-sdk";
 import { action, autorun, computed, type IReactionDisposer, observable, runInAction, when } from "mobx";
 import invariant from "tiny-invariant";
 
@@ -130,7 +130,10 @@ export function openaiCompatLiveState(): {
   };
 }
 
-export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectation, OpenaiCompatConnectionConfig> {
+export class OpenAiCompatDriverConnection extends ExpectationDriver<
+  CompletionExpectation,
+  OpenaiCompatConnectionConfig
+> {
   static override configurationSchema = openaiCompatConfigurationSchema;
   static override secretsSchema = openaiCompatSecretsSchema;
   static override configurationLabel = "openai-compat";
@@ -613,7 +616,7 @@ export class OpenAiCompatDriverConnection extends PEWDriver<CompletionExpectatio
    * On abort, abort the interned actor.
    */
   async complete(req: ConnectionCompleteRequest): Promise<CompleteResult> {
-    invariant(req.round.plexus != null, "complete: round must be homed");
+    invariant(req.round.document != null, "complete: round must be homed");
     const waitSignal = req.signal;
     await this.waitUntilSendReady(waitSignal);
     if (this.needsAuth) {

@@ -131,18 +131,18 @@ describe("orchestrator settlement", () => {
     const { session } = await openSession();
     const turn = closedTurn();
     session.root.head = turn;
-    const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
+    const replacement = new SessionRuntime(session.doc, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
     const completion = new CompletionJob({
       expectation: new CompletionExpectation({ connectionId: "missing", completionMode: "isolated" }),
     });
     turn.pushChild(completion);
-    const before = JSON.stringify(session.plexus.doc.toNodeRows());
+    const before = JSON.stringify(session.doc.toNodeRows());
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect({
       orchestrated: completion.orchestrated,
       done: completion.expectation.isDone,
-      state: JSON.stringify(session.plexus.doc.toNodeRows()),
+      state: JSON.stringify(session.doc.toNodeRows()),
     }).toEqual({ orchestrated: false, done: false, state: before });
   });
 
@@ -181,11 +181,11 @@ describe("orchestrator settlement", () => {
     });
     session.root.head = closedTurn(job);
     await entered.promise;
-    const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
+    const replacement = new SessionRuntime(session.doc, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
     const nextScope = scopes.get(session.root);
     onTestFinished(() => nextScope.close());
-    const before = JSON.stringify(session.plexus.doc.toNodeRows());
+    const before = JSON.stringify(session.doc.toNodeRows());
     pending.resolve({ action: "allow", findings: [] });
     await new Promise<void>((resolve) => setImmediate(resolve));
     session.orchestrator[Symbol.dispose]();
@@ -195,7 +195,7 @@ describe("orchestrator settlement", () => {
       policy: job.policyResult,
       currentScope: scopes.get(session.root) === nextScope,
       nextClosed: nextScope.closed,
-      state: JSON.stringify(session.plexus.doc.toNodeRows()),
+      state: JSON.stringify(session.doc.toNodeRows()),
     }).toEqual({ closed: true, aborted: true, policy: null, currentScope: true, nextClosed: false, state: before });
   });
 

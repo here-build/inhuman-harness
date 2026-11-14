@@ -10,7 +10,7 @@ function hostAt(opts: { depth?: number; botDepth?: number; maxDepth?: number; ma
   const host = {
     caller,
     kernel: {
-      plexus: { root },
+      doc: { root },
       // Anything past the depth check is out of scope here; a bot call stops at the catalog.
       catalog: { catalogEntry: () => undefined, recipe: () => undefined },
     },

@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { walkWork } from "@inhuman.tools/expectations";
 import {
   BotCallJob,
   CompletionExpectation,
@@ -15,7 +16,6 @@ import {
   SessionTurn,
   tapeCompletion,
 } from "@inhuman.tools/harness-model";
-import { walkWork } from "@inhuman.tools/plexus-expectations";
 import { when } from "mobx";
 import { describe, expect, it } from "vitest";
 
@@ -43,14 +43,14 @@ function findOffloadCall(root: SessionRoot, kernel: KernelDaemon, project: Proje
       if (node instanceof BotCallJob && node.name === "offload") return node;
     }
   }
-  const callerPlexus = kernel.sessionPlexus(root.sessionId);
-  if (callerPlexus == null) return undefined;
+  const callerDoc = kernel.sessionDoc(root.sessionId);
+  if (callerDoc == null) return undefined;
   for (const worker of Object.values(project.sessions)) {
     if (worker.sessionId === root.sessionId) continue;
     for (const turn of worker.root.liveTurns) {
       const requestId = turn.agentRequestId;
       if (requestId === "") continue;
-      const loaded = callerPlexus.loadEntity<BotCallJob>(requestId);
+      const loaded = callerDoc.loadEntity<BotCallJob>(requestId);
       if (loaded instanceof BotCallJob && loaded.name === "offload") return loaded;
     }
   }
@@ -61,10 +61,10 @@ function orchestratorCompletions(root: SessionRoot): CompletionExpectation[] {
   const out: CompletionExpectation[] = [];
   const seen = new Set<CompletionExpectation>();
   for (const node of root.motionWork()) {
-    const pew = tapeCompletion(node) ?? (node instanceof CompletionExpectation ? node : null);
-    if (pew == null || seen.has(pew)) continue;
-    seen.add(pew);
-    out.push(pew);
+    const completion = tapeCompletion(node) ?? (node instanceof CompletionExpectation ? node : null);
+    if (completion == null || seen.has(completion)) continue;
+    seen.add(completion);
+    out.push(completion);
   }
   return out;
 }
@@ -86,7 +86,7 @@ function installPluginOnKernel(kernelRoot: string, kernel: KernelDaemon, pluginR
   } catch (error) {
     if (!(error instanceof Error) || !("code" in error) || error.code !== "EEXIST") throw error;
   }
-  reflectKernel(kernelRoot, kernel.plexus.root);
+  reflectKernel(kernelRoot, kernel.doc.root);
 }
 
 describe("hosted extraction", { timeout: 90_000 }, () => {
@@ -112,10 +112,12 @@ describe("hosted extraction", { timeout: 90_000 }, () => {
     try {
       await session.handleRequest("kv/set", { key: "connection", value: connectionId });
       await session.handleRequest("kv/set", { key: "model", value: "m1" });
-      await when(() => kernel.plexus.root.connections[connectionId]?.readyState === "ready", { timeout: TIMEOUT });
+      await when(() => kernel.doc.root.connections[connectionId]?.readyState === "ready", { timeout: TIMEOUT });
 
       await expect(session.handleRequest("turn", { prompt: "retain this unit" })).resolves.toEqual({ ok: true });
-      await when(() => orchestratorCompletions(session.root).some((pew) => pew.outcome == null), { timeout: TIMEOUT });
+      await when(() => orchestratorCompletions(session.root).some((completion) => completion.outcome == null), {
+        timeout: TIMEOUT,
+      });
       modelOf(session).reply({
         calls: [responseCall("call_offload_1", "offload", JSON.stringify({ guidance: "keep unit" }))],
       });

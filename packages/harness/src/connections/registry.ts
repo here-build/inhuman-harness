@@ -2,8 +2,8 @@
  * Registered driver classes for adopt, discovery, and execution.
  * Duplicate names fail here — before intern or bootstrap.
  */
+import type { DriverConnectionClass } from "@inhuman.tools/expectations/driver";
 import { flattenDrivers, type RegisteredDriver, type RegisteredProvider } from "@inhuman.tools/harness-provider-sdk";
-import type { DriverConnectionClass } from "@inhuman.tools/plexus-expectations/driver";
 
 import { connectionsBrand } from "./identity.js";
 import {

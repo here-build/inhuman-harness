@@ -2,7 +2,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -91,12 +91,12 @@ describe("request body", () => {
       model: "m1",
       ...settings,
     });
-    const plexus = SessionPlexus.create("ac-session", "/ws");
-    bindSessionCatalog(plexus.root, new KernelToolCatalog());
+    const doc = SessionDocument.create("ac-session", "/ws");
+    bindSessionCatalog(doc.root, new KernelToolCatalog());
     try {
       await connection.ensureBootstrapStarted();
       const round = new CompletionExpectation({ promptText: prompt.user`hello`, connectionId: "row-ac", model: "m1" });
-      plexus.root.head = new SessionTurn({
+      doc.root.head = new SessionTurn({
         turnTail: new SessionSystemPrompt(),
         prompt: round.promptText,
         doneWork: [new CompletionJob({ expectation: round })],
@@ -105,7 +105,7 @@ describe("request body", () => {
       await connection.complete({ model: "m1", promptText: "hello", round });
       return (compat.posts[0] as { messages: Array<{ role: string; content: unknown }> }).messages;
     } finally {
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
       await compat.close();
     }

@@ -20,7 +20,7 @@ import {
   ProgrammaticJob,
   ReACTChunk,
   responseCall,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
@@ -69,7 +69,7 @@ type Spec = {
 };
 
 class Fixture {
-  readonly plexus = SessionPlexus.create("ret-golden", "/work");
+  readonly doc = SessionDocument.create("ret-golden", "/work");
   /** Every request, by round label, projected the moment the round opened. */
   readonly requests = new Map<string, HistoryMessage[]>();
   readonly completions = new Map<string, CompletionExpectation>();
@@ -77,21 +77,21 @@ class Fixture {
   clock = 1_000_000;
 
   constructor() {
-    onTestFinished(() => this.plexus.destroy());
+    onTestFinished(() => this.doc.destroy());
   }
 
   mint(
     promptText: string,
     opts: { visuals?: readonly UserVisualIdentity[]; config?: string; kvs?: Record<string, string> } = {},
   ) {
-    const tail = this.plexus.root.head ?? new SessionSystemPrompt({ env: { Mode: "act" } });
+    const tail = this.doc.root.head ?? new SessionSystemPrompt({ env: { Mode: "act" } });
     const turn = new SessionTurn({
       turnTail: tail,
       prompt: prompt.user`${promptText}`,
       retentionJson: turnRetentionJson(opts.config ?? "", opts.kvs ?? {}),
       ...(opts.visuals === undefined ? {} : { visualsJson: userVisualsJson(opts.visuals) }),
     });
-    this.plexus.root.seatHead(turn);
+    this.doc.root.seatHead(turn);
     this.turns.push(turn);
     return turn;
   }
@@ -404,7 +404,7 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     );
     expect(refs.size).toBeGreaterThan(5);
     for (const ref of refs) {
-      expect(recallContext(f.plexus.root, { ref }), ref).toMatchObject({ ok: true });
+      expect(recallContext(f.doc.root, { ref }), ref).toMatchObject({ ok: true });
     }
   });
 
@@ -439,12 +439,12 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     for (const job of [wrapper, outer, nested, write, agent]) {
       const ref = `job:${job.uuid.slice(0, 8)}#args`;
       expect(rendered).toContain(ref);
-      const recalled = recallContext(f.plexus.root, { ref });
+      const recalled = recallContext(f.doc.root, { ref });
       expect(recalled.ok, ref).toBe(true);
       expect(String(recalled.value)).toContain(JSON.stringify(job.args).slice(0, 100));
     }
-    f.plexus.root.head = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [] });
-    expect(recallContext(f.plexus.root, { ref: `job:${nested.uuid.slice(0, 8)}#args` }).ok).toBe(false);
+    f.doc.root.head = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [] });
+    expect(recallContext(f.doc.root, { ref: `job:${nested.uuid.slice(0, 8)}#args` }).ok).toBe(false);
   });
 
   it.each(["write_file", "edit_file"])(
@@ -473,7 +473,7 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
       const ref = `job:${job.uuid.slice(0, 8)}#args`;
       let recovered = "";
       for (let offset = 0; offset < argsJson.length; offset += 5000) {
-        const page = recallContext(f.plexus.root, { ref, offset, length: 5000 });
+        const page = recallContext(f.doc.root, { ref, offset, length: 5000 });
         expect(page.ok).toBe(true);
         const rendered = String(page.value);
         recovered += rendered.slice(rendered.indexOf("\n") + 1);
@@ -571,10 +571,10 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     expect(f.turns.map((turn) => turn.retentionJson)).toEqual(stamped);
     expect(JSON.stringify([...projectModelHistory(tip, { readVisual })])).toBe(before);
 
-    // Rehydrate the document into a fresh plexus.
-    const reborn = SessionPlexus.fromNodeRows(f.plexus.doc.toNodeRows(), {
-      rootId: f.plexus.root.uuid,
-      sessionId: f.plexus.root.sessionId,
+    // Rehydrate the document into a fresh SessionDocument.
+    const reborn = SessionDocument.fromNodeRows(f.doc.toNodeRows(), {
+      rootId: f.doc.root.uuid,
+      sessionId: f.doc.root.sessionId,
     });
     onTestFinished(() => reborn.destroy());
     const rebornTip = reborn.loadEntity(tip.uuid);
@@ -648,7 +648,7 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
       (cell): cell is ToolCallJob => cell instanceof ToolCallJob && cell.toolCallId === "r1",
     )!;
     const ref = `job:${read.uuid.slice(0, 8)}`;
-    const root = f.plexus.root;
+    const root = f.doc.root;
     const page1 = recallContext(root, { ref });
     expect(page1.ok).toBe(true);
     expect(String(page1.value)).toMatch(
@@ -672,8 +672,8 @@ describe("golden: 3 turns x 3 rounds, built the production way", () => {
     const read = t3.doneWork.find(
       (cell): cell is ToolCallJob => cell instanceof ToolCallJob && cell.toolCallId === "r2",
     )!;
-    f.plexus.root.head = f.turns[1]!;
-    expect(recallContext(f.plexus.root, { ref: `job:${read.uuid.slice(0, 8)}` })).toMatchObject({ ok: false });
+    f.doc.root.head = f.turns[1]!;
+    expect(recallContext(f.doc.root, { ref: `job:${read.uuid.slice(0, 8)}` })).toMatchObject({ ok: false });
   });
 
   it("N2: an MCP image reaches the model as an image in its own turn and as a stub after it, never as base64 text", () => {

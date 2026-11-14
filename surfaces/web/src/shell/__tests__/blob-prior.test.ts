@@ -1,7 +1,7 @@
 import {
   type BlobPeek,
   FileMutateToolJob,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -158,7 +158,7 @@ const diffOf = (cells: readonly TapeCell[]) => cells.find((cell) => cell.kind ==
 describe("the tape over a blob prior", () => {
   it("shows the whole-file diff once the cache holds the text, the span before", () => {
     const session = root(editJob());
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
     try {
       expect(diffOf(tapeCells(session, blobsHolding()))).toMatchObject({
         body: { kind: "diff", oldText: "line-20", newText: "line-20-edited", lineStart: 21 },
@@ -167,7 +167,7 @@ describe("the tape over a blob prior", () => {
         body: { kind: "diff", oldText: file, newText: edited },
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 });
@@ -181,7 +181,7 @@ describe("the tape recomputes when the seated cache lands a blob", () => {
 
   it("through the module seat, with no cache passed down", async () => {
     const session = root(editJob());
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
     let answer: (value: unknown) => void = () => undefined;
     const calls: unknown[] = [];
     release = bindBlobCache(
@@ -207,13 +207,13 @@ describe("the tape recomputes when the seated cache lands a blob", () => {
       expect(seen[1]).toMatchObject({ kind: "diff", oldText: file, newText: edited });
     } finally {
       stop();
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   it("through turnBeats, which is what the page reads", async () => {
     const session = root(editJob());
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
     let answer: (value: unknown) => void = () => undefined;
     release = bindBlobCache(
       () =>
@@ -237,7 +237,7 @@ describe("the tape recomputes when the seated cache lands a blob", () => {
       expect(seen[1]).toContain("line-19");
     } finally {
       stop();
-      plexus.destroy();
+      doc.destroy();
     }
   });
 });

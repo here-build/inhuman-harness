@@ -62,7 +62,7 @@ when their documented interface fits your use case.
 | [harness-model](../packages/harness-model), [harness-commons](../packages/harness-commons) | Document models and schemas, shared prompt brands and disposal guard |
 | [harness-scheme](../packages/harness-scheme) | Session Scheme runtime; only its documented browser entry points are browser-safe |
 | [packages-runtime](../packages-runtime) | `turn`, `substrate`, `scheme-program`, `scheme-watch`: turn processing, REPL teaching/replay, and program/watch tools |
-| [plexus-expectations](../packages/plexus-expectations) | Work expectations, jobs, and executor |
+| [expectations](../packages/expectations) | Work expectations, jobs, and executor |
 | [harness-diagnostics](../packages/harness-diagnostics) | Process logging and debug gates |
 | [project-instructions](../packages/project-instructions), [project-skills](../packages/project-skills) | Discover instruction files and skill drawers |
 | [env-capabilities](../env-capabilities), [env-capability-module-prompt](../packages/env-capability-module-prompt) | Dotprompt, reactivity, and prompt-module capabilities; decision Jev/Sage/structured adapters are private |

@@ -1,6 +1,6 @@
 /**
  * Park × MCP wire: intern is not the effect. `tools/call` is.
- * Expectation stays on the Job; pewCount is started intern, not presence.
+ * Expectation stays on the Job; startedExpectationCount is started intern, not presence.
  */
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -181,7 +181,7 @@ function admitMcp(session: SessionDaemon): MCPToolJob {
   return job;
 }
 
-function pewCount(job: MCPToolJob): number {
+function startedExpectationCount(job: MCPToolJob): number {
   return job.expectation.startedAtMs != null ? 1 : 0;
 }
 
@@ -191,15 +191,15 @@ describe("Park MCP", () => {
     const job = admitMcp(session);
     gate.allowDispatch.resolve();
     await when(() => job.dispatched, { timeout: TIMEOUT });
-    const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
+    const replacement = new SessionRuntime(session.doc, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
-    const before = JSON.stringify(session.plexus.doc.toNodeRows());
+    const before = JSON.stringify(session.doc.toNodeRows());
     gate.settle.resolve({ ok: true, value: "late pong" });
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect({
       receipt: job.receiptJson,
       completed: job.completed,
-      state: JSON.stringify(session.plexus.doc.toNodeRows()),
+      state: JSON.stringify(session.doc.toNodeRows()),
     }).toEqual({ receipt: null, completed: false, state: before });
     replacement.recover({ kind: "interrupt", message: "new owner settles the interrupted work" });
   });
@@ -212,7 +212,7 @@ describe("Park MCP", () => {
     const before = {
       requests: gate.requests,
       live: beforeSession.interpreting,
-      pew: pewCount(beforeJob),
+      started: startedExpectationCount(beforeJob),
       job: {
         dispatched: beforeJob.dispatched,
         outcome: beforeJob.receiptJson,
@@ -236,7 +236,7 @@ describe("Park MCP", () => {
       live: afterSession.interpreting,
       holding: afterSession.orchestrator.holding,
       outcome: afterJob.receiptJson,
-      pew: pewCount(afterJob),
+      started: startedExpectationCount(afterJob),
     };
     gate.settle.resolve({ ok: true, value: "pong" });
     await parking;
@@ -244,7 +244,7 @@ describe("Park MCP", () => {
       requests: gate.requests,
       parked: true,
       holding: afterSession.orchestrator.holding,
-      pew: pewCount(afterJob),
+      started: startedExpectationCount(afterJob),
       job: { dispatched: true, outcome: afterJob.receiptJson, completed: afterJob.completed },
     };
 
@@ -252,15 +252,15 @@ describe("Park MCP", () => {
       before: {
         requests: 0,
         live: false,
-        pew: 0,
+        started: 0,
         job: { dispatched: false, outcome: null, completed: false, cancelled: false },
       },
-      holding: { parked: false, live: false, holding: true, outcome: null, pew: 0 },
+      holding: { parked: false, live: false, holding: true, outcome: null, started: 0 },
       after: {
         requests: 1,
         parked: true,
         holding: false,
-        pew: 0,
+        started: 0,
         job: { dispatched: true, outcome: JSON.stringify({ ok: true, value: "pong" }), completed: true },
       },
     });

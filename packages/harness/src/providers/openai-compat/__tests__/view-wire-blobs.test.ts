@@ -13,7 +13,7 @@ import {
   CompletionExpectation,
   CompletionJob,
   PromptMessage,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   storedBlobJson,
@@ -49,11 +49,11 @@ function summarizer(): CompletionExpectation {
 
 /** Homes the round on a session, as the daemon does. */
 function homed(round: CompletionExpectation): CompletionExpectation {
-  const plexus = SessionPlexus.create("wire-blobs", "");
-  onTestFinished(() => plexus.destroy());
+  const doc = SessionDocument.create("wire-blobs", "");
+  onTestFinished(() => doc.destroy());
   const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`go`, queue: [] });
   turn.pushChild(new CompletionJob({ expectation: round }));
-  plexus.root.head = turn;
+  doc.root.head = turn;
   return round;
 }
 

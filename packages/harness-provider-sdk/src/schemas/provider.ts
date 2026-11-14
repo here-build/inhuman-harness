@@ -2,8 +2,8 @@
  * Named Zod shapes for provider descriptors, driver rows, and capability
  * request envelopes. Sole definition home for this package.
  */
+import { isDriverConnectionClass, type DriverConnectionClass } from "@inhuman.tools/expectations/driver";
 import { CompletionExpectation } from "@inhuman.tools/harness-model";
-import { isDriverConnectionClass, type DriverConnectionClass } from "@inhuman.tools/plexus-expectations/driver";
 import { z } from "zod";
 
 export const PROVIDER_SDK_CONTRACT = 1 as const;
@@ -45,7 +45,7 @@ export const providerDescriptorSchema = z.object({
 });
 
 export const driverConnectionClassSchema = z.custom<DriverConnectionClass>((value) => isDriverConnectionClass(value), {
-  message: "PEW driver connection class required",
+  message: "ExpectationDriver connection class required",
 });
 
 export const registeredDriverInputSchema = driverDefinitionObject.extend({

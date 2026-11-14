@@ -15,7 +15,7 @@ import {
   findEvalTurnByRequestId,
   hostingTurnOf,
 } from "@inhuman.tools/harness-model";
-import { walkWork } from "@inhuman.tools/plexus-expectations";
+import { walkWork } from "@inhuman.tools/expectations";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";

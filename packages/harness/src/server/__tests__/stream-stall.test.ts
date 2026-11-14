@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { walkWork } from "@inhuman.tools/expectations";
 import {
   AgentCallJob,
   CompletionExpectation,
@@ -11,7 +12,6 @@ import {
   tapeCompletion,
 } from "@inhuman.tools/harness-model";
 import { Client } from "@inhuman.tools/harness-sdk";
-import { walkWork } from "@inhuman.tools/plexus-expectations";
 import { describe, expect, it } from "vitest";
 
 import { OpenAiCompatActor } from "@/providers/openai-compat";
@@ -141,9 +141,9 @@ function armWorkerStall(project: ProjectDaemon): boolean {
         const worker = project.sessions[node.workerSessionId];
         if (worker == null) return false;
         for (const work of walkWork(worker.root)) {
-          const pew = work instanceof CompletionExpectation ? work : tapeCompletion(work);
-          if (pew == null || pew.outcome != null || pew.completionMode !== "session") continue;
-          const actor = worker.orchestrator.actorOf(pew);
+          const completion = work instanceof CompletionExpectation ? work : tapeCompletion(work);
+          if (completion == null || completion.outcome != null || completion.completionMode !== "session") continue;
+          const actor = worker.orchestrator.actorOf(completion);
           if (!(actor instanceof OpenAiCompatActor)) continue;
           actor.stallMs = STALL_MS;
           return true;
@@ -159,9 +159,9 @@ function internedRoots(project: ProjectDaemon): Array<{ head: unknown; liveTurns
   for (const [id, session] of Object.entries(project.sessions)) {
     if (session != null) roots.set(id, session.root);
   }
-  for (const id of Object.keys(project.kernel.plexus.root.sessions)) {
-    const plexus = project.kernel.sessionPlexus(id);
-    if (plexus != null) roots.set(id, plexus.root);
+  for (const id of Object.keys(project.kernel.doc.root.sessions)) {
+    const doc = project.kernel.sessionDoc(id);
+    if (doc != null) roots.set(id, doc.root);
   }
   return [...roots.values()];
 }
@@ -189,8 +189,8 @@ function settled(
             message: outcome instanceof FailureOutcome ? outcome.message : "",
           };
         }
-        const pew = node instanceof CompletionExpectation ? node : tapeCompletion(node);
-        if (pew != null && pew.responseText === PARTIAL) partial = PARTIAL;
+        const completion = node instanceof CompletionExpectation ? node : tapeCompletion(node);
+        if (completion != null && completion.responseText === PARTIAL) partial = PARTIAL;
       }
     }
   }

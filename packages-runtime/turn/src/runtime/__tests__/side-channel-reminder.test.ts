@@ -45,9 +45,9 @@ test("title and context_need reminders arm on the 5th quiet round and stay off t
 
 function quietTail(count: number): SessionTurn {
   const doneWork = Array.from({ length: count }, (_, index) => {
-    const pew = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`old ${index}` });
-    pew.succeed("settled", "", "null", { result: { text: "ok" } });
-    return new CompletionJob({ expectation: pew });
+    const completion = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`old ${index}` });
+    completion.succeed("settled", "", "null", { result: { text: "ok" } });
+    return new CompletionJob({ expectation: completion });
   });
   return new SessionTurn({
     turnTail: new SessionSystemPrompt(),
@@ -102,17 +102,17 @@ test("an empty context_need-only reply opens another round, and speech seals", a
 });
 
 test("a cutoff compact eat keeps the summary and drops the buried nag", () => {
-  const pew = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`old` });
-  pew.systemNote = prompt.system`BURIED NAG`;
-  pew.succeed("settled", "", "null", { result: { text: "old work" } });
-  const recent = new CompletionExpectation({ connectionId: "c1", messages: [pew] });
+  const completion = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`old` });
+  completion.systemNote = prompt.system`BURIED NAG`;
+  completion.succeed("settled", "", "null", { result: { text: "old work" } });
+  const recent = new CompletionExpectation({ connectionId: "c1", messages: [completion] });
   recent.succeed("settled", "", "null", { result: { text: "recent work" } });
   const turn = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`compacted`,
     queue: [],
     doneWork: [
-      new CompletionJob({ expectation: pew }),
+      new CompletionJob({ expectation: completion }),
       new CompletionJob({ expectation: recent }),
       new CompactJob({ completed: true, standIn: "summary of the work" }),
     ],
@@ -120,7 +120,7 @@ test("a cutoff compact eat keeps the summary and drops the buried nag", () => {
   const eaten = historyBehind(turn)
     .flatMap((cell) => (typeof cell === "string" ? [cell] : cell instanceof CompactJob ? [cell.standIn] : []))
     .join("\n");
-  expect({ eaten, stored: pew.systemNote }).toEqual({
+  expect({ eaten, stored: completion.systemNote }).toEqual({
     eaten: "summary of the work",
     stored: "BURIED NAG",
   });

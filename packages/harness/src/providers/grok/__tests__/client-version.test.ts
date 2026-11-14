@@ -2,7 +2,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -175,7 +175,7 @@ describe("Grok client version", () => {
       return installed(input, init);
     }) as typeof fetch;
     const connection = new GrokDriverConnection("row-grok", { baseUrl: grok.baseUrl }, { apiKey: "grok-at" });
-    const plexus = SessionPlexus.create("grok-version", "/ws");
+    const doc = SessionDocument.create("grok-version", "/ws");
     const patches: Array<Readonly<Record<string, unknown>>> = [];
     try {
       await connection.ensureBootstrapStarted();
@@ -187,7 +187,7 @@ describe("Grok client version", () => {
         connectionId: "row-grok",
         model: "grok-4",
       });
-      plexus.root.head = new SessionTurn({
+      doc.root.head = new SessionTurn({
         turnTail: new SessionSystemPrompt(),
         prompt: round.promptText,
         doneWork: [new CompletionJob({ expectation: round })],
@@ -206,7 +206,7 @@ describe("Grok client version", () => {
       expect(grok.requestHeaders.map((headers) => headers["x-grok-model-override"])).toEqual(["grok-4", "grok-4"]);
       expect(patches).toEqual([{ clientVersion: GROK_CLIENT_VERSION }, { clientVersion: "9.9.9" }]);
     } finally {
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
       await grok.close();
       restore();

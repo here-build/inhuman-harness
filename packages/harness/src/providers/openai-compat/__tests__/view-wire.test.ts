@@ -1,5 +1,5 @@
 /**
- * Wire is the PEW spine encoded as chat messages.
+ * Wire is the completion spine encoded as chat messages.
  * Unresolved / background tools still emit a correlator.
  */
 import { mkdtempSync, rmSync } from "node:fs";
@@ -16,7 +16,7 @@ import {
   ProgrammaticJob,
   PromptMessage,
   responseCall,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
@@ -89,10 +89,10 @@ function mount(
   }
 }
 
-function session(id: string, path = ""): SessionPlexus {
-  const plexus = SessionPlexus.create(id, path);
-  onTestFinished(() => plexus.destroy());
-  return plexus;
+function session(id: string, path = ""): SessionDocument {
+  const doc = SessionDocument.create(id, path);
+  onTestFinished(() => doc.destroy());
+  return doc;
 }
 
 function wire(
@@ -106,7 +106,7 @@ function wire(
     readonly dialect?: Pick<ReasoningDialect, "echo" | "chatField">;
   },
 ): { chat: ChatMessage[]; turn: SessionTurn; tip: CompletionExpectation } {
-  const plexus = session(id, extra?.path ?? "");
+  const doc = session(id, extra?.path ?? "");
   const last = cells.at(-1);
   if (!(last instanceof CompletionExpectation)) throw new TypeError("wire: last cell is not a CompletionExpectation");
   const tip = last;
@@ -126,7 +126,7 @@ function wire(
       note: prompt.system`${extra.emitNote}`,
     });
   mount(turn, ...cells);
-  plexus.root.head = turn;
+  doc.root.head = turn;
   return { chat: [...viewWire(tip, { dialect: extra?.dialect })], turn, tip };
 }
 
@@ -548,8 +548,8 @@ describe("viewWire", () => {
     const png = PNG.sync.write(new PNG({ width: 2, height: 2 }));
     writeVisual("wire-pics", "kept", png);
     const tip = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`see` });
-    const plexus = session("wire-pics", "/work");
-    plexus.root.head = new SessionTurn({
+    const doc = session("wire-pics", "/work");
+    doc.root.head = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`see`,
       visualsJson: userVisualsJson([

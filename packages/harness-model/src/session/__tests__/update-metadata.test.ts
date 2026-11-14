@@ -6,7 +6,7 @@ import { CONTEXT_NEED_TOOL_NAME } from "../context-need.js";
 import { ContextNeedToolJob } from "../jobs/ContextNeedToolJob.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { SessionRoot } from "../SessionRoot.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
@@ -110,7 +110,7 @@ describe("update_metadata derivation", () => {
 
   it("last surviving call wins; rewind restores; manual outranks; scheme inners count; need does not steal", () => {
     const root = new SessionRoot({ sessionId: "s-title", path: "/tmp/title" });
-    const plexus = SessionPlexus.bootstrap(root);
+    const doc = SessionDocument.bootstrap(root);
     const genesis = new SessionSystemPrompt();
     const first = new SessionTurn({
       turnTail: genesis,
@@ -193,7 +193,7 @@ describe("update_metadata derivation", () => {
       skipGarbage: "Kept title",
       inherited: { title: "First label", description: "started" },
     });
-    plexus.destroy();
+    doc.destroy();
   });
 });
 

@@ -59,7 +59,7 @@
     "@here.build/arrival": "^0.10.2",
     "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/harness-peer": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/expectations": "workspace:^",
     "@types/node": "^24.19.2",
     "eslint": "10.13.0",
     "typescript": "6.0.3",

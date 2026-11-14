@@ -32,7 +32,7 @@ describe("kernel home bots", () => {
     expect({
       kept: readFileSync(join(home, "implementer.md"), "utf8").includes("Do the brief."),
       reviewerFile: existsSync(join(home, "reviewer.md")),
-      faces: Object.keys(kernel.plexus.root.bots).sort(),
+      faces: Object.keys(kernel.doc.root.bots).sort(),
       overlay: kernel.catalog.recipes.map((recipe) => recipe.spec.name),
       compiled: kernel.catalog.recipe("implementer")?.category,
     }).toEqual({
@@ -58,7 +58,7 @@ describe("kernel home bots", () => {
     );
     await when(
       () =>
-        kernel.plexus.root.bots.scout != null &&
+        kernel.doc.root.bots.scout != null &&
         kernel.catalog.recipe("implementer")?.spec.instructions.includes("Patch") === true,
       { timeout: 8_000 },
     );
@@ -66,7 +66,7 @@ describe("kernel home bots", () => {
       scout: kernel.catalog.recipe("scout")?.spec.description,
       implementer: kernel.catalog.recipe("implementer")?.spec.instructions.includes("Patch"),
       overlay: kernel.catalog.recipes.map((recipe) => recipe.spec.name).sort(),
-      faces: Object.keys(kernel.plexus.root.bots).sort(),
+      faces: Object.keys(kernel.doc.root.bots).sort(),
     }).toEqual({
       scout: "look around",
       implementer: true,

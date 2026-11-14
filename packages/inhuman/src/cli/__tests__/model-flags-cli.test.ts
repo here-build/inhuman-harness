@@ -87,7 +87,7 @@ it(
 
     const unknown = capture(workspace);
     const unknownRun = await run(["-e", "(+ 1 2)", "--connection", "nope", "--kernel", kernel], unknown.streams);
-    const kernelSessions = Object.keys((await daemon.kernel()).plexus.root.sessions);
+    const kernelSessions = Object.keys((await daemon.kernel()).doc.root.sessions);
 
     const ambiguous = capture(workspace);
     const ambiguousRun = await run(["-e", "(+ 1 2)", "--model", "shared", "--kernel", kernel], ambiguous.streams);

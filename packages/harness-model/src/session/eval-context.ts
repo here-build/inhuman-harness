@@ -6,7 +6,7 @@
  * Floor / residual votes: `PolicyResult` / `JudgeResult`. There is no
  * judge `fail` vote — a failed attempt is `classifierAbstain` on the leaf.
  */
-import { walkWork, type WorkContainer } from "@inhuman.tools/plexus-expectations";
+import { walkWork, type WorkContainer } from "@inhuman.tools/expectations";
 
 import { ProgrammaticJob } from "./jobs/ProgrammaticJob.js";
 import type { SessionRoot } from "./SessionRoot.js";

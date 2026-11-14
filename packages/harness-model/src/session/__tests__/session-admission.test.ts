@@ -22,40 +22,40 @@ import {
   SessionAdmission,
   SessionTurnEvalSpec,
   steerFirstQueued,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
 } from "../index.js";
 
-function replicaOf(owner: SessionPlexus): { readonly root: SessionPlexus["root"]; [Symbol.dispose](): void } {
-  const plexus = SessionPlexus.fromSnapshot(owner.toSnapshot());
+function replicaOf(owner: SessionDocument): { readonly root: SessionDocument["root"]; [Symbol.dispose](): void } {
+  const doc = SessionDocument.fromSnapshot(owner.toSnapshot());
   return {
     get root() {
-      return plexus.root;
+      return doc.root;
     },
     [Symbol.dispose]() {
-      plexus.destroy();
+      doc.destroy();
     },
   };
 }
 
 describe("Session admission decks", () => {
   it("older replica has empty decks; admit / demote / steer-first / retract write cells", () => {
-    const plexus = SessionPlexus.create("s-old-ad", "/tmp/old-ad");
-    plexus.root.head = new SessionTurn({
+    const doc = SessionDocument.create("s-old-ad", "/tmp/old-ad");
+    doc.root.head = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`hello`,
       queue: [],
     });
-    using replica = replicaOf(plexus);
-    const turn = plexus.root.head!;
-    admitSteer(plexus.root, prompt.user`also`, turn.uuid);
-    admitQueue(plexus.root, prompt.user`later`, turn.uuid);
-    const demoted = demoteSteers(plexus.root);
-    admitSteer(plexus.root, prompt.user`mid`, turn.uuid);
+    using replica = replicaOf(doc);
+    const turn = doc.root.head!;
+    admitSteer(doc.root, prompt.user`also`, turn.uuid);
+    admitQueue(doc.root, prompt.user`later`, turn.uuid);
+    const demoted = demoteSteers(doc.root);
+    admitSteer(doc.root, prompt.user`mid`, turn.uuid);
 
-    const verbs = SessionPlexus.create("s-ad-verbs", "/tmp/ad-verbs");
+    const verbs = SessionDocument.create("s-ad-verbs", "/tmp/ad-verbs");
     verbs.root.head = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`hello`,
@@ -72,7 +72,7 @@ describe("Session admission decks", () => {
         workHasAdmission: replica.root.work.some((node) => node instanceof SessionAdmission),
       },
       demoted: demoted.map((row) => row.text),
-      sitting: plexus.root.steerQueue.map((row) => row.text),
+      sitting: doc.root.steerQueue.map((row) => row.text),
       verbs: {
         steered: steered?.text,
         retracted: retracted?.text,
@@ -85,7 +85,7 @@ describe("Session admission decks", () => {
       sitting: ["mid"],
       verbs: { steered: "a", retracted: "b", leftover: [], steer: ["a"] },
     });
-    plexus.destroy();
+    doc.destroy();
     verbs.destroy();
   });
 });
@@ -109,87 +109,87 @@ describe("steerTurn", () => {
     { name: "a cancelled head does not", want: false, turn: () => open({ cancelRequested: true }) },
     { name: "a closed head does not", want: false, turn: () => open({ reducerExited: true }) },
   ])("$name", (row) => {
-    const plexus = SessionPlexus.create("s-st", "/tmp/st");
+    const doc = SessionDocument.create("s-st", "/tmp/st");
     const turn = row.turn();
-    plexus.root.head = turn;
-    expect(plexus.root.steerTurn === turn).toBe(row.want);
-    plexus.destroy();
+    doc.root.head = turn;
+    expect(doc.root.steerTurn === turn).toBe(row.want);
+    doc.destroy();
   });
 
   it("an inbound head waits on its running predecessor, which runs and takes the steer", () => {
-    const plexus = SessionPlexus.create("s-st-in", "/tmp/st-in");
+    const doc = SessionDocument.create("s-st-in", "/tmp/st-in");
     const running = open();
-    plexus.root.head = running;
-    plexus.root.enqueueAgentRequest("req", "caller", prompt.user`from a peer`);
-    const inbound = plexus.root.head!;
+    doc.root.head = running;
+    doc.root.enqueueAgentRequest("req", "caller", prompt.user`from a peer`);
+    const inbound = doc.root.head!;
     const waiting = {
-      chain: plexus.root.liveChain,
-      running: plexus.root.findRunningTurn(),
-      steer: plexus.root.steerTurn,
+      chain: doc.root.liveChain,
+      running: doc.root.findRunningTurn(),
+      steer: doc.root.steerTurn,
     };
     running.reducerExited = true;
     expect({
       waiting,
-      closed: { running: plexus.root.findRunningTurn(), steer: plexus.root.steerTurn },
+      closed: { running: doc.root.findRunningTurn(), steer: doc.root.steerTurn },
     }).toEqual({
       waiting: { chain: [inbound, running], running, steer: running },
       closed: { running: inbound, steer: inbound },
     });
-    plexus.destroy();
+    doc.destroy();
   });
 });
 
 describe("running turn chrome", () => {
   it("an ask on the running predecessor of a waiting inbound head is the session's ask", () => {
-    const plexus = SessionPlexus.create("s-ask-in", "/tmp/ask-in");
+    const doc = SessionDocument.create("s-ask-in", "/tmp/ask-in");
     const leaf = new SystemToolJob({ toolCallId: "a", name: "shell", argsJson: "{}" });
     const running = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`work`, queue: [] });
     running.pushChild(leaf);
     running.doneWork.push(leaf);
-    plexus.root.head = running;
+    doc.root.head = running;
     leaf.policyResult = "ask";
-    plexus.root.enqueueAgentRequest("req", "caller", prompt.user`from a peer`);
+    doc.root.enqueueAgentRequest("req", "caller", prompt.user`from a peer`);
     expect({
-      waiting: plexus.root.head !== running,
-      asking: plexus.root.asking,
-      unfinished: plexus.root.unfinished,
+      waiting: doc.root.head !== running,
+      asking: doc.root.asking,
+      unfinished: doc.root.unfinished,
     }).toEqual({ waiting: true, asking: true, unfinished: "ask" });
-    plexus.destroy();
+    doc.destroy();
   });
 });
 
 describe("inbox claims", () => {
   it("each claim moves the inbox onto the turn in one write transaction", () => {
-    const plexus = SessionPlexus.create("s-claim", "/tmp/claim");
+    const doc = SessionDocument.create("s-claim", "/tmp/claim");
     const call = new AgentCallJob({ toolCallId: "c", name: "agent__send", background: true });
     call.notifications.push(new AgentCallNotification({ message: "from the call" }));
     const producer = new SessionTurn({ turnTail: new SessionSystemPrompt(), doneWork: [call], queue: [] });
     producer.pushChild(call);
     producer.reducerExited = true;
-    plexus.root.head = producer;
+    doc.root.head = producer;
     const leaves = ["a", "b"].map(
       (id) => new SystemToolJob({ toolCallId: id, name: "shell", humanApprove: true, approvalComment: `note ${id}` }),
     );
     const turn = new SessionTurn({ turnTail: producer, prompt: prompt.user`go`, doneWork: [...leaves], queue: [] });
     for (const leaf of leaves) turn.pushChild(leaf);
-    plexus.root.head = turn;
-    admitSteer(plexus.root, prompt.user`one`, turn.uuid);
-    admitSteer(plexus.root, prompt.user`two`, turn.uuid);
+    doc.root.head = turn;
+    admitSteer(doc.root, prompt.user`one`, turn.uuid);
+    admitSteer(doc.root, prompt.user`two`, turn.uuid);
     const writes = (claim: () => void): number => {
       let count = 0;
-      const unsub = plexus.onPatch(() => {
+      const unsub = doc.onPatch(() => {
         count += 1;
       });
-      plexus.transact(claim);
+      doc.transact(claim);
       unsub();
       return count;
     };
     expect({
       approvals: writes(() => turn.claimApprovalNotes()),
-      steers: writes(() => plexus.root.claimSteers(turn)),
-      notices: writes(() => plexus.root.claimNotices(turn)),
+      steers: writes(() => doc.root.claimSteers(turn)),
+      notices: writes(() => doc.root.claimNotices(turn)),
       tape: turn.doneWork.map((cell) => cell.constructor.name),
-      inbox: { steers: plexus.root.steerQueue.length, notices: plexus.root.pendingNotices.length },
+      inbox: { steers: doc.root.steerQueue.length, notices: doc.root.pendingNotices.length },
     }).toEqual({
       approvals: 1,
       steers: 1,
@@ -205,7 +205,7 @@ describe("inbox claims", () => {
       ],
       inbox: { steers: 0, notices: 0 },
     });
-    plexus.destroy();
+    doc.destroy();
   });
 });
 
@@ -421,10 +421,10 @@ describe("lastTurnIncomplete", () => {
         }),
     },
   ])("$name", (row) => {
-    const plexus = SessionPlexus.create("s-nc", "/tmp/nc");
+    const doc = SessionDocument.create("s-nc", "/tmp/nc");
     const turn = row.turn();
-    plexus.root.head = turn;
+    doc.root.head = turn;
     expect(turn.lastTurnIncomplete).toBe(row.want);
-    plexus.destroy();
+    doc.destroy();
   });
 });

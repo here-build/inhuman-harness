@@ -3,8 +3,8 @@
  * `Client.callTool` validates outputSchema on the client and throws — send
  * stays `client.request` inside `callTool`.
  */
+import { ConnectionNotReady, DemandIncomplete, ExpectationActor } from "@inhuman.tools/expectations/driver";
 import type { McpToolExpectation } from "@inhuman.tools/harness-model";
-import { ConnectionNotReady, DemandIncomplete, ExpectationActor } from "@inhuman.tools/plexus-expectations/driver";
 
 import type { McpDriverConnection } from "./mcp-connection.js";
 

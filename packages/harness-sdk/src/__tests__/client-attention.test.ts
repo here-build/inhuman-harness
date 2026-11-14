@@ -2,11 +2,11 @@
  * Client attention occupancy: kernel-plane publish, retract, dispose.
  * Interned connections outlive a session wrap, so occupancy is not session-plane.
  */
-import { KernelPlexus, KernelRoot, ProjectPlexus } from "@inhuman.tools/harness-model/kernel";
-import { SessionPlexus } from "@inhuman.tools/harness-model/session";
-import { forwardPlexusAwareness, ingestPlexusAwareness } from "@inhuman.tools/harness-peer/awareness";
-import { PlexusAwareness } from "@inhuman.tools/model";
-import { revalidationDemandOf, ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { revalidationDemandOf, ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
+import { KernelDocument, KernelRoot, ProjectDocument } from "@inhuman.tools/harness-model/kernel";
+import { SessionDocument } from "@inhuman.tools/harness-model/session";
+import { forwardAwareness, ingestAwareness } from "@inhuman.tools/harness-peer/awareness";
+import { ReactiveAwareness } from "@inhuman.tools/model";
 import { observable } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -31,14 +31,14 @@ describe("client kernel attention", () => {
     client.setComputedAttentionFocus(() => (focused.get() ? wire : null));
 
     const target = { kind: "connection", id: "work" } as const;
-    expect(revalidationDemandOf(client.kernelPlexus.awareness, target)).toBe("primary");
-    expect(revalidationDemandOf(client.sessionPlexus.awareness, target)).toBe("none");
+    expect(revalidationDemandOf(client.kernelDoc.awareness, target)).toBe("primary");
+    expect(revalidationDemandOf(client.sessionDoc.awareness, target)).toBe("none");
 
     focused.set(false);
-    expect(revalidationDemandOf(client.kernelPlexus.awareness, target)).toBe("secondary");
+    expect(revalidationDemandOf(client.kernelDoc.awareness, target)).toBe("secondary");
 
     listed.set(false);
-    expect(revalidationDemandOf(client.kernelPlexus.awareness, target)).toBe("none");
+    expect(revalidationDemandOf(client.kernelDoc.awareness, target)).toBe("none");
   });
 
   it("unions simultaneous clients; dispose retracts only that client's lanes", async () => {
@@ -48,16 +48,16 @@ describe("client kernel attention", () => {
     const wire = new ConnectionSpec({ driver, name: "work" });
     a.kernelRoot.drivers = { "openai-compat": driver };
     a.kernelRoot.connections = { work: wire };
-    const replica = new PlexusAwareness();
-    const stopA = forwardPlexusAwareness(a.kernelPlexus.awareness, (frame) => ingestPlexusAwareness(replica, frame));
-    const stopB = forwardPlexusAwareness(b.kernelPlexus.awareness, (frame) => ingestPlexusAwareness(replica, frame));
+    const replica = new ReactiveAwareness();
+    const stopA = forwardAwareness(a.kernelDoc.awareness, (frame) => ingestAwareness(replica, frame));
+    const stopB = forwardAwareness(b.kernelDoc.awareness, (frame) => ingestAwareness(replica, frame));
     try {
       a.setComputedAttention(() => [wire]);
       b.setComputedAttentionFocus(() => wire);
 
       const target = { kind: "connection", id: "work" } as const;
       expect(revalidationDemandOf(replica, target)).toBe("primary");
-      expect(revalidationDemandOf(a.sessionPlexus.awareness, target)).toBe("none");
+      expect(revalidationDemandOf(a.sessionDoc.awareness, target)).toBe("none");
 
       await b[Symbol.asyncDispose]();
       clients.splice(clients.indexOf(b), 1);
@@ -79,9 +79,9 @@ describe("client kernel attention", () => {
       "/tmp/k",
       "/tmp/p",
       sessionId,
-      KernelPlexus.bootstrap(new KernelRoot()),
-      ProjectPlexus.create("/tmp/p"),
-      SessionPlexus.create(sessionId, "/tmp/p"),
+      KernelDocument.bootstrap(new KernelRoot()),
+      ProjectDocument.create("/tmp/p"),
+      SessionDocument.create(sessionId, "/tmp/p"),
     );
     clients.push(client);
     return client;

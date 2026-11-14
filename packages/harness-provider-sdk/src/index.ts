@@ -1,6 +1,6 @@
 /**
  * @inhuman.tools/harness-provider-sdk — driver-provider descriptors,
- * registration identity, and capability request/result contracts on PEW.
+ * registration identity, and capability request/result contracts on Expectation.
  *
  * Not a vendor completion class, not InhumanPlugin, not a plugin loader.
  */

@@ -1,11 +1,11 @@
+import type { DriverMultiplicity } from "@inhuman.tools/expectations";
+import { isDriverConnectionClass } from "@inhuman.tools/expectations/driver";
 import {
   flattenDrivers,
   parseProviderRegistration,
   PROVIDER_SDK_CONTRACT,
   registerProviders,
 } from "@inhuman.tools/harness-provider-sdk";
-import type { DriverMultiplicity } from "@inhuman.tools/plexus-expectations";
-import { isDriverConnectionClass } from "@inhuman.tools/plexus-expectations/driver";
 import { describe, expect, it } from "vitest";
 
 import { chatgptProvider } from "@/providers/chatgpt";

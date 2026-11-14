@@ -3,9 +3,9 @@
  * state does not. Transport subclasses spawn or dial; this class owns the
  * SDK client connect + listTools. Interned `callTool` is the send door.
  */
+import { ConnectionMiss, type ExpectationActor, ExpectationDriver } from "@inhuman.tools/expectations/driver";
 import { fail } from "@inhuman.tools/harness-diagnostics";
 import type { McpToolExpectation, McpToolResult } from "@inhuman.tools/harness-model";
-import { ConnectionMiss, type ExpectationActor, PEWDriver } from "@inhuman.tools/plexus-expectations/driver";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -17,7 +17,7 @@ import { mcpToolAllowed, mcpToolsSettingOf } from "./tool-filter.js";
 
 export abstract class McpDriverConnection<
   C extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
-> extends PEWDriver<McpToolExpectation, C> {
+> extends ExpectationDriver<McpToolExpectation, C> {
   @observable.shallow override accessor state: {
     tools: McpListedTool[];
     auth: string | undefined;

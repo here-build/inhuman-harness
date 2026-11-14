@@ -1,10 +1,10 @@
 /**
- * Shared connection lifecycle over the existing PEW intern.
+ * Shared connection lifecycle over the existing expectation intern.
  * Do not add a second process-local connection table here.
  */
-import type { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
-import type { ConnectionSecretsView, PEWDriver } from "@inhuman.tools/plexus-expectations/driver";
-import { acquireConnection } from "@inhuman.tools/plexus-expectations/executor";
+import type { ConnectionSpec } from "@inhuman.tools/expectations";
+import type { ConnectionSecretsView, ExpectationDriver } from "@inhuman.tools/expectations/driver";
+import { acquireConnection } from "@inhuman.tools/expectations/executor";
 import { action } from "mobx";
 
 import type { DriverRegistry } from "./registry.js";
@@ -16,7 +16,7 @@ export type InternKernel = {
 
 export type InternOptions = ResolveOptions & {
   readonly secrets: ConnectionSecretsView;
-  readonly awareness?: PEWDriver["awareness"];
+  readonly awareness?: ExpectationDriver["awareness"];
 };
 
 export function requireFreeConnectionId(kernel: InternKernel, id: string): void {
@@ -31,7 +31,7 @@ export async function ensureRegisteredConnection(
   owner: object,
   connectionId: string,
   options: InternOptions,
-): Promise<PEWDriver> {
+): Promise<ExpectationDriver> {
   const spec = kernel.connections[connectionId];
   if (spec === undefined) {
     throw new Error(`connections: unknown connection ${connectionId}`);
@@ -47,7 +47,7 @@ export async function ensureRegisteredConnection(
   return instance;
 }
 
-function bindAwareness(instance: PEWDriver, awareness: PEWDriver["awareness"]): void {
+function bindAwareness(instance: ExpectationDriver, awareness: ExpectationDriver["awareness"]): void {
   if (awareness === undefined) return;
   action(() => {
     instance.awareness = awareness;

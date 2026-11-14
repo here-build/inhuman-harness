@@ -2,8 +2,8 @@
  * A2A send (name or id). Completes when the target turn is written.
  * No `agentCallbacks` row. Not a DAG edge.
  */
+import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/expectations";
 import { model } from "@inhuman.tools/model";
-import { type JobEffectOwner, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ToolCallJob } from "./ToolCallJob.js";

@@ -28,7 +28,7 @@ describe("kernel lifetime", () => {
     const daemon = new HarnessDaemon(system);
     const kernel = await daemon.kernel();
     const session = await (await daemon.project(workspace)).session("s");
-    kernel.plexus.root.termContinue.k = "last";
+    kernel.doc.root.termContinue.k = "last";
     session.root.mode = "plan";
     await daemon[Symbol.asyncDispose]();
     expect([...kernel.runtime.acquired]).toEqual([]);
@@ -37,7 +37,7 @@ describe("kernel lifetime", () => {
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
     expect({
-      kernel: restored.plexus.root.termContinue.k,
+      kernel: restored.doc.root.termContinue.k,
       session: (await restored.acquireSession("s"))?.root.mode,
     }).toEqual({ kernel: "last", session: "plan" });
   });
@@ -52,7 +52,7 @@ describe("kernel lifetime", () => {
     rmSync(system);
     await mkdir(system);
     const kernel = await daemon.kernel();
-    expect(kernel.plexus.root).toBeDefined();
+    expect(kernel.doc.root).toBeDefined();
   });
 
   it("a failed project load is retried, and a concurrent caller waits for ready", async () => {
@@ -66,7 +66,7 @@ describe("kernel lifetime", () => {
 
     const first = daemon.project(workspace);
     const second = await daemon.project(workspace);
-    expect({ plexus: second.plexus != null, same: second === (await first) }).toEqual({ plexus: true, same: true });
+    expect({ doc: second.doc != null, same: second === (await first) }).toEqual({ doc: true, same: true });
   });
 
   it("an unopenable session reports why instead of not found", async () => {
@@ -76,7 +76,7 @@ describe("kernel lifetime", () => {
     await kernel.ready;
     const project = kernel.project(workspace);
     await project.ready;
-    await kernel.flushSession((await project.session("s")).plexus);
+    await kernel.flushSession((await project.session("s")).doc);
     kernel[Symbol.dispose]();
 
     const restored = new KernelDaemon(system);
@@ -112,7 +112,7 @@ describe("kernel lifetime", () => {
     const picked = await kernel.handleRequest("project/pick", {}, { requestId: 1, connectionId: "local-1" });
     expect(picked).toEqual({ ok: true, path: workspace });
     expect(kernel.hasProject(workspace)).toBe(true);
-    expect(Object.keys(kernel.plexus.root.projects)).toContain(workspace);
+    expect(Object.keys(kernel.doc.root.projects)).toContain(workspace);
 
     kernel.setDirectoryPicker(async () => null);
     const cancelled = await kernel.handleRequest("project/pick", {}, { requestId: 2, connectionId: "local-1" });
@@ -128,7 +128,7 @@ describe("kernel lifetime", () => {
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
     expect(restored.hasProject(workspace)).toBe(true);
-    expect(Object.keys(restored.plexus.root.projects)).toContain(workspace);
+    expect(Object.keys(restored.doc.root.projects)).toContain(workspace);
     expect(restored.project(workspace).root.path).toBe(workspace);
     expect(restored.project(workspace).root.sessions).toEqual({});
   });
@@ -147,13 +147,13 @@ describe("kernel lifetime", () => {
       session.root.standingPermissionMode = "yolo";
       session.root.manualTitle = "Kept";
     });
-    publishKernelSeat(kernel.plexus.awareness, "s");
-    await when(() => sessionIsOccupied(kernel.plexus.awareness, "s"), { timeout: 2_000 });
+    publishKernelSeat(kernel.doc.awareness, "s");
+    await when(() => sessionIsOccupied(kernel.doc.awareness, "s"), { timeout: 2_000 });
 
     // `running` is openTurn. A seat leaves it false.
-    await kernel.flushSession(session.plexus);
+    await kernel.flushSession(session.doc);
     expect({
-      occupied: sessionIsOccupied(kernel.plexus.awareness, "s"),
+      occupied: sessionIsOccupied(kernel.doc.awareness, "s"),
       row: kernel.db.getSession("s"),
     }).toMatchObject({
       occupied: true,
@@ -175,13 +175,13 @@ describe("kernel lifetime", () => {
     await kernel.ready;
     const project = kernel.project(workspace);
     await project.ready;
-    await kernel.flushSession((await project.session("live-session")).plexus);
+    await kernel.flushSession((await project.session("live-session")).doc);
     runInAction(() => {
-      kernel.plexus.root.sessions["orphan-session"] = new SessionOverview({ title: "Orphan" });
-      kernel.plexus.root.botsRoster["orphan-global"] = "orphan-worker";
-      kernel.plexus.root.termContinue["tab-orphan"] = "orphan-session";
-      kernel.plexus.root.termContinue["tab-live"] = "live-session";
-      kernel.plexus.root.termContinue["tab-synthetic"] = "synthetic-id";
+      kernel.doc.root.sessions["orphan-session"] = new SessionOverview({ title: "Orphan" });
+      kernel.doc.root.botsRoster["orphan-global"] = "orphan-worker";
+      kernel.doc.root.termContinue["tab-orphan"] = "orphan-session";
+      kernel.doc.root.termContinue["tab-live"] = "live-session";
+      kernel.doc.root.termContinue["tab-synthetic"] = "synthetic-id";
       project.root.sessions["orphan-session"] = "";
       project.root.botsRoster["orphan-project"] = "orphan-project-worker";
     });
@@ -195,13 +195,13 @@ describe("kernel lifetime", () => {
     await restoredProject.ready;
 
     expect({
-      hasLiveGlance: restored.plexus.root.sessions["live-session"] != null,
-      hasOrphanGlance: restored.plexus.root.sessions["orphan-session"] != null,
-      hasOrphanGlobalBot: "orphan-global" in restored.plexus.root.botsRoster,
+      hasLiveGlance: restored.doc.root.sessions["live-session"] != null,
+      hasOrphanGlance: restored.doc.root.sessions["orphan-session"] != null,
+      hasOrphanGlobalBot: "orphan-global" in restored.doc.root.botsRoster,
       hasLiveProjectSession: "live-session" in restoredProject.root.sessions,
       hasOrphanProjectSession: "orphan-session" in restoredProject.root.sessions,
       hasOrphanProjectBot: "orphan-project" in restoredProject.root.botsRoster,
-      termContinue: { ...restored.plexus.root.termContinue },
+      termContinue: { ...restored.doc.root.termContinue },
     }).toEqual({
       hasLiveGlance: true,
       hasOrphanGlance: false,

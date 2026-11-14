@@ -1,10 +1,10 @@
-import { isDriverConnectionClass } from "@inhuman.tools/plexus-expectations/driver";
+import { isDriverConnectionClass } from "@inhuman.tools/expectations/driver";
 import { describe, expect, it } from "vitest";
 
 import { ChatGptDriverConnection, CHATGPT_CLIENT_VERSION } from "../index.js";
 
 describe("chatgpt driver identity", () => {
-  it("keeps the chatgpt driver id, Codex catalog client, and PEW class", () => {
+  it("keeps the chatgpt driver id, Codex catalog client, and ExpectationDriver class", () => {
     expect(ChatGptDriverConnection.configurationLabel).toBe("chatgpt");
     expect(ChatGptDriverConnection.oidcProfile.driver).toBe("chatgpt");
     expect(ChatGptDriverConnection.oidcProfile.baseUrl).toBe("https://chatgpt.com/backend-api/codex");

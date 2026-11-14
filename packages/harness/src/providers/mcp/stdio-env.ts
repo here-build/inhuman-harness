@@ -6,7 +6,7 @@
  *
  * stderr: always "pipe" + ring drain (unread pipe → ~64KiB deadlock).
  */
-import type { ConnectionSecretsView } from "@inhuman.tools/plexus-expectations/driver";
+import type { ConnectionSecretsView } from "@inhuman.tools/expectations/driver";
 
 /** Cap ring bytes (diagnostics only — never connection failure). */
 const STDERR_RING_MAX = 64 * 1024;

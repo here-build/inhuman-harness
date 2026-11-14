@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { listenWebApp } from "@inhuman.tools/harness";
 import { HarnessDaemon } from "@inhuman.tools/harness/testkit";
-import { KERNEL_DOC_GUID, KernelPlexus } from "@inhuman.tools/harness-model";
+import { KERNEL_DOC_GUID, KernelDocument } from "@inhuman.tools/harness-model";
 import "@inhuman.tools/harness-model/register";
 import { createDoc, detachLocalPresence, RoomConnection, waitForSync } from "@inhuman.tools/harness-peer";
 import { Client } from "@inhuman.tools/harness-sdk";
@@ -26,22 +26,22 @@ describe("web-app proxy", () => {
     const daemon = new HarnessDaemon(kernel);
     await daemon.listen();
     const app = await listenWebApp({ sockPath: daemonSocketPath(kernel), port: 0 });
-    const doc = createDoc({ guid: KERNEL_DOC_GUID });
-    const connection = new RoomConnection(`ws://127.0.0.1:${app.port}`, "kernel", doc, {
+    const container = createDoc({ guid: KERNEL_DOC_GUID });
+    const connection = new RoomConnection(`ws://127.0.0.1:${app.port}`, "kernel", container, {
       shouldReconnect: () => false,
     });
     detachLocalPresence(connection);
     try {
       await waitForSync(connection, "kernel", 8000);
-      const plexus = KernelPlexus.connect(doc);
-      expect(plexus.doc.guid).toBe(KERNEL_DOC_GUID);
+      const doc = KernelDocument.connect(container);
+      expect(doc.guid).toBe(KERNEL_DOC_GUID);
       expect(daemon.server.endpoint()).toMatch(/daemon\.sock$/);
       await using unix = await Client.kernel(kernel);
-      expect(unix.plexus.doc.guid).toBe(KERNEL_DOC_GUID);
-      plexus.destroy();
+      expect(unix.doc.guid).toBe(KERNEL_DOC_GUID);
+      doc.destroy();
     } finally {
       connection.destroy();
-      doc.destroy();
+      container.destroy();
       await app.close();
       await daemon[Symbol.asyncDispose]();
     }

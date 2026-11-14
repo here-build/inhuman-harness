@@ -1,6 +1,6 @@
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { BotSpec, InstalledPlugin } from "@inhuman.tools/harness-model";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 

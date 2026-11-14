@@ -443,6 +443,9 @@ describe("@inhuman.tools/model", () => {
       });
 
       const primary = new DocumentContainer(root);
+      expect(root.document).toBe(primary);
+      expect(root.container?.container).toBe(primary);
+      expect(primary.awareness.doc).toBe(primary);
       const emittedBatches: Array<{ revision: number; patchesCount: number }> = [];
 
       primary.onPatch((batch) => {

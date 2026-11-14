@@ -4,10 +4,10 @@
  * connectionKey (+ serverToolName), never by re-parsing the wire name.
  *
  * Membership is yaml MCP ConnectionSpecs. Tools ride `spec.live.tools`
- * (PEW mirrors instance state extras onto live at ensure). Catalog is
+ * (expectation runtime mirrors instance state extras onto live at ensure). Catalog is
  * projection, not an execute door.
  */
-import type { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
+import type { ConnectionSpec } from "@inhuman.tools/expectations";
 import { autorun, computed, type IReactionDisposer } from "mobx";
 
 import {
@@ -50,7 +50,7 @@ function entriesOf(
 
 /**
  * Kernel-lifetime owner of MCP catalog slices. A session must never own these:
- * many sessions share one kernel catalog. Tools appear when PEW ensure mirrors
+ * many sessions share one kernel catalog. Tools appear when connection ensure mirrors
  * connection `state.tools` onto ConnectionSpec.live.
  */
 export class McpConnectionToolCatalogHost implements Disposable {

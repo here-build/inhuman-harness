@@ -7,8 +7,8 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 
+import type { ConnectionSecretsView } from "@inhuman.tools/expectations/driver";
 import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
-import type { ConnectionSecretsView } from "@inhuman.tools/plexus-expectations/driver";
 import invariant from "tiny-invariant";
 
 import { authorizeInBrowser } from "@/providers/auth";

@@ -4,7 +4,7 @@
  * model share.
  *
  * One lane (`shell-tails`) holds the map. Schema is append-only
- * (`PlexusAwareness.MAX_LANES` = 64); a lane per job exhausts the budget
+ * (`ReactiveAwareness.MAX_LANES` = 64); a lane per job exhausts the budget
  * and crashes the daemon on the 65th announce. Retract the uuid on seal —
  * sealed paint reads `outcomeJson`, not this map.
  *
@@ -12,8 +12,8 @@
  * job has no hub, so a report there is absence. A process-local atom
  * would miss every peer frame.
  */
-import { type PlexusAwareness } from "@inhuman.tools/model";
-import { MapFieldAwareness, SHELL_TAILS_LANE, type SessionAwareness } from "@inhuman.tools/plexus-expectations";
+import { MapFieldAwareness, SHELL_TAILS_LANE, type SessionAwareness } from "@inhuman.tools/expectations";
+import { type ReactiveAwareness } from "@inhuman.tools/model";
 
 import { ToolCallJob } from "./jobs/ToolCallJob.js";
 
@@ -22,8 +22,8 @@ export type ShellTail = {
   readonly totalBytes: number;
 };
 
-class ShellTailAwareness extends MapFieldAwareness<PlexusAwareness<SessionAwareness>, typeof SHELL_TAILS_LANE> {
-  constructor(hub: PlexusAwareness<SessionAwareness>) {
+class ShellTailAwareness extends MapFieldAwareness<ReactiveAwareness<SessionAwareness>, typeof SHELL_TAILS_LANE> {
+  constructor(hub: ReactiveAwareness<SessionAwareness>) {
     super(hub, SHELL_TAILS_LANE);
   }
 
@@ -64,7 +64,7 @@ export function shellTailOf(job: ToolCallJob): ShellTail | null {
 function laneOf(job: ToolCallJob): ShellTailAwareness | null {
   const awareness = job.container?.awareness ?? job.container?.container?.awareness;
   if (awareness == null) return null;
-  return new ShellTailAwareness(awareness as PlexusAwareness<SessionAwareness>);
+  return new ShellTailAwareness(awareness as ReactiveAwareness<SessionAwareness>);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

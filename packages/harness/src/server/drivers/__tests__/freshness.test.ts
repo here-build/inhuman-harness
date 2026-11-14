@@ -1,4 +1,4 @@
-import { extraLiveFromState, ConnectionMiss } from "@inhuman.tools/plexus-expectations/driver";
+import { extraLiveFromState, ConnectionMiss } from "@inhuman.tools/expectations/driver";
 import { runInAction, when } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 

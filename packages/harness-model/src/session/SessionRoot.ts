@@ -1,6 +1,6 @@
+import { STATUSLINE_LANE, walkWork, WorkContainer } from "@inhuman.tools/expectations";
 import { prompt, type UserPrompt } from "@inhuman.tools/harness-commons";
 import { FieldAwareness, model as modelDecorator, state } from "@inhuman.tools/model";
-import { STATUSLINE_LANE, walkWork, WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { comparer, computed, observable, type IObservableValue } from "mobx";
 
 import { sessionActivity, type SessionActivity } from "./activity.js";

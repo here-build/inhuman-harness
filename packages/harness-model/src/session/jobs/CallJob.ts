@@ -1,6 +1,6 @@
 /** A correlated request/reply operation. Subclasses own execution and worker lifetime. */
+import { type JobKind } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import { type JobKind } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
 

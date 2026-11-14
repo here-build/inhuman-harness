@@ -1,4 +1,4 @@
-import { isDriverConnectionClass } from "@inhuman.tools/plexus-expectations/driver";
+import { isDriverConnectionClass } from "@inhuman.tools/expectations/driver";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -36,7 +36,7 @@ const mcpProvider = {
 };
 
 describe("registration identity", () => {
-  it("keeps provider id, driver names, and the PEW connection class", () => {
+  it("keeps provider id, driver names, and the ExpectationDriver connection class", () => {
     expect(isDriverConnectionClass(TestDriverConnection)).toBe(true);
     const registered = parseProviderRegistration(mcpProvider);
     expect(isRegisteredProvider(registered)).toBe(true);
@@ -51,14 +51,14 @@ describe("registration identity", () => {
     }
   });
 
-  it("rejects a row whose connection is not a PEW driver class", () => {
+  it("rejects a row whose connection is not an ExpectationDriver class", () => {
     class NotADriver {}
     expect(() =>
       parseProviderRegistration({
         ...mcpProvider,
         drivers: [{ ...mcpStdio, connection: NotADriver }],
       }),
-    ).toThrow(/PEW driver connection class required/);
+    ).toThrow(/ExpectationDriver connection class required/);
   });
 
   it("rejects colliding driver names inside one provider", () => {

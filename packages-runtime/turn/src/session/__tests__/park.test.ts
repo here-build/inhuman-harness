@@ -14,14 +14,14 @@ import { sessionOf } from "./fixtures.js";
 
 describe("park", () => {
   it("on-wire MCP and live eval hold; other in-flight work aborts with park", () => {
-    const plexus = sessionOf("park");
-    const pew = new McpToolExpectation({ connectionId: "mcp1" });
-    pew.dispatched = true;
+    const doc = sessionOf("park");
+    const expectation = new McpToolExpectation({ connectionId: "mcp1" });
+    expectation.dispatched = true;
     const mcp = new MCPToolJob({
       toolCallId: "m1",
       name: "mcp",
       argsJson: "{}",
-      expectation: pew,
+      expectation,
     });
     mcp.dispatched = true;
     const program = new ProgrammaticJob({
@@ -42,12 +42,12 @@ describe("park", () => {
     turn.pushChild(mcp);
     turn.pushChild(program);
     turn.pushChild(echo);
-    plexus.root.head = turn;
+    doc.root.head = turn;
 
     expect(mcpJobOnWire(mcp)).toBe(true);
-    expect([...liveEvalWork(plexus.root)]).toContain(program);
+    expect([...liveEvalWork(doc.root)]).toContain(program);
     const aborted: Array<{ job: unknown; reason: unknown }> = [];
-    abortParkableWork(plexus.root, {
+    abortParkableWork(doc.root, {
       inFlightJobs: () => [mcp, program, echo],
       abortJob: (job, reason) => {
         aborted.push({ job, reason });
@@ -55,7 +55,7 @@ describe("park", () => {
     });
     expect(aborted).toEqual([{ job: echo, reason: "park" }]);
     expect(
-      abortParkableWork(plexus.root, {
+      abortParkableWork(doc.root, {
         inFlightJobs: () => [mcp, program, echo],
         abortJob: () => undefined,
       }),

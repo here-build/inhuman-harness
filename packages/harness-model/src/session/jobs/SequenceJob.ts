@@ -2,8 +2,8 @@
  * Sequence bag. Approval cursor over coverable Approvable leaves.
  * Not collectors. Not `.work`.
  */
+import { Job } from "@inhuman.tools/expectations";
 import { model } from "@inhuman.tools/model";
-import { Job } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ApprovableJob } from "./ApprovableJob.js";

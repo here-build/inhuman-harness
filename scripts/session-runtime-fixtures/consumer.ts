@@ -1,5 +1,5 @@
 import "@inhuman.tools/harness-model/session/register";
-import { SessionPlexus } from "@inhuman.tools/harness-model/session";
+import { SessionDocument } from "@inhuman.tools/harness-model/session";
 import {
   SessionRuntime,
   type SessionDurability,
@@ -9,7 +9,7 @@ import {
 import { bundledCompactProgram } from "@inhuman.tools/turn/resources";
 
 const durability: SessionDurability = { kind: "memory" };
-const runtime = new SessionRuntime(SessionPlexus.create("typed-consumer"), durability);
+const runtime = new SessionRuntime(SessionDocument.create("typed-consumer"), durability);
 const effects: SessionEffectPort = {
   invoke: async () => ({ kind: "success", payload: "typed result" }),
 };

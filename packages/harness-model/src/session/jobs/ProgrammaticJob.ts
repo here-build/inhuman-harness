@@ -10,14 +10,14 @@
  * `notifications` are origin atoms (`self/notify`). Incomplete bags feed
  * the session pending-notify computed; a `TurnNotificationChunk` consumes them.
  */
-import { model, state } from "@inhuman.tools/model";
 import {
   Job,
   type JobEffectOwner,
   type JobKind,
   type JobResolution,
   type UnknownOutcomeRecovery,
-} from "@inhuman.tools/plexus-expectations";
+} from "@inhuman.tools/expectations";
+import { model, state } from "@inhuman.tools/model";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
 
@@ -38,7 +38,7 @@ export class ProgrammaticJob extends SequenceJob<unknown, string> {
   override readonly checkpoint: string =
     "periodChildAt, periodWaitUntilMs, orchestrationResult, children, notifications, modules, world, boundTools on the session document.";
   override readonly dispatch: string =
-    "runProgram / runWatch. The harness tool run is that call. Inner admits are nested ToolCallJobs; complete() for prompts is CompletionJob/PEW.";
+    "runProgram / runWatch. The harness tool run is that call. Inner admits are nested ToolCallJobs; complete() for prompts is CompletionJob/expectation.";
   override readonly settlement: string = "outcomeJson + completed. Sealing the bag does not wait on inner children.";
   override readonly cancel: string =
     "If the hosting turn cancelRequested, CANCELLED receipt + completed. Inner cancel follows inner rows.";

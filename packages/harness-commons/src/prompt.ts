@@ -1,5 +1,5 @@
 /**
- * Compile-time prompt brand. Runtime and Plexus stay `string`.
+ * Compile-time prompt brand. Runtime and model documents stay `string`.
  * `` prompt`…` `` is either kind; `` prompt.system` `` / `` prompt.user` ``
  * do not assign to each other.
  *

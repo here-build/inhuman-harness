@@ -51,8 +51,8 @@ describe("local production runtime composition", () => {
     expect({
       activated: kernel.runtime.activated,
       catalog: kernel.runtime.catalog === kernel.catalog,
-      openai: kernel.plexus.root.drivers["openai-compat"]?.abilityClaim,
-      mcp: kernel.plexus.root.drivers["mcp-stdio"]?.abilityClaim,
+      openai: kernel.doc.root.drivers["openai-compat"]?.abilityClaim,
+      mcp: kernel.doc.root.drivers["mcp-stdio"]?.abilityClaim,
     }).toEqual({
       activated: true,
       catalog: true,
@@ -91,7 +91,7 @@ describe("local production runtime composition", () => {
       models: models.connections.map((row) => ({ id: row.id, models: [...row.models].sort(), error: row.error })),
       listed: mcpTools.some((name) => /list/i.test(name)),
       read: mcpTools.some((name) => /read/i.test(name)),
-      replica: kernel.sessionPlexus("s1") === session.plexus,
+      replica: kernel.sessionDoc("s1") === session.doc,
     }).toEqual({
       work: "work",
       files: "files",

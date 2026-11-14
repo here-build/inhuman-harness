@@ -2,8 +2,8 @@
  * One URL→markdown attempt. Rides the web-extract connection named `connectionId`.
  * Settlement stamps the enclosing ToolCallJob receipt. Seal is the Job executor.
  */
+import { WorkExpectation, type EndCause } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import { WorkExpectation, type EndCause } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import type { ToolOutcomeSnap } from "../../schemas/index.js";

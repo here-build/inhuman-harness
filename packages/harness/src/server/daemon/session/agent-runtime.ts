@@ -26,12 +26,12 @@ import {
   FailureOutcome,
   HARNESS_CONSTITUTION,
   projectWorkerPermissions,
-  type SessionPlexus,
+  type SessionDocument,
   type SessionRoot,
   ToolCallJob,
 } from "@inhuman.tools/harness-model";
 import { oneShotModelError, parseModelRef } from "@inhuman.tools/harness-scheme";
-import type { Job } from "@inhuman.tools/plexus-expectations";
+import type { Job } from "@inhuman.tools/expectations";
 import {
   completeCallExceptionally as completeCallOnScope,
   forceStopLoop,
@@ -99,7 +99,7 @@ export function callHost(host: AgentRuntimeHost): AgentCallHost {
     caller: host.caller,
     catalog: host.kernel.catalog,
     scope: {
-      replica: (id) => host.kernel.sessionPlexus(id),
+      replica: (id) => host.kernel.sessionDoc(id),
       abortJob: (id, job) => {
         const daemon = host.kernel.liveSession(id) ?? host.project.sessions[id];
         daemon?.orchestrator.abortJob(job);
@@ -109,7 +109,7 @@ export function callHost(host: AgentRuntimeHost): AgentCallHost {
 }
 
 export function loadOpenCall(kernel: KernelDaemon, session: SessionRoot, uuid: string): CallJob | undefined {
-  return loadOpenCallOnScope({ replica: (id) => kernel.sessionPlexus(id) }, session, uuid);
+  return loadOpenCallOnScope({ replica: (id) => kernel.sessionDoc(id) }, session, uuid);
 }
 
 export function completeCallExceptionally(
@@ -131,7 +131,7 @@ export function sealCall(job: CallJob, code: CallFailCode, message = ""): void {
  * a delegated grant. They land in one action, so a park between them cannot
  * strand the worker.
  */
-function stampWorker<T>(job: CallJob, worker: SessionPlexus | undefined, callerSessionId: string, stamp: () => T): T {
+function stampWorker<T>(job: CallJob, worker: SessionDocument | undefined, callerSessionId: string, stamp: () => T): T {
   return runInAction(() => {
     const stamped = stamp();
     if (stamped !== false) worker?.root.ensureAgentCallback(job.uuid, callerSessionId);
@@ -151,7 +151,7 @@ function derivedSessionId(...seed: readonly string[]): string {
 }
 
 function inheritWorkerRuntimeKv(worker: SessionRoot, host: AgentRuntimeHost): void {
-  const sources = [host.caller.kvs, host.project.root.kvs, host.kernel.plexus.root.kvs];
+  const sources = [host.caller.kvs, host.project.root.kvs, host.kernel.doc.root.kvs];
   const proposals: Array<{ form: "kv-set"; key: string; value: string }> = [];
   if ((worker.kvs.connection ?? "").trim() === "") {
     for (const bag of sources) {
@@ -225,7 +225,7 @@ async function resolveWorker(
       ? [host.caller.botsRoster, host.caller.sessionId]
       : bot.recipeScope === "project"
         ? [host.project.root.botsRoster, host.project.path]
-        : [host.kernel.plexus.root.botsRoster, host.kernel.root];
+        : [host.kernel.doc.root.botsRoster, host.kernel.root];
   const id = roster[bot.name] ?? derivedSessionId(owner, bot.name);
   if (roster[bot.name] == null) roster[bot.name] = id;
   const worker = bot.recipeScope === "global" ? await host.kernel.globalSession(id) : await host.project.session(id);
@@ -248,7 +248,7 @@ async function resolveWorker(
     // session-scope bot follows its desk instead (`projectWorkerPermissions`).
     if (bot.recipeScope !== "session") {
       runInAction(() => {
-        worker.root.standingPermissionMode = botPermissionMode(host.kernel.plexus.root, bot.name);
+        worker.root.standingPermissionMode = botPermissionMode(host.kernel.doc.root, bot.name);
       });
     }
   }
@@ -260,7 +260,7 @@ async function resolveWorker(
       worker.root.agent.spec.botDepth = lineage(job, host.caller).botDepth;
     });
   }
-  host.kernel.internSession(id, worker.plexus, worker);
+  host.kernel.internSession(id, worker.doc, worker);
   return { id, revision: pinned?.revision ?? host.kernel.catalog.botRevisions.get(bot.name) ?? "" };
 }
 
@@ -299,7 +299,7 @@ async function resolveOneShotWorker(
   if (opts.job instanceof AgentCallJob) {
     const ref = opts.job.argString("model").trim();
     if (ref !== "") {
-      const error = oneShotModelError(ref, host.kernel.plexus.root.connections);
+      const error = oneShotModelError(ref, host.kernel.doc.root.connections);
       if (error !== "") {
         sealCall(opts.job, "bad_model", error);
         return id;
@@ -315,12 +315,12 @@ async function resolveOneShotWorker(
       ]);
     }
   }
-  host.kernel.internSession(id, worker.plexus, worker);
+  host.kernel.internSession(id, worker.doc, worker);
   return id;
 }
 
 function loadCall(host: AgentRuntimeHost, callerSessionId: string, uuid: string): CallJob | undefined {
-  const found = host.kernel.sessionPlexus(callerSessionId)?.loadEntity<CallJob>(uuid);
+  const found = host.kernel.sessionDoc(callerSessionId)?.loadEntity<CallJob>(uuid);
   return found instanceof CallJob ? found : undefined;
 }
 
@@ -366,7 +366,7 @@ export async function executeAgentCall(
   assertHostCurrent(host);
   if (job.completed) return;
   if (job.name === AGENT_ASK || job.name === AGENT_SEND) {
-    if (refuseDeep(job, host.caller.agent.spec.depth + 1, host.kernel.plexus.root.maxDepth, "agent")) return;
+    if (refuseDeep(job, host.caller.agent.spec.depth + 1, host.kernel.doc.root.maxDepth, "agent")) return;
     const spec = job.argString("spec").trim();
     if (job.name === AGENT_SEND && spec === "") {
       sealCall(job, "spec_required", "spec required");
@@ -375,7 +375,7 @@ export async function executeAgentCall(
     {
       const ref = job.argString("model").trim();
       if (ref !== "") {
-        const pinned = oneShotModelError(ref, host.kernel.plexus.root.connections);
+        const pinned = oneShotModelError(ref, host.kernel.doc.root.connections);
         if (pinned !== "") {
           sealCall(job, "bad_model", pinned);
           return;
@@ -404,7 +404,7 @@ export async function executeAgentCall(
           toolsOnly: grant.toolsOnly,
         });
         inheritWorkerRuntimeKv(worker.root, host);
-        host.kernel.internSession(id, worker.plexus, worker);
+        host.kernel.internSession(id, worker.doc, worker);
         namedWorkerId = id;
       }
     } else {
@@ -447,7 +447,7 @@ export async function executeAgentCall(
     });
     // The derived worker id needs no caller write first; the enqueue is the durable delivery.
     await host.kernel.broadcastAgentRequest(namedWorkerId, job.uuid, host.caller.sessionId, job.speech);
-    const delivered = host.kernel.sessionPlexus(namedWorkerId) ?? worker;
+    const delivered = host.kernel.sessionDoc(namedWorkerId) ?? worker;
     if (delivered != null) await host.kernel.flushSession(delivered);
     return;
   }
@@ -461,7 +461,7 @@ export async function executeBotCall(job: BotCallJob, host: AgentRuntimeHost): P
   const packEntry = host.kernel.catalog.catalogEntry(job.name);
   const meta = packEntry?.packMeta?.kind === "bot-call" ? packEntry.packMeta : undefined;
   if (isCallPaused(job, host.kernel.catalog)) return;
-  if (refuseDeep(job, host.caller.agent.spec.botDepth + 1, host.kernel.plexus.root.maxBotDepth, "bot")) return;
+  if (refuseDeep(job, host.caller.agent.spec.botDepth + 1, host.kernel.doc.root.maxBotDepth, "bot")) return;
   const catalog = sessionCatalog(host.caller) ?? host.kernel.catalog;
   const recipe = catalog.recipe(job.botName || job.contributionBotName || meta?.target || job.argString("spec").trim());
   if (recipe == null) {
@@ -545,7 +545,7 @@ export async function executeBotCall(job: BotCallJob, host: AgentRuntimeHost): P
   }
   if (job.completed) return;
   if (isCallPaused(job, host.kernel.catalog)) return;
-  const worker = host.kernel.sessionPlexus(workerId);
+  const worker = host.kernel.sessionDoc(workerId);
   if (worker == null) {
     sealCall(job, "worker_missing", `worker session ${workerId} missing`);
     return;
@@ -590,7 +590,7 @@ export async function settleAgentCallback(
     job.outcomeSnap ??= { ok: false, text: "caller not attached" };
     return;
   }
-  const callerPlexus = host.kernel.sessionPlexus(callerId);
+  const callerDoc = host.kernel.sessionDoc(callerId);
   const callerRuntime = (host.kernel.liveSession(callerId) ?? host.project.sessions[callerId])?.sessionRuntime;
   if (callerRuntime != null && !callerRuntime.isCurrent) throw new SessionOwnershipError();
   const alreadySettled = call.completed;
@@ -613,7 +613,7 @@ export async function settleAgentCallback(
       return;
     }
   }
-  if (callerRuntime?.phase === "active" && callerRuntime.isCurrent && callerRuntime.session.doc === callerPlexus?.doc) {
+  if (callerRuntime?.phase === "active" && callerRuntime.isCurrent && callerRuntime.session === callerDoc) {
     if (alreadySettled) await callerRuntime.flush();
     else {
       await callerRuntime.commitMutation(
@@ -627,7 +627,7 @@ export async function settleAgentCallback(
     }
   } else {
     if (!call.completed) settleCallFromCallback(call, job, host);
-    if (callerPlexus != null) await host.kernel.flushSession(callerPlexus);
+    if (callerDoc != null) await host.kernel.flushSession(callerDoc);
   }
   assertHostCurrent(host);
   runInAction(() => {
@@ -670,7 +670,7 @@ export async function deliverAgentMessage(
     agentScope === "project"
       ? host.project.root.botsRoster
       : agentScope === "global"
-        ? host.kernel.plexus.root.botsRoster
+        ? host.kernel.doc.root.botsRoster
         : host.caller.botsRoster;
   const byName = targetName === "" ? undefined : roster[targetName];
   const targetId = targetIdArg === "" ? byName : targetIdArg;
@@ -678,7 +678,7 @@ export async function deliverAgentMessage(
     job.outcomeSnap = { ok: false, text: "undeliverable" };
     return;
   }
-  const target = host.kernel.sessionPlexus(targetId);
+  const target = host.kernel.sessionDoc(targetId);
   if (target == null) {
     job.outcomeSnap = { ok: false, text: "undeliverable" };
     return;

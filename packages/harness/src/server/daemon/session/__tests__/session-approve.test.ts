@@ -49,7 +49,7 @@ async function play(leaf: ToolCallJob, opts: { program?: string; workspace?: str
     path: workspace,
     policyProgram: opts.program ?? distPolicySource(),
   });
-  const plexus = new DocumentContainer(root);
+  const doc = new DocumentContainer(root);
   const turn = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`play`,
@@ -72,7 +72,7 @@ async function play(leaf: ToolCallJob, opts: { program?: string; workspace?: str
   } finally {
     scope.release(leaf);
     scope.close();
-    plexus.destroy();
+    doc.destroy();
     if (owned) await remove(workspace);
   }
 }

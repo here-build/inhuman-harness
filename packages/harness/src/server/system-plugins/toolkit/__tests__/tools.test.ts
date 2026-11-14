@@ -12,17 +12,17 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   FileMutateToolJob,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
   shellTailOf,
 } from "@inhuman.tools/harness-model";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import type { ToolCall } from "@inhuman.tools/tool-call-normalize";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 
@@ -73,10 +73,10 @@ describe("toolkit tools", () => {
 
   const run = (name: string, args: Record<string, unknown>) => runTool(name, args, { root, catalog });
 
-  function homeJobs(sessionId: string, jobs: SystemToolJob[]): SessionPlexus {
-    const plexus = SessionPlexus.create(sessionId, root);
-    onTestFinished(() => plexus.destroy());
-    bindSessionCatalog(plexus.root, catalog);
+  function homeJobs(sessionId: string, jobs: SystemToolJob[]): SessionDocument {
+    const doc = SessionDocument.create(sessionId, root);
+    onTestFinished(() => doc.destroy());
+    bindSessionCatalog(doc.root, catalog);
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`p`,
@@ -84,8 +84,8 @@ describe("toolkit tools", () => {
       queue: [],
     });
     for (const job of jobs) turn.pushChild(job);
-    plexus.root.head = turn;
-    return plexus;
+    doc.root.head = turn;
+    return doc;
   }
 
   it("catalog class is closed; missing is absent; projection rows have no execute", () => {
@@ -422,7 +422,7 @@ describe("toolkit tools", () => {
       policyResult: "deny",
       humanApprove: true,
     });
-    const plexus = homeJobs("ht-extra-root", [
+    const doc = homeJobs("ht-extra-root", [
       deniedRead,
       allowedRead,
       deniedShell,
@@ -438,20 +438,20 @@ describe("toolkit tools", () => {
     await executeSystemTool(deniedRead, new AbortController().signal);
     await executeSystemTool(allowedRead, new AbortController().signal);
     await executeSystemTool(deniedShell, new AbortController().signal);
-    expect(plexus.root.addReadRoot(outside)).toBe(true);
+    expect(doc.root.addReadRoot(outside)).toBe(true);
     await executeSystemTool(grantShell, new AbortController().signal);
     await executeSystemTool(grantRead, new AbortController().signal);
     await executeSystemTool(allowedShell, new AbortController().signal);
     await executeSystemTool(allowedRel, new AbortController().signal);
-    plexus.root.standingPermissionMode = "yolo";
-    plexus.root.head = new SessionTurn({
+    doc.root.standingPermissionMode = "yolo";
+    doc.root.head = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`p`,
       doneWork: [yoloShell, yoloRead],
       queue: [],
     });
-    plexus.root.head.pushChild(yoloShell);
-    plexus.root.head.pushChild(yoloRead);
+    doc.root.head.pushChild(yoloShell);
+    doc.root.head.pushChild(yoloRead);
     await executeSystemTool(yoloShell, new AbortController().signal);
     await executeSystemTool(yoloRead, new AbortController().signal);
     symlinkSync(leaked, path.join(root, "innocent.txt"));

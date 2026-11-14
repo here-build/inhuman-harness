@@ -71,7 +71,7 @@ describe("turn/rewind", () => {
       head: session.root.head?.prompt,
       tip: session.root.tip?.prompt,
       liveHasTwo: findTurnById(session.root, two.uuid) != null,
-      loadedTwo: session.plexus.loadEntity(two.uuid) instanceof SessionTurn,
+      loadedTwo: session.doc.loadEntity(two.uuid) instanceof SessionTurn,
     };
 
     const redo = await session.handleRequest("turn/rewind", { turnId: two.uuid });

@@ -6,14 +6,14 @@ import "@inhuman.tools/harness-model/register";
 
 export {
   KERNEL_DOC_GUID,
-  KernelPlexus,
+  KernelDocument,
   mintProjectDocGuid,
   PROJECT_DOC_KIND,
-  ProjectPlexus,
+  ProjectDocument,
   publishKernelSeat,
-  SessionPlexus,
+  SessionDocument,
 } from "@inhuman.tools/harness-model";
-export { publishRevalidationDemand } from "@inhuman.tools/plexus-expectations";
+export { publishRevalidationDemand } from "@inhuman.tools/expectations";
 
 export * from "./frames.js";
 export * from "./awareness.js";

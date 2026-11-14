@@ -1,4 +1,4 @@
-import { DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { DriverSpec } from "@inhuman.tools/expectations";
 import { describe, expect, it } from "vitest";
 
 import {

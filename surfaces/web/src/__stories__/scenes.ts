@@ -3,7 +3,7 @@
  * turn holds, so the tape projects it exactly as it projects a live room.
  */
 import { CompletionExpectation, CompletionJob } from "@inhuman.tools/harness-model";
-import type { SessionPlexus } from "@inhuman.tools/harness-peer";
+import type { SessionDocument } from "@inhuman.tools/harness-peer";
 
 import { runWorkflow, WORKFLOWS, WorkflowClock, type WorkflowRun } from "./workflow-world.js";
 import {
@@ -272,7 +272,7 @@ export const schemeBatch = () =>
  * A program mid-run: three explorers are back, the reviewer is reading what they found and has stopped to
  * ask. The run is the daemon's side of the graph feed; the session's jobs are what its cards say.
  */
-export const programRun = (): { readonly open: SessionPlexus; readonly workflows: Record<string, WorkflowRun> } => {
+export const programRun = (): { readonly open: SessionDocument; readonly workflows: Record<string, WorkflowRun> } => {
   const { source, script } = WORKFLOWS.fanout;
   const base = script();
   const run = runWorkflow(
@@ -384,7 +384,7 @@ export const running = () =>
     ],
   });
 
-export function retrying(): SessionPlexus {
+export function retrying(): SessionDocument {
   const expectation = new CompletionExpectation({ connectionId: "grok", model: "grok-4.7" });
   expectation.stampRetryLimits({ maxMs: 0, maxAttempts: 15, backgroundMaxAttempts: 0 });
   for (let at = 0; at < 3; at += 1)
@@ -396,7 +396,7 @@ export function retrying(): SessionPlexus {
   });
 }
 
-export function autoUnavailable(): SessionPlexus {
+export function autoUnavailable(): SessionDocument {
   const open = retrying();
   open.root.permissionMode = "auto";
   open.root.kvs.judgeConnection = "grok";

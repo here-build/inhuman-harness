@@ -97,7 +97,7 @@
     "@inhuman.tools/harness-model": "workspace:^",
     "@inhuman.tools/harness-provider-sdk": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/expectations": "workspace:^",
     "@inhuman.tools/plugin-sdk": "workspace:^",
     "@inhuman.tools/policy": "workspace:^",
     "@inhuman.tools/policy-bash-disassembler": "workspace:^",

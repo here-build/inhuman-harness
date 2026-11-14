@@ -6,9 +6,9 @@ import { EvalTrace } from "@here.build/arrival/provenance";
 import { traceToRegions } from "@here.build/arrival-provenance";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
-  KernelPlexus,
+  KernelDocument,
   ProgrammaticJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
@@ -69,8 +69,8 @@ describe("program replay", () => {
         return job;
       },
     };
-    const kernel = KernelPlexus.bootstrap();
-    const session = SessionPlexus.create("scheme-replay", "/tmp/scheme-replay");
+    const kernel = KernelDocument.bootstrap();
+    const session = SessionDocument.create("scheme-replay", "/tmp/scheme-replay");
     onTestFinished(() => {
       session.destroy();
       kernel.destroy();

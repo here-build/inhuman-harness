@@ -1,4 +1,4 @@
-import type { DriverConnectionClass } from "@inhuman.tools/plexus-expectations/driver";
+import type { DriverConnectionClass } from "@inhuman.tools/expectations/driver";
 
 import type { CapabilityKind } from "./capabilities.js";
 import { type DriverDefinition } from "./descriptor.js";

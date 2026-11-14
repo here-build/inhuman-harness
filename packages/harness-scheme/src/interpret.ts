@@ -1,5 +1,5 @@
 /**
- * ProgrammaticJob body. SessionTurn waits on the bag. Not PEW and not
+ * ProgrammaticJob body. SessionTurn waits on the bag. Not an expectation and not
  * catalog `execute`.
  *
  * `runProgram` and `runWatch` own the evaluation. This builds the ProgramHost

@@ -66,13 +66,13 @@ export class CompleteCommand extends KernelCommand {
         awarenessWaitMs: COMPLETE_AWARENESS_MS,
       });
       const sessions: Record<string, { title: string; lastMessageAt: number }> = {};
-      for (const [id, glance] of Object.entries(handle.plexus.root.sessions)) {
+      for (const [id, glance] of Object.entries(handle.doc.root.sessions)) {
         if (glance == null) continue;
         sessions[id] = { title: glance.title, lastMessageAt: glance.lastMessageAt ?? 0 };
       }
       const rows = listResumeCompletions({
         sessions,
-        occupied: occupiedSessionIds(handle.plexus.awareness),
+        occupied: occupiedSessionIds(handle.doc.awareness),
         prefix: this.query,
       });
       for (const row of rows) this.context.stdout.write(`${formatResumeCompletion(row)}\n`);

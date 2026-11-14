@@ -5,7 +5,7 @@ import {
   METADATA_SAME_ROUND_NOTE,
   writePluginMeta,
   RegisteredToolsSet,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
@@ -23,7 +23,7 @@ export type ModelReply = (completion: CompletionExpectation) => void | Promise<v
 
 /** Real document nodes and rules, mock work resolution. No daemon, disk, or polling. */
 export function turnFixture(...replies: ModelReply[]) {
-  const document = SessionPlexus.create("iterator-test", "/tmp/iterator-test");
+  const document = SessionDocument.create("iterator-test", "/tmp/iterator-test");
   const catalog = new KernelToolCatalog();
   catalog.replacePack(["update_metadata", "context_need"].map((name) => ({
     wireName: name,

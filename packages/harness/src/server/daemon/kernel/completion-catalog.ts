@@ -7,8 +7,8 @@
 import type { ConnectModelsRow } from "@inhuman.tools/harness-contract";
 import { fail } from "@inhuman.tools/harness-diagnostics";
 import { liveModelsOf } from "@inhuman.tools/harness-scheme";
-import type { ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
-import { revalidationDemandOf, type ConnectionSpec } from "@inhuman.tools/plexus-expectations";
+import type { ReactiveAwareness } from "@inhuman.tools/model";
+import { revalidationDemandOf, type ConnectionSpec } from "@inhuman.tools/expectations";
 import { action, comparer, reaction, type IReactionDisposer } from "mobx";
 
 import { completionConnectionIds, type CredentialsStore } from "@/connections";
@@ -20,8 +20,8 @@ import { readConnectionSecrets, writeConnectionSecrets } from "../../secrets.js"
 export type CompletionCatalogHost = {
   readonly root: string;
   readonly runtime: ProductionRuntime;
-  readonly plexus: {
-    readonly awareness: PlexusAwareness;
+  readonly doc: {
+    readonly awareness: ReactiveAwareness;
     readonly root: {
       readonly connections: Record<string, ConnectionSpec | undefined>;
     };
@@ -40,7 +40,7 @@ export async function probeCompletionCatalog(
   internOwner: object,
   id?: string,
 ): Promise<ConnectModelsRow[]> {
-  const connections = host.plexus.root.connections;
+  const connections = host.doc.root.connections;
   let catalog: string[];
   try {
     catalog = completionConnectionIds(connections, id);
@@ -53,9 +53,9 @@ export async function probeCompletionCatalog(
       const spec = connections[key];
       RpcInvalidParams.invariant(spec !== undefined, `unknown connection ${key}`);
       try {
-        await host.runtime.internDiscovery(host.plexus.root, internOwner, key, {
+        await host.runtime.internDiscovery(host.doc.root, internOwner, key, {
           secrets,
-          awareness: host.plexus.awareness,
+          awareness: host.doc.awareness,
         });
       } catch (error) {
         fail(`connect/models ${key}`, error);
@@ -79,7 +79,7 @@ export async function probeCompletionCatalog(
  */
 export function warmCompletionCatalog(host: CompletionCatalogHost, internOwner: object, id?: string): void {
   if (id !== undefined) {
-    const spec = host.plexus.root.connections[id];
+    const spec = host.doc.root.connections[id];
     if (spec == null || !spec.driver.abilityClaim.includes("completion") || spec.configuration.enabled === false) {
       return;
     }
@@ -94,8 +94,8 @@ export function warmCompletionCatalog(host: CompletionCatalogHost, internOwner: 
 export function internLookedAt(host: CompletionCatalogHost, internOwner: object): IReactionDisposer {
   return reaction(
     () =>
-      completionConnectionIds(host.plexus.root.connections).filter(
-        (id) => revalidationDemandOf(host.plexus.awareness, { kind: "connection", id }) !== "none",
+      completionConnectionIds(host.doc.root.connections).filter(
+        (id) => revalidationDemandOf(host.doc.awareness, { kind: "connection", id }) !== "none",
       ),
     (ids) => {
       for (const id of ids) void probeCompletionCatalog(host, internOwner, id);

@@ -1,11 +1,11 @@
 /**
  * Licensed `web_search` call. Identity and receipt live on {@link ToolCallJob}.
  * BODY intern's {@link WebSearchExpectation} after an allow-side guard.
- * Leftover intern PEW is a pre-set `expectation`; new BODY does not mint
+ * Leftover intern expectation is a pre-set `expectation`; new BODY does not mint
  * when it is already set. Retries replace (do not append).
  */
+import { type JobEffectOwner, type UnknownOutcomeRecovery, WorkContainer } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import { type JobEffectOwner, type UnknownOutcomeRecovery, WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { ToolCallJob, type ToolCallJobProps } from "./ToolCallJob.js";
@@ -23,18 +23,18 @@ export class WebSearchToolJob extends ToolCallJob {
   override readonly checkpoint: string =
     "session document prefix including orchestrationResult. expectation.startedAtMs is not a receipt.";
   override readonly dispatch: string =
-    "instance.webSearch after connection pick. Leftover PEW started && !done waits; no second dispatch.";
+    "instance.webSearch after connection pick. Leftover expectation started && !done waits; no second dispatch.";
   override readonly settlement: string = "outcomeJson + expectation.isDone + completed.";
   override readonly cancel: string =
-    "Abort stamps a failure receipt and terminates leftover PEW. Park does not replay.";
+    "Abort stamps a failure receipt and terminates leftover expectation. Park does not replay.";
   override readonly unknownRecovery: UnknownOutcomeRecovery = "unknown-no-replay";
   override readonly unknownNote: string =
-    "Durable unsettled intent or leftover in-flight PEW is unknown, not queued work.";
+    "Durable unsettled intent or leftover in-flight expectation is unknown, not queued work.";
   override readonly intentRequired: boolean = true;
 
   /** Kernel ConnectionSpec key — picked at intern, not admit. */
   @state accessor connectionKey: string = "";
-  /** Leftover intern PEW is a pre-set `expectation`; new BODY does not mint when it is already set. */
+  /** Leftover intern expectation is a pre-set `expectation`; new BODY does not mint when it is already set. */
   @state.child accessor expectation!: WebSearchExpectation;
 
   constructor(

@@ -12,7 +12,7 @@ import {
   CompletionJob,
   SessionSystemPrompt,
   SessionTurn,
-  SessionPlexus,
+  SessionDocument,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -39,9 +39,9 @@ it("a dozen delegated identities share one advisory and leave room for every rec
     children,
     completed: true,
   });
-  const plexus = SessionPlexus.create("compact-many-agents");
-  onTestFinished(() => plexus.destroy());
-  plexus.root.head = turnWith([program]);
+  const doc = SessionDocument.create("compact-many-agents");
+  onTestFinished(() => doc.destroy());
+  doc.root.head = turnWith([program]);
   const text = spawnHistoryText(program) ?? "";
   expect(text.length).toBeLessThanOrEqual(5300);
   expect(text.match(/History abbreviation/g)).toHaveLength(1);
@@ -57,11 +57,11 @@ function rounds(n: number): unknown[] {
   const tape: unknown[] = [];
   const seen: Array<CompletionExpectation | SystemToolJob> = [];
   for (let i = 0; i < n; i += 1) {
-    const pew = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`turn ${i}` });
-    pew.responseText = `answer ${i}`;
-    pew.totalTokens = 1_000 * (i + 1);
-    pew.contextLimit = 100_000;
-    pew.messages = [...seen];
+    const completion = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`turn ${i}` });
+    completion.responseText = `answer ${i}`;
+    completion.totalTokens = 1_000 * (i + 1);
+    completion.contextLimit = 100_000;
+    completion.messages = [...seen];
     const call = new SystemToolJob({
       toolCallId: `t${i}`,
       name: "shell",
@@ -69,8 +69,8 @@ function rounds(n: number): unknown[] {
       outcomeJson: JSON.stringify({ ok: true, text: `out ${i}` }),
       completed: true,
     });
-    seen.push(pew, call);
-    tape.push(new CompletionJob({ expectation: pew }), call);
+    seen.push(completion, call);
+    tape.push(new CompletionJob({ expectation: completion }), call);
   }
   return tape;
 }
@@ -216,9 +216,9 @@ it.each(["direct", "program", "wrapper"])(
     const cell = shape === "direct" ? child : shape === "program" ? program : wrapper;
     const gauge = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`request` });
     gauge.totalTokens = 10000;
-    const plexus = SessionPlexus.create(`compact-spawn-${shape}`, "");
-    onTestFinished(() => plexus.destroy());
-    plexus.root.head = turnWith([new CompletionJob({ expectation: gauge }), cell]);
+    const doc = SessionDocument.create(`compact-spawn-${shape}`, "");
+    onTestFinished(() => doc.destroy());
+    doc.root.head = turnWith([new CompletionJob({ expectation: gauge }), cell]);
     const transcript = Transcript.fromCells([gauge, cell]);
     const projected: Record<string, unknown> = {};
     for (const [name, expression] of [

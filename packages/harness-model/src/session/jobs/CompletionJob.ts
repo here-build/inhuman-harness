@@ -2,14 +2,14 @@
  * Tape/program/judge cell that owns a CompletionExpectation. Sequence is
  * this Job; honor walks `.work`.
  */
-import { model, state } from "@inhuman.tools/model";
 import {
   Job,
   type JobEffectOwner,
   type JobResolution,
   type UnknownOutcomeRecovery,
   type WorkContainer,
-} from "@inhuman.tools/plexus-expectations";
+} from "@inhuman.tools/expectations";
+import { model, state } from "@inhuman.tools/model";
 import { computed } from "mobx";
 
 import type { ProgrammaticJob } from "./ProgrammaticJob.js";
@@ -23,14 +23,14 @@ type CompletionJobTail = Job;
 export class CompletionJob extends Job<unknown, string> {
   override readonly owner: JobEffectOwner = "honor";
   override readonly intent: string =
-    "Record job/PEW identity, runtime generation, connection, prompt; await a durable receipt before connection.complete. Honor leftover only if that attempt already started.";
+    "Record job/expectation identity, runtime generation, connection, prompt; await a durable receipt before connection.complete. Honor leftover only if that attempt already started.";
   override readonly checkpoint: string =
     "session document prefix on the CompletionJob / CompletionExpectation. A queued outbound HTTP is not a receipt.";
   override readonly dispatch: string =
-    "Origin internedComplete or honor handle of leftover attach PEW. Origin-dispatched PEW skip honor.";
+    "Origin internedComplete or honor handle of leftover attach expectation. Origin-dispatched expectations skip honor.";
   override readonly settlement: string = "expectation.isDone; Job completed.";
   override readonly cancel: string =
-    "Abort in-flight request; fail open PEW. Do not start a new attempt for the same job.";
+    "Abort in-flight request; fail open expectations. Do not start a new attempt for the same job.";
   override readonly unknownRecovery: UnknownOutcomeRecovery = "unknown-no-replay";
   override readonly unknownNote: string =
     "Same attempt is not auto-retried after owner death. A new CompletionJob is a new attempt.";

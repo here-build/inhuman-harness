@@ -30,11 +30,11 @@ function round(
   answer: string,
   output: string,
   used: number,
-): { pew: CompletionExpectation; tool: SystemToolJob } {
-  const pew = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`${userText}` });
-  pew.responseText = answer;
-  pew.totalTokens = used;
-  pew.contextLimit = 200_000;
+): { completion: CompletionExpectation; tool: SystemToolJob } {
+  const completion = new CompletionExpectation({ connectionId: "c1", promptText: prompt.user`${userText}` });
+  completion.responseText = answer;
+  completion.totalTokens = used;
+  completion.contextLimit = 200_000;
   const tool = new SystemToolJob({
     toolCallId: `t-${used}`,
     name: "shell",
@@ -42,13 +42,13 @@ function round(
     outcomeJson: JSON.stringify({ ok: true, text: output }),
     completed: true,
   });
-  return { pew, tool };
+  return { completion, tool };
 }
 
 function fixture(): Transcript {
   const a = round("Fix the login redirect bug in src/auth.ts", "Looking at it.", BIG_OUTPUT, 6_000);
   const b = round("Never touch the billing module", "Understood; patched src/auth.ts.", "ok", 9_000);
-  return Transcript.fromCells([a.pew, a.tool, b.pew, b.tool], 200_000);
+  return Transcript.fromCells([a.completion, a.tool, b.completion, b.tool], 200_000);
 }
 
 /** Answers each summarizer round with `answer`, recording the prompt it saw. */
@@ -142,7 +142,7 @@ test("threads the prior card as input state, not as transcript", async () => {
   });
   const a = round("Second task: add a retry", "On it.", "ok", 12_000);
   const b = round("And log the attempts", "Done.", "ok", 14_000);
-  const eat = Transcript.fromCells([prior, a.pew, a.tool, b.pew, b.tool], 200_000);
+  const eat = Transcript.fromCells([prior, a.completion, a.tool, b.completion, b.tool], 200_000);
   expect(eat.checkInCells()).toEqual([prior]);
   const turn = summarizerTurn();
   const seen: string[] = [];

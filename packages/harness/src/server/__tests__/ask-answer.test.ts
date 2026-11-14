@@ -21,14 +21,14 @@ const votes = (tier: "ask" | "deny", path = "src/a.ts") =>
 
 function home(tier: "ask" | "deny" | "block", name = "write_file", args: object = { path: "src/a.ts", content: "x" }) {
   const root = new SessionRoot({ sessionId: "s", path: "/w/proj" });
-  const plexus = new DocumentContainer(root);
+  const doc = new DocumentContainer(root);
   const leaf = new SystemToolJob({ toolCallId: "c", name, argsJson: JSON.stringify(args) });
   root.head = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`go`, queue: [leaf] });
   leaf.stampPolicy(tier, null, null, {
     classesJson: '["workspace-write"]',
     votesJson: tier === "block" ? "[]" : votes(tier),
   });
-  return { root, leaf, [Symbol.dispose]: () => plexus.destroy() };
+  return { root, leaf, [Symbol.dispose]: () => doc.destroy() };
 }
 
 const persisted: GrantRow[] = [];

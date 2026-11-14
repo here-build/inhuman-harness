@@ -78,13 +78,13 @@ export function questionLineFromSpeech(text: string): string {
  * billed reasoning tokens, or a stamped thought kind (redacted / empty
  * thinking part) are the same event: thought without an answer.
  */
-export function thoughtWithoutAnswer(pew: CompletionExpectation): boolean {
-  const split = splitThink(pew.responseText);
+export function thoughtWithoutAnswer(completion: CompletionExpectation): boolean {
+  const split = splitThink(completion.responseText);
   if (split.content.trim() !== "") return false;
-  if (`${pew.responseThought}\n${split.reasoning}`.trim() !== "") return true;
-  if (pew.responseReasoningEncrypted.trim() !== "") return true;
-  if ((pew.reasoningTokens ?? 0) > 0) return true;
-  return pew.responseThoughtKind != null;
+  if (`${completion.responseThought}\n${split.reasoning}`.trim() !== "") return true;
+  if (completion.responseReasoningEncrypted.trim() !== "") return true;
+  if ((completion.reasoningTokens ?? 0) > 0) return true;
+  return completion.responseThoughtKind != null;
 }
 
 export type ReActLoopIntentDetectedTriggerComplete = (req: CompleteRequest) => Promise<CompleteResult>;

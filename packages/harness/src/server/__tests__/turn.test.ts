@@ -150,9 +150,9 @@ describe("turn", () => {
             const turn = session.root.findRunningTurn();
             if (turn == null) return false;
             for (const chunk of reactChunks(turn)) {
-              const pew = tapeCompletion(chunk);
-              if (pew == null || pew.outcome != null) continue;
-              const actor = session.orchestrator.actorOf(pew);
+              const completion = tapeCompletion(chunk);
+              if (completion == null || completion.outcome != null) continue;
+              const actor = session.orchestrator.actorOf(completion);
               if (actor instanceof OpenAiCompatActor) {
                 actor.backoffMs = () => 60_000;
                 return true;
@@ -171,9 +171,9 @@ describe("turn", () => {
             const turn = session.root.findRunningTurn();
             if (turn == null) return false;
             return reactChunks(turn).some((chunk) => {
-              const pew = tapeCompletion(chunk);
-              if (pew == null || pew.outcome != null) return false;
-              return typeof (pew.report as { retryUntilMs?: number } | null)?.retryUntilMs === "number";
+              const completion = tapeCompletion(chunk);
+              if (completion == null || completion.outcome != null) return false;
+              return typeof (completion.report as { retryUntilMs?: number } | null)?.retryUntilMs === "number";
             });
           },
           { timeout: REPLICA_MS },

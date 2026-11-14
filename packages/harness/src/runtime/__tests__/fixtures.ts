@@ -1,21 +1,21 @@
-import { BotCallJob, SessionPlexus, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
+import { BotCallJob, SessionDocument, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
 import { onTestFinished } from "vitest";
 
-export function sessionOf(id: string): SessionPlexus {
-  const plexus = SessionPlexus.create(id, `/tmp/runtime/${id}`);
-  onTestFinished(() => plexus.destroy());
-  return plexus;
+export function sessionOf(id: string): SessionDocument {
+  const doc = SessionDocument.create(id, `/tmp/runtime/${id}`);
+  onTestFinished(() => doc.destroy());
+  return doc;
 }
 
-export function scopeOf(...plexuses: SessionPlexus[]) {
-  const map = new Map(plexuses.map((plexus) => [plexus.root.sessionId, plexus]));
+export function scopeOf(...docs: SessionDocument[]) {
+  const map = new Map(docs.map((doc) => [doc.root.sessionId, doc]));
   return { replica: (id: string) => map.get(id) };
 }
 
 /** Caller-side CallJob plus, when `worker` is a replica, the worker's callback row. */
 export function admitCall(
-  caller: SessionPlexus,
-  worker: SessionPlexus | string,
+  caller: SessionDocument,
+  worker: SessionDocument | string,
   extra: {
     readonly completed?: boolean;
     readonly cancelled?: boolean;

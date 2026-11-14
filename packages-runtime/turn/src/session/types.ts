@@ -2,6 +2,7 @@
  * Host surfaces this package observes. Kernel/project/harness daemons stay
  * outside; composition supplies commands and park abort through these.
  */
+import type { Job, WorkExpectation } from "@inhuman.tools/expectations";
 import type { UserPrompt } from "@inhuman.tools/harness-commons";
 import type {
   CompletionExpectation,
@@ -11,7 +12,6 @@ import type {
   SessionTurn,
   SkillSpec,
 } from "@inhuman.tools/harness-model/session";
-import type { Job, WorkExpectation } from "@inhuman.tools/plexus-expectations";
 
 export type SessionCommandHost = {
   readonly session: SessionRoot;

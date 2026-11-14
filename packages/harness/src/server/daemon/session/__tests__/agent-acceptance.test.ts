@@ -100,16 +100,16 @@ describe("agent acceptance step 3", () => {
     });
     session.root.head = closedTurn(call);
     await entered.promise;
-    const replacement = new SessionRuntime(session.plexus, { kind: "memory" });
+    const replacement = new SessionRuntime(session.doc, { kind: "memory" });
     onTestFinished(() => replacement[Symbol.asyncDispose]());
-    const before = JSON.stringify(session.plexus.doc.toNodeRows());
+    const before = JSON.stringify(session.doc.toNodeRows());
     release.resolve();
     await returned.promise;
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect({
       worker: call.workerSessionId,
       completed: call.completed,
-      state: JSON.stringify(session.plexus.doc.toNodeRows()),
+      state: JSON.stringify(session.doc.toNodeRows()),
     }).toEqual({ worker: "", completed: false, state: before });
   });
 
@@ -128,7 +128,7 @@ describe("agent acceptance step 3", () => {
       await when(
         () =>
           call.workerSessionId !== "" &&
-          kernel.sessionPlexus(call.workerSessionId)?.root.agentCallbacks[call.uuid] === session.sessionId,
+          kernel.sessionDoc(call.workerSessionId)?.root.agentCallbacks[call.uuid] === session.sessionId,
         { timeout: TIMEOUT },
       );
       const worker = await project.session(call.workerSessionId);
@@ -137,16 +137,16 @@ describe("agent acceptance step 3", () => {
       onTestFinished(() => release.resolve());
       let waiting = false;
       const flush = kernel.flushSession;
-      vi.spyOn(kernel, "flushSession").mockImplementation(async (plexus, options) => {
-        if (!waiting && plexus.doc === session.plexus.doc && call.completed) {
+      vi.spyOn(kernel, "flushSession").mockImplementation(async (doc, options) => {
+        if (!waiting && doc === session.doc && call.completed) {
           waiting = true;
           entered.resolve();
           await release.promise;
-          await flush.call(kernel, plexus, options);
+          await flush.call(kernel, doc, options);
           if (lostAcknowledgement) throw new Error("caller receipt acknowledgement lost");
           return;
         }
-        await flush.call(kernel, plexus, options);
+        await flush.call(kernel, doc, options);
       });
       const argsJson = JSON.stringify({ requestId: call.uuid });
       const callback = new AgentCallbackJob({ name: "agent__void", argsJson, humanApprove: true });
@@ -224,14 +224,13 @@ describe("agent acceptance step 3", () => {
     });
     session.root.head = closedTurn(call);
     await when(
-      () =>
-        call.completed || kernel.sessionPlexus(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
+      () => call.completed || kernel.sessionDoc(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
       { timeout: TIMEOUT },
     );
     expect({
       completed: call.completed,
       outcome: call.outcome,
-      delivered: kernel.sessionPlexus(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
+      delivered: kernel.sessionDoc(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
     }).toEqual({ completed: false, outcome: null, delivered: true });
   });
 
@@ -278,11 +277,10 @@ describe("agent acceptance step 3", () => {
     });
     session.root.head = closedTurn(call);
     await when(
-      () =>
-        call.completed || kernel.sessionPlexus(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
+      () => call.completed || kernel.sessionDoc(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null,
       { timeout: TIMEOUT },
     );
-    const worker = kernel.sessionPlexus(call.workerSessionId);
+    const worker = kernel.sessionDoc(call.workerSessionId);
     expect({
       completed: call.completed,
       target: worker?.root.agent.spec.name,
@@ -307,17 +305,17 @@ describe("agent acceptance step 3", () => {
     });
     const originalFlush = kernel.flushSession.bind(kernel);
     const flushed: string[] = [];
-    vi.spyOn(kernel, "flushSession").mockImplementation(async (plexus) => {
-      flushed.push(plexus.root.sessionId);
-      if (plexus.root.sessionId === "caller") throw new Error("caller persistence unavailable");
-      return originalFlush(plexus);
+    vi.spyOn(kernel, "flushSession").mockImplementation(async (doc) => {
+      flushed.push(doc.root.sessionId);
+      if (doc.root.sessionId === "caller") throw new Error("caller persistence unavailable");
+      return originalFlush(doc);
     });
     session.root.head = closedTurn(call);
-    await when(() => kernel.sessionPlexus(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null, {
+    await when(() => kernel.sessionDoc(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null, {
       timeout: TIMEOUT,
     });
     await when(() => joinReleased(call, kernel.catalog), { timeout: TIMEOUT });
-    const worker = kernel.sessionPlexus(call.workerSessionId)!;
+    const worker = kernel.sessionDoc(call.workerSessionId)!;
     expect({
       completed: call.completed,
       row: worker.root.agentCallbacks[call.uuid],
@@ -335,7 +333,7 @@ describe("agent acceptance step 3", () => {
       orchestrationResult: true,
     });
     session.root.head = closedTurn(call);
-    await when(() => kernel.sessionPlexus(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null, {
+    await when(() => kernel.sessionDoc(call.workerSessionId)?.root.findTurnByAgentRequestId(call.uuid) != null, {
       timeout: TIMEOUT,
     });
     const first = call.workerSessionId;
@@ -347,7 +345,7 @@ describe("agent acceptance step 3", () => {
     });
     await project.session("caller");
     await when(() => call.workerSessionId !== "", { timeout: TIMEOUT });
-    await when(() => kernel.sessionPlexus(call.workerSessionId)?.root.agentCallbacks[call.uuid] != null, {
+    await when(() => kernel.sessionDoc(call.workerSessionId)?.root.agentCallbacks[call.uuid] != null, {
       timeout: TIMEOUT,
     });
     expect({
@@ -367,10 +365,10 @@ describe("agent acceptance step 3", () => {
     });
     const originalFlush = kernel.flushSession.bind(kernel);
     const flushed: string[] = [];
-    vi.spyOn(kernel, "flushSession").mockImplementation(async (plexus) => {
-      flushed.push(plexus.root.sessionId);
-      if (plexus.root.sessionId === "caller") throw new Error("caller persistence unavailable");
-      return originalFlush(plexus);
+    vi.spyOn(kernel, "flushSession").mockImplementation(async (doc) => {
+      flushed.push(doc.root.sessionId);
+      if (doc.root.sessionId === "caller") throw new Error("caller persistence unavailable");
+      return originalFlush(doc);
     });
     session.root.head = closedTurn(ask);
     await vi.waitFor(() => expect(ask.workerSessionId !== "" && flushed.includes(ask.workerSessionId)).toBe(true), {
@@ -378,8 +376,8 @@ describe("agent acceptance step 3", () => {
     });
     expect({
       completed: ask.completed,
-      delivered: kernel.sessionPlexus(ask.workerSessionId)?.root.findTurnByAgentRequestId(ask.uuid) != null,
-      row: kernel.sessionPlexus(ask.workerSessionId)?.root.agentCallbacks[ask.uuid],
+      delivered: kernel.sessionDoc(ask.workerSessionId)?.root.findTurnByAgentRequestId(ask.uuid) != null,
+      row: kernel.sessionDoc(ask.workerSessionId)?.root.agentCallbacks[ask.uuid],
     }).toEqual({ completed: false, delivered: true, row: "caller" });
   });
 
@@ -392,7 +390,7 @@ describe("agent acceptance step 3", () => {
       orchestrationResult: true,
     });
     session.root.head = closedTurn(ask);
-    await when(() => kernel.sessionPlexus(ask.workerSessionId)?.root.findTurnByAgentRequestId(ask.uuid) != null, {
+    await when(() => kernel.sessionDoc(ask.workerSessionId)?.root.findTurnByAgentRequestId(ask.uuid) != null, {
       timeout: TIMEOUT,
     });
     const first = ask.workerSessionId;

@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { ConnectionSpec } from "@inhuman.tools/expectations";
 import { InstalledPlugin, KernelRoot, SessionRoot, SessionTurn } from "@inhuman.tools/harness-model";
-import { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
 import { expect, test } from "vitest";
 
 import { buildEffortSurface, effortChoices, evalUiSurface, UiNode } from "../uiCapability.js";

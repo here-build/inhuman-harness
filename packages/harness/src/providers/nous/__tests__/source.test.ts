@@ -1,4 +1,4 @@
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { describe, expect, it } from "vitest";
 
 import { FIRECRAWL_NOUS_GATEWAY_URL } from "@/providers/web/wire";

@@ -77,8 +77,8 @@ describe("memory lifetime step 3", () => {
       () =>
         offload.workerSessionId !== "" &&
         tingle.workerSessionId !== "" &&
-        kernel.sessionPlexus(offload.workerSessionId)?.root.findTurnByAgentRequestId(offload.uuid) != null &&
-        kernel.sessionPlexus(tingle.workerSessionId)?.root.findTurnByAgentRequestId(tingle.uuid) != null,
+        kernel.sessionDoc(offload.workerSessionId)?.root.findTurnByAgentRequestId(offload.uuid) != null &&
+        kernel.sessionDoc(tingle.workerSessionId)?.root.findTurnByAgentRequestId(tingle.uuid) != null,
       { timeout: TIMEOUT },
     );
 
@@ -98,7 +98,7 @@ describe("memory lifetime step 3", () => {
     await when(
       () =>
         offload2.workerSessionId !== "" &&
-        kernel.sessionPlexus(offload2.workerSessionId)?.root.findTurnByAgentRequestId(offload2.uuid) != null,
+        kernel.sessionDoc(offload2.workerSessionId)?.root.findTurnByAgentRequestId(offload2.uuid) != null,
       { timeout: TIMEOUT },
     );
     await session.park();

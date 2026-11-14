@@ -2,7 +2,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   type BlobPeek,
   FileMutateToolJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   storedBlobJson,
@@ -115,7 +115,7 @@ describe("a prior held in a blob", () => {
   });
 
   it("falls back to a whole-file read earlier in the turn while the text is on its way", () => {
-    const plexus = SessionPlexus.create("blobs", "/work");
+    const doc = SessionDocument.create("blobs", "/work");
     try {
       const read = new SystemToolJob({
         toolCallId: "r",
@@ -133,12 +133,12 @@ describe("a prior held in a blob", () => {
       });
       turn.pushChild(read);
       turn.pushChild(change);
-      plexus.root.head = turn;
+      doc.root.head = turn;
       const empty = cache();
       expect(mutateSuggestionReceipt(change, empty)).toEqual(wholeDiff);
       expect(empty.wanted).toEqual([SHA]);
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 });

@@ -1,20 +1,20 @@
+import { ConnectionMiss } from "@inhuman.tools/expectations/driver";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
-import { ConnectionMiss } from "@inhuman.tools/plexus-expectations/driver";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AccountSnapshot } from "../api-extensions/types.js";
 import { OpenAiCompatDriverConnection } from "../index.js";
 import { listenCompat } from "./compat-server.js";
 
-function homeRound(plexus: SessionPlexus, round: CompletionExpectation): void {
-  plexus.root.head = new SessionTurn({
+function homeRound(doc: SessionDocument, round: CompletionExpectation): void {
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: round.promptText,
     doneWork: [new CompletionJob({ expectation: round })],
@@ -26,9 +26,9 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
   it("bounds readiness before creating a completion actor", async () => {
     const connection = new OpenAiCompatDriverConnection("waiting", { baseUrl: "https://api.example.test/v1" });
     connection.sendReadyTimeoutMs = 20;
-    const plexus = SessionPlexus.create("complete-readiness-deadline", "/ws");
+    const doc = SessionDocument.create("complete-readiness-deadline", "/ws");
     const round = new CompletionExpectation({ promptText: prompt.user`hi`, connectionId: "waiting", model: "m1" });
-    homeRound(plexus, round);
+    homeRound(doc, round);
     try {
       await expect(connection.complete({ model: "m1", round })).rejects.toMatchObject({
         code: "not-ready",
@@ -36,7 +36,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
       });
       expect(connection.has(round)).toBe(false);
     } finally {
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
     }
   });
@@ -46,7 +46,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
     const connection = new OpenAiCompatDriverConnection("row-ok", {
       baseUrl: compat.baseUrl,
     });
-    const plexus = SessionPlexus.create("complete-honor-live", "/ws");
+    const doc = SessionDocument.create("complete-honor-live", "/ws");
     try {
       await connection.ensureBootstrapStarted();
       const round = new CompletionExpectation({
@@ -54,7 +54,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
         connectionId: "row-ok",
         model: "m1",
       });
-      homeRound(plexus, round);
+      homeRound(doc, round);
       connection.handle(round);
       const result = await connection.complete({
         model: "m1",
@@ -65,7 +65,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
       expect(round.outcome).toBe("successful");
       expect(compat.posts).toHaveLength(1);
     } finally {
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
       await compat.close();
     }
@@ -76,7 +76,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
     const connection = new OpenAiCompatDriverConnection("row-ok", {
       baseUrl: compat.baseUrl,
     });
-    const plexus = SessionPlexus.create("complete-honor-disposed", "/ws");
+    const doc = SessionDocument.create("complete-honor-disposed", "/ws");
     try {
       await connection.ensureBootstrapStarted();
       const round = new CompletionExpectation({
@@ -84,7 +84,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
         connectionId: "row-ok",
         model: "m1",
       });
-      homeRound(plexus, round);
+      homeRound(doc, round);
       const result = await connection.complete({
         model: "m1",
         promptText: "hi",
@@ -93,7 +93,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
       expect(result.text).toBe("solo");
       expect(round.outcome).toBe("successful");
     } finally {
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
       await compat.close();
     }
@@ -102,13 +102,13 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
   it("needs-auth and failed throw ConnectionMiss after the wait", async () => {
     const keyed = new OpenAiCompatDriverConnection("row", { baseUrl: "https://api.example.test/v1" }, { apiKey: "sk" });
     keyed.noteChallenge(401);
-    const plexus = SessionPlexus.create("complete-miss", "/ws");
+    const doc = SessionDocument.create("complete-miss", "/ws");
     const round = new CompletionExpectation({
       promptText: prompt.user`x`,
       connectionId: "row",
       model: "m1",
     });
-    homeRound(plexus, round);
+    homeRound(doc, round);
     await expect(keyed.complete({ model: "m1", round })).rejects.toMatchObject({
       name: "ConnectionMiss",
       code: "needs-auth",
@@ -122,9 +122,9 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
       connectionId: "dead",
       model: "m1",
     });
-    homeRound(plexus, deadRound);
+    homeRound(doc, deadRound);
     await expect(failed.complete({ model: "m1", round: deadRound })).rejects.toBeInstanceOf(ConnectionMiss);
-    plexus.destroy();
+    doc.destroy();
     await keyed[Symbol.asyncDispose]();
     await failed[Symbol.asyncDispose]();
   });
@@ -138,7 +138,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
     const connection = new OpenAiCompatDriverConnection("row-ok", {
       baseUrl: compat.baseUrl,
     });
-    const plexus = SessionPlexus.create("complete-abort", "/ws");
+    const doc = SessionDocument.create("complete-abort", "/ws");
     const attempt = new AbortController();
     try {
       await connection.ensureBootstrapStarted();
@@ -147,7 +147,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
         connectionId: "row-ok",
         model: "m1",
       });
-      homeRound(plexus, round);
+      homeRound(doc, round);
       const pending = connection.complete({
         model: "m1",
         promptText: "hi",
@@ -164,7 +164,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
       expect(round.isDone).toBe(true);
     } finally {
       release();
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
       await compat.close();
     }
@@ -175,7 +175,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
     const connection = new OpenAiCompatDriverConnection("row-ok", {
       baseUrl: compat.baseUrl,
     });
-    const plexus = SessionPlexus.create("complete-quota", "/ws");
+    const doc = SessionDocument.create("complete-quota", "/ws");
     try {
       await connection.ensureBootstrapStarted();
       const loads: number[] = [];
@@ -198,7 +198,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
         connectionId: "row-ok",
         model: "m1",
       });
-      homeRound(plexus, round);
+      homeRound(doc, round);
       const result = await connection.complete({
         model: "m1",
         promptText: "hi",
@@ -217,7 +217,7 @@ describe("openai-compat connection.complete: honor live (no double-start) and ho
       polls.mockRestore();
       load.mockRestore();
     } finally {
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
       await compat.close();
     }

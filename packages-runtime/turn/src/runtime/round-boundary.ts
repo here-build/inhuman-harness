@@ -98,7 +98,7 @@ export async function assessBoundary(
   signal: AbortSignal,
 ): Promise<RoundDecision> {
   const source = boundary.source;
-  const pew = source?.expectation;
+  const completion = source?.expectation;
   const candidates: ContinuationCandidate[] = [];
   let gate: RoundGate | null = null;
   const add = (kind: ContinuationKind, sources: readonly string[], limit?: number): void => {
@@ -111,18 +111,20 @@ export async function assessBoundary(
     // Old documents had executable tokens with no recorded cause. Interpret only at this compatibility boundary.
     if (!boundary.openPage)
       add(boundary.truncated ? "length-repair" : boundary.intentContinue ? "intent" : "user", [boundary.uuid]);
-  } else if (pew != null && pew.outcome !== "successful") {
+  } else if (completion != null && completion.outcome !== "successful") {
     gate = {
       reason: "provider-failed",
-      detail: `model round failed: ${pew.failReason?.trim() || pew.endDetail?.trim() || "no reason given"}`,
+      detail: `model round failed: ${completion.failReason?.trim() || completion.endDetail?.trim() || "no reason given"}`,
     };
-  } else if (pew != null) {
-    const rejected = new Set(pew.responseCalls.filter((call) => call.dropReason !== "").map((call) => call.toolCallId));
+  } else if (completion != null) {
+    const rejected = new Set(
+      completion.responseCalls.filter((call) => call.dropReason !== "").map((call) => call.toolCallId),
+    );
     const admitted = source.responseWork.filter((job) => !rejected.has(job.toolCallId));
     const work = admitted.filter((job) => jobContinuationOf(job).kind === "observation");
     const auxiliary = admitted.filter((job) => jobContinuationOf(job).kind === "auxiliary");
-    const speech = splitThink(pew.responseText).content.trim();
-    if (pew.finishReason === CONTENT_FILTER_STOP) {
+    const speech = splitThink(completion.responseText).content.trim();
+    if (completion.finishReason === CONTENT_FILTER_STOP) {
       gate = {
         reason: "content-filter",
         detail: "The provider's content filter stopped this response. Send another message to try again.",
@@ -135,7 +137,7 @@ export async function assessBoundary(
           madeProgress(source) ? undefined : REPAIR_ATTEMPTS,
         );
       if (rejected.size > 0) add("call-repair", [...rejected], REPAIR_ATTEMPTS);
-      if (pew.finishReason === "length" && work.length === 0 && rejected.size === 0) {
+      if (completion.finishReason === "length" && work.length === 0 && rejected.size === 0) {
         if (speech === "")
           gate = {
             reason: "length-no-answer",
@@ -144,7 +146,7 @@ export async function assessBoundary(
           };
         else add("length-repair", [source.uuid], turn.lengthContinuations ?? 3);
       } else if (work.length === 0 && rejected.size === 0) {
-        if (thoughtWithoutAnswer(pew)) add("thought-repair", [source.uuid], THOUGHT_ATTEMPTS);
+        if (thoughtWithoutAnswer(completion)) add("thought-repair", [source.uuid], THOUGHT_ATTEMPTS);
         else if (speech === "" && auxiliary.length > 0) {
           add(
             "auxiliary-repair",
@@ -166,15 +168,15 @@ export async function assessBoundary(
   // A judge is needed only when no cheaper trigger already authorizes the next invocation.
   const preliminary = decideRound(candidates, gate);
   if (
-    pew != null &&
+    completion != null &&
     gate == null &&
     preliminary.kind !== "advance" &&
-    splitThink(pew.responseText).content.trim() !== ""
+    splitThink(completion.responseText).content.trim() !== ""
   ) {
     if (boundary.intentAssessment == null) {
       let assessment: IntentAssessment;
       try {
-        assessment = await host.classifyIntent(pew, signal);
+        assessment = await host.classifyIntent(completion, signal);
       } catch (error) {
         assessment = {
           verdict: null,

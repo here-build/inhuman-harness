@@ -68,11 +68,11 @@ it("does not stamp a parsed answer after its runtime is replaced on the same doc
     replacement = new SessionRuntime(runtime.session, { kind: "memory" });
     replacement.recover();
     replacement.activate();
-    const before = runtime.session.doc.toSnapshot();
+    const before = runtime.session.toSnapshot();
     answer.resolve({ content: "late answer", reasoning: "late thought", calls: [], finishReason: "stop" });
     await pending;
     await finished.promise;
-    expect({ text: round.responseText, state: runtime.session.doc.toSnapshot() }).toEqual({
+    expect({ text: round.responseText, state: runtime.session.toSnapshot() }).toEqual({
       text: "",
       state: before,
     });

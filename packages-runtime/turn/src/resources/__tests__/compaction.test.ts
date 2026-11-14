@@ -3,7 +3,7 @@ import {
   CompletionExpectation,
   CompletionJob,
   CompactJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -25,7 +25,7 @@ function history(): Transcript {
 }
 
 it("runs the shipped strategy and captured prompt without a workspace directory", async () => {
-  const session = SessionPlexus.create("bundled-compact", "");
+  const session = SessionDocument.create("bundled-compact", "");
   onTestFinished(() => session.destroy());
   const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`current`, queue: [] });
   session.root.head = turn;
@@ -100,7 +100,7 @@ it("pins nested module content and rejects imports outside its namespace", async
 });
 
 it("checkpoints source and imported content before use, then restores only the captured closure", async () => {
-  const session = SessionPlexus.create("captured-compact", "");
+  const session = SessionDocument.create("captured-compact", "");
   onTestFinished(() => session.destroy());
   const seen: CompletionExpectation[] = [];
   const tail = new SessionTurn({
@@ -122,7 +122,7 @@ it("checkpoints source and imported content before use, then restores only the c
   turn.pushChild(job);
   session.root.head = turn;
   const bundle = createModuleBundle({ id: "capture", revision: "v1", modules: { "card.txt": "original card" } });
-  let committed: ReturnType<SessionPlexus["toSnapshot"]> | undefined;
+  let committed: ReturnType<SessionDocument["toSnapshot"]> | undefined;
   const checkpoints: string[] = [];
   const failures: string[] = [];
   await runCompactJob(job, {
@@ -150,7 +150,7 @@ it("checkpoints source and imported content before use, then restores only the c
     failures: [],
   });
   if (committed === undefined) throw new Error("missing committed source checkpoint");
-  const restored = SessionPlexus.fromSnapshot(committed);
+  const restored = SessionDocument.fromSnapshot(committed);
   onTestFinished(() => restored.destroy());
   const restoredTurn = restored.root.head;
   if (!(restoredTurn instanceof SessionTurn)) throw new TypeError("missing restored turn");
@@ -179,7 +179,7 @@ it("checkpoints source and imported content before use, then restores only the c
 });
 
 it("leaves a replacement owner's compact outcome intact when the old background check resolves", async () => {
-  const session = SessionPlexus.create("compact-owner-race", "");
+  const session = SessionDocument.create("compact-owner-race", "");
   onTestFinished(() => session.destroy());
   const seen: CompletionExpectation[] = [];
   const tail = new SessionTurn({

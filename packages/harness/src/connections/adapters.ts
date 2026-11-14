@@ -7,13 +7,13 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { applyDriverDefinition } from "@inhuman.tools/harness-provider-sdk";
-import { DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { DriverSpec } from "@inhuman.tools/expectations";
 import type {
   ConnectionSecretsView,
   DriverConnectionClass,
-  PEWDriver,
-} from "@inhuman.tools/plexus-expectations/driver";
+  ExpectationDriver,
+} from "@inhuman.tools/expectations/driver";
+import { applyDriverDefinition } from "@inhuman.tools/harness-provider-sdk";
 
 import { adoptDriver, type AdoptCallback, type DriverAdoptArgs, type DriverAdoptBags } from "./adopt.js";
 import { type CredentialsStore, secretsView } from "./credentials.js";
@@ -99,7 +99,7 @@ export async function loadDriverModule(
   return registry.resolve(driver, { ...options, purpose: "execution" });
 }
 
-/** `probeCompletionCatalog` intern-probe. Shares PEW intern with session ensure. */
+/** `probeCompletionCatalog` intern-probe. Shares expectation intern with session ensure. */
 export async function internForDiscovery(
   registry: DriverRegistry,
   kernel: InternKernel,
@@ -107,10 +107,10 @@ export async function internForDiscovery(
   connectionId: string,
   options: {
     readonly secrets: CredentialsStore | ConnectionSecretsView;
-    readonly awareness?: PEWDriver["awareness"];
+    readonly awareness?: ExpectationDriver["awareness"];
     readonly loadExternal?: ResolveOptions["loadExternal"];
   },
-): Promise<PEWDriver> {
+): Promise<ExpectationDriver> {
   const spec = kernel.connections[connectionId];
   if (spec === undefined) {
     throw new Error(`unknown connection ${connectionId}`);
@@ -131,10 +131,10 @@ export async function internForExecution(
   connectionId: string,
   options: {
     readonly secrets: CredentialsStore | ConnectionSecretsView;
-    readonly awareness?: PEWDriver["awareness"];
+    readonly awareness?: ExpectationDriver["awareness"];
     readonly loadExternal?: ResolveOptions["loadExternal"];
   },
-): Promise<PEWDriver> {
+): Promise<ExpectationDriver> {
   return ensureRegisteredConnection(registry, kernel, owner, connectionId, {
     purpose: "execution",
     secrets: isCredentialsStore(options.secrets) ? secretsView(options.secrets, connectionId) : options.secrets,

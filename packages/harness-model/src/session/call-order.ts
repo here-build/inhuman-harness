@@ -21,7 +21,7 @@
  * `local`, and an MCP call is read-only only when the catalog class says `read`
  * and the name floor reads it as a look-up.
  */
-import type { Job } from "@inhuman.tools/plexus-expectations";
+import type { Job } from "@inhuman.tools/expectations";
 
 import { clusterOf, fileQuestion } from "./cluster.js";
 import { AgentCallbackJob } from "./jobs/AgentCallbackJob.js";

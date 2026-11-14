@@ -35,7 +35,7 @@ describe("memoBorrowedEnsure", () => {
     });
   });
 
-  it("ensures source then intern; source failure still mints intern; PEW ticks share one chain", async () => {
+  it("ensures source then intern; source failure still mints intern; expectation ticks share one chain", async () => {
     const order: string[] = [];
     const memos = new Map<string, Promise<string>>();
     let intern = 0;

@@ -3,8 +3,8 @@
  * Presence is awareness (drops on disconnect / 30s timeout), not KernelRoot.
  * Origin (tui / web / mobile) is a later field on the same object — not a second lane.
  */
-import { FieldAwareness, type PlexusAwareness } from "@inhuman.tools/model";
-import type { KernelAwareness as PewKernelAwareness } from "@inhuman.tools/plexus-expectations";
+import type { KernelAwareness as ExpectationKernelAwareness } from "@inhuman.tools/expectations";
+import { FieldAwareness, type ReactiveAwareness } from "@inhuman.tools/model";
 
 import type { AgentNature } from "../recipe-scope.js";
 import { isConversationOverview } from "./SessionOverview.js";
@@ -15,12 +15,12 @@ export type KernelSeat = {
   readonly sessionId: string;
 };
 
-/** Seat is SDK; attention lanes are PEW kernel occupancy. */
-export type KernelAwareness = PewKernelAwareness & {
+/** Seat is SDK; attention lanes are expectation kernel occupancy. */
+export type KernelAwareness = ExpectationKernelAwareness & {
   seat?: KernelSeat;
 };
 
-export function publishKernelSeat(hub: PlexusAwareness, sessionId: string | null): void {
+export function publishKernelSeat(hub: ReactiveAwareness, sessionId: string | null): void {
   const lane = new FieldAwareness(hub, KERNEL_SEAT_LANE);
   const id = sessionId?.trim() ?? "";
   if (id === "") {
@@ -30,7 +30,7 @@ export function publishKernelSeat(hub: PlexusAwareness, sessionId: string | null
   lane.set({ sessionId: id } as never);
 }
 
-export function occupiedSessionIds(hub: PlexusAwareness): Set<string> {
+export function occupiedSessionIds(hub: ReactiveAwareness): Set<string> {
   const lane = new FieldAwareness(hub, KERNEL_SEAT_LANE);
   const ids = new Set<string>();
   for (const clientId of lane.clientIds) {
@@ -45,7 +45,7 @@ export function occupiedSessionIds(hub: PlexusAwareness): Set<string> {
  * a lone window is 0, so leaving it may cancel the shared turn. A second
  * window is ≥ 1, so `/new` must not stop the loop that window is watching.
  */
-export function otherSessionSeatCount(hub: PlexusAwareness, sessionId: string): number {
+export function otherSessionSeatCount(hub: ReactiveAwareness, sessionId: string): number {
   const id = sessionId.trim();
   if (id === "") return 0;
   const lane = new FieldAwareness(hub, KERNEL_SEAT_LANE);
@@ -56,7 +56,7 @@ export function otherSessionSeatCount(hub: PlexusAwareness, sessionId: string): 
   return count;
 }
 
-export function sessionIsOccupied(hub: PlexusAwareness, sessionId: string): boolean {
+export function sessionIsOccupied(hub: ReactiveAwareness, sessionId: string): boolean {
   return occupiedSessionIds(hub).has(sessionId);
 }
 

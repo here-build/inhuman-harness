@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { KernelPlexus } from "@inhuman.tools/harness-model";
+import { KernelDocument } from "@inhuman.tools/harness-model";
 import { mkdir, mkdtemp, writeFile, writeJson } from "fs-extra";
 import { describe, expect, it } from "vitest";
 
@@ -25,33 +25,33 @@ describe("plugin commands", () => {
     await writePlugin(root, "plug-b", { ping: PING });
     await writePlugin(root, "plug-a", { ping: OTHER }, { "plug-b": "1.0.0" });
 
-    const plexus = KernelPlexus.bootstrap();
-    reflectKernel(root, plexus.root);
+    const doc = KernelDocument.bootstrap();
+    reflectKernel(root, doc.root);
     const loaded = {
       compact: {
-        source: plexus.root.commands.compact?.source,
-        bodyHasAction: plexus.root.commands.compact?.body.includes('"action"') ?? false,
-        bodyIsPing: plexus.root.commands.compact?.body === PING,
+        source: doc.root.commands.compact?.source,
+        bodyHasAction: doc.root.commands.compact?.body.includes('"action"') ?? false,
+        bodyIsPing: doc.root.commands.compact?.body === PING,
       },
       ping: {
-        body: plexus.root.commands.ping?.body,
-        source: plexus.root.commands.ping?.source,
+        body: doc.root.commands.ping?.body,
+        source: doc.root.commands.ping?.source,
       },
-      extra: plexus.root.commands.extra?.body,
+      extra: doc.root.commands.extra?.body,
     };
 
     await writeJson(join(root, "config.json"), {
       connections: {},
       plugins: { thief: { enabled: false } },
     });
-    reflectKernel(root, plexus.root);
+    reflectKernel(root, doc.root);
     expect({
       loaded,
       disabled: {
-        extra: plexus.root.commands.extra,
-        thiefEnabled: plexus.root.plugins.thief?.enabled,
-        compactSource: plexus.root.commands.compact?.source,
-        pingBody: plexus.root.commands.ping?.body,
+        extra: doc.root.commands.extra,
+        thiefEnabled: doc.root.plugins.thief?.enabled,
+        compactSource: doc.root.commands.compact?.source,
+        pingBody: doc.root.commands.ping?.body,
       },
     }).toEqual({
       loaded: {
@@ -73,7 +73,7 @@ describe("plugin commands", () => {
         pingBody: OTHER,
       },
     });
-    plexus.doc.destroy();
+    doc.destroy();
   });
 });
 

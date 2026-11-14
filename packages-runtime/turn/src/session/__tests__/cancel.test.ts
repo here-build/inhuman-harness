@@ -46,19 +46,19 @@ describe("cancel", () => {
   });
 
   it("failLeftoverApprovables seals orchestrated leaves, so the session leaves 'tools'", () => {
-    const plexus = sessionOf("esc");
+    const doc = sessionOf("esc");
     const leaves = ["a", "b", "c"].map(
       (id) => new SystemToolJob({ toolCallId: id, name: "echo", argsJson: "{}", orchestrationResult: true }),
     );
     const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), queue: [] });
     for (const leaf of leaves) turn.pushChild(leaf);
-    plexus.root.head = turn;
+    doc.root.head = turn;
     const aborted: unknown[] = [];
     failLeftoverApprovables(turn, (leaf) => aborted.push(leaf), emptyCatalog());
     expect({
       aborted: aborted.length,
       leaves: leaves.map((leaf) => ({ completed: leaf.completed, receipt: JSON.parse(leaf.receiptJson ?? "null") })),
-      unfinished: plexus.root.openToolCount,
+      unfinished: doc.root.openToolCount,
     }).toEqual({
       aborted: 3,
       leaves: leaves.map(() => ({

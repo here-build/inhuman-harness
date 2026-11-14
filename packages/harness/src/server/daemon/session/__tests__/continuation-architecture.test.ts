@@ -10,7 +10,7 @@ import {
   decideRound,
   ResponseCall,
   responseCall,
-  SessionPlexus,
+  SessionDocument,
   SessionTurn,
   ToolCallJob,
 } from "@inhuman.tools/harness-model";
@@ -186,8 +186,8 @@ test.each(["cancel", "rewind"] as const)("%s prevents a late judge from admittin
   release();
   await wait(() => turn.reducerExited);
   // Flush and a fresh replica make a late completion observable without timing sleeps.
-  const plexus = await live.kernel.acquireSession(live.session.sessionId);
-  await live.kernel.flushSession(plexus!);
+  const doc = await live.kernel.acquireSession(live.session.sessionId);
+  await live.kernel.flushSession(doc!);
   expect({
     rounds: rounds(turn).length,
     successors: boundaries(turn).map((cell) => cell.decision?.nextRoundId ?? null),
@@ -240,7 +240,7 @@ test.each([
 
 test("a round limit preserves the triggering work and replica-visible incomplete state", async () => {
   const live = await liveSession();
-  live.kernel.plexus.root.maxRounds = 1;
+  live.kernel.doc.root.maxRounds = 1;
   const { turn } = await startTurn(live);
   live.model.reply({ calls: [responseCall("files", "list_dir", '{"path":"."}')] });
   await wait(() => turn.reducerExited);
@@ -319,7 +319,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
   const violations: unknown[] = [];
   const capture = (): void => {
     const image = captureCut(live);
-    const view = SessionPlexus.fromNodeRows(image.rows, {
+    const view = SessionDocument.fromNodeRows(image.rows, {
       rootId: image.rootId,
       sessionId: live.session.sessionId,
       revision: image.revision,
@@ -471,7 +471,7 @@ test("a forced compaction and its expansion boundary survive the same durable cu
   const doc = live.session.doc;
   const capture = (): void => {
     const snapshot = captureCut(live);
-    const replica = SessionPlexus.fromNodeRows(snapshot.rows, {
+    const replica = SessionDocument.fromNodeRows(snapshot.rows, {
       rootId: snapshot.rootId,
       sessionId: live.session.sessionId,
       revision: snapshot.revision,

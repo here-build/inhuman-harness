@@ -4,7 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   TurnPromptChunk,
@@ -28,7 +28,7 @@ const state = vi.hoisted(() => ({
     attaching: false,
     kernel: { root: { connections: {} as Record<string, unknown>, sessions: {} } },
     project: null,
-    session: null as { root: SessionPlexus["root"] } | null,
+    session: null as { root: SessionDocument["root"] } | null,
     sessionRpc: { request } as { request: typeof request } | null,
     follow: () => undefined,
     requestedTarget: { kind: "kernel" as const },
@@ -49,13 +49,13 @@ function pin(tail: SessionTurn | SessionSystemPrompt, text: string, live = false
   });
 }
 
-function seat(live = false): { plexus: SessionPlexus; first: SessionTurn; second: SessionTurn } {
-  const plexus = SessionPlexus.create("edit", "/work/project");
+function seat(live = false): { doc: SessionDocument; first: SessionTurn; second: SessionTurn } {
+  const doc = SessionDocument.create("edit", "/work/project");
   const first = pin(new SessionSystemPrompt(), "first");
   const second = pin(first, "second", live);
-  plexus.root.head = second;
-  plexus.root.tip = second;
-  return { plexus, first, second };
+  doc.root.head = second;
+  doc.root.tip = second;
+  return { doc, first, second };
 }
 
 const shot: UserVisualIdentity = {
@@ -93,7 +93,7 @@ function paramId(params: unknown): string | null {
   return typeof params.id === "string" ? params.id : null;
 }
 
-function client(root: SessionPlexus["root"], rpc = request): EditClient {
+function client(root: SessionDocument["root"], rpc = request): EditClient {
   return {
     attaching: false,
     link: null,
@@ -128,115 +128,115 @@ describe("edit cut", () => {
   }
 
   it("cuts to the previous pin and keeps the selected prompt", () => {
-    const { plexus, first, second } = seat();
+    const { doc, first, second } = seat();
     expect(editCut(second)).toEqual({ kind: "rewind", turnId: first.uuid, prompt: "second", visuals: [] });
     expect(editCut(first)).toEqual({ kind: "prefill", prompt: "first", visuals: [] });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("names the retained tip when head has moved off it", () => {
-    const { plexus, first, second } = seat();
-    plexus.root.rewindHead(first, second);
-    expect(restoreTarget(first, plexus.root.tip)).toBe(second.uuid);
+    const { doc, first, second } = seat();
+    doc.root.rewindHead(first, second);
+    expect(restoreTarget(first, doc.root.tip)).toBe(second.uuid);
     expect(restoreTarget(second, second)).toBeNull();
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("rewinds before filling the draft, and leaves the draft when rewind is refused", async () => {
-    const { plexus, first, second } = seat();
-    hold(plexus.root.uuid);
-    await editMessage(client(plexus.root), second);
+    const { doc, first, second } = seat();
+    hold(doc.root.uuid);
+    await editMessage(client(doc.root), second);
     expect(request).toHaveBeenCalledWith("turn/rewind", { turnId: first.uuid });
     expect(pocket).toMatchObject({ draft: "second", status: "" });
 
     pocket.draft = "";
     request.mockResolvedValueOnce({ ok: false });
-    await editMessage(client(plexus.root), second);
+    await editMessage(client(doc.root), second);
     expect(pocket).toMatchObject({ draft: "", status: "That message could not be edited." });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("fills the first message without a rewind", async () => {
-    const { plexus, first } = seat();
-    hold(plexus.root.uuid);
-    await editMessage(client(plexus.root), first);
+    const { doc, first } = seat();
+    hold(doc.root.uuid);
+    await editMessage(client(doc.root), first);
     expect(request).not.toHaveBeenCalled();
     expect(pocket.draft).toBe("first");
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("restores the tip and clears a draft that is still the edited prompt", async () => {
-    const { plexus, first, second } = seat();
-    plexus.root.rewindHead(first, second);
-    hold(plexus.root.uuid);
-    fillDraft(plexus.root.uuid, "second", [chip]);
+    const { doc, first, second } = seat();
+    doc.root.rewindHead(first, second);
+    hold(doc.root.uuid);
+    fillDraft(doc.root.uuid, "second", [chip]);
     const rpc = vi.fn(async () => {
-      plexus.root.rewindHead(second, second);
+      doc.root.rewindHead(second, second);
       return { ok: true };
     });
-    await restoreMessages(client(plexus.root, rpc), first, plexus.root.tip);
+    await restoreMessages(client(doc.root, rpc), first, doc.root.tip);
     expect(rpc).toHaveBeenCalledWith("turn/rewind", { turnId: second.uuid });
     expect(pocket.draft).toBe("");
     expect(pocket.pictures).toEqual([]);
-    expect(plexus.root.head).toBe(second);
-    plexus.destroy();
+    expect(doc.root.head).toBe(second);
+    doc.destroy();
   });
 
   it("keeps pictures when restore keeps a draft that was typed over", async () => {
-    const { plexus, first, second } = seat();
-    plexus.root.rewindHead(first, second);
-    hold(plexus.root.uuid);
-    fillDraft(plexus.root.uuid, "second", [chip]);
+    const { doc, first, second } = seat();
+    doc.root.rewindHead(first, second);
+    hold(doc.root.uuid);
+    fillDraft(doc.root.uuid, "second", [chip]);
     pocket.draft = "kept";
     const rpc = vi.fn(async () => {
-      plexus.root.rewindHead(second, second);
+      doc.root.rewindHead(second, second);
       return { ok: true };
     });
-    await restoreMessages(client(plexus.root, rpc), first, plexus.root.tip);
+    await restoreMessages(client(doc.root, rpc), first, doc.root.tip);
     expect(pocket.draft).toBe("kept");
     expect(pocket.pictures).toEqual([chip]);
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("fetches every picture before rewind and refills the chips", async () => {
-    const { plexus, first, second } = seat();
+    const { doc, first, second } = seat();
     runInAction(() => {
       second.visuals = [shot];
     });
-    hold(plexus.root.uuid);
+    hold(doc.root.uuid);
     request.mockImplementation(async (method) => {
       if (method === "turn/visual") return stored(shot);
       return { ok: true };
     });
-    await editMessage(client(plexus.root), second);
+    await editMessage(client(doc.root), second);
     expect(request.mock.calls.map((call) => call[0])).toEqual(["turn/visual", "turn/rewind"]);
     expect(request).toHaveBeenCalledWith("turn/visual", { id: "pic-1" });
     expect(request).toHaveBeenCalledWith("turn/rewind", { turnId: first.uuid });
     expect(pocket.draft).toBe("second");
     expect(pocket.pictures).toEqual([chip]);
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("does not rewind or keep a text-only draft when a picture cannot be reopened", async () => {
-    const { plexus, second } = seat();
+    const { doc, second } = seat();
     runInAction(() => {
       second.visuals = [shot, { ...shot, id: "pic-2" }];
     });
-    hold(plexus.root.uuid);
+    hold(doc.root.uuid);
     pocket.draft = "leave this";
     request.mockImplementation(async (method, params) => {
       if (method === "turn/visual" && paramId(params) === "pic-1") return stored(shot);
       if (method === "turn/visual") return { ok: false };
       return { ok: true };
     });
-    await editMessage(client(plexus.root), second);
+    await editMessage(client(doc.root), second);
     expect(request.mock.calls.map((call) => call[0])).toEqual(["turn/visual", "turn/visual"]);
     expect(pocket).toMatchObject({ draft: "leave this", pictures: [], status: "The picture could not be reopened." });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("posts the reopened draft to the native shell inside an embed", async () => {
-    const { plexus, first, second } = seat();
+    const { doc, first, second } = seat();
     runInAction(() => {
       second.visuals = [shot];
     });
@@ -250,9 +250,9 @@ describe("edit cut", () => {
         },
       },
     });
-    hold(plexus.root.uuid);
+    hold(doc.root.uuid);
     request.mockImplementation(async (method) => (method === "turn/visual" ? stored(shot) : { ok: true }));
-    await editMessage(client(plexus.root), second);
+    await editMessage(client(doc.root), second);
     expect(request).toHaveBeenCalledWith("turn/rewind", { turnId: first.uuid });
     expect(pocket.draft).toBe("second");
     expect(pocket.pictures).toEqual([chip]);
@@ -262,14 +262,14 @@ describe("edit cut", () => {
       prompt: "second",
       visuals: [stored(shot)],
     });
-    plexus.destroy();
+    doc.destroy();
   });
 });
 
 describe("edit control", () => {
   let container: HTMLDivElement;
   let view: Root;
-  let open: SessionPlexus | null = null;
+  let open: SessionDocument | null = null;
 
   beforeEach(() => {
     (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -294,18 +294,18 @@ describe("edit control", () => {
   });
 
   it("edits the later message from the tape", async () => {
-    const { plexus, first, second } = seat();
-    open = plexus;
+    const { doc, first, second } = seat();
+    open = doc;
     const pocket: DraftPocket = { draft: "", pictures: [], revision: 0, status: "" };
-    const unbind = bindDraft(plexus.root.uuid, {
+    const unbind = bindDraft(doc.root.uuid, {
       state: pocket,
       refresh: () => undefined,
       focus: () => undefined,
     });
-    state.dial.session = { root: plexus.root };
+    state.dial.session = { root: doc.root };
     request.mockImplementation(async (method, params) => {
       if (method === "turn/rewind" && params != null && typeof params === "object" && "turnId" in params)
-        plexus.root.rewindHead(first, second);
+        doc.root.rewindHead(first, second);
       return { ok: true };
     });
 
@@ -327,9 +327,9 @@ describe("edit control", () => {
   });
 
   it("hides edit while a turn is running", async () => {
-    const { plexus } = seat(true);
-    open = plexus;
-    state.dial.session = { root: plexus.root };
+    const { doc } = seat(true);
+    open = doc;
+    state.dial.session = { root: doc.root };
     await act(async () => {
       view.render(createElement(FilePreviewProvider, { resetKey: "edit" }, createElement(Tape)));
     });

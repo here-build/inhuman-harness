@@ -5,7 +5,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   MCPToolJob,
   McpToolExpectation,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -47,12 +47,12 @@ function homeCall(args: {
   readonly serverToolName?: string;
   readonly argsJson?: string;
 }): {
-  readonly plexus: SessionPlexus;
+  readonly doc: SessionDocument;
   readonly parent: MCPToolJob;
   readonly leaf: MCPToolJob;
 } {
-  const plexus = SessionPlexus.create(`mcp-actor-${args.connectionKey}-${args.serverToolName ?? "ping"}`, "/ws");
-  onTestFinished(() => plexus.destroy());
+  const doc = SessionDocument.create(`mcp-actor-${args.connectionKey}-${args.serverToolName ?? "ping"}`, "/ws");
+  onTestFinished(() => doc.destroy());
   const job = new MCPToolJob({
     toolCallId: `call_${args.connectionKey}_${args.serverToolName ?? "ping"}`,
     name: `mcp__${args.connectionKey}__${args.serverToolName ?? "ping"}`,
@@ -65,7 +65,7 @@ function homeCall(args: {
       argsJson: args.argsJson ?? "{}",
     }),
   });
-  plexus.root.head = new SessionTurn({
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: prompt.user`p`,
     doneWork: [job],
@@ -73,7 +73,7 @@ function homeCall(args: {
   });
   job.humanApprove = true;
   job.orchestrationResult = true;
-  return { plexus, parent: job, leaf: job };
+  return { doc, parent: job, leaf: job };
 }
 
 function mcpExpectation(job: MCPToolJob): McpToolExpectation {
@@ -101,12 +101,12 @@ describe("MCP tool actor", () => {
         return { content: [{ type: "text", text: "sent" }] };
       },
     });
-    const excludedPew = mcpExpectation(excluded.leaf);
-    excludeConn.handle(excludedPew);
-    await when(() => excludedPew.isDone, { timeout: TIMEOUT });
+    const excludedExpectation = mcpExpectation(excluded.leaf);
+    excludeConn.handle(excludedExpectation);
+    await when(() => excludedExpectation.isDone, { timeout: TIMEOUT });
     expect({
       requests: excludeRequests,
-      dispatched: excludedPew.dispatched,
+      dispatched: excludedExpectation.dispatched,
       outcome: excluded.parent.receiptJson,
     }).toEqual({
       requests: [],
@@ -161,9 +161,9 @@ describe("MCP tool actor", () => {
         content: [{ type: "text", text: "nope" }],
       }),
     });
-    const stdioPew = mcpExpectation(stdio.leaf);
-    stdioConn.handle(stdioPew);
-    await when(() => stdioPew.isDone, { timeout: TIMEOUT });
+    const stdioExpectation = mcpExpectation(stdio.leaf);
+    stdioConn.handle(stdioExpectation);
+    await when(() => stdioExpectation.isDone, { timeout: TIMEOUT });
 
     const http = homeCall({ connectionKey: "http" });
     const httpConn = new McpHttpDriverConnection("http", {
@@ -172,15 +172,15 @@ describe("MCP tool actor", () => {
     httpConn.readyState = "ready";
     httpConn.bootstrapDone = true;
     httpConn.state.auth = "needs-auth";
-    const httpPew = mcpExpectation(http.leaf);
-    httpConn.handle(httpPew);
-    await when(() => httpPew.isDone, { timeout: TIMEOUT });
+    const httpExpectation = mcpExpectation(http.leaf);
+    httpConn.handle(httpExpectation);
+    await when(() => httpExpectation.isDone, { timeout: TIMEOUT });
 
     expect({
       stdio: stdio.parent.receiptJson,
       http: {
-        outcome: httpPew.outcome,
-        detail: httpPew.endDetail,
+        outcome: httpExpectation.outcome,
+        detail: httpExpectation.endDetail,
         receipt: http.parent.receiptJson,
       },
     }).toEqual({

@@ -1,7 +1,7 @@
 /**
  * Host protocol: mint a persisted connection from a driver class.
  *
- * PEWDriver does not declare this. Drivers that need a conversation
+ * ExpectationDriver does not declare this. Drivers that need a conversation
  * implement `static adopt`; {@link adoptDriver} passthroughs settings when
  * the method is absent.
  *

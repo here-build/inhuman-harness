@@ -1,4 +1,4 @@
-import type { DriverMultiplicity } from "@inhuman.tools/plexus-expectations";
+import type { DriverMultiplicity } from "@inhuman.tools/expectations";
 
 import type { CapabilityKind } from "./capabilities.js";
 import { providerBrand, type ProviderSdkContract } from "./identity.js";

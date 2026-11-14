@@ -1,5 +1,5 @@
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { SessionRoot } from "@inhuman.tools/harness-model";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { describe, expect, it } from "vitest";
 
 import { mcpJsonOf, mcpWireName, McpConnectionToolCatalogHost } from "@/runtime";

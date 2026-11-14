@@ -1,6 +1,6 @@
+import { WorkExpectation } from "@inhuman.tools/expectations";
 import { prompt, asUserPrompt, type SystemPrompt, type UserPrompt } from "@inhuman.tools/harness-commons";
 import { model as modelDecorator, state } from "@inhuman.tools/model";
-import { WorkExpectation } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
 
@@ -189,7 +189,7 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
   @state accessor expectedCacheHit: boolean = false;
   /** Model window. Null until usage reports one. */
   @state accessor contextLimit: number | null = null;
-  /** Epoch ms. `warmUntil` is the Date face; Plexus cannot store Date. */
+  /** Epoch ms. `warmUntil` is the Date face; model cannot store Date. */
   @state accessor warmUntilMs: number | null = null;
   /**
    * Epoch ms. Write-once. When speech first arrives, or on settlement if
@@ -410,7 +410,7 @@ export class CompletionExpectation extends WorkExpectation<CompletionResult, Com
 
   /**
    * Prior completions on the parent turn tape, compact-aware, plus this node.
-   * Parent that is not a SessionTurn (judge PEW) is `[this]`.
+   * Parent that is not a SessionTurn (judge expectation) is `[this]`.
    * A successful CompactJob drops every completion before it — the card is
    * not a completion, so the wire lead is built elsewhere.
    */
@@ -505,8 +505,8 @@ function keptFromIndex(headsOldestFirst: readonly SessionTurn[], mark: CutoffMar
   return Math.max(0, index);
 }
 
-export function owningTurn(pew: CompletionExpectation): SessionTurn | null {
-  const parent = pew.parent;
+export function owningTurn(expectation: CompletionExpectation): SessionTurn | null {
+  const parent = expectation.parent;
   if (parent instanceof SessionTurn) return parent;
   if (parent instanceof CompletionJob) return tapeTurn(parent);
   return null;
@@ -519,16 +519,16 @@ function completionOnTape(chunk: unknown): CompletionExpectation | null {
 function completionsOf(chunks: readonly unknown[]): CompletionExpectation[] {
   const out: CompletionExpectation[] = [];
   for (const chunk of chunks) {
-    const pew = completionOnTape(chunk);
-    if (pew != null) out.push(pew);
+    const expectation = completionOnTape(chunk);
+    if (expectation != null) out.push(expectation);
   }
   return out;
 }
 
-function tapeIndexOf(tape: readonly unknown[], pew: CompletionExpectation): number {
+function tapeIndexOf(tape: readonly unknown[], expectation: CompletionExpectation): number {
   for (let i = 0; i < tape.length; i += 1) {
     const cell = tape[i];
-    if (cell === pew || tapeCompletion(cell) === pew) return i;
+    if (cell === expectation || tapeCompletion(cell) === expectation) return i;
   }
   return -1;
 }

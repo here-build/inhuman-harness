@@ -7,6 +7,7 @@
  * license without the read floor. Blocklist is hide + deny, not a
  * silent ask→deny.
  */
+import type { ConnectionSpec } from "@inhuman.tools/expectations";
 import {
   mcpReadFloorAllows,
   mcpToolListHas,
@@ -14,7 +15,6 @@ import {
   parseMcpPersistScope,
   parseMcpToolRefKey,
 } from "@inhuman.tools/harness-model";
-import type { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
 
 import { isMcpDriver } from "./config.js";
 import { readField } from "./json.js";

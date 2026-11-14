@@ -68,8 +68,8 @@ const TEXT_MIME = "text/plain";
 type Stub = { readonly head: string; readonly blobJson: string };
 
 export function vacuumSession(root: SessionRoot, put: BlobPut, options: VacuumOptions): VacuumCounts {
-  const plexus = (root.container?.container ?? root.plexus) as DocumentContainer<any, any> | null | undefined;
-  if (plexus == null || typeof plexus.getAllOfType !== "function") {
+  const doc = root.document as DocumentContainer<any, any> | null | undefined;
+  if (doc == null || typeof doc.getAllOfType !== "function") {
     return { fileMutates: 0, promptMessages: 0, promptTexts: 0, bytesMoved: 0 };
   }
 
@@ -89,7 +89,7 @@ export function vacuumSession(root: SessionRoot, put: BlobPut, options: VacuumOp
       }
       const head = blobHeadOf(text);
       const stub = { head, blobJson: storedBlobJson({ ...ref, head }) };
-      runInAction(() => plexus.transact(() => apply(stub)));
+      runInAction(() => doc.transact(() => apply(stub)));
     }
     bytesMoved += Buffer.byteLength(text, "utf8");
   };
@@ -103,7 +103,7 @@ export function vacuumSession(root: SessionRoot, put: BlobPut, options: VacuumOp
     promptMessages += 1;
   };
 
-  for (const job of plexus.getAllOfType(FileMutateToolJob)) {
+  for (const job of doc.getAllOfType(FileMutateToolJob)) {
     const text = job.priorContent;
     if (typeof text !== "string" || !exceedsInlineMax(text) || parseStoredBlob(job.priorBlobJson) !== null) continue;
     move(text, ({ blobJson }) => {
@@ -113,7 +113,7 @@ export function vacuumSession(root: SessionRoot, put: BlobPut, options: VacuumOp
     fileMutates += 1;
   }
 
-  for (const completion of plexus.getAllOfType(CompletionExpectation)) {
+  for (const completion of doc.getAllOfType(CompletionExpectation)) {
     if (!completion.isDone) continue;
     const line: string = completion.promptText;
     // Only an isolated round's line leaves: nothing reads it (the messages win in `userPrompt`). A session
@@ -133,7 +133,7 @@ export function vacuumSession(root: SessionRoot, put: BlobPut, options: VacuumOp
   }
 
   // A message no completion owns is a replaced child: nothing reads it, and it still holds its text.
-  for (const message of plexus.getAllOfType(PromptMessage)) {
+  for (const message of doc.getAllOfType(PromptMessage)) {
     if (message.parent === null) moveMessage(message);
   }
 

@@ -1,5 +1,5 @@
+import { WorkContainer } from "@inhuman.tools/expectations";
 import { model } from "@inhuman.tools/model";
-import { WorkContainer } from "@inhuman.tools/plexus-expectations";
 
 @model("harness:session:turn-prompt")
 export class TurnPromptChunk extends WorkContainer {

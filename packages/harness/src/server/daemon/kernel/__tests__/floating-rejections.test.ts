@@ -10,8 +10,8 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { KernelDaemon } from "../KernelDaemon.js";
 
-vi.mock("@inhuman.tools/plexus-expectations/executor", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@inhuman.tools/plexus-expectations/executor")>()),
+vi.mock("@inhuman.tools/expectations/executor", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@inhuman.tools/expectations/executor")>()),
   dropConnection: () => Promise.reject(new Error("drop failed")),
 }));
 

@@ -37,27 +37,27 @@ function rounds(rows: readonly (readonly string[])[]): SideChannelRound[] {
 }
 
 function sealed(calls: readonly string[], outcome: "successful" | "failed" | "open" = "successful"): CompletionJob {
-  const pew = new CompletionExpectation({
+  const completion = new CompletionExpectation({
     connectionId: "c1",
     promptText: prompt.user`hi`,
   });
   if (calls.length > 0) {
-    pew.setResponseCalls(calls.map((name, index) => responseCall(`${name}-${index}`, name)));
+    completion.setResponseCalls(calls.map((name, index) => responseCall(`${name}-${index}`, name)));
   }
-  if (outcome === "successful") pew.succeed("settled", "", "null", { result: { text: "ok" } });
-  if (outcome === "failed") pew.fail("settled", "boom", "null");
-  return new CompletionJob({ expectation: pew });
+  if (outcome === "successful") completion.succeed("settled", "", "null", { result: { text: "ok" } });
+  if (outcome === "failed") completion.fail("settled", "boom", "null");
+  return new CompletionJob({ expectation: completion });
 }
 
 function isolated(calls: readonly string[]): CompletionJob {
-  const pew = new CompletionExpectation({
+  const completion = new CompletionExpectation({
     connectionId: "c1",
     promptText: prompt.user`hi`,
     completionMode: "isolated",
   });
-  pew.setResponseCalls(calls.map((name, index) => responseCall(`${name}-${index}`, name)));
-  pew.succeed("settled", "", "null", { result: { text: "ok" } });
-  return new CompletionJob({ expectation: pew });
+  completion.setResponseCalls(calls.map((name, index) => responseCall(`${name}-${index}`, name)));
+  completion.succeed("settled", "", "null", { result: { text: "ok" } });
+  return new CompletionJob({ expectation: completion });
 }
 
 describe("side-channel reminder wording", () => {

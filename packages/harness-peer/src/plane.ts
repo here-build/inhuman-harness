@@ -1,14 +1,14 @@
 /**
- * Plexus presence binding on a {@link RoomConnection}.
+ * Presence binding on a {@link RoomConnection}.
  * No `node:`, no `ws`.
  */
-import type { PlexusAwareness } from "@inhuman.tools/model";
+import type { ReactiveAwareness } from "@inhuman.tools/model";
 
-import { bindPlexusAwareness, encodeLocalAwarenessFrame } from "./awareness.js";
+import { bindAwareness, encodeLocalAwarenessFrame } from "./awareness.js";
 import type { PlaneWireFrame } from "./frames.js";
 import type { RoomConnection } from "./provider.js";
 
-export function bindRoomAwareness(hub: PlexusAwareness, connection: RoomConnection): () => void {
+export function bindRoomAwareness(hub: ReactiveAwareness, connection: RoomConnection): () => void {
   if (hub === connection.awareness) {
     if (connection.wsconnected) {
       const localFrame = encodeLocalAwarenessFrame(hub);
@@ -19,7 +19,7 @@ export function bindRoomAwareness(hub: PlexusAwareness, connection: RoomConnecti
     return () => undefined;
   }
 
-  return bindPlexusAwareness(hub, {
+  return bindAwareness(hub, {
     send(frame) {
       connection.sendText(frame);
     },

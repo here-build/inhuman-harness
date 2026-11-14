@@ -2,15 +2,15 @@
  * Job. `.work` is raw `children` — COLLECTORS ARE NOT `.work`.
  * `reducerExited` is the reducer exit. Background is a flag on the child.
  */
-import { prompt, type UserPrompt } from "@inhuman.tools/harness-commons";
-import { model as modelDecorator, state } from "@inhuman.tools/model";
 import {
   Job,
   type JobEffectOwner,
   type UnknownOutcomeRecovery,
   walkWork,
   type WorkContainer,
-} from "@inhuman.tools/plexus-expectations";
+} from "@inhuman.tools/expectations";
+import { prompt, type UserPrompt } from "@inhuman.tools/harness-commons";
+import { model as modelDecorator, state } from "@inhuman.tools/model";
 import { comparer, computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
 
@@ -89,7 +89,7 @@ export class SessionTurn extends SequenceJob {
   override readonly dispatch: string = "Turn loop after inboundTurnGuard. Shifting a chunk is not an external effect.";
   override readonly settlement: string = "reducerExited + completed. Open background children do not block.";
   override readonly cancel: string =
-    "Persist cancelRequested, then settleCancelledTurn (skip `call` lifetime Calls). reducerExited + cancelRequested recovers leftover PEW as cancelled.";
+    "Persist cancelRequested, then settleCancelledTurn (skip `call` lifetime Calls). reducerExited + cancelRequested recovers leftover expectation as cancelled.";
   override readonly unknownRecovery: UnknownOutcomeRecovery = "resume-inner";
   override readonly unknownNote: string =
     "If cancelRequested, settle cancel. Else restore the last pending doneWork chunk onto the queue; a model round the park or restart interrupted gets a fresh round (a new CompletionJob is a new attempt). Children follow their rows.";
@@ -250,7 +250,7 @@ export class SessionTurn extends SequenceJob {
   }
 
   /**
-   * Parent a Job onto `children`. Non-Jobs no-op. Not `parent` — Plexus owns that name.
+   * Parent a Job onto `children`. Non-Jobs no-op. Not `parent` — Model owns that name.
    */
   pushChild(child: TurnChunk): void {
     if (!(child instanceof Job)) return;
@@ -388,8 +388,8 @@ export class SessionTurn extends SequenceJob {
   get rounds(): number {
     let count = 0;
     for (const cell of this.doneWork) {
-      const pew = tapeCompletion(cell);
-      if (pew != null && pew.completionMode !== "isolated") count += 1;
+      const expectation = tapeCompletion(cell);
+      if (expectation != null && expectation.completionMode !== "isolated") count += 1;
     }
     return count;
   }

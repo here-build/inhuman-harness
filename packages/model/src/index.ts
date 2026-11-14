@@ -1,7 +1,6 @@
 export { auditModelClassOnce } from "./audit.js";
 export {
   FieldAwareness,
-  PlexusAwareness,
   ReactiveAwareness,
   type AwarenessSerializable,
   type AwarenessShape,

@@ -10,7 +10,7 @@ import { storedBlobJson, type StoredBlob } from "../blob-ref.js";
 import { CompletionExpectation } from "../expectations/CompletionExpectation.js";
 import { PromptMessage } from "../expectations/PromptMessage.js";
 import { CompletionJob } from "../jobs/CompletionJob.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
 
@@ -111,7 +111,7 @@ describe("CompletionExpectation prompt bodies", () => {
 
 describe("blob references replicate with the document", () => {
   it("a replica reads the same references and heads", () => {
-    const plexus = SessionPlexus.create("s-blob-text", "/tmp/blob-text");
+    const doc = SessionDocument.create("s-blob-text", "/tmp/blob-text");
     try {
       const round = new CompletionExpectation({
         connectionId: "c",
@@ -122,9 +122,9 @@ describe("blob references replicate with the document", () => {
       });
       const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`go`, queue: [] });
       turn.pushChild(new CompletionJob({ expectation: round }));
-      plexus.root.head = turn;
+      doc.root.head = turn;
 
-      const replica = SessionPlexus.connect(plexus);
+      const replica = SessionDocument.connect(doc);
       try {
         const copy = (replica.root.head?.children[0] as CompletionJob).expectation as CompletionExpectation;
         const message = copy?.promptMessages.at(0);
@@ -143,7 +143,7 @@ describe("blob references replicate with the document", () => {
         replica.destroy();
       }
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 });

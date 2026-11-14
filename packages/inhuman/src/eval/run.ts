@@ -143,11 +143,11 @@ export async function runEval(opts: EvalRunOpts): Promise<number> {
       const turn = findEvalTurnByRequestId(started.sessionRoot, requestId);
       if (turn == null) return;
       for (const chunk of reactChunks(turn)) {
-        const pew = tapeCompletion(chunk);
-        if (pew != null) {
-          const text = pew.responseText.trim();
-          if (!pew.isDone || text === "" || emitted.has(pew.uuid)) continue;
-          emitted.add(pew.uuid);
+        const completion = tapeCompletion(chunk);
+        if (completion != null) {
+          const text = completion.responseText.trim();
+          if (!completion.isDone || text === "" || emitted.has(completion.uuid)) continue;
+          emitted.add(completion.uuid);
           opts.streams.stderr.write(`${text}\n`);
           continue;
         }

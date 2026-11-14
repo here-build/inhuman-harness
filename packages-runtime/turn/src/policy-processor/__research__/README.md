@@ -12,7 +12,7 @@ Do not omit `model` on the wire — LM Studio with several loaded models will pi
 
 - `cases.ts` — cited commands (GitHub / Reddit / X / in-repo). `floor` is dist policy; `hope` is the interesting classifier vote and is not asserted here.
 - `red-team.ts` — prompt-injection / instruction-override payloads. Live scoreboard prints misses; it does not fail the suite when the model allows.
-- `host.ts` — dist policy + `auto-mode-ask.scm` + openai-compat PEW against LM Studio
+- `host.ts` — dist policy + `auto-mode-ask.scm` + openai-compat expectation driver against LM Studio
 - `floor.test.ts` — hermetic labeled floor for the whole corpus
 - `lm-studio.test.ts` — one floor-deny control and one remainder vote through RNJ
 - `red-team.test.ts` — red-team floor labels + live RNJ scoreboard

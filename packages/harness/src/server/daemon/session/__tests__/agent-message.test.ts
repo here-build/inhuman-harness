@@ -45,7 +45,7 @@ it("a message lands as one inbound turn on the target, with no callback, and the
     inbound: inbound?.inbound,
     head: target.root.head === inbound,
     callbacks: { ...target.root.agentCallbacks },
-    flushed: flushed.mock.calls.some(([plexus]) => plexus === target.plexus),
+    flushed: flushed.mock.calls.some(([doc]) => doc === target.doc),
   }).toEqual({
     receipt: { ok: true },
     prompt: "message from caller: hello",

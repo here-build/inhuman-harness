@@ -5,7 +5,7 @@ import {
   CompletionExpectation,
   CompletionJob,
   responseCall,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
@@ -61,8 +61,8 @@ describe("compact zones on the wire", () => {
     const afterTool = tool("after_tool", "grep", { outcome: "AFTER_FULL" });
     after.setResponseCalls([responseCall("after_tool", "grep")]);
     const tip = completion("tip-user");
-    const plexus = SessionPlexus.create("compact-zones-wire");
-    onTestFinished(() => plexus.destroy());
+    const doc = SessionDocument.create("compact-zones-wire");
+    onTestFinished(() => doc.destroy());
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
       prompt: prompt.user`q`,
@@ -73,7 +73,7 @@ describe("compact zones on the wire", () => {
       turn.enqueue(row);
       turn.doneWork.push(turn.queue.shift()!);
     }
-    plexus.root.head = turn;
+    doc.root.head = turn;
     const visible = [...viewWire(tip)]
       .filter((row) => row.role !== "system")
       .map((row) => ({

@@ -25,8 +25,8 @@ import {
   parseSuperKey,
 } from "@inhuman.tools/harness-model";
 import { parseTextOnlyContinue, type KvProposal } from "@inhuman.tools/harness-model/shared";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
-import { dropConnection } from "@inhuman.tools/plexus-expectations/executor";
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
+import { dropConnection } from "@inhuman.tools/expectations/executor";
 import { parseRetentionLayer } from "@inhuman.tools/turn/context";
 import fs from "fs-extra";
 import { runInAction } from "mobx";

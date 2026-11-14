@@ -6,7 +6,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   CompactJob,
@@ -164,8 +164,8 @@ describe("cache affinity", () => {
       }),
     });
     const firstConn = new Grokish("row-cache", { baseUrl: firstCompat.baseUrl, model: "grok-4.6" });
-    const firstPlexus = SessionPlexus.create("sess-cache", "/ws");
-    bindSessionCatalog(firstPlexus.root, new KernelToolCatalog());
+    const firstDoc = SessionDocument.create("sess-cache", "/ws");
+    bindSessionCatalog(firstDoc.root, new KernelToolCatalog());
     const first = new CompletionExpectation({
       promptText: prompt.user`hi`,
       connectionId: "row-cache",
@@ -173,7 +173,7 @@ describe("cache affinity", () => {
     });
     try {
       await firstConn.ensureBootstrapStarted();
-      firstPlexus.root.head = new SessionTurn({
+      firstDoc.root.head = new SessionTurn({
         turnTail: new SessionSystemPrompt(),
         prompt: prompt.user`hi`,
         doneWork: [new CompletionJob({ expectation: first })],
@@ -181,7 +181,7 @@ describe("cache affinity", () => {
       });
       await drain(firstConn, first);
     } finally {
-      firstPlexus.destroy();
+      firstDoc.destroy();
       await firstConn[Symbol.asyncDispose]();
       await firstCompat.close();
     }
@@ -203,8 +203,8 @@ describe("cache affinity", () => {
     });
     const warm = new Grokish("row-warm", { baseUrl: hitting.baseUrl, model: "grok-4.6" });
     const workspace = realpathSync(mkdtempSync(join(tmpdir(), "cache-inv-")));
-    const warmPlexus = SessionPlexus.create("sess-warm", workspace);
-    bindSessionCatalog(warmPlexus.root, new KernelToolCatalog());
+    const warmDoc = SessionDocument.create("sess-warm", workspace);
+    bindSessionCatalog(warmDoc.root, new KernelToolCatalog());
     const prior = new CompletionExpectation({
       promptText: prompt.user`first`,
       connectionId: "row-warm",
@@ -224,7 +224,7 @@ describe("cache affinity", () => {
     });
     try {
       await warm.ensureBootstrapStarted();
-      warmPlexus.root.head = new SessionTurn({
+      warmDoc.root.head = new SessionTurn({
         turnTail: new SessionSystemPrompt(),
         prompt: prompt.user`second`,
         doneWork: [
@@ -238,7 +238,7 @@ describe("cache affinity", () => {
       hit.warmUntil = new Date(Date.now() + 60_000);
       await drain(warm, miss);
     } finally {
-      warmPlexus.destroy();
+      warmDoc.destroy();
       await warm[Symbol.asyncDispose]();
       await hitting.close();
     }
@@ -252,8 +252,8 @@ describe("cache affinity", () => {
       }),
     });
     const foldConn = new Grokish("row-fold", { baseUrl: foldCompat.baseUrl, model: "grok-4.6" });
-    const foldPlexus = SessionPlexus.create("sess-fold", "/ws");
-    bindSessionCatalog(foldPlexus.root, new KernelToolCatalog());
+    const foldDoc = SessionDocument.create("sess-fold", "/ws");
+    bindSessionCatalog(foldDoc.root, new KernelToolCatalog());
     const snap = new CompletionExpectation({
       promptText: prompt.user`old`,
       connectionId: "row-fold",
@@ -269,7 +269,7 @@ describe("cache affinity", () => {
     });
     try {
       await foldConn.ensureBootstrapStarted();
-      foldPlexus.root.head = new SessionTurn({
+      foldDoc.root.head = new SessionTurn({
         turnTail: new SessionSystemPrompt(),
         prompt: prompt.user`new`,
         doneWork: [new CompletionJob({ expectation: snap }), compact, new CompletionJob({ expectation: tip })],
@@ -277,7 +277,7 @@ describe("cache affinity", () => {
       });
       await drain(foldConn, tip);
     } finally {
-      foldPlexus.destroy();
+      foldDoc.destroy();
       await foldConn[Symbol.asyncDispose]();
       await foldCompat.close();
       rmSync(workspace, { recursive: true, force: true });

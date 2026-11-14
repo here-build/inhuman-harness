@@ -25,7 +25,7 @@ import {
   SESSION_TITLE_MAX_CHARS,
   sessionMintPermissionMode,
   steerFirstQueued,
-  type SessionPlexus,
+  type SessionDocument,
   type SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -141,11 +141,11 @@ function sameEvalProgramInput(
 }
 
 export class SessionDaemon extends RequestHost implements Disposable {
-  readonly plexus: SessionPlexus;
+  readonly doc: SessionDocument;
   readonly orchestrator: SessionOrchestrator;
   readonly sessionRuntime: SessionRuntime;
   readonly ready: Promise<void>;
-  /** Teaching verbosity for scheme-repl envelope doors. Process-local, not a Plexus field. */
+  /** Teaching verbosity for scheme-repl envelope doors. Process-local, not a document field. */
   readonly doors = new DoorSession((line) => step(line));
   /** Held until the eval-admission flush receipt; honor must not start the program. */
   readonly evalAdmissionHeld = observable.box(false);
@@ -368,7 +368,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       const previousHead = this.root.head;
       const previousTip = this.root.tip;
       try {
-        await this.kernel.flushSession(this.plexus);
+        await this.kernel.flushSession(this.doc);
       } catch {
         throw new RpcInvalidParams("eval admission could not be persisted");
       }
@@ -388,7 +388,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
         if (isEvalRequestCancelled(this.root, args.requestId)) {
           await this.sessionRuntime.cancel(this.#commandHost(), { requestId: args.requestId });
         }
-        await this.kernel.flushSession(this.plexus);
+        await this.kernel.flushSession(this.doc);
       } catch {
         runInAction(() => this.#abandonAdmission(turn, previousHead, previousTip, args.requestId));
         throw new RpcInvalidParams("eval admission could not be persisted");
@@ -404,7 +404,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     }),
     DaemonRpcMethod.fromContract(contract.session.turn.cancel, async (args) => {
       const result = await this.sessionRuntime.cancel(this.#commandHost(), args);
-      await this.kernel.flushSession(this.plexus);
+      await this.kernel.flushSession(this.doc);
       return result;
     }),
     DaemonRpcMethod.fromContract(contract.session.turn.visual, (args) => {
@@ -455,12 +455,12 @@ export class SessionDaemon extends RequestHost implements Disposable {
         );
       } catch (error) {
         // What moved before the stop is moved for good; the snapshot reclaims it.
-        if (!dryRun) await this.kernel.flushSession(this.plexus, { force: true }).catch(() => undefined);
+        if (!dryRun) await this.kernel.flushSession(this.doc, { force: true }).catch(() => undefined);
         throw error;
       }
       step(`blob/vacuum${dryRun ? " (dry run)" : ""} ${JSON.stringify(counts)}`);
       // The update log still holds the text it was first written with; only a snapshot of the live document drops it.
-      if (!dryRun) await this.kernel.flushSession(this.plexus, { force: true });
+      if (!dryRun) await this.kernel.flushSession(this.doc, { force: true });
       return { dryRun, ...counts, imageBytesBefore, imageBytesAfter: dryRun ? imageBytesBefore : this.#imageBytes() };
     }),
     DaemonRpcMethod.fromContract(contract.session.turn.rewind, async (args) => {
@@ -494,7 +494,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     DaemonRpcMethod.fromContract(contract.session.ack.pending, (args) => {
       const roots =
         args.sessionId === undefined
-          ? [this.root, ...namedWorkerIds(this.root).flatMap((id) => this.kernel.sessionPlexus(id)?.root ?? [])]
+          ? [this.root, ...namedWorkerIds(this.root).flatMap((id) => this.kernel.sessionDoc(id)?.root ?? [])]
           : [this.#rootFor(args.sessionId)].flatMap((root) => root ?? []);
       const bot = scopes.get(this.root).botName();
       const promptTtl = promptTtlOf(this.root.authorizationUserJson);
@@ -550,7 +550,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     }),
     DaemonRpcMethod.fromContract(contract.session.agentCalls.inspect, (args) => {
       const view = inspectAgentCall(this.root, args.requestId, this.kernel.catalog, (id) => {
-        const found = this.plexus.loadEntity<CallJob>(id);
+        const found = this.doc.loadEntity<CallJob>(id);
         return found instanceof CallJob ? found : undefined;
       });
       if (view == null) return { ok: false as const, reason: "unknown requestId" };
@@ -565,7 +565,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
         },
         args.requestId,
         (id) => {
-          const found = this.plexus.loadEntity<CallJob>(id);
+          const found = this.doc.loadEntity<CallJob>(id);
           return found instanceof CallJob ? found : undefined;
         },
       ),
@@ -575,41 +575,41 @@ export class SessionDaemon extends RequestHost implements Disposable {
   constructor(
     readonly project: ProjectDaemon,
     readonly sessionId: string,
-    existing: SessionPlexus,
+    existing: SessionDocument,
     restored: boolean,
   ) {
     super();
-    this.plexus = existing;
+    this.doc = existing;
     this.#hydrated = restored;
-    this.#room = this.kernel.sessionRoom(this.sessionId, this.plexus.awareness);
+    this.#room = this.kernel.sessionRoom(this.sessionId, this.doc.awareness);
     const recordSeenTurns = (): void => {
-      for (const turn of this.plexus.getAllOfType(SessionTurn)) {
+      for (const turn of this.doc.getAllOfType(SessionTurn)) {
         this.#seenTurns.set(turn.uuid, turn);
       }
     };
     recordSeenTurns();
-    this.#stopSeenTurns = this.plexus.doc.onPatch(recordSeenTurns);
+    this.#stopSeenTurns = this.doc.onPatch(recordSeenTurns);
     if (!this.#hydrated) {
       runInAction(() => {
-        const seed = sessionMintKvs(project.kernel.plexus.root.kvs, project.root.kvs);
-        if (seed.length > 0) this.plexus.root.applyKvs(seed);
+        const seed = sessionMintKvs(project.kernel.doc.root.kvs, project.root.kvs);
+        if (seed.length > 0) this.doc.root.applyKvs(seed);
         const lastUsed = sessionMintLastUsedConnectionModel(
-          project.kernel.plexus.root.lastUsedConnectionModel,
+          project.kernel.doc.root.lastUsedConnectionModel,
           project.root.lastUsedConnectionModel,
         );
-        if (Object.keys(lastUsed).length > 0) this.plexus.root.lastUsedConnectionModel = lastUsed;
+        if (Object.keys(lastUsed).length > 0) this.doc.root.lastUsedConnectionModel = lastUsed;
         const policy = sessionMintPermissionMode(
-          project.kernel.plexus.root.defaultPermissionMode,
+          project.kernel.doc.root.defaultPermissionMode,
           project.root.defaultPermissionMode,
         );
-        if (this.plexus.root.standingPermissionMode !== policy) this.plexus.root.standingPermissionMode = policy;
+        if (this.doc.root.standingPermissionMode !== policy) this.doc.root.standingPermissionMode = policy;
         this.#syncSkills();
       });
     }
-    this.sessionRuntime = new SessionRuntime(this.plexus, {
+    this.sessionRuntime = new SessionRuntime(this.doc, {
       kind: "durable",
       commit: async (checkpoint) => {
-        await this.kernel.flushSession(this.plexus, { checkpoint });
+        await this.kernel.flushSession(this.doc, { checkpoint });
         return {
           sessionId: checkpoint.sessionId,
           incarnation: checkpoint.incarnation,
@@ -618,17 +618,17 @@ export class SessionDaemon extends RequestHost implements Disposable {
       },
     });
     this.orchestrator = new SessionOrchestrator(this);
-    bindSessionCatalog(this.plexus.root, project.kernel.catalog);
-    bindSessionProjections(this.plexus.root, project.kernel.projections);
+    bindSessionCatalog(this.doc.root, project.kernel.catalog);
+    bindSessionProjections(this.doc.root, project.kernel.projections);
     // The tools[] face is part of the cached prefix: render the scheme_repl inventory once
     // per session. A turn with a frozen tool set never gets here; the frozen text wins.
     let schemeReplText: string | undefined;
-    bindCompletionFace(this.plexus.root, {
-      catalog: () => sessionCatalog(this.plexus.root),
+    bindCompletionFace(this.doc.root, {
+      catalog: () => sessionCatalog(this.doc.root),
       liveDescription: (name) => {
         if (name !== SCHEME_REPL_TOOL_NAME) return undefined;
         if (schemeReplText !== undefined) return schemeReplText;
-        const catalog = sessionCatalog(this.plexus.root);
+        const catalog = sessionCatalog(this.doc.root);
         if (catalog === undefined) return undefined;
         schemeReplText = schemeReplDescription(catalog);
         return schemeReplText;
@@ -656,7 +656,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
               {
                 kernel: this.project.kernel,
                 project: this.project,
-                caller: this.plexus.root,
+                caller: this.doc.root,
               },
               "cancelled",
             ),
@@ -687,7 +687,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     this.#resolveReady();
   }
 
-  /** Start PEW honor and session observers. Pins and recovery must already have run. */
+  /** Start expectation honor and session observers. Pins and recovery must already have run. */
   activate(): void {
     if (this.#closed) {
       this.#resolveReady();
@@ -701,7 +701,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     this.sessionRuntime.activate();
     this.orchestrator.activate();
     this.#statuslineRefreshWatch = reaction(
-      () => `${this.kernel.plexus.root.statusline}\0${this.kernel.plexus.root.statuslineRefresh}`,
+      () => `${this.kernel.doc.root.statusline}\0${this.kernel.doc.root.statuslineRefresh}`,
       () => {
         this.#bindStatuslineClock();
         this.requestStatusline("attach");
@@ -731,7 +731,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
   /** Coalesced silent left-slot refresh. `attach` / `git` always run; clocks match config. */
   requestStatusline(reason: "round" | "turn" | "interval" | "attach" | "git" = "attach"): void {
     if (this.#closed) return;
-    const parsed = parseStatuslineRefresh(this.kernel.plexus.root.statuslineRefresh);
+    const parsed = parseStatuslineRefresh(this.kernel.doc.root.statuslineRefresh);
     if (reason !== "attach" && reason !== "git" && reason !== parsed.kind) return;
     if (this.#statuslineRunning) {
       this.#statuslineAgain = true;
@@ -749,7 +749,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
 
   async #runStatusline(): Promise<void> {
     const cwd = this.root.path.trim() === "" ? process.cwd() : this.root.path;
-    const left = await runStatusline(this.kernel.plexus.root.statusline, cwd);
+    const left = await runStatusline(this.kernel.doc.root.statusline, cwd);
     if (this.#closed) return;
     if (this.root.statuslineLeft !== left) this.root.statuslineLeft = left;
   }
@@ -780,7 +780,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
   #bindStatuslineClock(): void {
     this.#stopStatuslineClock();
     if (this.#closed) return;
-    const parsed = parseStatuslineRefresh(this.kernel.plexus.root.statuslineRefresh);
+    const parsed = parseStatuslineRefresh(this.kernel.doc.root.statuslineRefresh);
     if (parsed.kind === "interval") {
       const timer = setInterval(() => this.requestStatusline("interval"), parsed.ms);
       timer.unref();
@@ -804,11 +804,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
   }
 
   get root() {
-    return this.plexus.root;
-  }
-
-  get doc(): SessionPlexus["doc"] {
-    return this.plexus.doc;
+    return this.doc.root;
   }
 
   /** Serialized with the door so a concurrent `turn` cannot twin-mint. */
@@ -828,7 +824,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
 
   /** R1: kernel config layered with session kv; kv may only shorten retention. */
   #retentionJson(): string {
-    return turnRetentionJson(this.kernel.plexus.root.contextRetentionJson, this.root.kvs);
+    return turnRetentionJson(this.kernel.doc.root.contextRetentionJson, this.root.kvs);
   }
 
   /**
@@ -843,7 +839,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
   /** This session, or a worker that escalated to it. */
   #rootFor(sessionId: string): SessionRoot | undefined {
     if (sessionId === this.sessionId) return this.root;
-    return namedWorkerIds(this.root).includes(sessionId) ? this.kernel.sessionPlexus(sessionId)?.root : undefined;
+    return namedWorkerIds(this.root).includes(sessionId) ? this.kernel.sessionDoc(sessionId)?.root : undefined;
   }
 
   #commandHost(): SessionCommandHost {
@@ -871,7 +867,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       },
       loadTurn: (id) => {
         try {
-          const loaded = this.plexus.loadEntity(id) ?? this.#seenTurns.get(id);
+          const loaded = this.doc.loadEntity(id) ?? this.#seenTurns.get(id);
           return loaded instanceof SessionTurn ? loaded : undefined;
         } catch {
           return undefined;
@@ -879,7 +875,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       },
       rename: (title) => this.#applyRename(title),
       log: (message) => step(message),
-      compactKeepTurns: () => this.kernel.plexus.root.compactKeepTurns,
+      compactKeepTurns: () => this.kernel.doc.root.compactKeepTurns,
       closed: !this.interpreting,
     };
   }
@@ -922,9 +918,9 @@ export class SessionDaemon extends RequestHost implements Disposable {
     }
     const result = await super.handleRequest(method, args, identity);
     if (!this.#closed && method !== "blob/vacuum" && method !== "blob/get") {
-      const delta = this.plexus.doc.peekNodeDelta();
+      const delta = this.doc.peekNodeDelta();
       if (delta.upserts.length > 0 || delta.deletes.length > 0) {
-        await this.kernel.flushSession(this.plexus);
+        await this.kernel.flushSession(this.doc);
       }
     }
     return result;
@@ -953,7 +949,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
 
   /**
    * Drop interpretation; keep intern and the SessionRoot. Re-bootstrap is
-   * `project.session(id)` wrapping this plexus — do not mint a twin.
+   * `project.session(id)` wrapping this document — do not mint a twin.
    *
    * On-wire MCP and live eval bags keep this daemon registered until that
    * honor settles. Drop earlier and attach wraps a second honor on the same
@@ -1112,7 +1108,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
   #mcpConnectionIds(): string[] {
     const ids: string[] = [];
     const kvs = this.root.kvs;
-    for (const [id, spec] of Object.entries(this.kernel.plexus.root.connections)) {
+    for (const [id, spec] of Object.entries(this.kernel.doc.root.connections)) {
       if (spec == null || !isMcpDriver(spec.driver.abilityClaim)) continue;
       if (spec.configuration.enabled === false) continue;
       if ((kvs[`mcp-disabled:${id}`] ?? "") !== "") continue;
@@ -1136,7 +1132,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
 
   #queuedVerbs(): Set<string> {
     const verbs = new Set<string>(HOST_QUEUE_VERBS);
-    for (const [key, spec] of Object.entries(this.kernel.plexus.root.commands)) {
+    for (const [key, spec] of Object.entries(this.kernel.doc.root.commands)) {
       if (key !== "") verbs.add(key);
       if (spec == null) continue;
       if (spec.verb !== "") verbs.add(spec.verb);
@@ -1168,15 +1164,15 @@ export class SessionDaemon extends RequestHost implements Disposable {
     this.#behaviorStamp = behavior;
     const mcpIds = new Set(this.#mcpConnectionIds());
     const catalog = sessionCatalog(this.root) ?? this.kernel.catalog;
-    const plexusRoot = this.kernel.plexus.root;
+    const kernelRoot = this.kernel.doc.root;
     const connections: CompletionFace[] = [];
-    for (const [id, spec] of Object.entries(plexusRoot.connections)) {
+    for (const [id, spec] of Object.entries(kernelRoot.connections)) {
       if (!spec?.driver.abilityClaim.includes("completion")) continue;
       connections.push({ id, models: liveModelsOf(spec) });
     }
     const catalogText = schemeReplDescription(catalog, {
       connections,
-      modelsUsage: plexusRoot.modelsUsage,
+      modelsUsage: kernelRoot.modelsUsage,
     });
     return new RegisteredToolsSet({
       entries: catalog
@@ -1223,7 +1219,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
   #write(scope: "session" | "project" | "kernel", proposals: readonly KvProposal[], remember = false): void {
     if (scope === "kernel") {
       this.kernel.writeKvs(proposals);
-      this.#stampModelUsage("kernel", this.kernel.plexus.root.kvs, proposals);
+      this.#stampModelUsage("kernel", this.kernel.doc.root.kvs, proposals);
       return;
     }
     if (scope === "project") {

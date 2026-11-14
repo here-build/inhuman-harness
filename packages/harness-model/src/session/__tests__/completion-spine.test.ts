@@ -12,7 +12,7 @@ import {
 } from "../expectations/CompletionExpectation.js";
 import { CompactJob } from "../jobs/CompactJob.js";
 import { CompletionJob } from "../jobs/CompletionJob.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurn } from "../turn/session-turn.js";
 
@@ -32,7 +32,7 @@ function mount(turn: SessionTurn, ...cells: Array<CompletionExpectation | Compac
 
 describe("CompletionExpectation.spine", () => {
   it("walks prior completions on the tape and starts at a cutoff card", () => {
-    const plexus = SessionPlexus.create("spine");
+    const doc = SessionDocument.create("spine");
     try {
       const first = completion("first", "a");
       const priorTurn = new SessionTurn({
@@ -44,7 +44,7 @@ describe("CompletionExpectation.spine", () => {
       const tip = completion("second");
       const tipTurn = new SessionTurn({ turnTail: priorTurn, prompt: prompt.user`second`, queue: [] });
       mount(tipTurn, tip);
-      plexus.root.head = tipTurn;
+      doc.root.head = tipTurn;
 
       const hidden = completion("hidden", "drop-me");
       const snap = completion("old", "snapshot");
@@ -56,7 +56,7 @@ describe("CompletionExpectation.spine", () => {
         queue: [],
       });
       mount(cutoffTurn, hidden, compact, cutoffTip);
-      plexus.root.head = cutoffTurn;
+      doc.root.head = cutoffTurn;
       expect({
         tape: tip.spine().map((node) => node.promptText),
         cutoff: cutoffTip.spine().map((node) => node.promptText),
@@ -65,12 +65,12 @@ describe("CompletionExpectation.spine", () => {
         cutoff: ["new"],
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   it("expects a prompt-cache hit from a warm prior; mismatch note names miss only", () => {
-    const plexus = SessionPlexus.create("spine-cache");
+    const doc = SessionDocument.create("spine-cache");
     try {
       const first = completion("first", "a");
       const turn = new SessionTurn({
@@ -79,7 +79,7 @@ describe("CompletionExpectation.spine", () => {
         queue: [],
       });
       mount(turn, first);
-      plexus.root.head = turn;
+      doc.root.head = turn;
       const second = completion("second");
       mount(turn, second);
       const firstRound = first.expectPromptCacheHit();
@@ -99,7 +99,7 @@ describe("CompletionExpectation.spine", () => {
         queue: [],
       });
       mount(cutoffTurn, snap, compact, afterCutoff);
-      plexus.root.head = cutoffTurn;
+      doc.root.head = cutoffTurn;
 
       const node = completion("hi");
       const unset = cacheStatusNote(node);
@@ -158,12 +158,12 @@ describe("CompletionExpectation.spine", () => {
         ],
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   it("a successful CompactJob drops completions before the cutoff; a failure does not", () => {
-    const plexus = SessionPlexus.create("spine-job");
+    const doc = SessionDocument.create("spine-job");
     try {
       const buried = completion("buried", "old");
       const kept = completion("kept", "stay");
@@ -175,7 +175,7 @@ describe("CompletionExpectation.spine", () => {
         queue: [],
       });
       mount(cutoffTurn, buried, kept, cutoff, tip);
-      plexus.root.head = cutoffTurn;
+      doc.root.head = cutoffTurn;
 
       const failed = new CompactJob({
         reason: "overflow",
@@ -199,7 +199,7 @@ describe("CompletionExpectation.spine", () => {
         failed: ["buried", "still"],
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Tape liveness from PEW fields + the cover predicate.
+ * Tape liveness from completion expectation fields + the cover predicate.
  * Walk reactChunks + toolCalls, never walkWork (honor bag is not tape).
  * The pin stays up while `SessionTurn.inLoop`. The phrase still walks the tape.
  * Tape work stops before `askPaintHead` — that job is the pin, not a row.
@@ -66,15 +66,15 @@ function judgeEvaluating(work: ToolCallJob): boolean {
 }
 
 /**
- * Isolated remainder-classifier PEWs hang on the leaf, not the ReACT tape.
+ * Isolated remainder-classifier completions hang on the leaf, not the ReACT tape.
  * Occupancy and thought paint walk these; `walkWork` would pull the honor bag.
  */
 export function leftoverJudgeCompletions(turn: SessionTurn): CompletionExpectation[] {
   const out: CompletionExpectation[] = [];
   for (const tool of tapeTools(turn)) {
     for (const child of tool.children) {
-      const pew = tapeCompletion(child);
-      if (pew != null) out.push(pew);
+      const completion = tapeCompletion(child);
+      if (completion != null) out.push(completion);
     }
   }
   return out;
@@ -174,7 +174,7 @@ export function emptyWaitChrome(turn: SessionTurn | null): EmptyWaitChrome | nul
   };
 }
 
-/** Reads only when the caller will show it — a turn outside a plexus has no uuid. */
+/** Reads only when the caller will show it — a turn outside a document has no uuid. */
 function idOf(turn: SessionTurn): string {
   try {
     return turn.uuid;
@@ -211,8 +211,8 @@ function activityCensus(turn: SessionTurn): ActivityCensus {
   let startedAt: number | null = null;
   let retryUntilMs: number | null = null;
 
-  const notePew = (pew: CompletionExpectation): void => {
-    const copy = completionLiveCopy(pew, false);
+  const noteCompletion = (completion: CompletionExpectation): void => {
+    const copy = completionLiveCopy(completion, false);
     if (copy.startedAt != null) startedAt = copy.startedAt;
     if (!copy.live) return;
     retryUntilMs = copy.retryUntilMs;
@@ -231,9 +231,9 @@ function activityCensus(turn: SessionTurn): ActivityCensus {
   };
 
   for (const chunk of reactChunks(turn)) {
-    const pew = tapeCompletion(chunk);
-    if (pew != null) {
-      notePew(pew);
+    const completion = tapeCompletion(chunk);
+    if (completion != null) {
+      noteCompletion(completion);
       continue;
     }
     if (chunk instanceof ToolCallJob) {
@@ -246,7 +246,7 @@ function activityCensus(turn: SessionTurn): ActivityCensus {
       for (const inner of chunk.toolCalls) noteTool(inner);
     }
   }
-  for (const pew of leftoverJudgeCompletions(turn)) notePew(pew);
+  for (const completion of leftoverJudgeCompletions(turn)) noteCompletion(completion);
   return { tools, agentSpecs, speech, seated, startedAt, retryUntilMs };
 }
 
@@ -283,7 +283,7 @@ function completionLiveCopy(
   readonly retryUntilMs: number | null;
 } {
   const live = chunk.outcome == null && !cutOff;
-  const report = live && chunk.plexus != null ? chunk.report : null;
+  const report = live && chunk.document != null ? chunk.report : null;
   const text = live ? (typeof report?.text === "string" ? report.text : "") || chunk.responseText : chunk.responseText;
   const thought = live
     ? (typeof report?.thought === "string" ? report.thought : "") || chunk.responseThought

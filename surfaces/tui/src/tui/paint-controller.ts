@@ -319,11 +319,11 @@ export function isCompletionCutoff(chunk: {
 }
 
 export function completionPaintFields(chunk: CompletionExpectation, cutOff = false): CompletionPaintFields {
-  const pewCutoff = isCompletionCutoff(chunk);
+  const completionCutoff = isCompletionCutoff(chunk);
   const live = chunk.outcome == null && !cutOff;
-  const cutoff = pewCutoff || (cutOff && chunk.outcome == null);
-  const failed = chunk.outcome === "failed" && !pewCutoff && !cutOff;
-  const homed = chunk.plexus != null;
+  const cutoff = completionCutoff || (cutOff && chunk.outcome == null);
+  const failed = chunk.outcome === "failed" && !completionCutoff && !cutOff;
+  const homed = chunk.document != null;
   const report = live && homed ? chunk.report : null;
   const text = live ? (typeof report?.text === "string" ? report.text : "") || chunk.responseText : chunk.responseText;
   const thought = live
@@ -377,9 +377,9 @@ function speechAtMs(chunk: CompletionExpectation, startedAt: number | null): num
 function promptAtMs(turn: SessionTurn): number | null {
   if (turn.startedAtMs != null && Number.isFinite(turn.startedAtMs)) return turn.startedAtMs;
   for (const chunk of reactChunks(turn)) {
-    const pew = tapeCompletion(chunk);
-    if (pew == null) continue;
-    if (pew.startedAtMs != null && Number.isFinite(pew.startedAtMs)) return pew.startedAtMs;
+    const completion = tapeCompletion(chunk);
+    if (completion == null) continue;
+    if (completion.startedAtMs != null && Number.isFinite(completion.startedAtMs)) return completion.startedAtMs;
   }
   return null;
 }
@@ -631,11 +631,11 @@ function pushLeftoverJudgeCompletions(
   cutOff: boolean,
 ): void {
   for (const child of work.children) {
-    const pew = tapeCompletion(child);
-    if (pew == null || livingCompletions.has(pew)) continue;
-    livingCompletions.add(pew);
-    const node = handle.completions.get(pew);
-    watchCompletion(handle, pew, node, cutOff, true);
+    const completion = tapeCompletion(child);
+    if (completion == null || livingCompletions.has(completion)) continue;
+    livingCompletions.add(completion);
+    const node = handle.completions.get(completion);
+    watchCompletion(handle, completion, node, cutOff, true);
     wanted.push(node);
   }
 }
@@ -706,11 +706,11 @@ function syncTurn(
       wanted.push(node);
       continue;
     }
-    const pew = tapeCompletion(chunk);
-    if (pew != null) {
-      livingCompletions.add(pew);
-      const node = handle.completions.get(pew);
-      watchCompletion(handle, pew, node, cutOff, false);
+    const completion = tapeCompletion(chunk);
+    if (completion != null) {
+      livingCompletions.add(completion);
+      const node = handle.completions.get(completion);
+      watchCompletion(handle, completion, node, cutOff, false);
       wanted.push(node);
     } else if (chunk instanceof TurnNotificationChunk) {
       livingNotifications.add(chunk);
@@ -1035,13 +1035,13 @@ function applyWorkCell(node: WorkCellPaintInstance, face: WorkCellFace, toolCall
 }
 
 /**
- * Remainder-classifier PEWs hang on the leaf tool. Their sealed `responseText`
+ * Remainder-classifier completions hang on the leaf tool. Their sealed `responseText`
  * is the vote JSON (`{decision, uncertainty, severity, retrieve}`) — machine
  * output, not a message, so it never paints as speech. Liveness, thought, and
  * failure still paint; the leaf tool already holds the judging spinner.
  */
-function judgeCompletionPaintFields(pew: CompletionExpectation, cutOff: boolean): CompletionPaintFields {
-  const fields = completionPaintFields(pew, cutOff);
+function judgeCompletionPaintFields(completion: CompletionExpectation, cutOff: boolean): CompletionPaintFields {
+  const fields = completionPaintFields(completion, cutOff);
   return fields.text === "" ? fields : { ...fields, text: "" };
 }
 
@@ -1157,12 +1157,12 @@ function watchSteer(
 
 function watchCompletion(
   handle: TurnHandle,
-  pew: CompletionExpectation,
+  completion: CompletionExpectation,
   node: CompletionPaintInstance,
   cutOff: boolean,
   judge: boolean,
 ): void {
-  const existing = handle.watches.get(pew);
+  const existing = handle.watches.get(completion);
   if (existing == null) {
     const created: CellWatch = {
       dispose: (() => undefined) as IReactionDisposer,
@@ -1173,21 +1173,28 @@ function watchCompletion(
     };
     created.dispose = reaction(
       () =>
-        created.judge ? judgeCompletionPaintFields(pew, created.cutOff) : completionPaintFields(pew, created.cutOff),
+        created.judge
+          ? judgeCompletionPaintFields(completion, created.cutOff)
+          : completionPaintFields(completion, created.cutOff),
       (fields) => applyCompletion(node, fields),
       { equals: comparer.shallow },
     );
     applyCompletion(
       node,
-      created.judge ? judgeCompletionPaintFields(pew, created.cutOff) : completionPaintFields(pew, created.cutOff),
+      created.judge
+        ? judgeCompletionPaintFields(completion, created.cutOff)
+        : completionPaintFields(completion, created.cutOff),
     );
-    handle.watches.set(pew, created);
+    handle.watches.set(completion, created);
     return;
   }
   if (existing.cutOff === cutOff && existing.judge === judge) return;
   existing.cutOff = cutOff;
   existing.judge = judge;
-  applyCompletion(node, judge ? judgeCompletionPaintFields(pew, cutOff) : completionPaintFields(pew, cutOff));
+  applyCompletion(
+    node,
+    judge ? judgeCompletionPaintFields(completion, cutOff) : completionPaintFields(completion, cutOff),
+  );
 }
 
 function watchRecall(handle: TurnHandle, key: object, node: RecallPaintInstance, text: () => string): void {
@@ -1260,7 +1267,7 @@ const turnTrackCache = new WeakMap<SessionTurn, IComputedValue<readonly unknown[
 
 /**
  * Structure only — turn/chunk identity, cutoff, ask pin, hidden tools.
- * PEW field values belong to per-cell reactions in PaintController.
+ * Completion expectation field values belong to per-cell reactions in PaintController.
  */
 export function trackTurn(turn: SessionTurn): readonly unknown[] {
   let box = turnTrackCache.get(turn);
@@ -1297,8 +1304,8 @@ function trackTool(chunk: ToolCallJob): unknown {
 }
 
 function trackChunk(chunk: object): unknown {
-  const pew = tapeCompletion(chunk);
-  if (pew != null) return pew;
+  const completion = tapeCompletion(chunk);
+  if (completion != null) return completion;
   if (chunk instanceof TurnNotificationChunk) return chunk;
   if (chunk instanceof TurnSteerChunk) return [chunk, chunk.text];
   if (chunk instanceof TurnApprovalNoteChunk) return null;

@@ -43,8 +43,8 @@ function sealAllow(round: CompletionExpectation, extra?: Record<string, unknown>
 
 function taped(job: SystemToolJob): CompletionExpectation | null {
   for (const child of job.children) {
-    const pew = tapeCompletion(child);
-    if (pew != null) return pew;
+    const completion = tapeCompletion(child);
+    if (completion != null) return completion;
   }
   return null;
 }
@@ -190,7 +190,7 @@ describe("dotprompt/run", () => {
     }
   });
 
-  it("schema miss fails the PEW", async () => {
+  it("schema miss fails the expectation", async () => {
     const job = new SystemToolJob({ toolCallId: "j2", name: "shell", argsJson: "{}" });
     const stop = onRound(job, (round) => {
       sealAllow(round, { uncertainty: -100 });

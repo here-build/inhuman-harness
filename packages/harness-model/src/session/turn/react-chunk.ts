@@ -1,5 +1,5 @@
+import { WorkContainer } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import { WorkContainer } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import type { IntentAssessment, RoundDecision } from "./round-decision.js";

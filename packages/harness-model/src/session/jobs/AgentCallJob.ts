@@ -1,11 +1,7 @@
 /** An invocation of an owned child agent. Bot requests use BotCallJob. */
+import { type JobEffectOwner, type JobResolution, type UnknownOutcomeRecovery } from "@inhuman.tools/expectations";
 import { asSystemPrompt, prompt, type SystemPrompt } from "@inhuman.tools/harness-commons";
 import { model, state } from "@inhuman.tools/model";
-import {
-  type JobEffectOwner,
-  type JobResolution,
-  type UnknownOutcomeRecovery,
-} from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 
 import { CallJob, type CallJobProps } from "./CallJob.js";

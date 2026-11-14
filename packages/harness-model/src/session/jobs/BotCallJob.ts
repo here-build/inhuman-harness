@@ -1,6 +1,6 @@
 /** A request to an independently managed bot. Acceptance does not settle the request. */
+import { type JobEffectOwner, type JobKind, type UnknownOutcomeRecovery } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import { type JobEffectOwner, type JobKind, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 import { computed } from "mobx";
 import type { ReadonlyDeep } from "type-fest";
 

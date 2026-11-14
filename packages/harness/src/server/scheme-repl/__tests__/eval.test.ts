@@ -184,7 +184,9 @@ describe("scheme_repl", () => {
       inner: {
         job: inner instanceof ToolCallJob,
         kind: inner instanceof SystemToolJob,
-        pewChild: inner?.children.some((child) => !(child instanceof SystemToolJob) && !(child instanceof ToolCallJob)),
+        expectationChild: inner?.children.some(
+          (child) => !(child instanceof SystemToolJob) && !(child instanceof ToolCallJob),
+        ),
         name: inner?.name,
         humanApprove: inner?.humanApprove,
         completed: inner?.completed,
@@ -197,7 +199,7 @@ describe("scheme_repl", () => {
       inner: {
         job: true,
         kind: true,
-        pewChild: false,
+        expectationChild: false,
         name: "read_file",
         humanApprove: null,
         completed: true,

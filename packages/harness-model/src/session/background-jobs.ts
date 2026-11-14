@@ -6,7 +6,7 @@
  * `scheme_watch` is a workflow even when those calls are one kind.
  * Listing waits on the reader so the check-in is not the unsettled default.
  */
-import type { JobKind } from "@inhuman.tools/plexus-expectations";
+import type { JobKind } from "@inhuman.tools/expectations";
 
 import { AgentCallJob } from "./jobs/AgentCallJob.js";
 import { AgentCallNotification } from "./jobs/AgentCallNotification.js";

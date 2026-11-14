@@ -13,7 +13,7 @@ import { BotCallJob } from "../jobs/BotCallJob.js";
 import { CallDelivery } from "../jobs/CallDelivery.js";
 import { FailureOutcome, SuccessfulOutcome } from "../jobs/CallOutcome.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { isNoteClaimed } from "../SessionRoot.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { TurnNotificationChunk } from "../turn/notification-chunk.js";
@@ -24,7 +24,7 @@ import { attached } from "./_helpers/fixtures.js";
 describe("named-agent models", () => {
   it("a Call notification claimed by a notice cell leaves the Call open", () => {
     const session = attached({ sessionId: "s-note", path: "/tmp/n" });
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
     const call = new AgentCallJob();
     const turn = new SessionTurn({
       turnTail: new SessionSystemPrompt(),
@@ -54,12 +54,12 @@ describe("named-agent models", () => {
       before: { completed: false, n: 1, claimed: false, home: true, payload: "" },
       after: { claimed: true, completed: false, payload: "" },
     });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("Call delivery is a child node, not JSON", () => {
     const session = attached({ sessionId: "s-deliv", path: "/tmp/d" });
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
     const call = new BotCallJob({
       delivery: new CallDelivery({ lifetime: "call" }),
     });
@@ -74,12 +74,12 @@ describe("named-agent models", () => {
       lifetime: call.delivery?.lifetime,
       parent: call.delivery?.parent === call,
     }).toEqual({ lifetime: "call", parent: true });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("prompt rows are the atoms; speech and systemPrompt are views", () => {
     const session = attached({ sessionId: "s-prompt", path: "/tmp/p" });
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
     const wire = new AgentCallJob({
       argsJson: JSON.stringify({ message: "from the wire" }),
       constitution: prompt.system`standing`,
@@ -131,12 +131,12 @@ describe("named-agent models", () => {
       message: "stale",
       constitution: "stale system",
     });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("Call outcome is success or failure child", () => {
     const session = attached({ sessionId: "s-out", path: "/tmp/o" });
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
     const answered = new AgentCallJob({
       outcome: new SuccessfulOutcome({ valueJson: JSON.stringify({ answer: 1 }) }),
     });
@@ -164,12 +164,12 @@ describe("named-agent models", () => {
       message: "use ripgrep",
       payload: "use ripgrep",
     });
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("mid-motion is derived from the open turn and in-flight jobs", () => {
     const session = attached({ sessionId: "s-mid", path: "/tmp/mid" });
-    const plexus = SessionPlexus.bootstrap(session);
+    const doc = SessionDocument.bootstrap(session);
     const empty = {
       mid: session.isMidMotion(),
       turn: session.openTurn,
@@ -279,7 +279,7 @@ describe("named-agent models", () => {
       openTurn: { mid: true, turn: true, tools: 0, period: false, unfinished: "turn" },
       watch: { mid: true, period: true, unfinished: "" },
     });
-    plexus.destroy();
+    doc.destroy();
   });
 });
 

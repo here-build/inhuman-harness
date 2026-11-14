@@ -2,8 +2,8 @@
  * Job factories and waiters for remainder-PDP orchestrator tests.
  * toolCallId is always unique so two identical commands can share a turn.
  */
+import type { Job } from "@inhuman.tools/expectations";
 import { CompletionExpectation, CompletionJob, SystemToolJob } from "@inhuman.tools/harness-model";
-import type { Job } from "@inhuman.tools/plexus-expectations";
 import { when } from "mobx";
 
 /** Guard only: a `when` that never fires. Sized for a loaded 4-core CI runner, below the 30s test timeout. */
@@ -42,9 +42,9 @@ export function read(path: string): SystemToolJob {
 
 /** Completed turn-tape completion. `responseText` is the prior-turn cut. */
 export function completedAssistant(text: string): CompletionJob {
-  const pew = new CompletionExpectation({ connectionId: "seed" });
-  pew.succeed("settled", "", "null", { result: { text } });
-  return new CompletionJob({ expectation: pew });
+  const completion = new CompletionExpectation({ connectionId: "seed" });
+  completion.succeed("settled", "", "null", { result: { text } });
+  return new CompletionJob({ expectation: completion });
 }
 
 /** Sealed sibling tool. Labeled `name → text` becomes the quarantined cut. */
@@ -62,7 +62,7 @@ export function sealedObservation(labeled: string): SystemToolJob {
   });
 }
 
-/** Judge PEWs hang on CompletionJob cells parented onto the tool job. */
+/** Judge expectations hang on CompletionJob cells parented onto the tool job. */
 export function childCompletions(job: { readonly children: readonly Job[] }): CompletionExpectation[] {
   const out: CompletionExpectation[] = [];
   for (const child of job.children) {

@@ -5,10 +5,10 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
-import { ProgrammaticJob, SessionPlexus } from "@inhuman.tools/harness-model";
+import { ConnectionSpec, type DriverSpec } from "@inhuman.tools/expectations";
+import { disposeKernelConnections } from "@inhuman.tools/expectations/executor";
+import { ProgrammaticJob, SessionDocument } from "@inhuman.tools/harness-model";
 import { registerProviders } from "@inhuman.tools/harness-provider-sdk";
-import { ConnectionSpec, type DriverSpec } from "@inhuman.tools/plexus-expectations";
-import { disposeKernelConnections } from "@inhuman.tools/plexus-expectations/executor";
 import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
 import { memoryCredentialsStore, openDriverRegistry } from "@/connections";
@@ -188,8 +188,8 @@ describe("production runtime composition", () => {
     b.bind({ connections: {}, drivers: {} });
     a.activate();
     b.activate();
-    const left = SessionPlexus.create("same", "/tmp/runtime-a");
-    const right = SessionPlexus.create("same", "/tmp/runtime-b");
+    const left = SessionDocument.create("same", "/tmp/runtime-a");
+    const right = SessionDocument.create("same", "/tmp/runtime-b");
     onTestFinished(() => {
       left.destroy();
       right.destroy();
@@ -224,8 +224,8 @@ describe("production runtime composition", () => {
   it("eligibility uses interned replicas without fabricating seats", () => {
     const runtime = new ProductionRuntime({ registry: localRoster() });
     onTestFinished(() => runtime[Symbol.dispose]());
-    const caller = SessionPlexus.create("caller", "/tmp/runtime/caller");
-    const worker = SessionPlexus.create("worker", "/tmp/runtime/worker");
+    const caller = SessionDocument.create("caller", "/tmp/runtime/caller");
+    const worker = SessionDocument.create("worker", "/tmp/runtime/worker");
     onTestFinished(() => {
       caller.destroy();
       worker.destroy();

@@ -15,7 +15,7 @@ import type { ApprovableJob } from "../jobs/ApprovableJob.js";
 import { MCPToolJob } from "../jobs/MCPToolJob.js";
 import { ProgrammaticJob } from "../jobs/ProgrammaticJob.js";
 import { SystemToolJob } from "../jobs/SystemToolJob.js";
-import { SessionPlexus } from "../SessionPlexus.js";
+import { SessionDocument } from "../SessionDocument.js";
 import { SessionRoot } from "../SessionRoot.js";
 import { SessionSystemPrompt } from "../SessionSystemPrompt.js";
 import { SessionTurnEvalSpec } from "../turn/eval-spec.js";
@@ -65,7 +65,7 @@ function home(opts: {
     authorizationProjectJson: opts.project ?? "",
     authorizationOverlayJson: opts.overlay === undefined ? "" : JSON.stringify(opts.overlay),
   });
-  const plexus = SessionPlexus.bootstrap(root);
+  const doc = SessionDocument.bootstrap(root);
   const leaf =
     opts.kind === "mcp"
       ? new MCPToolJob({
@@ -102,7 +102,7 @@ function home(opts: {
     root,
     leaf,
     [Symbol.dispose]() {
-      plexus.destroy();
+      doc.destroy();
     },
   };
 }
@@ -122,7 +122,7 @@ const unit = (argv0: string, spine: string[] = [], familyArgs: string[] = []) =>
 describe("permissionMode overlay", () => {
   it("join follows live-head overlay; unclosed eval stays in work", () => {
     const overlayRoot = new SessionRoot({ sessionId: "s-eval", path: "/tmp/eval" });
-    const overlayPlexus = SessionPlexus.bootstrap(overlayRoot);
+    const overlayDoc = SessionDocument.bootstrap(overlayRoot);
     const inner = new SystemToolJob({ name: "shell" });
     const program = new ProgrammaticJob({ toolCallId: "program" });
     program.pushInvocation(inner);
@@ -143,14 +143,14 @@ describe("permissionMode overlay", () => {
       policy: "yolo",
       allows: true,
     });
-    overlayPlexus.destroy();
+    overlayDoc.destroy();
   });
 });
 
 describe("LICENSE WHEN", () => {
   it("spawn, deliver, callback, and notify never cover, even with a leftover vote", () => {
     const root = new SessionRoot({ sessionId: "s-spawn", path: "/tmp/spawn", standingPermissionMode: "manual" });
-    const plexus = SessionPlexus.bootstrap(root);
+    const doc = SessionDocument.bootstrap(root);
     const leaves = [
       new AgentCallJob({ name: "agent__send", argsJson: '{"spec":"echo","message":"hi"}' }),
       new AgentMessageJob({ name: "agent__message", argsJson: '{"targetName":"echo","message":"hi"}' }),
@@ -163,7 +163,7 @@ describe("LICENSE WHEN", () => {
       for (const leaf of leaves) vote(leaf, tier);
       for (const leaf of leaves) expect(snap(leaf)).toMatchObject({ comm: true, cover: false, decision: true });
     }
-    plexus.destroy();
+    doc.destroy();
   });
 
   it("a pending floor waits; approve allows; in-flight fuses", () => {

@@ -1,7 +1,7 @@
 {
   "name": "@inhuman.tools/harness-provider-sdk",
   "version": "0.2.1",
-  "description": "Driver-provider registration and capability contracts on top of PEW. No vendors, no plugin manifests.",
+  "description": "Driver-provider registration and capability contracts for ExpectationDriver. No vendors, no plugin manifests.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@inhuman.tools/harness-model": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/expectations": "workspace:^",
     "zod": "^4.6.7"
   },
   "devDependencies": {

@@ -247,7 +247,7 @@ export function retryTurn(host: SessionCommandHost): { readonly ok: true } {
   if (turn != null) {
     const live = reactChunks(turn)
       .map((chunk) => tapeCompletion(chunk))
-      .filter((pew) => pew != null && pew.outcome == null);
+      .filter((completion) => completion != null && completion.outcome == null);
     const completion = live.at(-1);
     if (completion != null) host.skipBackoff?.(completion);
   }

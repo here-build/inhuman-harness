@@ -3,8 +3,8 @@
  * BODY is the Job executor after an allow-side guard.
  * {@link FileMutateToolJob} is the write_file / edit_file slice.
  */
+import { type JobEffectOwner, type JobKind, type UnknownOutcomeRecovery } from "@inhuman.tools/expectations";
 import { model, state } from "@inhuman.tools/model";
-import { type JobEffectOwner, type JobKind, type UnknownOutcomeRecovery } from "@inhuman.tools/plexus-expectations";
 
 import { AgentCallNotification, rememberJobResult, RESULT_NOTE_CHARS } from "./AgentCallNotification.js";
 import { ToolCallJob, type ToolCallJobProps } from "./ToolCallJob.js";

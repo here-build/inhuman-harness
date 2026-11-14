@@ -16,7 +16,7 @@ test("a null record face stores null, and {} stores {}", () => {
   const response = new ResponseCall({ toolCallId: "r", name: "shell", argsJson: '{"command":"ls"}' });
   const mcp = new McpToolExpectation({ connectionId: "c", argsJson: '{"q":1}' });
   const spec = new ToolSpec({ name: "shell", argsJson: '{"type":"object"}' });
-  const pew = new CompletionExpectation({
+  const expectation = new CompletionExpectation({
     connectionId: "c",
     promptText: prompt.user`x`,
     responseSchema: { type: "object" },
@@ -27,7 +27,7 @@ test("a null record face stores null, and {} stores {}", () => {
   response.args = null;
   mcp.args = null;
   spec.parameters = null;
-  pew.responseSchema = null;
+  expectation.responseSchema = null;
   spec.parameters = {};
 
   expect({
@@ -35,10 +35,10 @@ test("a null record face stores null, and {} stores {}", () => {
     program: Reflect.get(program, "argsJson"),
     response: Reflect.get(response, "argsJson"),
     mcp: Reflect.get(mcp, "argsJson"),
-    cleared: Reflect.get(pew, "responseSchemaJson"),
+    cleared: Reflect.get(expectation, "responseSchemaJson"),
     spec: Reflect.get(spec, "argsJson"),
     toolFace: tool.args,
-    schema: pew.responseSchema,
+    schema: expectation.responseSchema,
     specFace: spec.parameters,
   }).toEqual({
     tool: null,

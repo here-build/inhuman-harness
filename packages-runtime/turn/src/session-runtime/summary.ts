@@ -5,7 +5,7 @@ import {
   SessionTurn,
   type AgentNature,
   type SessionUnfinished,
-  type SessionPlexus,
+  type SessionDocument,
   type SessionRoot,
 } from "@inhuman.tools/harness-model/session";
 import { comparer, reaction } from "mobx";
@@ -85,6 +85,9 @@ export function sessionSummary(root: SessionRoot): SessionSummary {
   };
 }
 
-export function observeSessionSummary(session: SessionPlexus, publish: (summary: SessionSummary) => void): () => void {
+export function observeSessionSummary(
+  session: SessionDocument,
+  publish: (summary: SessionSummary) => void,
+): () => void {
   return reaction(() => sessionSummary(session.root), publish, { equals: comparer.structural, fireImmediately: true });
 }

@@ -21,7 +21,7 @@
 import { parse, type EnvCapability, type SchemeValue } from "@here.build/arrival";
 import { BASE_ROSTER } from "@here.build/arrival/lsp-internals";
 import { ADict, APair, ASymbol, AVector } from "@here.build/arrival/reflect-internals";
-import type { JobKind } from "@inhuman.tools/plexus-expectations";
+import type { JobKind } from "@inhuman.tools/expectations";
 import { observable, runInAction } from "mobx";
 
 type ActionKind = "command" | "agent" | "bot";

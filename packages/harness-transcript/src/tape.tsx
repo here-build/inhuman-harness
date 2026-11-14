@@ -17,7 +17,7 @@ import {
   CallJob,
   type ProgrammaticJob,
   type SessionOverview,
-  type SessionPlexus,
+  type SessionDocument,
   type SessionRoot,
   type SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -813,7 +813,7 @@ function AgentNote({ cell, glance }: { readonly cell: AgentCell; readonly glance
   );
 }
 
-type Peeked = { readonly plexus: SessionPlexus } | "failed" | null;
+type Peeked = { readonly doc: SessionDocument } | "failed" | null;
 
 /**
  * The note opened up: a modal that keeps the note's bar down its edge. Leaving plays the exit
@@ -918,7 +918,7 @@ const AgentPeek = observer(function AgentPeekView({
           return;
         }
         release = opened.release;
-        setPeeked({ plexus: opened.plexus });
+        setPeeked({ doc: opened.doc });
       } catch {
         if (!abort.signal.aborted) setPeeked("failed");
       }
@@ -929,7 +929,7 @@ const AgentPeek = observer(function AgentPeekView({
     };
   }, [dial, cell.sessionId]);
   const face = agentFace(cell, glanceOf(dial, cell.sessionId));
-  const root = peeked == null || peeked === "failed" ? null : peeked.plexus.root;
+  const root = peeked == null || peeked === "failed" ? null : peeked.doc.root;
   const beats = root == null ? [] : sessionBeats(root);
   return (
     <PeekDialog

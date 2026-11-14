@@ -81,7 +81,7 @@ describe("response schema", () => {
       extra: /extra field/.test(extra),
       notJson,
       empty,
-      pew: {
+      expectation: {
         sealed,
         outcome: node.outcome,
         detail: node.endDetail != null && node.endDetail.startsWith("apply_error:"),
@@ -96,7 +96,7 @@ describe("response schema", () => {
       extra: true,
       notJson: 'response schema: completion is not JSON ("sure, here: ```json {nope} ```")',
       empty: "response schema: completion is not JSON (empty)",
-      pew: { sealed: true, outcome: "failed", detail: true, text: badText, thought: "because" },
+      expectation: { sealed: true, outcome: "failed", detail: true, text: badText, thought: "because" },
       unsupported: true,
     });
   });

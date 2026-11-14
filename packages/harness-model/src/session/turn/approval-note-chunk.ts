@@ -4,9 +4,9 @@
  * results. Tape paint reads `approvalComment` on the leaf — this chunk is
  * not a watch-surface row.
  */
+import { WorkContainer } from "@inhuman.tools/expectations";
 import { prompt, type UserPrompt } from "@inhuman.tools/harness-commons";
 import { model, state } from "@inhuman.tools/model";
-import { WorkContainer } from "@inhuman.tools/plexus-expectations";
 
 @model("harness:session:turn-approval-note")
 export class TurnApprovalNoteChunk extends WorkContainer {

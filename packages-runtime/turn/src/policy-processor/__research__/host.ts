@@ -1,16 +1,19 @@
 /**
- * Local LM Studio PEW host for remainder-classifier research.
+ * Local LM Studio expectation host for remainder-classifier research.
  * Not imported by `pnpm test`.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
+import type { DriverConnectionClass } from "@inhuman.tools/expectations/driver";
+import { Orchestrator } from "@inhuman.tools/expectations/executor";
 import {
   CompletionExpectation,
-  KernelPlexus,
+  KernelDocument,
   KernelRoot,
-  SessionPlexus,
+  SessionDocument,
   SessionRoot,
   SessionSystemPrompt,
   SessionTurn,
@@ -18,9 +21,6 @@ import {
   type TurnChunk,
 } from "@inhuman.tools/harness-model";
 import { reasonableDefaultsSource } from "@inhuman.tools/policy/floor";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
-import type { DriverConnectionClass } from "@inhuman.tools/plexus-expectations/driver";
-import { Orchestrator } from "@inhuman.tools/plexus-expectations/executor";
 import { configure, when } from "mobx";
 
 configure({ enforceActions: "never" });
@@ -89,7 +89,7 @@ export function researchSetup(opts?: {
   enqueue(job: ToolCallJob): void;
   [Symbol.dispose](): void;
 } {
-  const kernel = KernelPlexus.bootstrap(new KernelRoot());
+  const kernel = KernelDocument.bootstrap(new KernelRoot());
   const driver = new DriverSpec({
     name: "openai-compat",
     description: "lm studio",
@@ -108,7 +108,7 @@ export function researchSetup(opts?: {
     policyProgram: reasonableDefaultsSource,
     judgeAskProgram: distAskSource(),
   });
-  const session = SessionPlexus.bootstrap(root);
+  const session = SessionDocument.bootstrap(root);
   root.applyKvs([
     { form: "kv-set", key: "connection", value: LM_CONNECTION },
     { form: "kv-set", key: "model", value: LM_MODEL },

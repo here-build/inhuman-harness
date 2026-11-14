@@ -91,9 +91,9 @@ export async function attachTui(args: {
       if (args.continueLast === true) {
         const picked = await pickContinueSession({
           key: termSessionKey(process.env),
-          termContinue: handle.plexus.root.termContinue,
-          sessions: handle.plexus.root.sessions,
-          occupied: occupiedSessionIds(handle.plexus.awareness),
+          termContinue: handle.doc.root.termContinue,
+          sessions: handle.doc.root.sessions,
+          occupied: occupiedSessionIds(handle.doc.awareness),
           sessionExists: (id) => Client.sessionExists(kernel, id),
         });
         if (picked.staleKeyToClear != null) {

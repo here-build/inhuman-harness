@@ -1,5 +1,5 @@
 /**
- * Call settlement and reclaim. Worker never Plexus-writes the caller.
+ * Call settlement and reclaim. Worker never document-writes the caller.
  * `completed` is kernel-only (respond / void / exceptional).
  *
  * Child calls reclaim their owned worker after the last callback row. Bot
@@ -7,6 +7,7 @@
  * completed+orchestrated rejected even if approved. keepAlive true stretches
  * the same loop. Two open rows: first respond is not final.
  */
+import { Job, walkWork, WorkExpectation } from "@inhuman.tools/expectations";
 import {
   AgentCallJob,
   CallJob,
@@ -31,7 +32,6 @@ import {
   TurnSteerChunk,
   decideRound,
 } from "@inhuman.tools/harness-model/session";
-import { Job, walkWork, WorkExpectation } from "@inhuman.tools/plexus-expectations";
 import { runInAction } from "mobx";
 
 import { shouldSkipTurnCancel } from "./acceptance.js";

@@ -12,7 +12,7 @@
 ;; intelligible (pi's shape, FI-5).
 ;;
 ;; Host wiring this program expects but does not fake (honest holes):
-;; done-ledger projection from PEW doneWork (AD-4) and the deterministic
+;; done-ledger projection from expectation doneWork (AD-4) and the deterministic
 ;; rules-KV pin lane with survival check (AD-9/AD-12) are not config yet —
 ;; Progress/Constraints ride the prompt laws.
 ;; The fallback (squeeze + boundary-legal truncation + pins + verbatim tail)

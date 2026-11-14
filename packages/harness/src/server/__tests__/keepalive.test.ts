@@ -1,5 +1,5 @@
 import { decodePlaneFrame, encodePresenceQuery, encodePresenceUpdate } from "@inhuman.tools/harness-peer";
-import { ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
+import { ReactiveAwareness } from "@inhuman.tools/model";
 import { describe, expect, it, vi } from "vitest";
 
 import { attachPlane, keepPlaneAlive, PLANE_PING_MS, PresenceRoom, type PlaneSocket } from "../transport/plane.js";
@@ -87,7 +87,7 @@ describe("plane keep-alive and presence routing", () => {
       vi.useRealTimers();
     }
 
-    const hub = new PlexusAwareness();
+    const hub = new ReactiveAwareness();
     const room = new PresenceRoom(hub);
     const a = fakeSocket();
     const b = fakeSocket();
@@ -97,7 +97,7 @@ describe("plane keep-alive and presence routing", () => {
     b.sent.length = 0;
 
     hub.setLocalStateField("role:expectation:live", { text: "stream", thought: "" });
-    const peer = new PlexusAwareness();
+    const peer = new ReactiveAwareness();
     peer.setLocalStateField("attention", ["x"]);
     const inbound = encodePresenceUpdate(peer.toPresenceEntries());
     const beforeA = a.sent.length;

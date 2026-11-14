@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { memoryCredentialsStore, secretsView } from "../index.js";
 
 describe("credentials access", () => {
-  it("exposes a PEW secrets view over the host store", () => {
+  it("exposes a connection secrets view over the host store", () => {
     const store = memoryCredentialsStore({
       grok: { apiKey: "k", refresh: "r" },
     });

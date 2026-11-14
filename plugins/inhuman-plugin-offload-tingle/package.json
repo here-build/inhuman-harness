@@ -34,7 +34,7 @@
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
     "@inhuman.tools/harness-model": "workspace:^",
-    "@inhuman.tools/plexus-expectations": "workspace:^",
+    "@inhuman.tools/expectations": "workspace:^",
     "mobx": "6.16.1",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.19.2",

@@ -1,14 +1,14 @@
 /**
  * Drive SessionOrchestrator.ensure on the projected intern.
  * Source Nous handshake first; intern still mints if that handshake fails;
- * PEW ticks share one chain; secrets stay on the Nous bag.
+ * Expectation ticks share one chain; secrets stay on the Nous bag.
  * Source A→B remints intern and rebinds credentials; removed A cannot serve new requests.
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
+import { ConnectionSpec } from "@inhuman.tools/expectations";
 import { mkdtemp, readJsonSync, writeJson } from "fs-extra";
 import { describe, expect, it, onTestFinished } from "vitest";
 
@@ -35,13 +35,13 @@ describe("SessionOrchestrator.ensure web-nous", () => {
       baseUrl: models.baseUrl,
       token: TOKEN_A,
     });
-    expect(session.kernel.plexus.root.connections["web-nous"]?.driver.name).toBe("web-nous");
+    expect(session.kernel.doc.root.connections["web-nous"]?.driver.name).toBe("web-nous");
 
     const first = session.orchestrator.ensure("web-nous");
     const second = session.orchestrator.ensure("web-nous");
     expect(first).toBe(second);
     await waitUntil(() => models.hits > 0);
-    expect(session.kernel.plexus.root.connections["web-nous"]?.readyState).toBeNull();
+    expect(session.kernel.doc.root.connections["web-nous"]?.readyState).toBeNull();
     release();
     const intern = await first;
     expect(intern).toBe(await second);
@@ -51,7 +51,7 @@ describe("SessionOrchestrator.ensure web-nous", () => {
       vendor: (intern as NousGatewayWebSearchConnection).vendor,
       apiKey: (intern as NousGatewayWebSearchConnection).apiKey(),
       internReady: intern.readyState,
-      nousReady: session.kernel.plexus.root.connections["nous-portal"]?.readyState,
+      nousReady: session.kernel.doc.root.connections["nous-portal"]?.readyState,
       internSecrets: internSecretsBag(session),
       hits: models.hits,
     }).toEqual({
@@ -75,7 +75,7 @@ describe("SessionOrchestrator.ensure web-nous", () => {
     expect(intern).toBeInstanceOf(NousGatewayWebSearchConnection);
     expect({
       internReady: intern.readyState,
-      nousReady: session.kernel.plexus.root.connections["nous-portal"]?.readyState,
+      nousReady: session.kernel.doc.root.connections["nous-portal"]?.readyState,
       apiKey: (intern as NousGatewayWebSearchConnection).apiKey(),
     }).toEqual({
       internReady: "ready",
@@ -102,7 +102,7 @@ describe("SessionOrchestrator.ensure web-nous", () => {
     });
     expect((internA as NousGatewayWebSearchConnection).apiKey()).toBe("portal-jwt-a-rotated");
 
-    const kernel = session.kernel.plexus.root;
+    const kernel = session.kernel.doc.root;
     const nousDriver = kernel.drivers.nous;
     expect(nousDriver).toBeDefined();
     const portal = kernel.connections["nous-portal"];

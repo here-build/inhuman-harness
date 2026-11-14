@@ -5,8 +5,8 @@
  * {@link drivers} / {@link connections}. Plugin consent is the install-root
  * `package.json`. Secrets never ride this document.
  */
+import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { Model, model as modelDecorator, state } from "@inhuman.tools/model";
-import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { DEFAULT_STATUSLINE } from "@inhuman.tools/statusline/constants";
 import { runInAction } from "mobx";
 

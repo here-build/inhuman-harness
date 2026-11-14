@@ -2,7 +2,7 @@
  * Derived web-nous intern from a live Nous inference row.
  * Product pick (pin → dedicated → intern → keyless) stays in composition.
  */
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 
 import { FIRECRAWL_NOUS_GATEWAY_URL } from "@/providers/web/wire";
 

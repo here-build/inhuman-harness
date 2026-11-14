@@ -6,8 +6,8 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ReactiveAwareness as PlexusAwareness } from "@inhuman.tools/model";
-import { publishRevalidationDemand, publishRevalidationDemandFocus } from "@inhuman.tools/plexus-expectations";
+import { ReactiveAwareness } from "@inhuman.tools/model";
+import { publishRevalidationDemand, publishRevalidationDemandFocus } from "@inhuman.tools/expectations";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -56,12 +56,12 @@ function remainingOf(instance: ChatGptDriverConnection): number | undefined {
   return instance.state.account?.balanceDetail?.windows?.[0]?.remainingPercent;
 }
 
-function remoteAuthor(hub: PlexusAwareness): {
-  author: PlexusAwareness;
+function remoteAuthor(hub: ReactiveAwareness): {
+  author: ReactiveAwareness;
   sync(): void;
   [Symbol.dispose](): void;
 } {
-  const author = new PlexusAwareness();
+  const author = new ReactiveAwareness();
   const sync = (): void => {
     const entries = author.toPresenceEntries();
     if (entries.length === 0) return;
@@ -117,7 +117,7 @@ describe("openai-compat quota poll × KERNEL awareness", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 
     const { kernel, sessionA, sessionB } = await openQuotaKernel();
-    const hub = kernel.plexus.awareness;
+    const hub = kernel.doc.awareness;
     const target = { kind: "connection" as const, id: CONNECTION_ID };
 
     type LoadAccount = { loadAccount(): Promise<AccountSnapshot | undefined> };
@@ -234,13 +234,12 @@ describe("openai-compat quota poll × KERNEL awareness", () => {
     sessionA.root.applyKvs([{ form: "kv-set", key: "connection", value: CONNECTION_ID }]);
     await when(
       () =>
-        (kernel.plexus.root.connections[CONNECTION_ID]?.live.account as AccountSnapshot | undefined)?.balanceDetail
+        (kernel.doc.root.connections[CONNECTION_ID]?.live.account as AccountSnapshot | undefined)?.balanceDetail
           ?.windows?.[0]?.remainingPercent === 33,
       { timeout: 5_000 },
     );
     expect(
-      (kernel.plexus.root.connections[CONNECTION_ID]?.live.account as AccountSnapshot | undefined)?.balanceDetail
-        ?.windows,
+      (kernel.doc.root.connections[CONNECTION_ID]?.live.account as AccountSnapshot | undefined)?.balanceDetail?.windows,
     ).toEqual([{ label: "5h", remainingPercent: 33, status: "ok" }]);
   });
 
@@ -251,12 +250,12 @@ describe("openai-compat quota poll × KERNEL awareness", () => {
       "loadAccount",
     ).mockResolvedValue(windowsOf(61));
     const { kernel } = await openQuotaKernel();
-    using looking = remoteAuthor(kernel.plexus.awareness);
+    using looking = remoteAuthor(kernel.doc.awareness);
     publishRevalidationDemand(looking.author, [{ kind: "connection", id: CONNECTION_ID }]);
     looking.sync();
     await when(
       () =>
-        (kernel.plexus.root.connections[CONNECTION_ID]?.live.account as AccountSnapshot | undefined)?.balanceDetail
+        (kernel.doc.root.connections[CONNECTION_ID]?.live.account as AccountSnapshot | undefined)?.balanceDetail
           ?.windows?.[0]?.remainingPercent === 61,
       { timeout: 5_000 },
     );

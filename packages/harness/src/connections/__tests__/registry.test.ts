@@ -1,5 +1,5 @@
+import { DriverSpec } from "@inhuman.tools/expectations";
 import { PROVIDER_SDK_CONTRACT, registerProviders } from "@inhuman.tools/harness-provider-sdk";
-import { DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -35,7 +35,7 @@ const mcpProvider = {
 };
 
 describe("driver registry", () => {
-  it("opens from registered providers and resolves the PEW class", async () => {
+  it("opens from registered providers and resolves the ExpectationDriver class", async () => {
     const registry = openDriverRegistry(registerProviders([mcpProvider]));
     expect(isDriverRegistry(registry)).toBe(true);
     expect(registry[connectionsBrand.registry]).toBe(true);

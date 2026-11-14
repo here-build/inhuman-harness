@@ -21,7 +21,7 @@ creating one does not authorize a model invocation.
 `decideRound` in harness-model is the pure policy function: it assesses budgets,
 unions eligible causes, applies gates, and defaults to halt. The iterator commits
 that decision, then handles admission through the inbound barrier and round hook.
-The admitted `CompletionJob` and the boundary's `successor` reference are committed together by a Plexus syncing action. `decision.nextRoundId` projects that reference's UUID after materialization; older documents can still carry the ID in their decision JSON.
+The admitted `CompletionJob` and the boundary's `successor` reference are committed together by a model syncing action. `decision.nextRoundId` projects that reference's UUID after materialization; older documents can still carry the ID in their decision JSON.
 
 ```mermaid
 flowchart LR

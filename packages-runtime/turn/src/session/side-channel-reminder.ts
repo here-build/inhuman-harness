@@ -111,14 +111,14 @@ export function sealedActorRounds(turn: SessionTurn): readonly SideChannelRound[
     }
     let round: { calls: string[] } | null = null;
     for (const chunk of chunks) {
-      const pew = tapeCompletion(chunk);
-      if (pew != null) {
-        if (pew.completionMode === "isolated" || pew.outcome !== "successful") {
+      const completion = tapeCompletion(chunk);
+      if (completion != null) {
+        if (completion.completionMode === "isolated" || completion.outcome !== "successful") {
           round = null;
           continue;
         }
         round = { calls: [] };
-        for (const call of pew.responseCalls) noteMetaCall(round, call.name);
+        for (const call of completion.responseCalls) noteMetaCall(round, call.name);
         rounds.push(round);
         continue;
       }

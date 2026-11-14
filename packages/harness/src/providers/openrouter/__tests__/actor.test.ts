@@ -2,7 +2,7 @@ import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
   CompletionJob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -11,8 +11,8 @@ import { describe, expect, it } from "vitest";
 import { OpenRouterDriverConnection } from "../connection.js";
 import { listenCompat } from "./compat-server.js";
 
-function homeRound(plexus: SessionPlexus, round: CompletionExpectation): void {
-  plexus.root.head = new SessionTurn({
+function homeRound(doc: SessionDocument, round: CompletionExpectation): void {
+  doc.root.head = new SessionTurn({
     turnTail: new SessionSystemPrompt(),
     prompt: round.promptText,
     doneWork: [new CompletionJob({ expectation: round })],
@@ -44,7 +44,7 @@ describe("OpenRouter actor", () => {
       baseUrl: compat.baseUrl,
       model: "m1",
     });
-    const plexus = SessionPlexus.create("sess-or", "/ws");
+    const doc = SessionDocument.create("sess-or", "/ws");
     try {
       expect(connection.cacheFlavor()).toBe("openrouter");
       expect(connection.reasoningFlavor()).toBe("openrouter");
@@ -58,7 +58,7 @@ describe("OpenRouter actor", () => {
         connectionId: "row-or",
         model: "m1",
       });
-      homeRound(plexus, round);
+      homeRound(doc, round);
       const result = await connection.complete({
         model: "m1",
         promptText: "hi",
@@ -77,7 +77,7 @@ describe("OpenRouter actor", () => {
       expect(post.session_id).toBe("sess-or");
       expect(post.reasoning).toEqual({ exclude: false });
     } finally {
-      plexus.destroy();
+      doc.destroy();
       await connection[Symbol.asyncDispose]();
       await compat.close();
     }

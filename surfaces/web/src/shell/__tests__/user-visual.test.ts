@@ -3,7 +3,12 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { prompt } from "@inhuman.tools/harness-commons";
-import { SessionPlexus, SessionSystemPrompt, SessionTurn, type UserVisualIdentity } from "@inhuman.tools/harness-model";
+import {
+  SessionDocument,
+  SessionSystemPrompt,
+  SessionTurn,
+  type UserVisualIdentity,
+} from "@inhuman.tools/harness-model";
 import { BeatTimeline } from "@inhuman.tools/harness-transcript";
 import { runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,7 +59,7 @@ async function renderCells(cells: readonly TapeCell[]): Promise<{ container: HTM
 }
 
 describe("picture cells", () => {
-  const opened: SessionPlexus[] = [];
+  const opened: SessionDocument[] = [];
 
   beforeEach(() => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -64,15 +69,15 @@ describe("picture cells", () => {
   });
 
   afterEach(() => {
-    for (const plexus of opened) plexus.destroy();
+    for (const doc of opened) doc.destroy();
     opened.length = 0;
   });
 
   function seat(text: string): SessionTurn {
-    const plexus = SessionPlexus.create(`pics-${opened.length}`, "/work/project");
-    opened.push(plexus);
+    const doc = SessionDocument.create(`pics-${opened.length}`, "/work/project");
+    opened.push(doc);
     const seated = turn(text);
-    plexus.root.head = seated;
+    doc.root.head = seated;
     return seated;
   }
 

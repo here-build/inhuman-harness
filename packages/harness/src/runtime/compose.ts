@@ -3,14 +3,14 @@
  * and session replica intern bind here. Observers start on activate.
  * Callers supply the completion roster. MCP catalog projection is the one concrete provider this package imports.
  */
-import type { SessionRoot } from "@inhuman.tools/harness-model";
-import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
+import type { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import type {
   ConnectionSecretsView,
   DriverConnectionClass,
-  PEWDriver,
-} from "@inhuman.tools/plexus-expectations/driver";
-import { acquireConnection } from "@inhuman.tools/plexus-expectations/executor";
+  ExpectationDriver,
+} from "@inhuman.tools/expectations/driver";
+import { acquireConnection } from "@inhuman.tools/expectations/executor";
+import type { SessionRoot } from "@inhuman.tools/harness-model";
 import { action } from "mobx";
 
 import {
@@ -53,7 +53,7 @@ function secretsOf(secrets: CredentialsStore | ConnectionSecretsView, connection
   return secrets as ConnectionSecretsView;
 }
 
-function bindAwareness(instance: PEWDriver, awareness: PEWDriver["awareness"]): void {
+function bindAwareness(instance: ExpectationDriver, awareness: ExpectationDriver["awareness"]): void {
   if (awareness === undefined) return;
   action(() => {
     instance.awareness = awareness;
@@ -195,7 +195,7 @@ export class ProductionRuntime<
   }
 
   /**
-   * Resolve the class before PEW intern so a descriptor miss does not leave
+   * Resolve the class before expectation intern so a descriptor miss does not leave
    * a rejected lease. Same name-wins door as {@link loadDriver}.
    */
   async internDiscovery(
@@ -204,9 +204,9 @@ export class ProductionRuntime<
     connectionId: string,
     options: {
       readonly secrets: CredentialsStore | ConnectionSecretsView;
-      readonly awareness?: PEWDriver["awareness"];
+      readonly awareness?: ExpectationDriver["awareness"];
     },
-  ): Promise<PEWDriver> {
+  ): Promise<ExpectationDriver> {
     const spec = kernel.connections[connectionId];
     if (spec === undefined) {
       throw new Error(`connections: unknown connection ${connectionId}`);

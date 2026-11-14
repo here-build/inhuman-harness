@@ -1,4 +1,4 @@
-import { KernelPlexus, SessionPlexus } from "@inhuman.tools/harness-model";
+import { KernelDocument, SessionDocument } from "@inhuman.tools/harness-model";
 import { describe, expect, it } from "vitest";
 
 import { bindSessionCatalog, catalogOf, catalogRecipe, KernelToolCatalog, type CatalogEntry } from "../index.js";
@@ -35,10 +35,10 @@ describe("catalog instance isolation", () => {
       }),
     ]);
 
-    const leftKernel = KernelPlexus.bootstrap();
-    const rightKernel = KernelPlexus.bootstrap();
-    const leftSession = SessionPlexus.create("s-left", path);
-    const rightSession = SessionPlexus.create("s-right", path);
+    const leftKernel = KernelDocument.bootstrap();
+    const rightKernel = KernelDocument.bootstrap();
+    const leftSession = SessionDocument.create("s-left", path);
+    const rightSession = SessionDocument.create("s-right", path);
     bindSessionCatalog(leftSession.root, left);
     bindSessionCatalog(rightSession.root, right);
 

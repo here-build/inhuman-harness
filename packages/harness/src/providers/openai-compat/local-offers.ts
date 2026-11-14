@@ -4,8 +4,8 @@
  * wake, then re-probe on an interval for as long as a client is looking at
  * the driver. Nobody looking, nothing observing: no timer.
  */
+import type { DriverOffer } from "@inhuman.tools/expectations/driver";
 import { step } from "@inhuman.tools/harness-diagnostics";
-import type { DriverOffer } from "@inhuman.tools/plexus-expectations/driver";
 import {
   comparer,
   type IObservableValue,

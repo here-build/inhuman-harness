@@ -3,7 +3,7 @@
  * One-shot `:model` and scheme_repl faces use the same ref.
  */
 
-import type { ConnectionSpec } from "@inhuman.tools/plexus-expectations";
+import type { ConnectionSpec } from "@inhuman.tools/expectations";
 
 export type CompletionFace = {
   readonly id: string;

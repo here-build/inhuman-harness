@@ -9,12 +9,12 @@ import {
   destroyRoomConnection,
   detachLocalPresence,
   KERNEL_DOC_GUID,
-  KernelPlexus,
-  ProjectPlexus,
+  KernelDocument,
+  ProjectDocument,
   publishKernelSeat,
   publishRevalidationDemand,
   RoomConnection,
-  SessionPlexus,
+  SessionDocument,
   waitForSync,
   type Doc,
   type JsonRpcPort,
@@ -72,19 +72,19 @@ function attachLink(error: unknown): Link {
     : { kind: "unreachable" };
 }
 
-type Session = { plexus: SessionPlexus; rpc: JsonRpcPort };
+type Session = { doc: SessionDocument; rpc: JsonRpcPort };
 type Staged = {
   rooms: Map<string, Held>;
-  projects: Map<string, ProjectPlexus>;
+  projects: Map<string, ProjectDocument>;
   sessions: Map<string, Session>;
 };
 
 export class Dial {
-  @observable.ref accessor kernel: KernelPlexus | null = null;
+  @observable.ref accessor kernel: KernelDocument | null = null;
   /** Every known project, attached for the sidebar. Not dropped on route changes. */
-  @observable.shallow accessor projects = new Map<string, ProjectPlexus>();
-  @observable.ref accessor project: ProjectPlexus | null = null;
-  @observable.ref accessor session: SessionPlexus | null = null;
+  @observable.shallow accessor projects = new Map<string, ProjectDocument>();
+  @observable.ref accessor project: ProjectDocument | null = null;
+  @observable.ref accessor session: SessionDocument | null = null;
   @observable.ref accessor sessionRpc: JsonRpcPort | null = null;
   /** Kernel-plane JSON-RPC, open once the kernel room synced. Kernel documents are read-only here. */
   @observable.ref accessor kernelRpc: JsonRpcPort | null = null;
@@ -106,7 +106,7 @@ export class Dial {
   #mintId: string | null = null;
   #mintGeneration = 0;
   readonly #rooms = new Map<string, Held>();
-  readonly #projects = new Map<string, ProjectPlexus>();
+  readonly #projects = new Map<string, ProjectDocument>();
   readonly #sessions = new Map<string, Session>();
   /** The last relay close code each room's socket saw, cleared when it connects. */
   readonly #closeCodes = new WeakMap<RoomConnection, number>();
@@ -145,13 +145,13 @@ export class Dial {
    * Another session's room to read: synced and live, never seated, no port to
    * write through. Route changes do not drop it; the caller releases it.
    */
-  async peek(sessionId: string, signal?: AbortSignal): Promise<{ plexus: SessionPlexus; release: () => void }> {
-    const doc = createDoc({ guid: `harness:session:${sessionId}` });
-    const room = await this.#connect("session", { sessionId }, doc, () => signal?.aborted === true, signal);
+  async peek(sessionId: string, signal?: AbortSignal): Promise<{ doc: SessionDocument; release: () => void }> {
+    const roomDoc = createDoc({ guid: `harness:session:${sessionId}` });
+    const room = await this.#connect("session", { sessionId }, roomDoc, () => signal?.aborted === true, signal);
     if (room == null) throw new Error("Peek cancelled.");
-    const plexus = SessionPlexus.connect(room.doc, { readOnly: true });
-    room.stop = bindRoomAwareness(plexus.awareness, room.connection);
-    return { plexus, release: () => this.#destroyRoom(room) };
+    const doc = SessionDocument.connect(room.doc, { readOnly: true });
+    room.stop = bindRoomAwareness(doc.awareness, room.connection);
+    return { doc, release: () => this.#destroyRoom(room) };
   }
 
   /**
@@ -237,7 +237,7 @@ export class Dial {
       // until the session synced, so a refused session wiped the rail and was
       // reported missing before the kernel's own list could be consulted.
       this.#publishKernel(staged, kernel);
-      let project: ProjectPlexus | null = null;
+      let project: ProjectDocument | null = null;
       let projectPath = "";
       let session: Session | null = null;
       const keep = new Set<string>();
@@ -266,9 +266,9 @@ export class Dial {
         if (mint && this.#mintGeneration === mintGeneration) this.#mintId = null;
         this.#dropExcept(keep);
         for (const [key, room] of staged.rooms) this.#rooms.set(key, room);
-        for (const [path, plexus] of staged.projects) {
-          this.#projects.set(path, plexus);
-          this.projects.set(path, plexus);
+        for (const [path, projectDoc] of staged.projects) {
+          this.#projects.set(path, projectDoc);
+          this.projects.set(path, projectDoc);
         }
         for (const [id, held] of staged.sessions) this.#sessions.set(id, held);
         staged.rooms.clear();
@@ -278,7 +278,7 @@ export class Dial {
         if (project != null && projectPath !== "") this.#holdProject(projectPath, project);
         this.target = target;
         this.project = project;
-        this.session = session?.plexus ?? null;
+        this.session = session?.doc ?? null;
         this.sessionRpc = session?.rpc ?? null;
         publishKernelSeat(
           kernel.awareness,
@@ -301,18 +301,18 @@ export class Dial {
     }
   }
 
-  async #kernel(staged: Staged, stale: () => boolean, signal?: AbortSignal): Promise<KernelPlexus | null> {
+  async #kernel(staged: Staged, stale: () => boolean, signal?: AbortSignal): Promise<KernelDocument | null> {
     if (this.kernel != null && this.#rooms.has("kernel")) return this.kernel;
-    const doc = createDoc({ guid: KERNEL_DOC_GUID });
-    const room = await this.#connect("kernel", {}, doc, stale, signal);
+    const roomDoc = createDoc({ guid: KERNEL_DOC_GUID });
+    const room = await this.#connect("kernel", {}, roomDoc, stale, signal);
     if (room == null) return null;
     staged.rooms.set("kernel", room);
-    const plexus = KernelPlexus.connect(room.doc, { readOnly: true });
-    const stopAwareness = bindRoomAwareness(plexus.awareness, room.connection);
+    const doc = KernelDocument.connect(room.doc, { readOnly: true });
+    const stopAwareness = bindRoomAwareness(doc.awareness, room.connection);
     const stopProjects = reaction(
-      () => Object.keys(plexus.root.projects),
+      () => Object.keys(doc.root.projects),
       () => {
-        if (this.kernel === plexus) this.#fillCatalog(plexus);
+        if (this.kernel === doc) this.#fillCatalog(doc);
       },
       { equals: comparer.structural },
     );
@@ -359,7 +359,7 @@ export class Dial {
     };
     room.rpc = bindJsonRpc(room.connection);
 
-    return plexus;
+    return doc;
   }
 
   async #project(
@@ -367,16 +367,16 @@ export class Dial {
     staged: Staged,
     stale: () => boolean,
     signal?: AbortSignal,
-  ): Promise<ProjectPlexus | null> {
+  ): Promise<ProjectDocument | null> {
     const cached = this.#projects.get(path);
     if (cached != null) return cached;
-    const doc = createDoc();
-    const room = await this.#connect("project", { path }, doc, stale, signal);
+    const roomDoc = createDoc();
+    const room = await this.#connect("project", { path }, roomDoc, stale, signal);
     if (room == null) return null;
     staged.rooms.set(`project:${path}`, room);
-    const plexus = ProjectPlexus.connect(room.doc, { readOnly: true });
-    staged.projects.set(path, plexus);
-    return plexus;
+    const doc = ProjectDocument.connect(room.doc, { readOnly: true });
+    staged.projects.set(path, doc);
+    return doc;
   }
 
   async #openSession(
@@ -386,35 +386,40 @@ export class Dial {
     staged: Staged,
     stale: () => boolean,
     signal?: AbortSignal,
-  ): Promise<{ project: ProjectPlexus | null; projectPath: string; session: Session } | null> {
+  ): Promise<{ project: ProjectDocument | null; projectPath: string; session: Session } | null> {
     let held = this.#sessions.get(sessionId);
     if (held == null) {
-      const doc = createDoc({ guid: `harness:session:${sessionId}` });
+      const roomDoc = createDoc({ guid: `harness:session:${sessionId}` });
       const params: Record<string, string> = { sessionId };
       if (mint && path != null) params.path = path;
       const listed = Boolean(this.kernel?.root.sessions[sessionId]);
       // A listed session may still be replaying a long image before the socket opens.
-      const room = await this.#connect("session", params, doc, stale, signal, listed && !mint ? 60_000 : 8_000).catch(
-        (error: unknown) => {
-          if (stale() || mint) throw error;
-          const link = attachLink(error);
-          if (link.kind !== "unreachable") throw error;
-          // The kernel has answered. Missing means its list does not have this id.
-          if (!listed) throw new LinkError({ kind: "missing", sessionId });
-          throw new LinkError({ kind: "unanswered" });
-        },
-      );
+      const room = await this.#connect(
+        "session",
+        params,
+        roomDoc,
+        stale,
+        signal,
+        listed && !mint ? 60_000 : 8_000,
+      ).catch((error: unknown) => {
+        if (stale() || mint) throw error;
+        const link = attachLink(error);
+        if (link.kind !== "unreachable") throw error;
+        // The kernel has answered. Missing means its list does not have this id.
+        if (!listed) throw new LinkError({ kind: "missing", sessionId });
+        throw new LinkError({ kind: "unanswered" });
+      });
       if (room == null) return null;
       staged.rooms.set(`session:${sessionId}`, room);
-      const plexus = SessionPlexus.connect(room.doc, { readOnly: true });
+      const doc = SessionDocument.connect(room.doc, { readOnly: true });
       const rpc = bindJsonRpc(room.connection);
-      room.stop = bindRoomAwareness(plexus.awareness, room.connection);
-      held = { plexus, rpc };
+      room.stop = bindRoomAwareness(doc.awareness, room.connection);
+      held = { doc, rpc };
       staged.sessions.set(sessionId, held);
     }
     if (stale()) return null;
     const projectPath =
-      held.plexus.root.agent.spec.recipeScope === "global" ? "" : mint ? (path ?? "") : held.plexus.root.path;
+      held.doc.root.agent.spec.recipeScope === "global" ? "" : mint ? (path ?? "") : held.doc.root.path;
     if (path != null && (projectPath === "" || path !== projectPath)) {
       throw new LinkError({ kind: "elsewhere", sessionId, path: projectPath });
     }
@@ -530,7 +535,7 @@ export class Dial {
   }
 
   /** Move a staged kernel into the live dial so a later session failure cannot drop it. */
-  #publishKernel(staged: Staged, kernel: KernelPlexus): void {
+  #publishKernel(staged: Staged, kernel: KernelDocument): void {
     const room = staged.rooms.get("kernel");
     if (room != null && !this.#rooms.has("kernel")) {
       staged.rooms.delete("kernel");
@@ -543,13 +548,13 @@ export class Dial {
     });
   }
 
-  #holdProject(path: string, plexus: ProjectPlexus): void {
+  #holdProject(path: string, projectDoc: ProjectDocument): void {
     if (this.projects.has(path)) return;
-    this.#projects.set(path, plexus);
-    this.projects.set(path, plexus);
+    this.#projects.set(path, projectDoc);
+    this.projects.set(path, projectDoc);
   }
 
-  #fillCatalog(kernel: KernelPlexus): void {
+  #fillCatalog(kernel: KernelDocument): void {
     const generation = (this.#catalogGeneration += 1);
     const stale = (): boolean => generation !== this.#catalogGeneration;
     const paths = Object.keys(kernel.root.projects);
@@ -559,13 +564,13 @@ export class Dial {
         if (this.#projects.has(path)) continue;
         const staged: Staged = { rooms: new Map(), projects: new Map(), sessions: new Map() };
         try {
-          const plexus = await this.#project(path, staged, stale);
-          if (!stale() && plexus != null) {
+          const projectDoc = await this.#project(path, staged, stale);
+          if (!stale() && projectDoc != null) {
             runInAction(() => {
               if (stale()) return;
               for (const [key, room] of staged.rooms) this.#rooms.set(key, room);
-              this.#projects.set(path, plexus);
-              this.projects.set(path, plexus);
+              this.#projects.set(path, projectDoc);
+              this.projects.set(path, projectDoc);
               staged.rooms.clear();
             });
           }

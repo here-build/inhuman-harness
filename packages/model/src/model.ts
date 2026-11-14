@@ -61,7 +61,7 @@ export abstract class Model<TRow = any, TParent = any> {
     return this[CONTAINER_LINK] ?? null;
   }
 
-  get plexus(): any {
+  get document(): any {
     return this[CONTAINER_LINK]?.container ?? this[CONTAINER_LINK] ?? null;
   }
 

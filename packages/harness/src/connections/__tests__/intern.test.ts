@@ -1,6 +1,6 @@
+import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
+import { acquireConnection, dropConnection } from "@inhuman.tools/expectations/executor";
 import { PROVIDER_SDK_CONTRACT, registerProviders } from "@inhuman.tools/harness-provider-sdk";
-import { ConnectionSpec, DriverSpec } from "@inhuman.tools/plexus-expectations";
-import { acquireConnection, dropConnection } from "@inhuman.tools/plexus-expectations/executor";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -41,7 +41,7 @@ function kernelWith(id: string, driverName = "mcp-stdio") {
   return { connections: { [id]: spec } };
 }
 
-describe("PEW intern adapter", () => {
+describe("expectation intern adapter", () => {
   it("discovery and two session owners share one interned connection", async () => {
     const registry = openDriverRegistry(registerProviders([provider]));
     const kernel = kernelWith("row");
@@ -64,7 +64,7 @@ describe("PEW intern adapter", () => {
     expect(first.readyState).toBe("ready");
   });
 
-  it("does not construct a second cache: drop remints through PEW", async () => {
+  it("does not construct a second cache: drop remints through expectation intern", async () => {
     const kernel = kernelWith("row");
     const minted: TestDriverConnection[] = [];
     const construct = () => {

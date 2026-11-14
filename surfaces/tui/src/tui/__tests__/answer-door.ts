@@ -12,7 +12,7 @@ let ids = 0;
 export function answerLikeDaemon(client: Client, method: string, params: unknown): void {
   if (method !== "ask/answer" && method !== "ack/answer") return;
   const answer = params as (AskAnswer | AckAnswer) & { readonly sessionId: string; readonly jobId: string };
-  const target = [client.sessionRoot, client.askPlexus?.root].find((root) => root?.sessionId === answer.sessionId);
+  const target = [client.sessionRoot, client.askDoc?.root].find((root) => root?.sessionId === answer.sessionId);
   const leaf = target?.findRunningTurn()?.approvalHead;
   if (leaf == null || leaf.uuid !== answer.jobId || leaf.humanApprove !== null) return;
   const env = {

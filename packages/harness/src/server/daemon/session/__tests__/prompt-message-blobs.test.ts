@@ -12,7 +12,7 @@ import {
   CompletionExpectation,
   CompletionJob,
   parseStoredBlob,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -27,8 +27,7 @@ import { promptMessageOf } from "../prompt-message-of.js";
 import { assessTextOnlyContinueIntern } from "../re-act-loop-intent-detected-trigger.js";
 
 const sha256Of = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
-const serializedBytes = (plexus: SessionPlexus): number =>
-  Buffer.byteLength(JSON.stringify(plexus.doc.toNodeRows()), "utf8");
+const serializedBytes = (doc: SessionDocument): number => Buffer.byteLength(JSON.stringify(doc.toNodeRows()), "utf8");
 
 /** An in-memory bucket behind both ports, as the kernel binds them to the directory bucket. */
 function seatMemoryBucket(): Map<string, { readonly bytes: Uint8Array; readonly mime: string }> {
@@ -107,7 +106,7 @@ describe("the summarizer's prefix", () => {
 
   /** Two rounds of 150 000 characters each, homed on a session so the document is real. */
   function homedRounds() {
-    const plexus = SessionPlexus.create("ambient-blobs", "");
+    const doc = SessionDocument.create("ambient-blobs", "");
     const older = round("older ".repeat(BIG / 6), 20);
     const newer = round("newer ".repeat(BIG / 6), 80);
     newer.messages = [older];
@@ -117,18 +116,18 @@ describe("the summarizer's prefix", () => {
       doneWork: [new CompletionJob({ expectation: older }), new CompletionJob({ expectation: newer })],
       queue: [],
     });
-    plexus.root.head = turn;
+    doc.root.head = turn;
     const sliced = sliceCompactEat(Transcript.fromCells(historyBehind(turn)), keepFloors(null));
     const cutoff = ambientCutoff(sliced.keep);
     if (cutoff == null) throw new Error("expected a cutoff round");
-    return { plexus, turn, cutoff, sliced };
+    return { doc, turn, cutoff, sliced };
   }
 
   it("never enters the document; the wire reads it back whole through the blob reader", async () => {
     const objects = seatMemoryBucket();
-    const { plexus, turn, cutoff, sliced } = homedRounds();
+    const { doc, turn, cutoff, sliced } = homedRounds();
     try {
-      const before = serializedBytes(plexus);
+      const before = serializedBytes(doc);
       const storedText = (): string => {
         const first = [...objects.values()].at(0);
         return Buffer.from(first?.bytes ?? []).toString("utf8");
@@ -149,7 +148,7 @@ describe("the summarizer's prefix", () => {
             ...projectModelHistory(req.round, { readBlob: (sha256) => objects.get(sha256)?.bytes ?? null }),
           ];
           live.push({
-            grew: serializedBytes(plexus) - before,
+            grew: serializedBytes(doc) - before,
             user: user.body.kind,
             head: user.content,
             // The projection hands the model the whole prefix, not the head the document keeps.
@@ -183,17 +182,17 @@ describe("the summarizer's prefix", () => {
       // The document grew by a head and a reference, not by 300 000 characters.
       expect(live[0]?.grew).toBeLessThan(10_000);
       // The settled run keeps its result and a one-line reference; the replaced message holds a head only.
-      const after = serializedBytes(plexus);
+      const after = serializedBytes(doc);
       expect(after - before).toBeLessThan(10_000);
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 
   it("stays inline when no bucket is seated: the document holds the text as it did", async () => {
-    const { plexus, turn, cutoff, sliced } = homedRounds();
+    const { doc, turn, cutoff, sliced } = homedRounds();
     try {
-      const before = serializedBytes(plexus);
+      const before = serializedBytes(doc);
       let grew = 0;
       await startAmbientCompact({
         home: turn,
@@ -204,14 +203,14 @@ describe("the summarizer's prefix", () => {
         model: "summarizer",
         inflight: new Map(),
         complete: (req) => {
-          grew = serializedBytes(plexus) - before;
+          grew = serializedBytes(doc) - before;
           req.round.succeed("settled", "S", "null", { result: { text: "S" } });
           return Promise.resolve({ text: "S" });
         },
       });
       expect(grew).toBeGreaterThan(2 * BIG);
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 });
@@ -219,10 +218,10 @@ describe("the summarizer's prefix", () => {
 describe("the continue intern", () => {
   it("builds its two messages through the same door: a clipped speech stays inline", async () => {
     const objects = seatMemoryBucket();
-    const plexus = SessionPlexus.create("intern-blobs", "");
+    const doc = SessionDocument.create("intern-blobs", "");
     try {
       const turn = new SessionTurn({ turnTail: new SessionSystemPrompt(), prompt: prompt.user`hi`, queue: [] });
-      plexus.root.head = turn;
+      doc.root.head = turn;
       let messages: Array<[role: string, kind: string]> = [];
       await assessTextOnlyContinueIntern({
         speech: "I will write the tests now. ".repeat(2_000),
@@ -243,7 +242,7 @@ describe("the continue intern", () => {
         puts: 0,
       });
     } finally {
-      plexus.destroy();
+      doc.destroy();
     }
   });
 });

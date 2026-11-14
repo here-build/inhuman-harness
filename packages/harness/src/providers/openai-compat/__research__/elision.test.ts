@@ -19,7 +19,7 @@ import {
   CompletionJob,
   FileMutateToolJob,
   responseCall,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
@@ -122,8 +122,8 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
       const root = realpathSync(mkdtempSync(join(tmpdir(), "elision-behavior-")));
       const catalog = new KernelToolCatalog();
       catalog.replacePack(SYSTEM_ENTRIES);
-      const plexus = SessionPlexus.create(`elision-${id}`, root);
-      bindSessionCatalog(plexus.root, catalog);
+      const doc = SessionDocument.create(`elision-${id}`, root);
+      bindSessionCatalog(doc.root, catalog);
       const toolNames = new Set(["write_file", "read_file", "context_recall"]);
       const tools = catalog
         .catalogEntries()
@@ -133,7 +133,7 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
           function: { name: entry.wireName, description: entry.description, parameters: entry.parameters },
         }));
       const execute = async (name: string, args: Record<string, unknown>): Promise<ToolResult> => {
-        if (name === "context_recall") return recallContext(plexus.root, args);
+        if (name === "context_recall") return recallContext(doc.root, args);
         if (
           !toolNames.has(name) ||
           (args.path !== "plan.md" && args.path !== "prior.md") ||
@@ -167,7 +167,7 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
           queue: [],
           retentionJson: turnRetentionJson("", {}),
         });
-        plexus.root.seatHead(first);
+        doc.root.seatHead(first);
         const prior = new CompletionExpectation({
           connectionId: connection,
           model,
@@ -198,7 +198,7 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
           queue: [],
           retentionJson: turnRetentionJson("", {}),
         });
-        plexus.root.seatHead(next);
+        doc.root.seatHead(next);
         const tip = new CompletionExpectation({
           connectionId: connection,
           model,
@@ -370,7 +370,7 @@ describe.skipIf(connection === undefined || model === undefined)("live elision b
             );
           }
         } finally {
-          plexus.destroy();
+          doc.destroy();
           catalog[Symbol.dispose]();
           rmSync(root, { recursive: true, force: true });
         }

@@ -3,6 +3,7 @@
  * program / turn handlers do not seal. On-wire MCP and live eval bags hold
  * the wrap until they settle; undispatched MCP is aborted without a receipt.
  */
+import { Job, walkWork } from "@inhuman.tools/expectations";
 import {
   evalProgramOf,
   MCPToolJob,
@@ -10,13 +11,12 @@ import {
   SessionRoot,
   SessionTurn,
 } from "@inhuman.tools/harness-model/session";
-import { Job, walkWork } from "@inhuman.tools/plexus-expectations";
 
 import type { ParkWork } from "./types.js";
 
 export function mcpJobOnWire(job: MCPToolJob): boolean {
-  const pew = job.expectation;
-  return (job.dispatched && !job.completed) || (pew.dispatched && !pew.isDone);
+  const expectation = job.expectation;
+  return (job.dispatched && !job.completed) || (expectation.dispatched && !expectation.isDone);
 }
 
 function mcpJobsOf(root: SessionRoot): MCPToolJob[] {

@@ -1,5 +1,5 @@
+import { DriverSpec } from "@inhuman.tools/expectations";
 import { PROVIDER_SDK_CONTRACT, registerProviders } from "@inhuman.tools/harness-provider-sdk";
-import { DriverSpec } from "@inhuman.tools/plexus-expectations";
 import { describe, expect, it } from "vitest";
 
 import {

@@ -1,6 +1,6 @@
 /** Leftover honor path — see `drivers/mcp/actor.ts`. */
+import { DemandIncomplete, ExpectationActor, type ExpectationDriver } from "@inhuman.tools/expectations/driver";
 import type { WebSearchExpectation } from "@inhuman.tools/harness-model";
-import { DemandIncomplete, ExpectationActor, type PEWDriver } from "@inhuman.tools/plexus-expectations/driver";
 
 import type { WebSearchDriverConnection } from "./connection.js";
 
@@ -9,7 +9,7 @@ export class WebSearchActor extends ExpectationActor<WebSearchExpectation> {
     expectation: WebSearchExpectation,
     readonly web: WebSearchDriverConnection,
   ) {
-    super(expectation, web as PEWDriver<WebSearchExpectation>);
+    super(expectation, web as ExpectationDriver<WebSearchExpectation>);
   }
 
   protected async run(): Promise<void> {

@@ -1,16 +1,16 @@
+import { Orchestrator } from "@inhuman.tools/expectations/executor";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   applyDenyReceipt,
-  KernelPlexus,
+  KernelDocument,
   ProgrammaticJob,
   SCHEME_WATCH_TOOL_NAME,
-  SessionPlexus,
+  SessionDocument,
   SessionSystemPrompt,
   SessionTurn,
   SystemToolJob,
   USER_REFUSED,
 } from "@inhuman.tools/harness-model";
-import { Orchestrator } from "@inhuman.tools/plexus-expectations/executor";
 import { DoorSession } from "@inhuman.tools/substrate/doors";
 import { KernelToolCatalog, type CatalogEntry } from "@inhuman.tools/turn/catalog";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -56,10 +56,10 @@ class ActorHost extends Orchestrator {
 
 describe("ProgrammaticJob actor", () => {
   it(
-    "cancel, timeout, watch, and a denied inner call stay on the PEW guard path",
+    "cancel, timeout, watch, and a denied inner call stay on the expectation guard path",
     async () => {
-      const kernel = KernelPlexus.bootstrap();
-      const session = SessionPlexus.create("scheme-actor", "/tmp/scheme-actor");
+      const kernel = KernelDocument.bootstrap();
+      const session = SessionDocument.create("scheme-actor", "/tmp/scheme-actor");
       const orch = new ActorHost(kernel, session);
       onTestFinished(() => {
         orch[Symbol.dispose]();
@@ -68,7 +68,7 @@ describe("ProgrammaticJob actor", () => {
       });
 
       let catalogBodies = 0;
-      let pewBodies = 0;
+      let executorBodies = 0;
       const catalog = new KernelToolCatalog();
       catalog.replacePack([
         packEntry("write_file", {
@@ -104,7 +104,7 @@ describe("ProgrammaticJob actor", () => {
           return true;
         },
         async (job) => {
-          pewBodies += 1;
+          executorBodies += 1;
           job.receiptJson = JSON.stringify({ ok: true, value: `${job.name}:ok` });
         },
       );
@@ -230,7 +230,7 @@ describe("ProgrammaticJob actor", () => {
           inner: allowed.toolCalls[0]?.receiptJson,
           orchestrated: allowed.toolCalls[0]?.orchestrationResult,
         },
-        bodies: { catalog: catalogBodies, pew: pewBodies },
+        bodies: { catalog: catalogBodies, executor: executorBodies },
       }).toEqual({
         abort: { ok: false, text: "Error: Scheme REPL call cancelled" },
         timeout: {
@@ -255,15 +255,15 @@ describe("ProgrammaticJob actor", () => {
           inner: JSON.stringify({ ok: true, value: "ping:ok" }),
           orchestrated: true,
         },
-        bodies: { catalog: 0, pew: 1 },
+        bodies: { catalog: 0, executor: 1 },
       });
     },
     TIMEOUT,
   );
 
   it("a failed tool names its arguments and keeps earlier statements", async () => {
-    const kernel = KernelPlexus.bootstrap();
-    const session = SessionPlexus.create("scheme-fail", "/tmp/scheme-fail");
+    const kernel = KernelDocument.bootstrap();
+    const session = SessionDocument.create("scheme-fail", "/tmp/scheme-fail");
     const orch = new ActorHost(kernel, session);
     orch.activate();
     onTestFinished(() => {

@@ -2,7 +2,13 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { KernelPlexus, KernelRoot, ProjectPlexus, SessionOverview, SessionPlexus } from "@inhuman.tools/harness-model";
+import {
+  KernelDocument,
+  KernelRoot,
+  ProjectDocument,
+  SessionDocument,
+  SessionOverview,
+} from "@inhuman.tools/harness-model";
 import { runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -74,9 +80,9 @@ describe("session navigation migration", () => {
     ["project", true],
   ] as const)("updates the selected %s row title without remounting (attached: %s)", async (kind, attached) => {
     const overview = new SessionOverview({ title: "Original title", lastMessageAt: Date.now() });
-    const kernel = KernelPlexus.create(new KernelRoot({ projects: { "/work": "" }, sessions: { s0: overview } }));
-    const project = ProjectPlexus.create("/work");
-    const session = attached ? SessionPlexus.create("s0", "/work") : null;
+    const kernel = KernelDocument.create(new KernelRoot({ projects: { "/work": "" }, sessions: { s0: overview } }));
+    const project = ProjectDocument.create("/work");
+    const session = attached ? SessionDocument.create("s0", "/work") : null;
     runInAction(() => {
       project.root.sessions.s0 = "";
       if (session != null) session.root.manualTitle = "Original title";
@@ -103,8 +109,8 @@ describe("session navigation migration", () => {
   it.each(["overview", "project"] as const)(
     "adds and removes %s sessions live before metadata arrives",
     async (kind) => {
-      const kernel = KernelPlexus.create(new KernelRoot({ projects: { "/work": "" } }));
-      const project = ProjectPlexus.create("/work");
+      const kernel = KernelDocument.create(new KernelRoot({ projects: { "/work": "" } }));
+      const project = ProjectDocument.create("/work");
       const overview = new SessionOverview();
       state.dial = { kernel, projects: new Map([["/work", project]]), project, session: null, link: null };
       try {
