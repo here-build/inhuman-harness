@@ -1,4 +1,5 @@
 export * from "./acks.js";
+export * from "./class-modes.js";
 export * from "./config.js";
 export * from "./escalate.js";
 export * from "./grants.js";

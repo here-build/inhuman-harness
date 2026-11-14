@@ -96,6 +96,13 @@ const session = {
     })
       .input(authorization.policyOverlayInput)
       .output(authorization.policyOverlayOutput),
+    classMode: rpc("session", "policy/class-mode", {
+      summary: "Set or clear one class's mode for this session or this project",
+      description:
+        "A human decision: `manual`, `auto` or `always` for every call of the class, in every permission mode. `project` scope is the user's own overlay on the kernel's project record, merged over the user layer; the repo's `.inhuman/authorization.json` still caps it. Risky classes cap at `auto`. Refused for any caller that is not a human client.",
+    })
+      .input(authorization.policyClassModeInput)
+      .output(authorization.policyClassModeOutput),
     configGet: rpc("session", "policy/config-get", {
       summary: "Read the authorization layers this session resolves against",
     })

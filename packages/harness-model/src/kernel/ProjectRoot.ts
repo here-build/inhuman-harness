@@ -43,6 +43,11 @@ export class ProjectRoot extends Model<any, null> {
    * `manual`. Not a kv key. Attach does not re-seed.
    */
   @state accessor defaultPermissionMode: PermissionMode | "" = "";
+  /**
+   * The user's own authorization overlay for this project (`policy/class-mode` scope `project`).
+   * Kernel state, never the repo file: merged over the user layer, so it may loosen it. Empty: none.
+   */
+  @state accessor authorizationJson: string = "";
   @state accessor trusted: boolean = false;
   @state accessor contentHash: string = "";
   /** Project-authored bots (`<repo>/.inhuman/bots`). Overrides home / stdlib. */
@@ -60,6 +65,7 @@ export class ProjectRoot extends Model<any, null> {
       | {
           path?: string;
           defaultPermissionMode?: PermissionMode | "";
+          authorizationJson?: string;
           trusted?: boolean;
           contentHash?: string;
           kvs?: Record<string, string>;

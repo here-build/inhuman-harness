@@ -1313,6 +1313,119 @@
         "x-host": "session"
       }
     },
+    "/session/policy/class-mode": {
+      "post": {
+        "operationId": "session.policy.classMode",
+        "summary": "Set or clear one class's mode for this session or this project",
+        "description": "A human decision: `manual`, `auto` or `always` for every call of the class, in every permission mode. `project` scope is the user's own overlay on the kernel's project record, merged over the user layer; the repo's `.inhuman/authorization.json` still caps it. Risky classes cap at `auto`. Refused for any caller that is not a human client.",
+        "tags": [
+          "session.policy"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "class": {
+                    "enum": [
+                      "destroy-catastrophic",
+                      "destroy-local",
+                      "vcs-history",
+                      "privilege",
+                      "credential",
+                      "control-plane",
+                      "attack-shape",
+                      "policy-fault",
+                      "package-install",
+                      "publish",
+                      "remote-write",
+                      "network-egress",
+                      "exec-unknown",
+                      "unmodelled",
+                      "envelope-read",
+                      "envelope-write",
+                      "protected-file",
+                      "workspace-write",
+                      "mcp-lookup",
+                      "mcp-action"
+                    ],
+                    "type": "string"
+                  },
+                  "mode": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "manual",
+                          "auto",
+                          "always"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "scope": {
+                    "enum": [
+                      "session",
+                      "project"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "class",
+                  "mode",
+                  "scope"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "mode": {
+                      "anyOf": [
+                        {
+                          "enum": [
+                            "manual",
+                            "auto",
+                            "always"
+                          ],
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "mode"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "x-rpc-method": "policy/class-mode",
+        "x-host": "session"
+      }
+    },
     "/session/policy/config-get": {
       "post": {
         "operationId": "session.policy.configGet",
@@ -1349,6 +1462,9 @@
                           "type": "string"
                         },
                         "session": {
+                          "type": "string"
+                        },
+                        "projectOverlay": {
                           "type": "string"
                         }
                       },
@@ -5353,6 +5469,21 @@
                   },
                   "textOnlyContinue": {
                     "type": "boolean"
+                  },
+                  "retryMaxAttempts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "retryBackgroundMaxAttempts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "retryMaxMs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
                   },
                   "authorization": {
                     "anyOf": [

@@ -159,10 +159,7 @@ export const sessionBlobsTable = sqliteTable(
     turnId: text("turn_id"),
     createdAtMs: integer("created_at_ms").notNull(),
   },
-  (t) => [
-    index("idx_session_blobs_session").on(t.sessionId),
-    index("idx_session_blobs_blob_id").on(t.blobId),
-  ],
+  (t) => [index("idx_session_blobs_session").on(t.sessionId), index("idx_session_blobs_blob_id").on(t.blobId)],
 );
 
 type AssertExact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;

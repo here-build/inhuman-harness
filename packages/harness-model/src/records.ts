@@ -1,9 +1,4 @@
-import type {
-  KernelStateRow,
-  PendingAskRow,
-  SessionRow,
-  SessionTurnRow,
-} from "@inhuman.tools/harness-contract";
+import type { KernelStateRow, PendingAskRow, SessionRow, SessionTurnRow } from "@inhuman.tools/harness-contract";
 import {
   kernelStateTable,
   pendingAsksTable,

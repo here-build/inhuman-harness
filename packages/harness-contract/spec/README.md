@@ -106,6 +106,7 @@ host's own auth. Not built yet; the JSON-RPC transport remains the only server t
 | `policy/set` | `session.policy.set` |  | Set the session's permission mode |
 | `policy/explain` | `session.policy.explain` |  | Explain what would happen to a call right now |
 | `policy/overlay` | `session.policy.overlay` |  | Set or clear this session's authorization overlay |
+| `policy/class-mode` | `session.policy.classMode` |  | Set or clear one class's mode for this session or this project |
 | `policy/config-get` | `session.policy.configGet` |  | Read the authorization layers this session resolves against |
 | `connect/adopt` | `session.connect.adopt` | yes | Adopt a connection and make it this session's connection |
 | `turn` | `session.turn.send` |  | Submit a prompt as a turn, a steer or a queued prompt |

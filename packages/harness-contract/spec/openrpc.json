@@ -1264,6 +1264,109 @@
       "x-host": "session"
     },
     {
+      "name": "policy/class-mode",
+      "summary": "Set or clear one class's mode for this session or this project",
+      "description": "A human decision: `manual`, `auto` or `always` for every call of the class, in every permission mode. `project` scope is the user's own overlay on the kernel's project record, merged over the user layer; the repo's `.inhuman/authorization.json` still caps it. Risky classes cap at `auto`. Refused for any caller that is not a human client.",
+      "tags": [
+        {
+          "name": "session.policy"
+        }
+      ],
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "class",
+          "required": true,
+          "schema": {
+            "enum": [
+              "destroy-catastrophic",
+              "destroy-local",
+              "vcs-history",
+              "privilege",
+              "credential",
+              "control-plane",
+              "attack-shape",
+              "policy-fault",
+              "package-install",
+              "publish",
+              "remote-write",
+              "network-egress",
+              "exec-unknown",
+              "unmodelled",
+              "envelope-read",
+              "envelope-write",
+              "protected-file",
+              "workspace-write",
+              "mcp-lookup",
+              "mcp-action"
+            ],
+            "type": "string"
+          }
+        },
+        {
+          "name": "mode",
+          "required": true,
+          "schema": {
+            "anyOf": [
+              {
+                "enum": [
+                  "manual",
+                  "auto",
+                  "always"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        {
+          "name": "scope",
+          "required": true,
+          "schema": {
+            "enum": [
+              "session",
+              "project"
+            ],
+            "type": "string"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "mode": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "manual",
+                    "auto",
+                    "always"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "ok",
+            "mode"
+          ]
+        }
+      },
+      "x-host": "session"
+    },
+    {
       "name": "policy/config-get",
       "summary": "Read the authorization layers this session resolves against",
       "tags": [
@@ -1288,6 +1391,9 @@
                   "type": "string"
                 },
                 "session": {
+                  "type": "string"
+                },
+                "projectOverlay": {
                   "type": "string"
                 }
               },
@@ -4964,6 +5070,33 @@
           "required": false,
           "schema": {
             "type": "boolean"
+          }
+        },
+        {
+          "name": "retryMaxAttempts",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        {
+          "name": "retryBackgroundMaxAttempts",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        {
+          "name": "retryMaxMs",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         {

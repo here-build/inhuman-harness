@@ -3,10 +3,13 @@ import { z } from "zod";
 import { uiFormSchema } from "./rpc.js";
 
 /**
- * Mirrors `REASONING_EFFORTS` in `@inhuman.tools/plugin-sdk`. Inlined so this
- * package stays dependency-light; harness has a test that the two lists match.
+ * The closed reasoning-effort vocabulary — the single source of truth.
+ * harness-model, plugin-sdk, dotprompt, and the provider dialects re-export
+ * this list; none of them redeclare it.
  */
 export const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 
 const nonempty = z.string().trim().min(1);
 
@@ -224,6 +227,9 @@ export const configSetInput = z.object({
   statuslineRefresh: z.string().optional(),
   speculativePolicyProcessingTools: z.number().finite().nonnegative().optional(),
   textOnlyContinue: z.boolean().optional(),
+  retryMaxAttempts: z.number().int().nonnegative().optional(),
+  retryBackgroundMaxAttempts: z.number().int().nonnegative().optional(),
+  retryMaxMs: z.number().int().nonnegative().optional(),
   /** The user layer of the authorization table (validated by the daemon). `null` clears it. */
   authorization: z.record(z.string(), z.unknown()).nullable().optional(),
 });

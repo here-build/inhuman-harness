@@ -300,6 +300,21 @@ export const policyOverlayInput = z
   .strict();
 export const policyOverlayOutput = z.object({ ok: z.boolean(), errors: z.array(z.string()) });
 
+export const policyClassModeInput = z
+  .object({
+    class: classIdSchema,
+    /** `manual` asks you, `auto` runs the judge, `always` allows. `null` clears the override. Risky classes cap at `auto`. */
+    mode: z.enum(["manual", "auto", "always"]).nullable(),
+    /** `session`: this session's overlay. `project`: your own overlay for every session in this project. */
+    scope: z.enum(["session", "project"]),
+  })
+  .strict();
+export const policyClassModeOutput = z.object({
+  ok: z.boolean(),
+  /** The mode written after the cap (`always` on a risky class is stored as `auto`). */
+  mode: z.enum(["manual", "auto", "always"]).nullable(),
+});
+
 export const policyConfigGetInput = z.object({}).strict();
 export const policyConfigGetOutput = z.object({
   /** The layers as text ("" = none) and what is wrong with them, if anything. */
@@ -307,6 +322,8 @@ export const policyConfigGetOutput = z.object({
     user: z.string(),
     project: z.string(),
     session: z.string(),
+    /** Your own overlay for this project (kernel state, not the repo file). Merged over `user`. */
+    projectOverlay: z.string().optional(),
   }),
   warnings: z.array(z.string()),
 });
