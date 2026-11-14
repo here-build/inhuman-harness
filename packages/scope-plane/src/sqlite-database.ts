@@ -103,6 +103,18 @@ function getOrInitDelta<TRow extends Record<string, unknown>>(
   return entry;
 }
 
+function scopeRowId(kernelId: string, scopeId: string, nodeId: string): string {
+  return kernelId === "local" ? rowPairId(scopeId, nodeId) : rowPairId(`${kernelId}:${scopeId}`, nodeId);
+}
+
+function scopeDeltaKey(kernelId: string, scopeId: string): string {
+  return `${kernelId}\0${scopeId}`;
+}
+
+function sessionDeltaKey(kernelId: string, sessionId: string): string {
+  return `${kernelId}\0${sessionId}`;
+}
+
 let lastInitialCommitOffset = 0;
 
 function mintInitialCommitOffset(): number {
@@ -171,26 +183,26 @@ export class HarnessDatabase implements Disposable {
     };
   }
 
-  recordScopeNodeUpsert(scopeId: string, row: ScopeNodeRow): void {
-    const entry = getOrInitDelta(this.#txScopeNodeChanges, scopeId);
+  recordScopeNodeUpsert(scopeId: string, row: ScopeNodeRow, kernelId = row.kernelId): void {
+    const entry = getOrInitDelta(this.#txScopeNodeChanges, scopeDeltaKey(kernelId, scopeId));
     entry.deletes.delete(row.id);
     entry.upserts.set(row.id, row);
   }
 
-  recordScopeNodeDelete(scopeId: string, id: string): void {
-    const entry = getOrInitDelta(this.#txScopeNodeChanges, scopeId);
+  recordScopeNodeDelete(scopeId: string, id: string, kernelId = this.#kernelId): void {
+    const entry = getOrInitDelta(this.#txScopeNodeChanges, scopeDeltaKey(kernelId, scopeId));
     entry.upserts.delete(id);
     entry.deletes.add(id);
   }
 
-  recordSessionNodeUpsert(sessionId: string, row: SessionNodeRow): void {
-    const entry = getOrInitDelta(this.#txSessionNodeChanges, sessionId);
+  recordSessionNodeUpsert(sessionId: string, row: SessionNodeRow, kernelId = row.kernelId): void {
+    const entry = getOrInitDelta(this.#txSessionNodeChanges, sessionDeltaKey(kernelId, sessionId));
     entry.deletes.delete(row.id);
     entry.upserts.set(row.id, row);
   }
 
-  recordSessionNodeDelete(sessionId: string, id: string): void {
-    const entry = getOrInitDelta(this.#txSessionNodeChanges, sessionId);
+  recordSessionNodeDelete(sessionId: string, id: string, kernelId = this.#kernelId): void {
+    const entry = getOrInitDelta(this.#txSessionNodeChanges, sessionDeltaKey(kernelId, sessionId));
     entry.upserts.delete(id);
     entry.deletes.add(id);
   }
@@ -270,15 +282,16 @@ export class HarnessDatabase implements Disposable {
       readonly deletes?: readonly string[];
       readonly replaceAll?: boolean;
     },
+    kernelId = this.#kernelId,
   ): void {
     const liveIds = delta.replaceAll ? new Set<string>() : null;
 
     for (const row of delta.upserts) {
-      const id = rowPairId(scopeId, row.uuid);
+      const id = scopeRowId(kernelId, scopeId, row.uuid);
       liveIds?.add(id);
       const dbRow: ScopeNodeRow = {
         id,
-        kernelId: this.#kernelId,
+        kernelId,
         scopeId,
         nodeId: row.uuid,
         tag: row.tag,
@@ -299,15 +312,18 @@ export class HarnessDatabase implements Disposable {
           },
         })
         .run();
-      this.recordScopeNodeUpsert(scopeId, dbRow);
+      this.recordScopeNodeUpsert(scopeId, dbRow, kernelId);
     }
 
     if (delta.deletes) {
       for (const rawNodeId of delta.deletes) {
-        const id = rawNodeId.startsWith("[") ? rawNodeId : rowPairId(scopeId, rawNodeId);
-        const res = tx.delete(scopeNodesTable).where(eq(scopeNodesTable.id, id)).run();
+        const id = rawNodeId.startsWith("[") ? rawNodeId : scopeRowId(kernelId, scopeId, rawNodeId);
+        const res = tx
+          .delete(scopeNodesTable)
+          .where(and(eq(scopeNodesTable.id, id), eq(scopeNodesTable.kernelId, kernelId)))
+          .run();
         if (res.changes > 0) {
-          this.recordScopeNodeDelete(scopeId, id);
+          this.recordScopeNodeDelete(scopeId, id, kernelId);
         }
       }
     }
@@ -316,12 +332,12 @@ export class HarnessDatabase implements Disposable {
       const existing = tx
         .select({ id: scopeNodesTable.id })
         .from(scopeNodesTable)
-        .where(eq(scopeNodesTable.scopeId, scopeId))
+        .where(and(eq(scopeNodesTable.kernelId, kernelId), eq(scopeNodesTable.scopeId, scopeId)))
         .all();
       for (const row of existing) {
         if (!liveIds.has(row.id)) {
           tx.delete(scopeNodesTable).where(eq(scopeNodesTable.id, row.id)).run();
-          this.recordScopeNodeDelete(scopeId, row.id);
+          this.recordScopeNodeDelete(scopeId, row.id, kernelId);
         }
       }
     }
@@ -336,24 +352,32 @@ export class HarnessDatabase implements Disposable {
       readonly deletes?: readonly string[];
       readonly replaceAll?: boolean;
     },
+    kernelId = this.#kernelId,
   ): void {
     this.writeTransaction(["scope_nodes"], (tx) => {
-      this.commitScopeNodesInTx(tx, scopeId, delta);
+      this.commitScopeNodesInTx(tx, scopeId, delta, kernelId);
     });
   }
 
-  listScopeNodeRows(scopeId: string): ScopeNodeRow[] {
-    return this.#drizzle.select().from(scopeNodesTable).where(eq(scopeNodesTable.scopeId, scopeId)).all();
+  listScopeNodeRows(scopeId: string, kernelId = this.#kernelId): ScopeNodeRow[] {
+    return this.#drizzle
+      .select()
+      .from(scopeNodesTable)
+      .where(and(eq(scopeNodesTable.kernelId, kernelId), eq(scopeNodesTable.scopeId, scopeId)))
+      .all();
   }
 
-  loadScopeNodes(scopeId: string):
+  loadScopeNodes(
+    scopeId: string,
+    kernelId = this.#kernelId,
+  ):
     | {
         readonly rootId: string;
         readonly revision: number;
         readonly rows: SerializedModelRow[];
       }
     | undefined {
-    const stored = this.listScopeNodeRows(scopeId);
+    const stored = this.listScopeNodeRows(scopeId, kernelId);
     if (stored.length === 0) return undefined;
     let rootId: string | undefined;
     let maxRevision = 0;
@@ -369,17 +393,19 @@ export class HarnessDatabase implements Disposable {
     return { rootId, revision: maxRevision, rows };
   }
 
-  deleteScopeNodes(scopeId: string): boolean {
+  deleteScopeNodes(scopeId: string, kernelId = this.#kernelId): boolean {
     return this.writeTransaction(["scope_nodes"], (tx) => {
       const existing = tx
         .select({ id: scopeNodesTable.id })
         .from(scopeNodesTable)
-        .where(eq(scopeNodesTable.scopeId, scopeId))
+        .where(and(eq(scopeNodesTable.kernelId, kernelId), eq(scopeNodesTable.scopeId, scopeId)))
         .all();
       if (existing.length === 0) return false;
-      tx.delete(scopeNodesTable).where(eq(scopeNodesTable.scopeId, scopeId)).run();
+      tx.delete(scopeNodesTable)
+        .where(and(eq(scopeNodesTable.kernelId, kernelId), eq(scopeNodesTable.scopeId, scopeId)))
+        .run();
       for (const row of existing) {
-        this.recordScopeNodeDelete(scopeId, row.id);
+        this.recordScopeNodeDelete(scopeId, row.id, kernelId);
       }
       return true;
     });
@@ -395,6 +421,7 @@ export class HarnessDatabase implements Disposable {
       readonly deletes?: readonly string[];
       readonly replaceAll?: boolean;
     },
+    kernelId = this.#kernelId,
   ): void {
     const liveIds = delta.replaceAll ? new Set<string>() : null;
 
@@ -403,7 +430,7 @@ export class HarnessDatabase implements Disposable {
       liveIds?.add(id);
       const dbRow: SessionNodeRow = {
         id,
-        kernelId: this.#kernelId,
+        kernelId,
         sessionId,
         nodeId: row.uuid,
         tag: row.tag,
@@ -424,7 +451,7 @@ export class HarnessDatabase implements Disposable {
           },
         })
         .run();
-      this.recordSessionNodeUpsert(sessionId, dbRow);
+      this.recordSessionNodeUpsert(sessionId, dbRow, kernelId);
     }
 
     if (delta.deletes) {
@@ -432,7 +459,7 @@ export class HarnessDatabase implements Disposable {
         const id = rawNodeId.startsWith("[") ? rawNodeId : rowPairId(sessionId, rawNodeId);
         const res = tx.delete(sessionNodesTable).where(eq(sessionNodesTable.id, id)).run();
         if (res.changes > 0) {
-          this.recordSessionNodeDelete(sessionId, id);
+          this.recordSessionNodeDelete(sessionId, id, kernelId);
         }
       }
     }
@@ -446,7 +473,7 @@ export class HarnessDatabase implements Disposable {
       for (const row of existing) {
         if (!liveIds.has(row.id)) {
           tx.delete(sessionNodesTable).where(eq(sessionNodesTable.id, row.id)).run();
-          this.recordSessionNodeDelete(sessionId, row.id);
+          this.recordSessionNodeDelete(sessionId, row.id, kernelId);
         }
       }
     }
@@ -461,9 +488,10 @@ export class HarnessDatabase implements Disposable {
       readonly deletes?: readonly string[];
       readonly replaceAll?: boolean;
     },
+    kernelId = this.#kernelId,
   ): void {
     this.writeTransaction(["session_nodes"], (tx) => {
-      this.commitSessionNodesInTx(tx, sessionId, delta);
+      this.commitSessionNodesInTx(tx, sessionId, delta, kernelId);
     });
   }
 
@@ -745,14 +773,19 @@ export class HarnessDatabase implements Disposable {
     return this.writeTransaction(
       ["sessions", "pending_asks", "session_turns", "session_nodes", "session_effects", "session_blobs"],
       (tx) => {
+        const sessionRow = tx
+          .select({ kernelId: sessionsTable.kernelId })
+          .from(sessionsTable)
+          .where(eq(sessionsTable.sessionId, sessionId))
+          .get();
         const nodeIds = tx
-          .select({ id: sessionNodesTable.id })
+          .select({ id: sessionNodesTable.id, kernelId: sessionNodesTable.kernelId })
           .from(sessionNodesTable)
           .where(eq(sessionNodesTable.sessionId, sessionId))
           .all();
         const result = tx.delete(sessionsTable).where(eq(sessionsTable.sessionId, sessionId)).run();
         for (const row of nodeIds) {
-          this.recordSessionNodeDelete(sessionId, row.id);
+          this.recordSessionNodeDelete(sessionId, row.id, row.kernelId ?? sessionRow?.kernelId ?? this.#kernelId);
         }
         return result.changes > 0;
       },
@@ -919,9 +952,15 @@ export class HarnessDatabase implements Disposable {
     });
   }
 
-  listReferencedBlobIds(): string[] {
-    const rows = this.#drizzle.selectDistinct({ blobId: sessionBlobsTable.blobId }).from(sessionBlobsTable).all();
-    return rows.map((r) => r.blobId);
+  listReferencedBlobIds(kernelId?: string): string[] {
+    const query =
+      kernelId !== undefined
+        ? this.#drizzle
+            .selectDistinct({ blobId: sessionBlobsTable.blobId })
+            .from(sessionBlobsTable)
+            .where(eq(sessionBlobsTable.kernelId, kernelId))
+        : this.#drizzle.selectDistinct({ blobId: sessionBlobsTable.blobId }).from(sessionBlobsTable);
+    return query.all().map((r) => r.blobId);
   }
 
   getScmResource(id: string): ScmResourceRow | undefined {

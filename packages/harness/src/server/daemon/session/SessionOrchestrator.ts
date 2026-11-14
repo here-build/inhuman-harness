@@ -133,7 +133,6 @@ import type { SessionDaemon } from "./SessionDaemon.js";
 import { resolveCompactStrategyPath } from "../../defaults/index.js";
 import { internedComplete } from "../../drivers/interned-complete.js";
 import { pickWebExtractConnection, pickWebSearchConnection } from "../../drivers/web-search/pick.js";
-import { readConnectionSecrets, writeConnectionSecrets } from "../../secrets.js";
 import { KernelToolCatalog, sessionCatalog } from "../../toolkit/tool-table.js";
 import type { KernelDaemon } from "../kernel/KernelDaemon.js";
 
@@ -300,25 +299,27 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         signal = this.#ownedSignal(signal);
         if (await this.#bodyRefused(job, signal)) return;
         try {
-          await executeSystemTool(job, signal, {
-            canApplyResults: () => this.canApplyResults,
-            shellTailBytes: this.kernel.root.shellTailBytes,
-            stopJob: async (jobId): Promise<JobStopReport> => {
-              const nodes = this.session.root.motionWork();
-              const id = jobId.trim();
-              if (id === "") return { ok: true, value: { jobs: await liveBackgroundJobs(nodes) } };
-              for (const node of nodes) {
-                if (!(node instanceof ProgrammaticJob || node instanceof CallJob || node instanceof SystemToolJob))
-                  continue;
-                if (!node.isTrackedBackground || node.toolCallId !== id) continue;
-                if (node.completed) return { ok: true, value: { job_id: id, status: "completed" } };
-                if (node.cancelled) return { ok: true, value: { job_id: id, status: "cancelled" } };
-                this.#abortWork(node);
-                return { ok: true, value: { job_id: id, status: "cancelled" } };
-              }
-              return { ok: true, value: { job_id: id, status: "absent" } };
-            },
-          });
+          await this.sessionDaemon.kernel.runInStoreContext(() =>
+            executeSystemTool(job, signal, {
+              canApplyResults: () => this.canApplyResults,
+              shellTailBytes: this.kernel.root.shellTailBytes,
+              stopJob: async (jobId): Promise<JobStopReport> => {
+                const nodes = this.session.root.motionWork();
+                const id = jobId.trim();
+                if (id === "") return { ok: true, value: { jobs: await liveBackgroundJobs(nodes) } };
+                for (const node of nodes) {
+                  if (!(node instanceof ProgrammaticJob || node instanceof CallJob || node instanceof SystemToolJob))
+                    continue;
+                  if (!node.isTrackedBackground || node.toolCallId !== id) continue;
+                  if (node.completed) return { ok: true, value: { job_id: id, status: "completed" } };
+                  if (node.cancelled) return { ok: true, value: { job_id: id, status: "cancelled" } };
+                  this.#abortWork(node);
+                  return { ok: true, value: { job_id: id, status: "cancelled" } };
+                }
+                return { ok: true, value: { job_id: id, status: "absent" } };
+              },
+            }),
+          );
         } finally {
           if (this.canApplyResults) {
             await this.#behavior.finishTool(job, signal);
@@ -420,57 +421,59 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
         if (!(await this.#waitEvalAdmission(signal))) return;
         if (!this.canApplyResults) return;
         const catalog = sessionCatalog(this.session.root) ?? new KernelToolCatalog();
-        await interpretSchemeRepl(job, {
-          canApplyResults: () => this.canApplyResults,
-          catalog,
-          root: this.session.root.path.trim() === "" ? process.cwd() : this.session.root.path,
-          signal,
-          sessionId: this.session.root.sessionId,
-          observe: (run) => {
-            const evalTrace = new EvalTrace();
-            evalTrace.withAutoBindings();
-            return run(evalTrace);
-          },
-          readonly: schemeDeskReadonly(
-            this.session.root,
-            enclosingCallOf(this.sessionDaemon.kernel, this.session.root, job),
-          ),
-          session: this.session.root,
-          doors: this.sessionDaemon.doors,
-          evalProgram: (hostingTurnOf(this.session.root, job) ?? this.session.root.head)?.evalSpec != null,
-          connectionId: this.session.root.kvs.connection?.trim() || undefined,
-          completionModel: this.session.root.kvs.model?.trim() || undefined,
-          complete: async (req) => {
-            try {
-              return await this.complete(req);
-            } catch (error) {
-              if (error instanceof ConnectionMiss) throw new TypeError(error.message);
-              throw error;
-            }
-          },
-          connectionModels: (name) => {
-            const spec = this.sessionDaemon.kernel.doc.root.connections[name];
-            invariant(spec != null, `unknown connection ${name}`);
-            return liveModelsOf(spec);
-          },
-          admit: (call: ToolCall) => {
-            if (!this.canApplyResults) throw new SessionOwnershipError();
-            return this.sessionDaemon.project.toolCalls.admit(call, catalog, {
-              session: this.session.root,
-              loadAgentCall: (uuid) => loadOpenCall(this.sessionDaemon.kernel, this.session.root, uuid),
-            });
-          },
-          abort: (leaf: ApprovableJob, reason?: unknown) => this.#abortLeaf(leaf, reason),
-          notify: (note: AgentCallNotification) => {
-            if (!this.canApplyResults) return;
-            const call = enclosingCallOf(this.sessionDaemon.kernel, this.session.root, job);
-            if (call != null) {
-              call.notifications.push(note);
-              return;
-            }
-            job.notifications.push(note);
-          },
-        });
+        await this.sessionDaemon.kernel.runInStoreContext(() =>
+          interpretSchemeRepl(job, {
+            canApplyResults: () => this.canApplyResults,
+            catalog,
+            root: this.session.root.path.trim() === "" ? process.cwd() : this.session.root.path,
+            signal,
+            sessionId: this.session.root.sessionId,
+            observe: (run) => {
+              const evalTrace = new EvalTrace();
+              evalTrace.withAutoBindings();
+              return run(evalTrace);
+            },
+            readonly: schemeDeskReadonly(
+              this.session.root,
+              enclosingCallOf(this.sessionDaemon.kernel, this.session.root, job),
+            ),
+            session: this.session.root,
+            doors: this.sessionDaemon.doors,
+            evalProgram: (hostingTurnOf(this.session.root, job) ?? this.session.root.head)?.evalSpec != null,
+            connectionId: this.session.root.kvs.connection?.trim() || undefined,
+            completionModel: this.session.root.kvs.model?.trim() || undefined,
+            complete: async (req) => {
+              try {
+                return await this.complete(req);
+              } catch (error) {
+                if (error instanceof ConnectionMiss) throw new TypeError(error.message);
+                throw error;
+              }
+            },
+            connectionModels: (name) => {
+              const spec = this.sessionDaemon.kernel.doc.root.connections[name];
+              invariant(spec != null, `unknown connection ${name}`);
+              return liveModelsOf(spec);
+            },
+            admit: (call: ToolCall) => {
+              if (!this.canApplyResults) throw new SessionOwnershipError();
+              return this.sessionDaemon.project.toolCalls.admit(call, catalog, {
+                session: this.session.root,
+                loadAgentCall: (uuid) => loadOpenCall(this.sessionDaemon.kernel, this.session.root, uuid),
+              });
+            },
+            abort: (leaf: ApprovableJob, reason?: unknown) => this.#abortLeaf(leaf, reason),
+            notify: (note: AgentCallNotification) => {
+              if (!this.canApplyResults) return;
+              const call = enclosingCallOf(this.sessionDaemon.kernel, this.session.root, job);
+              if (call != null) {
+                call.notifications.push(note);
+                return;
+              }
+              job.notifications.push(note);
+            },
+          }),
+        );
       },
       { seal: false },
     );
@@ -496,58 +499,60 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
           const connectionId = session.kvs.connection?.trim() ?? "";
           const model = session.kvs.model?.trim() ?? "";
           trace("harness:turn", `open ${turn.uuid} connection=${connectionId || "(none)"} model=${model || "(none)"}`);
-          await this.sessionDaemon.sessionRuntime.run(
-            turn,
-            {
-              session,
-              resolvers: createTurnResolvers({
-                complete: (req) => this.complete(req),
-                join: (job, abort) => waitCompleted(job, abort, this.sessionDaemon.kernel.catalog),
-                compactHost: () => this.#compactHost(turn, session, connectionId, model),
-              }),
-              notes: this.#behaviorNotes,
-              diagnostics: { step, trace, fail },
-              compactKeepTurns: this.kernel.root.compactKeepTurns,
-              hardCompactTrigger: this.kernel.root.compactTriggers.hard,
-              loopLimits: () => {
-                const root = this.kernel.root;
-                // A thread reached through bot/ask has its own round cap.
-                const bot = session.agent.spec.botDepth > 0;
-                return {
-                  maxRounds: bot ? root.maxBotRounds : root.maxRounds,
-                  lengthContinuations: root.lengthContinuations,
-                };
-              },
-              remoteMcp: (key) => this.kernel.root.connections[key]?.driver?.name === MCP_HTTP_DRIVER,
-              admit: (call) => {
-                if (!this.canApplyResults) throw new SessionOwnershipError();
-                const catalog = sessionCatalog(session) ?? toolCalls.kernel.catalog;
-                const ctx = {
-                  session,
-                  originTurn: turn,
-                  parent: turn,
-                  loadAgentCall: (uuid: string) => loadOpenCall(this.sessionDaemon.kernel, session, uuid),
-                };
-                return toolCalls.admit(call, catalog, ctx);
-              },
-              waitInbound: (abort) => this.#inboundResumed(turn, abort, () => turnLoopStopped(turn, abort)),
-              openRound: async (resumed) => {
-                const behavior = await this.#behavior.enterTurn(turn, resumed, signal);
-                return (
-                  behavior != null && !turnLoopStopped(turn, signal) && (await this.#behavior.openRound(turn, behavior))
-                );
-              },
-              closeRound: (settle) => this.#behavior.closeRound(turn, settle),
-              classifyIntent: (expectation, abort) => this.#reActLoopIntentDetectedTrigger(turn, expectation, abort),
-              startAmbientCompact: (options) => {
-                void startAmbientCompact({
-                  ...options,
+          await this.sessionDaemon.kernel.runInStoreContext(() =>
+            this.sessionDaemon.sessionRuntime.run(
+              turn,
+              {
+                session,
+                resolvers: createTurnResolvers({
                   complete: (req) => this.complete(req),
-                  inflight: this.#ambientInflight,
-                });
+                  join: (job, abort) => waitCompleted(job, abort, this.sessionDaemon.kernel.catalog),
+                  compactHost: () => this.#compactHost(turn, session, connectionId, model),
+                }),
+                notes: this.#behaviorNotes,
+                diagnostics: { step, trace, fail },
+                compactKeepTurns: this.kernel.root.compactKeepTurns,
+                hardCompactTrigger: this.kernel.root.compactTriggers.hard,
+                loopLimits: () => {
+                  const root = this.kernel.root;
+                  // A thread reached through bot/ask has its own round cap.
+                  const bot = session.agent.spec.botDepth > 0;
+                  return {
+                    maxRounds: bot ? root.maxBotRounds : root.maxRounds,
+                    lengthContinuations: root.lengthContinuations,
+                  };
+                },
+                remoteMcp: (key) => this.kernel.root.connections[key]?.driver?.name === MCP_HTTP_DRIVER,
+                admit: (call) => {
+                  if (!this.canApplyResults) throw new SessionOwnershipError();
+                  const catalog = sessionCatalog(session) ?? toolCalls.kernel.catalog;
+                  const ctx = {
+                    session,
+                    originTurn: turn,
+                    parent: turn,
+                    loadAgentCall: (uuid: string) => loadOpenCall(this.sessionDaemon.kernel, session, uuid),
+                  };
+                  return toolCalls.admit(call, catalog, ctx);
+                },
+                waitInbound: (abort) => this.#inboundResumed(turn, abort, () => turnLoopStopped(turn, abort)),
+                openRound: async (resumed) => {
+                  const behavior = await this.#behavior.enterTurn(turn, resumed, signal);
+                  return (
+                    behavior != null && !turnLoopStopped(turn, signal) && (await this.#behavior.openRound(turn, behavior))
+                  );
+                },
+                closeRound: (settle) => this.#behavior.closeRound(turn, settle),
+                classifyIntent: (expectation, abort) => this.#reActLoopIntentDetectedTrigger(turn, expectation, abort),
+                startAmbientCompact: (options) => {
+                  void startAmbientCompact({
+                    ...options,
+                    complete: (req) => this.complete(req),
+                    inflight: this.#ambientInflight,
+                  });
+                },
               },
-            },
-            signal,
+              signal,
+            ),
           );
         } catch (error) {
           if (!this.canApplyResults) return;
@@ -1161,13 +1166,13 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
   }
 
   protected override connectionSecrets(connectionId: string) {
-    const root = this.sessionDaemon.kernel.root;
+    const vault = this.sessionDaemon.kernel.secrets;
     const ownerId = () => secretsConnectionId(this.kernel.root, connectionId);
     return {
-      get: (field: string) => readConnectionSecrets(root, ownerId())[field],
-      all: () => readConnectionSecrets(root, ownerId()),
+      get: (field: string) => vault.readConnectionSecrets(ownerId())[field],
+      all: () => vault.readConnectionSecrets(ownerId()),
       replace: (secrets: Readonly<Record<string, string>>) => {
-        writeConnectionSecrets(root, ownerId(), { ...secrets });
+        vault.writeConnectionSecrets(ownerId(), { ...secrets });
       },
     };
   }
@@ -1187,11 +1192,13 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     req.signal?.addEventListener("abort", onCallerAbort, { once: true });
     if (ownership.aborted) onOwnershipLost();
     else if (req.signal?.aborted) onCallerAbort();
-    return this.#flights
-      .complete({
-        ...req,
-        signal: abort.signal,
-      })
+    return this.sessionDaemon.kernel
+      .runInStoreContext(() =>
+        this.#flights.complete({
+          ...req,
+          signal: abort.signal,
+        }),
+      )
       .finally(() => {
         ownership.removeEventListener("abort", onOwnershipLost);
         req.signal?.removeEventListener("abort", onCallerAbort);

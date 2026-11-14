@@ -5,6 +5,8 @@
  * here and never import the store. Reads go the other way, through
  * `readBlob` in harness-provider-sdk.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { blobHeadOf, exceedsInlineMax, storedBlobJson, type BlobRef } from "@inhuman.tools/harness-model";
 
 /** Synchronous because the stamping paths are: admit mints a job in one tick. */
@@ -25,10 +27,20 @@ export type TextStamp =
 const TEXT_MIME = "text/plain";
 
 let writer: BlobWriter | null = null;
+const writerContext = new AsyncLocalStorage<BlobWriter>();
+
+function activeWriter(): BlobWriter | null {
+  return writerContext.getStore() ?? writer;
+}
 
 /** The host that owns the bucket binds it once at boot. `null` unbinds. */
 export function bindBlobWriter(write: BlobWriter | null): void {
   writer = write;
+}
+
+/** Binds a blob writer scoped to the current async execution context (used by multi-kernel hosts). */
+export function runWithBlobWriter<T>(write: BlobWriter, fn: () => T): T {
+  return writerContext.run(write, fn);
 }
 
 /**
@@ -37,8 +49,9 @@ export function bindBlobWriter(write: BlobWriter | null): void {
  * document; a refused put must stop it, not pass silently). The stamping paths use {@link externalizeText}.
  */
 export function writeBlob(bytes: Uint8Array, mime: string): BlobRef {
-  if (writer === null) throw new Error("no blob writer is bound");
-  return writer(bytes, mime);
+  const current = activeWriter();
+  if (current === null) throw new Error("no blob writer is bound");
+  return current(bytes, mime);
 }
 
 /**
@@ -47,9 +60,10 @@ export function writeBlob(bytes: Uint8Array, mime: string): BlobRef {
  * the text stays inline as it always did: a text is never lost to a full disk.
  */
 export function externalizeText(text: string, mime: string = TEXT_MIME): TextStamp {
-  if (writer === null || !exceedsInlineMax(text)) return { kind: "inline", text };
+  const current = activeWriter();
+  if (current === null || !exceedsInlineMax(text)) return { kind: "inline", text };
   try {
-    const ref = writer(Buffer.from(text, "utf8"), mime);
+    const ref = current(Buffer.from(text, "utf8"), mime);
     const head = blobHeadOf(text);
     return { kind: "blob", head, blobJson: storedBlobJson({ ...ref, head }) };
   } catch {

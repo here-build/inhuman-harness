@@ -29,6 +29,7 @@ import {
   executeSystemTool,
   externalizePrior,
   externalizeText,
+  runWithBlobWriter,
   ToolCallHandler,
   writeBlob,
   type BlobWriter,
@@ -477,5 +478,21 @@ describe("the licensed body stamps the prior text", () => {
       priorBlobJson: null,
       line: 40,
     });
+  });
+
+  it("isolates concurrent async contexts via runWithBlobWriter", async () => {
+    const bucketA = memoryBucket();
+    const bucketB = memoryBucket();
+    await Promise.all([
+      runWithBlobWriter(bucketA.writer, async () => {
+        await new Promise((r) => setTimeout(r, 10));
+        writeBlob(new Uint8Array([1, 1]), "application/octet-stream");
+      }),
+      runWithBlobWriter(bucketB.writer, async () => {
+        await new Promise((r) => setTimeout(r, 5));
+        writeBlob(new Uint8Array([2, 2, 2]), "application/octet-stream");
+      }),
+    ]);
+    expect({ a: bucketA.stored.size, b: bucketB.stored.size }).toEqual({ a: 1, b: 1 });
   });
 });

@@ -23,7 +23,7 @@ import {
   type OidcProfile,
 } from "@/providers/auth";
 
-import { readConnectionSecrets } from "../../secrets.js";
+import { readConnectionSecrets, type SecretsVaultPort } from "../../secrets.js";
 
 export const DEFAULT_RELAY_URL = "https://harness.inhuman.tools";
 export const WORKOS_CLIENT_ID_ENV = "HARNESS_REMOTE_WORKOS_CLIENT_ID";
@@ -64,9 +64,16 @@ export type RemoteAccessOptions = {
 export type RemoteLoginUi = (body: string) => Promise<unknown>;
 
 /** Cheap boot-time check, before any kernel exists. */
-export function remoteLoggedIn(root: string, env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+export function remoteLoggedIn(
+  source: string | SecretsVaultPort,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
   if (devToken(env) !== undefined) return true;
-  return readConnectionSecrets(root, REMOTE_TOKENS_ID).refreshToken !== undefined;
+  const secrets =
+    typeof source === "string"
+      ? readConnectionSecrets(source, REMOTE_TOKENS_ID)
+      : source.readConnectionSecrets(REMOTE_TOKENS_ID);
+  return secrets.refreshToken !== undefined;
 }
 
 function devToken(env: Readonly<Record<string, string | undefined>>): string | undefined {

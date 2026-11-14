@@ -17,11 +17,66 @@ export const VISUAL_UNREADABLE = "the picture could not be read";
 export const VISUAL_TOO_LARGE = "the picture is too large";
 export const VISUAL_TYPE = "this picture type can't be sent";
 
-let rootDir: string | null = null;
+/** Per-kernel picture store abstraction (filesystem under `<root>/visuals` or in-memory). */
+export interface VisualStorePort extends Disposable {
+  write(sessionId: string, id: string, bytes: Uint8Array): void;
+  read(sessionId: string, id: string): Uint8Array | null;
+}
+
+/** Filesystem picture store rooted at `<kernelRoot>/visuals`. */
+export class FsVisualStore implements VisualStorePort {
+  constructor(private readonly rootDir: string) {}
+
+  write(sessionId: string, id: string, bytes: Uint8Array): void {
+    const path = visualFilePath(this.rootDir, sessionId, id);
+    if (path == null) throw new Error("visual store rejected the picture id");
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    writeFileSync(path, bytes, { mode: 0o600 });
+    chmodSync(path, 0o600);
+  }
+
+  read(sessionId: string, id: string): Uint8Array | null {
+    const path = visualFilePath(this.rootDir, sessionId, id);
+    if (path == null) return null;
+    try {
+      return readFileSync(path);
+    } catch {
+      return null;
+    }
+  }
+
+  [Symbol.dispose](): void {
+    /* files stay on disk */
+  }
+}
+
+/** Isolated in-memory picture store for server kernels without local filesystem writes. */
+export class MemoryVisualStore implements VisualStorePort {
+  readonly #pictures = new Map<string, Uint8Array>();
+
+  write(sessionId: string, id: string, bytes: Uint8Array): void {
+    if (!SAFE_ID.test(sessionId) || !SAFE_ID.test(id)) {
+      throw new Error("visual store rejected the picture id");
+    }
+    this.#pictures.set(`${sessionId}\0${id}`, Uint8Array.from(bytes));
+  }
+
+  read(sessionId: string, id: string): Uint8Array | null {
+    if (!SAFE_ID.test(sessionId) || !SAFE_ID.test(id)) return null;
+    const stored = this.#pictures.get(`${sessionId}\0${id}`);
+    return stored === undefined ? null : Uint8Array.from(stored);
+  }
+
+  [Symbol.dispose](): void {
+    this.#pictures.clear();
+  }
+}
+
+let defaultVisualStore: FsVisualStore | null = null;
 
 /** Seats the store and hands providers the read seam; the wire projection reads pictures through it. */
 export function bindVisualStore(root: string): void {
-  rootDir = root;
+  defaultVisualStore = new FsVisualStore(root);
   bindVisualReader(readVisual);
 }
 
@@ -79,25 +134,15 @@ export function fitVisual(input: {
 }
 
 export function writeVisual(sessionId: string, id: string, bytes: Uint8Array): void {
-  const path = visualPath(sessionId, id);
-  if (path == null) throw new Error("visual store rejected the picture id");
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  writeFileSync(path, bytes, { mode: 0o600 });
-  chmodSync(path, 0o600);
+  if (defaultVisualStore == null) throw new Error("visual store rejected the picture id");
+  defaultVisualStore.write(sessionId, id, bytes);
 }
 
 export function readVisual(sessionId: string, id: string): Uint8Array | null {
-  const path = visualPath(sessionId, id);
-  if (path == null) return null;
-  try {
-    return readFileSync(path);
-  } catch {
-    return null;
-  }
+  return defaultVisualStore?.read(sessionId, id) ?? null;
 }
 
-function visualPath(sessionId: string, id: string): string | null {
-  if (rootDir == null) return null;
+function visualFilePath(rootDir: string, sessionId: string, id: string): string | null {
   if (!SAFE_ID.test(sessionId) || !SAFE_ID.test(id)) return null;
   return join(rootDir, "visuals", sessionId, id);
 }

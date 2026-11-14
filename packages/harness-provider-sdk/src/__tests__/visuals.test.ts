@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from "vitest";
 
-import { bindVisualReader, readVisual } from "../visuals.js";
+import { bindVisualReader, readVisual, runWithVisualReader } from "../visuals.js";
 
 afterEach(() => bindVisualReader(null));
 
@@ -21,4 +21,20 @@ it("routes a read to the bound reader and stops after it is unbound", () => {
   });
   bindVisualReader(null);
   expect(readVisual("s1", "pic")).toBeNull();
+});
+
+it("isolates concurrent async contexts via runWithVisualReader", async () => {
+  bindVisualReader(() => new Uint8Array([99]));
+  const [a, b, fallback] = await Promise.all([
+    runWithVisualReader(() => new Uint8Array([10]), async () => {
+      await new Promise((r) => setTimeout(r, 10));
+      return [...(readVisual("s1", "pic") ?? [])];
+    }),
+    runWithVisualReader(() => new Uint8Array([20]), async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      return [...(readVisual("s1", "pic") ?? [])];
+    }),
+    Promise.resolve().then(() => [...(readVisual("s1", "pic") ?? [])]),
+  ]);
+  expect({ a, b, fallback }).toEqual({ a: [10], b: [20], fallback: [99] });
 });

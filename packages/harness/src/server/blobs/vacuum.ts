@@ -147,8 +147,9 @@ export function vacuumSession(root: SessionRoot, put: BlobPut, options: VacuumOp
 export function vacuumDatabaseBlobs(
   db: HarnessDatabase,
   bucket: { list(): Iterable<string>; delete(sha256: string): void },
+  kernelId?: string,
 ): number {
-  const referenced = new Set(db.listReferencedBlobIds());
+  const referenced = new Set(db.listReferencedBlobIds(kernelId));
   let deletedCount = 0;
   for (const sha256 of bucket.list()) {
     if (!referenced.has(sha256)) {

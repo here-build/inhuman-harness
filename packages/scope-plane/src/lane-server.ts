@@ -246,45 +246,38 @@ export class UpdateLaneHub {
 
     for (const sub of this.#subscriptions.values()) {
       const targetKernelId = sub.frame.params.kernelId ?? this.#database.kernelId;
-      const matchesDefaultKernel = targetKernelId === this.#database.kernelId;
 
-      // Fast O(delta) path for scope_nodes and session_nodes on the local/default kernel
+      // Fast O(delta) path for scope_nodes and session_nodes across all kernels
       if (sub.frame.lane === "scope_nodes") {
         if (!event.touchedTables.includes("scope_nodes")) continue;
-        if (matchesDefaultKernel) {
-          const direct = event.scopeNodeChanges?.get(sub.frame.params.scopeId);
-          if (direct) {
-            if (direct.upserts.length === 0 && direct.deletes.length === 0 && !direct.reset) continue;
-            sub.sink({
-              kind: "shape/delta",
-              subscriptionId: sub.subscriptionId,
-              offset: event.offset,
-              upserts: [...direct.upserts],
-              deletes: [...direct.deletes],
-              reset: direct.reset ?? false,
-            });
-          }
-          continue;
+        const direct = event.scopeNodeChanges?.get(`${targetKernelId}\0${sub.frame.params.scopeId}`);
+        if (direct && (direct.upserts.length > 0 || direct.deletes.length > 0 || direct.reset)) {
+          sub.sink({
+            kind: "shape/delta",
+            subscriptionId: sub.subscriptionId,
+            offset: event.offset,
+            upserts: [...direct.upserts],
+            deletes: [...direct.deletes],
+            reset: direct.reset ?? false,
+          });
         }
+        continue;
       }
 
       if (sub.frame.lane === "session_nodes") {
         if (!event.touchedTables.includes("session_nodes")) continue;
-        if (matchesDefaultKernel) {
-          const direct = event.sessionNodeChanges?.get(sub.frame.params.sessionId);
-          if (direct) {
-            if (direct.upserts.length === 0 && direct.deletes.length === 0 && !direct.reset) continue;
-            sub.sink({
-              kind: "shape/delta",
-              subscriptionId: sub.subscriptionId,
-              offset: event.offset,
-              upserts: [...direct.upserts],
-              deletes: [...direct.deletes],
-              reset: direct.reset ?? false,
-            });
-          }
-          continue;
+        const direct = event.sessionNodeChanges?.get(`${targetKernelId}\0${sub.frame.params.sessionId}`);
+        if (direct && (direct.upserts.length > 0 || direct.deletes.length > 0 || direct.reset)) {
+          sub.sink({
+            kind: "shape/delta",
+            subscriptionId: sub.subscriptionId,
+            offset: event.offset,
+            upserts: [...direct.upserts],
+            deletes: [...direct.deletes],
+            reset: direct.reset ?? false,
+          });
         }
+        continue;
       }
 
       const sourceTables = LANE_SOURCE_TABLES[sub.frame.lane];

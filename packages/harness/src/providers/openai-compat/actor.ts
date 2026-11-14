@@ -310,12 +310,24 @@ function wireTools<T>(tools: readonly T[]): { readonly tools: readonly T[] } | u
 /** Hashes already reported missing: every round projects again, and the head fallback is the same each time. */
 const missingBlobsReported = new Set<string>();
 
+export interface SessionMediaReaders {
+  readonly readBlob: (sha256: string) => Uint8Array | null;
+  readonly readVisual: (id: string) => Uint8Array | null;
+}
+
+const sessionMediaReaders = new WeakMap<SessionRoot, SessionMediaReaders>();
+
+/** Associates per-kernel blob/visual readers with a session root without retaining references across GC. */
+export function bindSessionMediaReaders(root: SessionRoot, readers: SessionMediaReaders): void {
+  sessionMediaReaders.set(root, readers);
+}
+
 /**
  * The blob reader the projection gets. A body the document stores beside itself and the bucket cannot give
  * reaches the model as its head (the projection's rule); this is where the log says which hash was missing.
  */
-function readBlobReported(sha256: string): Uint8Array | null {
-  const bytes = readBlob(sha256);
+function readBlobReportedFrom(reader: (sha256: string) => Uint8Array | null, sha256: string): Uint8Array | null {
+  const bytes = reader(sha256);
   if (bytes === null && !missingBlobsReported.has(sha256)) {
     missingBlobsReported.add(sha256);
     fail(`blob ${sha256} is missing from the bucket: the prompt carries its head`);
@@ -334,11 +346,14 @@ export function* viewWire(
   const catalog = completionCatalogOf(tip.document?.root);
   const root = tip.document?.root;
   const sessionId = root instanceof SessionRoot ? root.sessionId : "";
+  const bound = root instanceof SessionRoot ? sessionMediaReaders.get(root) : undefined;
+  const blobReader = bound?.readBlob ?? readBlob;
+  const visualReader = bound?.readVisual ?? (sessionId === "" ? undefined : (id: string) => readVisual(sessionId, id));
   for (const message of projectModelHistory(tip, {
     catalog,
     echoEmptyThought: echo === "always",
-    readBlob: readBlobReported,
-    ...(sessionId === "" ? {} : { readVisual: (id: string) => readVisual(sessionId, id) }),
+    readBlob: (sha256) => readBlobReportedFrom(blobReader, sha256),
+    ...(visualReader === undefined ? {} : { readVisual: visualReader }),
   })) {
     yield encodeChat(message, field, echo);
   }

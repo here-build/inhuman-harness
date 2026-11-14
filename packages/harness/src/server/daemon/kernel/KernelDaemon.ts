@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -13,7 +14,12 @@ import {
   projectScopeId,
   type PendingAskRowInsert,
 } from "@inhuman.tools/harness-contract";
-import { pendingAsksTable, sessionsTable, sessionTurnsTable } from "@inhuman.tools/harness-contract/schema";
+import {
+  pendingAsksTable,
+  sessionsTable,
+  sessionTurnsTable,
+  type ScmResourceKind,
+} from "@inhuman.tools/harness-contract/schema";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import {
   DEFAULT_COMPACT_STRATEGY,
@@ -37,6 +43,7 @@ import {
   type SessionRoot,
 } from "@inhuman.tools/harness-model";
 import { applyKv, type KvProposal, type PermissionMode } from "@inhuman.tools/harness-model/shared";
+import { runWithBlobReader, runWithVisualReader } from "@inhuman.tools/harness-provider-sdk";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import type { DocumentContainer } from "@inhuman.tools/model";
 import { disposeKernelConnections, dropConnection } from "@inhuman.tools/expectations/executor";
@@ -49,13 +56,21 @@ import {
   type SessionSummary,
 } from "@inhuman.tools/turn/runtime";
 import type { SessionCheckpoint, SessionReceipt } from "@inhuman.tools/turn/session-runtime";
+import { runWithBlobWriter } from "@inhuman.tools/turn/tool-runtime";
 import { eq } from "drizzle-orm";
 import fs from "fs-extra";
 import { autorun, comparer, observable, reaction, runInAction, type IReactionDisposer } from "mobx";
 
 import { NAMED_AGENT_BOTS } from "@/builtin-tools";
 import { allocateConnectionId, openDriverRegistry, type DriverRegistry } from "@/connections";
-import { KernelStateStore, BehaviorKernel, PackPluginCatalogHost, type PackPluginRow } from "@/extensions";
+import {
+  BehaviorKernel,
+  DbStateStore,
+  KernelStateStore,
+  PackPluginCatalogHost,
+  readBundledPluginInventory,
+  type PackPluginRow,
+} from "@/extensions";
 import { installPlugin, installedNpmName, packageNameOf, type InstallStreams } from "@/extensions/install";
 import { scopes } from "@/policy-processor/scope";
 import {
@@ -96,14 +111,17 @@ import {
   writeSkillFile,
 } from "./settings-files.js";
 import { adjustJson } from "../../adjust-json.js";
-import { bindBlobStore } from "../../blobs/store.js";
+import type { BlobBucketSync } from "../../blobs/bucket.js";
+import { FsBlobBucket } from "../../blobs/fs-bucket.js";
+import { MemoryBlobBucket } from "../../blobs/memory-bucket.js";
+import { BlobStore, bindBlobBucket } from "../../blobs/store.js";
 import { PRODUCT_PROVIDERS } from "../../composition.js";
 import { DaemonRpcMethod, isAbortError, isUiCancelled, RequestHost, RpcInvalidParams } from "../../contract.js";
 import { KernelReflector } from "./fs-reflection/KernelReflector.js";
-import { reflectKernel } from "./fs-reflection/reflectKernel.js";
+import { projectKernelConfigToRoot, reflectKernel } from "./fs-reflection/reflectKernel.js";
 import { defaultCompactSource } from "../../defaults/index.js";
 import { parseConfigJson, parseKvBag, connectionSliceSchema, type ConfigJson } from "../../schemas/well-known.js";
-import { deleteConnectionSecrets, readConnectionSecrets, writeConnectionSecrets } from "../../secrets.js";
+import { FsSecretsVault, MemorySecretsVault, type SecretsVaultPort } from "../../secrets.js";
 import { HOST_PLUGINS, projectHostPluginSpecs, SYSTEM_PLUGIN_NAMES } from "../../system-plugins/index.js";
 import { KernelToolCatalog } from "../../toolkit/tool-table.js";
 import { attachPlane, PresenceRoom, type PlaneSocket } from "../../transport/plane.js";
@@ -120,7 +138,12 @@ import { ProjectDaemon } from "../project/ProjectDaemon.js";
 import { pluginAbiCatalog } from "../session/plugin-abi.js";
 import { botRevisions, pluginBotRecipes, reportProblem, type PluginProblems } from "../session/plugin-bots.js";
 import type { SessionDaemon } from "../session/SessionDaemon.js";
-import { bindVisualStore } from "../session/visual-store.js";
+import {
+  bindVisualStore,
+  FsVisualStore,
+  MemoryVisualStore,
+  type VisualStorePort,
+} from "../session/visual-store.js";
 
 const KERNEL_PACKAGE = {
   name: "harness-kernel",
@@ -142,9 +165,41 @@ async function createOnly(write: () => Promise<void>): Promise<void> {
   }
 }
 
+export type KernelContour = "local" | "server";
+
+export type KernelDaemonOptions = {
+  readonly contour?: KernelContour;
+  readonly kernelId?: string;
+  readonly root?: string;
+  readonly db?: HarnessDatabase;
+  readonly ownsDb?: boolean;
+  readonly laneHub?: UpdateLaneHub;
+  readonly ownsLaneHub?: boolean;
+  readonly registry?: DriverRegistry;
+  readonly secrets?: SecretsVaultPort;
+  readonly ownsSecrets?: boolean;
+  readonly blobBucket?: BlobBucketSync;
+  readonly ownsBlobs?: boolean;
+  readonly visuals?: VisualStorePort;
+  readonly ownsVisuals?: boolean;
+  readonly bundledPlugins?: ReadonlyArray<{ readonly npmName: string; readonly rootPath: string }>;
+};
+
 export class KernelDaemon extends RequestHost implements Disposable, AsyncDisposable {
+  readonly contour: KernelContour;
+  readonly kernelId: string;
+  readonly root: string;
   readonly db: HarnessDatabase;
   readonly laneHub: UpdateLaneHub;
+  readonly secrets: SecretsVaultPort;
+  readonly blobs: BlobStore;
+  readonly visuals: VisualStorePort;
+  readonly #ownsDb: boolean;
+  readonly #ownsLaneHub: boolean;
+  readonly #ownsSecrets: boolean;
+  readonly #ownsBlobs: boolean;
+  readonly #ownsVisuals: boolean;
+  readonly #bundledPlugins?: ReadonlyArray<{ readonly npmName: string; readonly rootPath: string }>;
   doc!: KernelDocument;
   #room!: PresenceRoom;
   readonly #flushStops = new Map<string, () => void>();
@@ -166,34 +221,15 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   readonly projections = new PluginProjectionRegistry();
   readonly runtime: ProductionRuntime<SessionDocument>;
   /** Plugin behavior: the state directory and note log every agent's pin attaches to. */
-  readonly behavior = new BehaviorKernel({
-    packages: () =>
-      Object.values(this.doc.root.plugins)
-        .filter((plugin) => plugin.enabled && plugin.rootPath !== "")
-        .map((plugin) => ({
-          name: plugin.pluginName,
-          root: plugin.rootPath,
-          foreground: this.#config().plugins[plugin.pluginName]?.foreground !== false,
-        })),
-    approved: (plugin) => new Set(this.#config().plugins[plugin]?.guards),
-    store: new KernelStateStore(
-      () => this.root,
-      (sessionId) => this.runtime.replica(sessionId)?.root,
-    ),
-  });
-  /** Remote-access login and tokens; durable in the kernel's `secrets.json`. */
-  readonly #remote = new RemoteAccess({
-    credentials: {
-      read: (id) => readConnectionSecrets(this.root, id),
-      write: (id, secrets) => writeConnectionSecrets(this.root, id, { ...secrets }),
-    },
-  });
+  readonly behavior: BehaviorKernel;
+  /** Remote-access login and tokens; durable in the kernel's secret vault. */
+  readonly #remote: RemoteAccess;
   /**
    * Dials the relay while logged in. The static directory is the CLI's to
    * name (the daemon does not depend on the web app); file roots are the
    * projects this kernel knows.
    */
-  readonly #connector: RemoteConnector;
+  readonly #connector: RemoteConnector | null = null;
   readonly ready: Promise<void>;
   readonly #daemons = new Map<string, SessionDaemon>();
   readonly #acquiring = new Map<string, Promise<SessionDocument | undefined>>();
@@ -210,6 +246,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   readonly #pluginBotProblem = new Map<string, string>();
   readonly #pluginAbiProblem = new Map<string, string>();
   #closed = false;
+  #disposedSync = false;
+  #disposingPromise: Promise<void> | null = null;
   /**
    * Serializes mutating `execute`. A second write door races.
    * PARK_RELEASE: `ui()` drops this chain while the browser is open —
@@ -241,7 +279,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         RpcInvalidParams.invariant(args.id in config.connections, `connect/drop: unknown connection ${args.id}`);
         delete config.connections[args.id];
       });
-      deleteConnectionSecrets(this.root, args.id);
+      this.secrets.deleteConnectionSecrets(args.id);
       step(`memo-clear: connection=${args.id}`);
       await dropConnection(this.doc.root, args.id);
       return { ok: true };
@@ -287,7 +325,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         config.connections[id] = slice;
       });
       const secretBag = { ...bags.secrets, ...(secrets ?? {}) };
-      if (Object.keys(secretBag).length > 0) writeConnectionSecrets(this.root, id, secretBag);
+      if (Object.keys(secretBag).length > 0) this.secrets.writeConnectionSecrets(id, secretBag);
       warmCompletionCatalog(this, this, id);
       return { id };
     }),
@@ -325,7 +363,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         config.connections[id] = slice;
       });
       const secretBag = { ...bags.secrets, ...(secrets ?? {}) };
-      if (Object.keys(secretBag).length > 0) writeConnectionSecrets(this.root, id, secretBag);
+      if (Object.keys(secretBag).length > 0) this.secrets.writeConnectionSecrets(id, secretBag);
       return { id };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.mcpServer.search, async ({ query, limit }) => {
@@ -445,7 +483,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
             const row = config.connections[args.id]!;
             row.settings = { ...row.settings, ...bags.settings };
           });
-          writeConnectionSecrets(this.root, args.id, { ...bags.secrets });
+          this.secrets.writeConnectionSecrets(args.id, { ...bags.secrets });
           await dropConnection(this.doc.root, args.id);
           // The picker is still looking at the same id, so awareness does not
           // change. Warm the replacement handle explicitly after dropping it.
@@ -457,9 +495,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           ui: (body) => this.ui(body),
           writeSecrets: (id, secrets) => {
             assertCurrent();
-            writeConnectionSecrets(this.root, id, { ...secrets });
+            this.secrets.writeConnectionSecrets(id, { ...secrets });
           },
-          readSecrets: (id) => readConnectionSecrets(this.root, id),
+          readSecrets: (id) => this.secrets.readConnectionSecrets(id),
         });
         assertCurrent();
         step(`memo-clear: connection=${args.id}`);
@@ -478,7 +516,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       step(`connect/logout ${args.id}`);
       requireConnection(this.connections, args.id, "connect/logout");
       logoutMcpHttp(args.id, {
-        writeSecrets: (connectionId, secrets) => writeConnectionSecrets(this.root, connectionId, { ...secrets }),
+        writeSecrets: (connectionId, secrets) => this.secrets.writeConnectionSecrets(connectionId, { ...secrets }),
       });
       step(`memo-clear: connection=${args.id}`);
       void dropConnection(this.doc.root, args.id).catch((error: unknown) => fail("connect/logout", error));
@@ -490,6 +528,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       return { ok: true as const };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.plugin.install, async (args) => {
+      RpcInvalidParams.invariant(
+        this.contour === "local",
+        "plugin/install: server contour uses host-installed runtime plugins only",
+      );
       let spec = args.spec?.trim() ?? "";
       if (spec === "") {
         try {
@@ -522,6 +564,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       return { name: plugin.pluginName, npmName };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.plugin.remove, async (args) => {
+      RpcInvalidParams.invariant(
+        this.contour === "local",
+        "plugin/remove: server contour uses host-installed runtime plugins only",
+      );
       const plugin = this.doc.root.plugins[args.name];
       RpcInvalidParams.invariant(plugin != null, `plugin/remove: unknown plugin ${args.name}`);
       if (args.confirm === false) {
@@ -604,6 +650,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       return { ...row, body: skillBody(row.location) };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.remote.login, async ({ name }) => {
+      RpcInvalidParams.invariant(
+        this.contour === "local" && this.#connector != null,
+        "remote: only available in local contour",
+      );
       step("remote/login");
       const signal = this.requestSignal();
       try {
@@ -619,8 +669,14 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         RpcInvalidParams.invariant(false, error instanceof Error ? error.message : "remote/login failed");
       }
     }),
-    DaemonRpcMethod.fromContract(contract.kernel.remote.status, () => this.#remote.status(this.#connector.connected)),
+    DaemonRpcMethod.fromContract(contract.kernel.remote.status, () =>
+      this.#remote.status(this.#connector?.connected ?? false),
+    ),
     DaemonRpcMethod.fromContract(contract.kernel.remote.logout, async () => {
+      RpcInvalidParams.invariant(
+        this.contour === "local" && this.#connector != null,
+        "remote: only available in local contour",
+      );
       step("remote/logout");
       const done = this.#remote.logout();
       await this.#connector.stop();
@@ -650,7 +706,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       return { ok: true as const };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.project.pick, async () => {
-      RpcInvalidParams.invariant(!this.isRemoteRequest(), "project/pick: only available locally");
+      RpcInvalidParams.invariant(
+        this.contour === "local" && !this.isRemoteRequest(),
+        "project/pick: only available locally",
+      );
       const signal = this.requestSignal();
       let picking = this.#pickingProject;
       if (picking == null) {
@@ -682,27 +741,101 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     }),
   ];
 
+  constructor(root: string, registry?: DriverRegistry);
+  constructor(options: KernelDaemonOptions);
   constructor(
-    readonly root: string,
+    rootOrOptions: string | KernelDaemonOptions,
     // Fixture drivers (park-mcp) join the product roster here; no mutable global table.
-    registry: DriverRegistry = openDriverRegistry(PRODUCT_PROVIDERS),
+    registry?: DriverRegistry,
   ) {
     super();
-    mkdirSync(root, { recursive: true });
-    this.db = new HarnessDatabase(join(root, "harness.db"));
-    this.laneHub = new UpdateLaneHub(this.db);
-    this.#connector = new RemoteConnector({
-      access: this.#remote,
-      sockPath: daemonSocketPath(realpathOrSelf(root)),
-      http: {
-        staticDir: process.env[WEB_STATIC_DIR_ENV],
-        fileRoots: () => Object.keys(this.doc.root.projects),
+    const options: KernelDaemonOptions =
+      typeof rootOrOptions === "string" ? { root: rootOrOptions, registry } : rootOrOptions;
+    const contour: KernelContour = options.contour ?? "local";
+    const kernelId = options.kernelId ?? "local";
+    const resolvedRoot =
+      options.root ?? (contour === "server" ? `server://kernel/${kernelId}` : "");
+    if (contour === "local" && resolvedRoot === "") {
+      throw new Error("KernelDaemon(local): root directory is required");
+    }
+    this.contour = contour;
+    this.kernelId = kernelId;
+    this.root = resolvedRoot;
+    this.#bundledPlugins = options.bundledPlugins;
+    if (contour === "local") {
+      mkdirSync(this.root, { recursive: true });
+    }
+    this.db =
+      options.db ??
+      new HarnessDatabase(contour === "server" ? ":memory:" : join(this.root, "harness.db"), {
+        kernelId: this.kernelId,
+      });
+    this.#ownsDb = options.ownsDb ?? options.db === undefined;
+    this.laneHub = options.laneHub ?? new UpdateLaneHub(this.db);
+    this.#ownsLaneHub = options.ownsLaneHub ?? options.laneHub === undefined;
+    this.secrets =
+      options.secrets ??
+      (contour === "server" ? new MemorySecretsVault() : new FsSecretsVault(this.root));
+    this.#ownsSecrets = options.ownsSecrets ?? options.secrets === undefined;
+    const bucket =
+      options.blobBucket ??
+      (contour === "server" ? new MemoryBlobBucket() : new FsBlobBucket(this.root));
+    this.blobs = new BlobStore(bucket, {
+      ownsBucket: options.ownsBlobs ?? options.blobBucket === undefined,
+    });
+    this.#ownsBlobs = true;
+    this.visuals =
+      options.visuals ??
+      (contour === "server" ? new MemoryVisualStore() : new FsVisualStore(this.root));
+    this.#ownsVisuals = options.ownsVisuals ?? options.visuals === undefined;
+    this.behavior = new BehaviorKernel({
+      packages: () =>
+        Object.values(this.doc.root.plugins)
+          .filter((plugin) => plugin.enabled && plugin.rootPath !== "")
+          .map((plugin) => ({
+            name: plugin.pluginName,
+            root: plugin.rootPath,
+            foreground: this.#config().plugins[plugin.pluginName]?.foreground !== false,
+          })),
+      approved: (plugin) => new Set(this.#config().plugins[plugin]?.guards),
+      store:
+        contour === "server"
+          ? new DbStateStore({
+              db: this.db,
+              kernelId: this.kernelId,
+              sessionRoot: (sessionId) => this.runtime.replica(sessionId)?.root,
+            })
+          : new KernelStateStore(
+              () => this.root,
+              (sessionId) => this.runtime.replica(sessionId)?.root,
+            ),
+    });
+    this.#remote = new RemoteAccess({
+      credentials: {
+        read: (id) => this.secrets.readConnectionSecrets(id),
+        write: (id, secrets) => this.secrets.writeConnectionSecrets(id, { ...secrets }),
       },
     });
-    bindVisualStore(this.root);
-    bindBlobStore(this.root);
+    if (contour === "local") {
+      this.#connector = new RemoteConnector({
+        access: this.#remote,
+        sockPath: daemonSocketPath(realpathOrSelf(this.root)),
+        http: {
+          staticDir: process.env[WEB_STATIC_DIR_ENV],
+          fileRoots: () => Object.keys(this.doc.root.projects),
+        },
+      });
+      if (options.visuals === undefined) {
+        bindVisualStore(this.root);
+      }
+      if (options.blobBucket === undefined) {
+        bindBlobBucket(bucket);
+      }
+    }
+    const effectiveRegistry =
+      options.registry ?? registry ?? openDriverRegistry(PRODUCT_PROVIDERS);
     this.runtime = new ProductionRuntime({
-      registry,
+      registry: effectiveRegistry,
       catalog: this.catalog,
     });
     // A failed boot must not keep the watchers and autoruns it already built.
@@ -712,55 +845,91 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     });
   }
 
+  runInStoreContext<T>(fn: () => T): T {
+    return runWithBlobWriter(this.blobs.write, () =>
+      runWithBlobReader(this.blobs.readBytes, () =>
+        runWithVisualReader((sessionId, id) => this.visuals.read(sessionId, id), fn),
+      ),
+    );
+  }
+
   /** Dispose can land at any await; each one bails rather than build on a closed kernel. */
   async #boot(): Promise<void> {
     this.doc = this.#hydrateKernel();
     if (this.#closed) return;
     const kernel = this.doc;
-    this.runtime.bind(kernel.root, { moduleRoot: this.root });
+    this.runtime.bind(kernel.root, this.contour === "local" ? { moduleRoot: this.root } : undefined);
     this.#room = new PresenceRoom(kernel.awareness);
-    await mkdir(this.root, { recursive: true });
-    if (this.#closed) return;
-    this.#bootHomeBots();
-    await createOnly(() =>
-      fs.writeJson(join(this.root, "package.json"), KERNEL_PACKAGE, {
-        spaces: 2,
-        flag: "wx",
-      }),
-    );
-    const pkgPath = join(this.root, "package.json");
-    const pkg = fs.readJsonSync(pkgPath) as { dependencies?: Record<string, string> };
-    const deps = { ...pkg.dependencies };
-    if (healKernelDependencies(deps)) {
-      fs.writeJsonSync(pkgPath, { ...pkg, dependencies: deps }, { spaces: 2 });
-    }
-    for (const npm of KERNEL_SEED_PACKAGES) {
-      const packageRoot = resolveSeedPackageRoot(npm);
-      if (packageRoot !== null) linkSeedPackage(this.root, npm, packageRoot);
-    }
-    await createOnly(() =>
-      fs.writeJson(
-        join(this.root, "config.json"),
-        {
-          connections: {},
-          compact: DEFAULT_COMPACT_STRATEGY,
-          compactTriggers: { ...DEFAULT_COMPACT_TRIGGERS },
-        },
-        { spaces: 2, flag: "wx" },
-      ),
-    );
-    // Existing files (and the fresh seed above) get the keep floor healed:
-    // 0 or absent puts the whole eat in the prefix and orphans the in-flight exchange.
-    this.adjustConfig((config) => {
-      if (!Number.isInteger(config.compactKeepTurns) || (config.compactKeepTurns as number) < 1) {
-        config.compactKeepTurns = DEFAULT_COMPACT_KEEP_TURNS;
+    if (this.contour === "local") {
+      await mkdir(this.root, { recursive: true });
+      if (this.#closed) return;
+      this.#bootHomeBots();
+      await createOnly(() =>
+        fs.writeJson(join(this.root, "package.json"), KERNEL_PACKAGE, {
+          spaces: 2,
+          flag: "wx",
+        }),
+      );
+      const pkgPath = join(this.root, "package.json");
+      const pkg = fs.readJsonSync(pkgPath) as { dependencies?: Record<string, string> };
+      const deps = { ...pkg.dependencies };
+      if (healKernelDependencies(deps)) {
+        fs.writeJsonSync(pkgPath, { ...pkg, dependencies: deps }, { spaces: 2 });
       }
-    });
-    await createOnly(() =>
-      fs.writeFile(join(this.root, "compact.scm"), defaultCompactSource(), {
-        flag: "wx",
-      }),
-    );
+      for (const npm of KERNEL_SEED_PACKAGES) {
+        const packageRoot = resolveSeedPackageRoot(npm);
+        if (packageRoot !== null) linkSeedPackage(this.root, npm, packageRoot);
+      }
+      await createOnly(() =>
+        fs.writeJson(
+          join(this.root, "config.json"),
+          {
+            connections: {},
+            compact: DEFAULT_COMPACT_STRATEGY,
+            compactTriggers: { ...DEFAULT_COMPACT_TRIGGERS },
+          },
+          { spaces: 2, flag: "wx" },
+        ),
+      );
+      // Existing files (and the fresh seed above) get the keep floor healed:
+      // 0 or absent puts the whole eat in the prefix and orphans the in-flight exchange.
+      this.adjustConfig((config) => {
+        if (!Number.isInteger(config.compactKeepTurns) || (config.compactKeepTurns as number) < 1) {
+          config.compactKeepTurns = DEFAULT_COMPACT_KEEP_TURNS;
+        }
+      });
+      await createOnly(() =>
+        fs.writeFile(join(this.root, "compact.scm"), defaultCompactSource(), {
+          flag: "wx",
+        }),
+      );
+    } else {
+      if (this.#readServerScm("policy", "config.json") === undefined) {
+        this.#writeServerScm(
+          "policy",
+          "config.json",
+          JSON.stringify(
+            {
+              connections: {},
+              compact: DEFAULT_COMPACT_STRATEGY,
+              compactTriggers: { ...DEFAULT_COMPACT_TRIGGERS },
+              compactKeepTurns: DEFAULT_COMPACT_KEEP_TURNS,
+            },
+            null,
+            2,
+          ),
+        );
+      }
+      this.adjustConfig((config) => {
+        if (!Number.isInteger(config.compactKeepTurns) || (config.compactKeepTurns as number) < 1) {
+          config.compactKeepTurns = DEFAULT_COMPACT_KEEP_TURNS;
+        }
+      });
+      if (this.#readServerScm("command", "compact.scm") === undefined) {
+        this.#writeServerScm("command", "compact.scm", defaultCompactSource());
+      }
+      this.#syncServerReflection();
+    }
     if (this.#closed) return;
     projectHostPluginSpecs(kernel.root);
     this.projections.install(HOST_PLUGINS);
@@ -807,24 +976,31 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       },
       { fireImmediately: true },
     );
-    this.#reflector = new KernelReflector(this.root, kernel.root, this.runtime.registry);
-    await Promise.all([this.#reflector.ready, initialAbi, initialRevisions]);
-    if (this.#closed) return;
-    warmCompletionCatalog(this, this);
-    this.#homeWatcher = new BotsWatcher(defaultBotsHome(this.root), () => this.#syncHomeBots(true));
+    if (this.contour === "local") {
+      this.#reflector = new KernelReflector(this.root, kernel.root, this.runtime.registry);
+      await Promise.all([this.#reflector.ready, initialAbi, initialRevisions]);
+      if (this.#closed) return;
+      warmCompletionCatalog(this, this);
+      this.#homeWatcher = new BotsWatcher(defaultBotsHome(this.root), () => this.#syncHomeBots(true));
+    } else {
+      await Promise.all([initialAbi, initialRevisions]);
+      if (this.#closed) return;
+      warmCompletionCatalog(this, this);
+    }
     this.#globalHost = new ProjectDaemon(this, this.root, true);
     await this.#globalHost.ready;
     if (this.#closed) return;
     const storedWorkspaces = new Set<string>(Object.keys(kernel.root.projects));
     const scopeRows = this.db.sqlite
-      .prepare("SELECT DISTINCT scope_id FROM scope_nodes WHERE scope_id LIKE 'project:%'")
-      .all() as Array<{ readonly scope_id: string }>;
+      .prepare("SELECT DISTINCT scope_id FROM scope_nodes WHERE kernel_id = ? AND scope_id LIKE 'project:%'")
+      .all(this.kernelId) as Array<{ readonly scope_id: string }>;
     for (const row of scopeRows) {
       storedWorkspaces.add(row.scope_id.slice("project:".length));
     }
     for (const workspace of storedWorkspaces) {
       if (this.#closed) return;
-      if (workspace === "" || workspace === this.#globalHost.path || !existsSync(workspace)) continue;
+      if (workspace === "" || workspace === this.#globalHost.path) continue;
+      if (this.contour === "local" && !existsSync(workspace)) continue;
       // One unloadable project is that project's failure, not the kernel's.
       await this.project(workspace).ready.catch((error: unknown) => fail(`project ${workspace}`, error));
     }
@@ -893,7 +1069,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       this[Symbol.dispose]();
     } else {
       this.#activate();
-      if (remoteLoggedIn(this.root)) this.#connector.start();
+      if (this.contour === "local" && remoteLoggedIn(this.secrets)) this.#connector?.start();
     }
   }
 
@@ -1090,7 +1266,94 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     return projectBotsDir(path);
   }
 
+  #scmResourceId(kind: ScmResourceKind, name: string): string {
+    return `${this.kernelId}\0kernel\0${kind}\0${name}`;
+  }
+
+  #readServerScm(kind: ScmResourceKind, name: string): string | undefined {
+    return this.db.getScmResource(this.#scmResourceId(kind, name))?.source;
+  }
+
+  #writeServerScm(kind: ScmResourceKind, name: string, source: string): void {
+    this.db.upsertScmResource({
+      id: this.#scmResourceId(kind, name),
+      kernelId: this.kernelId,
+      scope: "kernel",
+      scopeId: this.kernelId,
+      kind,
+      name,
+      source,
+      sha256: createHash("sha256").update(source).digest("hex"),
+      updatedAtMs: Date.now(),
+    });
+  }
+
+  #readServerGrantRows(): GrantRow[] {
+    const raw = this.#readServerScm("policy", "grants.json");
+    if (raw === undefined) return [];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return parseGrantRows(
+        JSON.stringify(Array.isArray(parsed) ? parsed : ((parsed as { rows?: unknown })?.rows ?? [])),
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  #syncServerReflection(): void {
+    let config: ConfigJson | undefined;
+    const rawConfig = this.#readServerScm("policy", "config.json");
+    if (rawConfig !== undefined) {
+      try {
+        config = parseConfigJson(JSON.parse(rawConfig));
+      } catch (error) {
+        config = undefined;
+        fail("config.json", error);
+      }
+    }
+    const disabled = new Set<string>();
+    if (config !== undefined) {
+      for (const [name, policy] of Object.entries(config.plugins)) {
+        if (policy.enabled === false) disabled.add(name);
+      }
+    }
+    const grants = this.#readServerGrantRows();
+    const grantsJson = grants.length === 0 ? "" : JSON.stringify(grants);
+    const compactBody = this.#readServerScm("command", "compact.scm") ?? defaultCompactSource();
+    let kvBag: Record<string, string> = {};
+    try {
+      const state = this.db.getKernelState(this.kernelId);
+      kvBag = state !== undefined ? parseKvBag(JSON.parse(state.kvsJson)) : { ...this.doc.root.kvs };
+    } catch {
+      kvBag = { ...this.doc.root.kvs };
+    }
+    const packages =
+      this.#bundledPlugins ??
+      KERNEL_SEED_PACKAGES.flatMap((npmName) => {
+        const rootPath = resolveSeedPackageRoot(npmName);
+        return rootPath === null ? [] : [{ npmName, rootPath }];
+      });
+    projectKernelConfigToRoot(this.doc.root, {
+      config,
+      grantsJson,
+      kvBag,
+      compactBody,
+      compactSource: "scm://kernel/compact.scm",
+      inventory: readBundledPluginInventory(packages, disabled),
+      registry: this.runtime.registry,
+    });
+  }
+
   #config(): ConfigJson {
+    if (this.contour === "server") {
+      try {
+        const raw = this.#readServerScm("policy", "config.json");
+        return parseConfigJson(raw === undefined ? {} : JSON.parse(raw));
+      } catch {
+        return parseConfigJson({});
+      }
+    }
     try {
       return parseConfigJson(fs.readJsonSync(join(this.root, "config.json")));
     } catch {
@@ -1108,7 +1371,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     const stored = Object.fromEntries(
       Object.entries(this.connections).map(([id, spec]) => [
         id,
-        { driver: spec.driver.name, settings: settingsBag(spec), secrets: readConnectionSecrets(this.root, id) },
+        { driver: spec.driver.name, settings: settingsBag(spec), secrets: this.secrets.readConnectionSecrets(id) },
       ]),
     );
     const twin = duplicateConnectionOf({ driver, settings, secrets }, stored);
@@ -1119,6 +1382,13 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   }
 
   adjustConfig(update: (config: ConfigJson) => ConfigJson | void): ConfigJson {
+    if (this.contour === "server") {
+      const current = this.#config();
+      const next = parseConfigJson(update(current) ?? current);
+      this.#writeServerScm("policy", "config.json", `${JSON.stringify(next, null, 2)}\n`);
+      this.#syncServerReflection();
+      return next;
+    }
     const next = adjustJson<ConfigJson>(join(this.root, "config.json"), (raw) => {
       const config = parseConfigJson(raw);
       return parseConfigJson(update(config) ?? config);
@@ -1134,6 +1404,13 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   /** Write one more stored grant (a human's "remember", or a settings grant). */
   addPersistentGrant(row: GrantRow): void {
+    if (this.contour === "server") {
+      const rows = this.#readServerGrantRows();
+      this.#writeServerScm("policy", "grants.json", `${JSON.stringify([...rows, row], null, 2)}\n`);
+      this.#syncServerReflection();
+      this.#reconcileGrants();
+      return;
+    }
     adjustJson<GrantRow[]>(join(this.root, "grants.json"), (raw) => {
       const rows = parseGrantRows(JSON.stringify(Array.isArray(raw) ? raw : []));
       return [...rows, row];
@@ -1147,8 +1424,14 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     let removed = false;
     const rows = this.persistentGrants();
     if (rows.some((row) => row.id === id)) {
-      adjustJson<GrantRow[]>(join(this.root, "grants.json"), () => rows.filter((row) => row.id !== id));
-      reflectKernel(this.root, this.doc.root, this.runtime.registry);
+      const remaining = rows.filter((row) => row.id !== id);
+      if (this.contour === "server") {
+        this.#writeServerScm("policy", "grants.json", `${JSON.stringify(remaining, null, 2)}\n`);
+        this.#syncServerReflection();
+      } else {
+        adjustJson<GrantRow[]>(join(this.root, "grants.json"), () => remaining);
+        reflectKernel(this.root, this.doc.root, this.runtime.registry);
+      }
       removed = true;
     }
     for (const session of this.liveSessionRoots()) {
@@ -1167,8 +1450,13 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     const rows = this.persistentGrants();
     const live = rows.filter((row) => row.expiresAtMs === null || row.expiresAtMs > now);
     if (live.length === rows.length) return 0;
-    adjustJson<GrantRow[]>(join(this.root, "grants.json"), () => live);
-    reflectKernel(this.root, this.doc.root, this.runtime.registry);
+    if (this.contour === "server") {
+      this.#writeServerScm("policy", "grants.json", `${JSON.stringify(live, null, 2)}\n`);
+      this.#syncServerReflection();
+    } else {
+      adjustJson<GrantRow[]>(join(this.root, "grants.json"), () => live);
+      reflectKernel(this.root, this.doc.root, this.runtime.registry);
+    }
     this.#reconcileGrants();
     return rows.length - live.length;
   }
@@ -1249,6 +1537,26 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   }
 
   adjustKv(update: (bag: Record<string, string>) => Record<string, string> | void): Record<string, string> {
+    if (this.contour === "server") {
+      let current: Record<string, string> = {};
+      try {
+        const state = this.db.getKernelState(this.kernelId);
+        current = parseKvBag(state !== undefined ? JSON.parse(state.kvsJson) : { ...this.doc?.root.kvs });
+      } catch {
+        current = parseKvBag({ ...this.doc?.root.kvs });
+      }
+      const next = parseKvBag(update(current) ?? current);
+      this.db.upsertKernelState({
+        id: this.kernelId,
+        kernelId: this.kernelId,
+        defaultModel: next.model ?? "",
+        permissionMode: this.doc?.root.defaultPermissionMode ?? "manual",
+        enabledPluginsJson: JSON.stringify(this.doc?.root.enabledPlugins ?? []),
+        kvsJson: JSON.stringify(next),
+        updatedAtMs: Date.now(),
+      });
+      return next;
+    }
     return adjustJson(join(this.root, "kv.json"), (raw) => {
       const bag = parseKvBag(raw);
       return update(bag) ?? bag;
@@ -1283,7 +1591,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   protected override execute(run: () => unknown | Promise<unknown>) {
     const bound = this.bindPerform(run);
-    const next = this.#writeChain.then(bound, bound);
+    const wrapped = () => this.runInStoreContext(() => bound());
+    const next = this.#writeChain.then(wrapped, wrapped);
     this.#writeChain = next.then(
       () => undefined,
       () => undefined,
@@ -1462,10 +1771,12 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         tx.insert(sessionsTable)
           .values({
             sessionId: checkpoint.sessionId,
+            kernelId: this.kernelId,
+            projectId: row.projectId ?? "",
             title: row.title ?? "",
             workspacePath: row.workspacePath ?? "",
             mode: row.mode ?? "assistant",
-            permissionMode: row.permissionMode ?? "ask",
+            permissionMode: row.permissionMode ?? "manual",
             running: row.running ?? false,
             headTurnId: row.headTurnId ?? null,
             parentSessionId: row.parentSessionId ?? null,
@@ -1479,6 +1790,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           .onConflictDoUpdate({
             target: sessionsTable.sessionId,
             set: {
+              kernelId: this.kernelId,
+              ...(row.projectId !== undefined ? { projectId: row.projectId } : {}),
               ...(row.title !== undefined ? { title: row.title } : {}),
               ...(row.workspacePath !== undefined ? { workspacePath: row.workspacePath } : {}),
               ...(row.mode !== undefined ? { mode: row.mode } : {}),
@@ -1495,13 +1808,18 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           })
           .run();
 
-        this.db.commitSessionNodesInTx(tx, checkpoint.sessionId, {
-          rootId: checkpoint.rootNodeId,
-          revision: checkpoint.revision,
-          upserts: checkpoint.upsertedNodes,
-          deletes: checkpoint.deletedNodeIds,
-          replaceAll: options?.force === true,
-        });
+        this.db.commitSessionNodesInTx(
+          tx,
+          checkpoint.sessionId,
+          {
+            rootId: checkpoint.rootNodeId,
+            revision: checkpoint.revision,
+            upserts: checkpoint.upsertedNodes,
+            deletes: checkpoint.deletedNodeIds,
+            replaceAll: options?.force === true,
+          },
+          this.kernelId,
+        );
 
         for (const turn of checkpoint.dirtyTurns) {
           tx.insert(sessionTurnsTable)
@@ -1577,27 +1895,34 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       doc.pruneUnreachableNodes();
       const rows = doc.toNodeRows();
       const revision = Math.max(doc.revision, 1);
-      this.db.commitScopeNodes(scopeId, {
-        rootId: doc.root.uuid,
-        revision,
-        upserts: rows,
-        deletes: [],
-        replaceAll: true,
-      });
+      this.db.commitScopeNodes(
+        scopeId,
+        {
+          rootId: doc.root.uuid,
+          revision,
+          upserts: rows,
+          deletes: [],
+          replaceAll: true,
+        },
+        this.kernelId,
+      );
       doc.markAllNodesCommitted();
       return;
     }
     const delta = doc.peekNodeDelta();
     if (delta.upserts.length === 0 && delta.deletes.length === 0) return;
-    this.db.commitScopeNodes(scopeId, delta);
+    this.db.commitScopeNodes(scopeId, delta, this.kernelId);
     doc.commitNodeDelta(delta);
   }
 
   #syncKernelStateToDb(kernel: KernelDocument = this.doc): void {
     const root = kernel.root;
     this.db.upsertKernelState({
+      id: this.kernelId,
+      kernelId: this.kernelId,
       defaultModel: root.kvs.model ?? "",
       permissionMode: root.defaultPermissionMode,
+      enabledPluginsJson: JSON.stringify(root.enabledPlugins),
       kvsJson: JSON.stringify(root.kvs),
       updatedAtMs: Date.now(),
     });
@@ -1618,6 +1943,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         tx.insert(sessionsTable)
           .values({
             sessionId,
+            kernelId: this.kernelId,
+            projectId: root.projectId,
             ...face,
             revision,
             createdAtMs: now,
@@ -1626,19 +1953,26 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           .onConflictDoUpdate({
             target: sessionsTable.sessionId,
             set: {
+              kernelId: this.kernelId,
+              projectId: root.projectId,
               ...face,
               revision,
               lastActiveAtMs: now,
             },
           })
           .run();
-        this.db.commitSessionNodesInTx(tx, sessionId, {
-          rootId: root.uuid,
-          revision,
-          upserts: rows,
-          deletes: [],
-          replaceAll: true,
-        });
+        this.db.commitSessionNodesInTx(
+          tx,
+          sessionId,
+          {
+            rootId: root.uuid,
+            revision,
+            upserts: rows,
+            deletes: [],
+            replaceAll: true,
+          },
+          this.kernelId,
+        );
         tx.delete(pendingAsksTable).where(eq(pendingAsksTable.sessionId, sessionId)).run();
         for (const ask of pendingAsks) {
           tx.insert(pendingAsksTable).values(ask).run();
@@ -1657,6 +1991,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         tx.insert(sessionsTable)
           .values({
             sessionId,
+            kernelId: this.kernelId,
+            projectId: root.projectId,
             ...face,
             revision,
             createdAtMs: now,
@@ -1665,6 +2001,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           .onConflictDoUpdate({
             target: sessionsTable.sessionId,
             set: {
+              kernelId: this.kernelId,
+              projectId: root.projectId,
               ...face,
               revision,
               lastActiveAtMs: now,
@@ -1672,7 +2010,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           })
           .run();
         if (hasNodeDelta) {
-          this.db.commitSessionNodesInTx(tx, sessionId, delta);
+          this.db.commitSessionNodesInTx(tx, sessionId, delta, this.kernelId);
         }
         tx.delete(pendingAsksTable).where(eq(pendingAsksTable.sessionId, sessionId)).run();
         for (const ask of pendingAsks) {
@@ -1689,6 +2027,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     this.db.writeTransaction(["session_blobs"], (tx) => {
       this.db.insertSessionBlobInTx(tx, {
         sessionId,
+        kernelId: this.kernelId,
         blobId,
         createdAtMs: Date.now(),
       });
@@ -1698,14 +2037,18 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   hasStoredSession(sessionId: string): boolean {
     if (this.runtime.replica(sessionId) != null) return true;
     return (
-      this.db.sqlite.prepare("SELECT 1 FROM session_nodes WHERE session_id = ? LIMIT 1").get(sessionId) !== undefined
+      this.db.sqlite
+        .prepare("SELECT 1 FROM session_nodes WHERE kernel_id = ? AND session_id = ? LIMIT 1")
+        .get(this.kernelId, sessionId) !== undefined
     );
   }
 
   sessionStoredBytes(sessionId: string): number {
     const row = this.db.sqlite
-      .prepare("SELECT COALESCE(SUM(LENGTH(row_json)), 0) AS bytes FROM session_nodes WHERE session_id = ?")
-      .get(sessionId) as { readonly bytes: number } | undefined;
+      .prepare(
+        "SELECT COALESCE(SUM(LENGTH(row_json)), 0) AS bytes FROM session_nodes WHERE kernel_id = ? AND session_id = ?",
+      )
+      .get(this.kernelId, sessionId) as { readonly bytes: number } | undefined;
     return row?.bytes ?? 0;
   }
 
@@ -1715,16 +2058,24 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       this.#bindSessionFlush(sessionId, live);
       return live;
     }
-    const loaded = this.db.loadSessionNodes(sessionId);
-    if (loaded !== undefined) {
-      const restored = SessionDocument.fromNodeRows(loaded.rows, {
-        rootId: loaded.rootId,
-        sessionId,
-        revision: loaded.revision,
-        meta: this.db.loadSessionRuntimeMeta(sessionId),
-      });
-      this.#bindSessionFlush(sessionId, restored);
-      return restored;
+    const existingOwner = this.db.sqlite
+      .prepare("SELECT kernel_id FROM sessions WHERE session_id = ? LIMIT 1")
+      .get(sessionId) as { readonly kernel_id: string } | undefined;
+    if (existingOwner !== undefined && existingOwner.kernel_id !== this.kernelId) {
+      throw new Error(`mintSessionDocument: session ${sessionId} belongs to another kernel`);
+    }
+    if (this.hasStoredSession(sessionId)) {
+      const loaded = this.db.loadSessionNodes(sessionId);
+      if (loaded !== undefined) {
+        const restored = SessionDocument.fromNodeRows(loaded.rows, {
+          rootId: loaded.rootId,
+          sessionId,
+          revision: loaded.revision,
+          meta: this.db.loadSessionRuntimeMeta(sessionId),
+        });
+        this.#bindSessionFlush(sessionId, restored);
+        return restored;
+      }
     }
     const boot = SessionDocument.create(sessionId, path);
     this.#flushSessionSync(boot, { force: true });
@@ -1741,7 +2092,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       this.#bindScopeFlush(scopeId, held);
       return { doc: held, existing: true };
     }
-    const loaded = this.db.loadScopeNodes(scopeId);
+    const loaded = this.db.loadScopeNodes(scopeId, this.kernelId);
     if (loaded !== undefined) {
       const restored = ProjectDocument.fromNodeRows(loaded.rows, {
         rootId: loaded.rootId,
@@ -1779,6 +2130,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   async #acquireSessionNow(sessionId: string): Promise<SessionDocument | undefined> {
     const live = this.runtime.replica(sessionId);
     if (live != null) return live;
+    if (!this.hasStoredSession(sessionId)) return undefined;
     const loaded = this.db.loadSessionNodes(sessionId);
     if (loaded === undefined) return undefined;
     const interned = this.runtime.replica(sessionId);
@@ -1949,6 +2301,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   }
 
   hasProject(workspacePath: string): boolean {
+    if (this.contour === "server" && !existsSync(workspacePath)) {
+      return Object.hasOwn(this.doc.root.projects, workspacePath);
+    }
     try {
       const resolved = realpathSync(workspacePath);
       return Object.hasOwn(this.doc.root.projects, resolved);
@@ -1959,6 +2314,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   project(path: string): ProjectDaemon {
     if (this.#globalHost != null) {
+      if (path === this.#globalHost.path) return this.#globalHost;
       try {
         if (realpathSync(path) === this.#globalHost.path) return this.#globalHost;
       } catch {
@@ -2007,25 +2363,46 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
    * A hung honor (an eval blocked on I/O) never parks; the deadline bounds the wait.
    */
   async [Symbol.asyncDispose](): Promise<void> {
-    this.#closed = true;
-    let expired = false;
-    let timer: NodeJS.Timeout | undefined;
-    const deadline = new Promise<void>((resolve) => {
-      timer = setTimeout(() => {
-        expired = true;
-        resolve();
-      }, SHUTDOWN_DEADLINE_MS);
-    });
-    await Promise.race([Promise.allSettled([...this.#daemons.values()].map((daemon) => daemon.park())), deadline]);
-    while (this.#drains.size > 0 && !expired) await Promise.race([Promise.allSettled(this.#drains), deadline]);
-    clearTimeout(timer);
-    this[Symbol.dispose]();
+    if (this.#disposingPromise !== null) {
+      return this.#disposingPromise;
+    }
+    this.#disposingPromise = (async () => {
+      this.#closed = true;
+      let expired = false;
+      let timer: NodeJS.Timeout | undefined;
+      const deadline = new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          expired = true;
+          resolve();
+        }, SHUTDOWN_DEADLINE_MS);
+        timer.unref();
+      });
+      const stopConnector = this.#connector?.stop().catch(() => undefined) ?? Promise.resolve();
+      const disposeSessions = Promise.allSettled(
+        [...this.#daemons.values()].map((daemon) => daemon[Symbol.asyncDispose]()),
+      );
+      const projects = [this.#globalHost, ...this.#projects.values()].filter(
+        (project): project is ProjectDaemon => project != null,
+      );
+      const disposeProjects = Promise.allSettled(projects.map((project) => project[Symbol.asyncDispose]()));
+      await Promise.race([Promise.all([stopConnector, disposeSessions, disposeProjects]), deadline]);
+      while (this.#drains.size > 0 && !expired) {
+        await Promise.race([Promise.allSettled(this.#drains), deadline]);
+      }
+      clearTimeout(timer);
+      this[Symbol.dispose]();
+    })();
+    return this.#disposingPromise;
   }
 
   [Symbol.dispose](): void {
+    if (this.#disposedSync) return;
+    this.#disposedSync = true;
     this.#closed = true;
-    disposeNativeDirectoryPicker();
-    void this.#connector.stop();
+    if (this.contour === "local") {
+      disposeNativeDirectoryPicker();
+    }
+    void this.#connector?.stop();
     this.#eligibilityWatch?.();
     this.#eligibilityWatch = null;
     this.#room?.close(1001, "kernel disposed");
@@ -2035,8 +2412,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     this.#glanceWatch.clear();
     for (const stop of this.#occupancyWatch.values()) stop();
     this.#occupancyWatch.clear();
-    for (const daemon of this.#daemons.values()) void daemon.park().catch((error: unknown) => fail("park", error));
+    for (const daemon of this.#daemons.values()) daemon[Symbol.dispose]();
     this.#globalHost?.[Symbol.dispose]();
+    this.#globalHost = undefined;
     for (const project of this.#projects.values()) project[Symbol.dispose]();
     this.#projects.clear();
     for (const stop of this.#flushStops.values()) stop();
@@ -2074,20 +2452,32 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     this.#reflector = null;
     if (this.doc != null) disposeKernelConnections(this.doc.root);
     this.catalog[Symbol.dispose]();
-    this.db[Symbol.dispose]();
+    if (this.#ownsBlobs) this.blobs[Symbol.dispose]();
+    if (this.#ownsVisuals) this.visuals[Symbol.dispose]();
+    if (this.#ownsSecrets) this.secrets[Symbol.dispose]();
+    if (this.#ownsLaneHub) this.laneHub.dispose();
+    if (this.#ownsDb) this.db[Symbol.dispose]();
   }
 
   #hydrateKernel(): KernelDocument {
-    const loaded = this.db.loadScopeNodes(KERNEL_SCOPE_ID);
+    const loaded = this.db.loadScopeNodes(KERNEL_SCOPE_ID, this.kernelId);
     if (loaded !== undefined) {
       const restored = KernelDocument.fromNodeRows(loaded.rows, {
         rootId: loaded.rootId,
         revision: loaded.revision,
       });
+      if (restored.root.kernelId !== this.kernelId) {
+        runInAction(() => {
+          restored.root.kernelId = this.kernelId;
+        });
+      }
       this.#bindScopeFlush(KERNEL_SCOPE_ID, restored, () => this.#syncKernelStateToDb(restored));
       return restored;
     }
     const boot = KernelDocument.bootstrap();
+    runInAction(() => {
+      boot.root.kernelId = this.kernelId;
+    });
     this.#flushScopeSync(KERNEL_SCOPE_ID, boot, { force: true });
     this.#syncKernelStateToDb(boot);
     this.#bindScopeFlush(KERNEL_SCOPE_ID, boot, () => this.#syncKernelStateToDb(boot));

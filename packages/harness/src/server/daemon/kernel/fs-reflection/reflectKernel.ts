@@ -32,7 +32,7 @@ import fs from "fs-extra";
 import { runInAction } from "mobx";
 
 import { applyRegistryToDrivers, openDriverRegistry, type DriverRegistry } from "@/connections";
-import { readPluginInventory } from "@/extensions";
+import { readPluginInventory, type PluginInventory } from "@/extensions";
 import { MCP_STDIO_DRIVER } from "@/providers/mcp/registration";
 import { mcpStdioConfigurationSchema } from "@/providers/mcp/schemas/mcp";
 import {
@@ -51,6 +51,23 @@ import { parseConfigJson, parseKvBag, type ConfigJson } from "../../../schemas/w
 /** Only rows actually projected by this process own an intern; user-configured IDs never do. */
 const publicMcpDescriptors = new WeakMap<KernelRoot, ReadonlyMap<string, string>>();
 
+export interface KernelProjectionInput {
+  readonly config?: ConfigJson;
+  readonly grantsJson?: string;
+  readonly kvBag?: Readonly<Record<string, string>>;
+  readonly compactBody?: string;
+  readonly compactSource?: string;
+  readonly inventory?: PluginInventory;
+  readonly registry?: DriverRegistry;
+}
+
+const EMPTY_INVENTORY: PluginInventory = {
+  drivers: [],
+  publicMcpServers: [],
+  plugins: [],
+  commands: [],
+};
+
 /** 0 (or a bad value) puts the whole eat in the prefix; clamp to the default floor. */
 function clampKeepTurns(value: number | undefined | null): number {
   return Number.isInteger(value) && (value as number) >= 1 ? (value as number) : DEFAULT_COMPACT_KEEP_TURNS;
@@ -67,32 +84,21 @@ function readGrantsJson(path: string): string {
   }
 }
 
-export function reflectKernel(
-  path: string,
-  into: KernelRoot,
-  registry: DriverRegistry = openDriverRegistry(PRODUCT_PROVIDERS),
-): KernelRoot {
+/**
+ * Pure kernel-root projection used both by filesystem reflection (local contour)
+ * and DB/catalog reflection (server contour).
+ */
+export function projectKernelConfigToRoot(into: KernelRoot, input: KernelProjectionInput): KernelRoot {
+  const registry = input.registry ?? openDriverRegistry(PRODUCT_PROVIDERS);
+  const file = input.config;
+  const inventory = input.inventory ?? EMPTY_INVENTORY;
   const projectedMcp = new Map<string, string>();
   runInAction(() => {
     hydrateKernelRoot(into);
-    const disabled = new Set<string>();
-    let file: ConfigJson | undefined;
-    try {
-      const raw: unknown = fs.readJsonSync(join(path, "config.json"));
-      file = parseConfigJson(raw);
-    } catch (error) {
-      file = undefined;
-      // A config.json that exists but does not parse must not leave the previous grants live:
-      // fail closed (no standing auto grants) and say so. A missing file is just "no grants".
-      if (fs.pathExistsSync(join(path, "config.json"))) fail("config.json", error);
-    }
     // The user layer of the authorization table. No file, or no block, is the dist defaults.
     into.authorizationJson = file?.authorization == null ? "" : JSON.stringify(file.authorization);
-    into.grantsJson = readGrantsJson(path);
+    into.grantsJson = input.grantsJson ?? "";
     if (file !== undefined) {
-      for (const [name, policy] of Object.entries(file.plugins)) {
-        if (policy.enabled === false) disabled.add(name);
-      }
       Object.assign(into.compactTriggers, {
         hard: file.compactTriggers?.hard ?? DEFAULT_COMPACT_TRIGGERS.hard,
         soft: file.compactTriggers?.soft ?? DEFAULT_COMPACT_TRIGGERS.soft,
@@ -127,7 +133,6 @@ export function reflectKernel(
       });
       into.reActLoopIntentDetectedTrigger.applyFlags(parseTextOnlyContinue(file.reActLoopIntentDetectedTrigger));
     }
-    const inventory = readPluginInventory(path, disabled);
 
     const keepDrivers = new Set<string>();
     applyRegistryToDrivers(registry, into.drivers);
@@ -200,8 +205,10 @@ export function reflectKernel(
     }
 
     const keepPlugins = new Set<string>();
+    const enabledNames: string[] = [];
     for (const rec of inventory.plugins) {
       keepPlugins.add(rec.pluginName);
+      if (rec.enabled) enabledNames.push(rec.pluginName);
       into.plugins[rec.pluginName] ??= new InstalledPlugin();
       Object.assign(into.plugins[rec.pluginName], {
         pluginName: rec.pluginName,
@@ -217,6 +224,7 @@ export function reflectKernel(
     for (const name of Object.keys(into.plugins)) {
       if (!keepPlugins.has(name)) delete into.plugins[name];
     }
+    into.enabledPlugins = enabledNames;
 
     const keepCommands = new Set<string>();
     for (const rec of [...defaultCommands(), ...inventory.commands]) {
@@ -231,30 +239,22 @@ export function reflectKernel(
         body: rec.body,
       });
     }
-    const source = join(path, "compact.scm");
-    let body: string;
-    try {
-      body = fs.readFileSync(source, "utf8");
-    } catch {
-      body = defaultCompactSource();
-    }
+    const compactSource = input.compactSource ?? "compact.scm";
+    const compactBody = input.compactBody ?? defaultCompactSource();
     into.commands.compact ??= new CommandSpec();
     Object.assign(into.commands.compact, {
       verb: "compact",
       description: "Compact conversation context",
       aliases: [],
-      source,
-      body,
+      source: compactSource,
+      body: compactBody,
     });
     keepCommands.add("compact");
     for (const verb of Object.keys(into.commands)) {
       if (!keepCommands.has(verb)) delete into.commands[verb];
     }
 
-    let bag: Record<string, string> = {};
-    try {
-      bag = parseKvBag(fs.readJsonSync(join(path, "kv.json")));
-    } catch {}
+    const bag = input.kvBag ?? {};
     const series: KvProposal[] = [];
     for (const key of Object.keys(into.kvs)) {
       if (!(key in bag)) series.push({ form: "kv-clear", key });
@@ -277,4 +277,49 @@ export function reflectKernel(
     void dropConnection(into, id).catch((error: unknown) => fail("public plugin MCP transport", error));
   }
   return into;
+}
+
+export function reflectKernel(
+  path: string,
+  into: KernelRoot,
+  registry: DriverRegistry = openDriverRegistry(PRODUCT_PROVIDERS),
+): KernelRoot {
+  const disabled = new Set<string>();
+  let file: ConfigJson | undefined;
+  try {
+    const raw: unknown = fs.readJsonSync(join(path, "config.json"));
+    file = parseConfigJson(raw);
+  } catch (error) {
+    file = undefined;
+    // A config.json that exists but does not parse must not leave the previous grants live:
+    // fail closed (no standing auto grants) and say so. A missing file is just "no grants".
+    if (fs.pathExistsSync(join(path, "config.json"))) fail("config.json", error);
+  }
+  if (file !== undefined) {
+    for (const [name, policy] of Object.entries(file.plugins)) {
+      if (policy.enabled === false) disabled.add(name);
+    }
+  }
+  const source = join(path, "compact.scm");
+  let compactBody: string;
+  try {
+    compactBody = fs.readFileSync(source, "utf8");
+  } catch {
+    compactBody = defaultCompactSource();
+  }
+  let kvBag: Record<string, string> = {};
+  try {
+    kvBag = parseKvBag(fs.readJsonSync(join(path, "kv.json")));
+  } catch {
+    kvBag = {};
+  }
+  return projectKernelConfigToRoot(into, {
+    config: file,
+    grantsJson: readGrantsJson(path),
+    kvBag,
+    compactBody,
+    compactSource: source,
+    inventory: readPluginInventory(path, disabled),
+    registry,
+  });
 }

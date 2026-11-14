@@ -11,6 +11,8 @@ import {
   consentedPluginSchema,
   inhumanExtensionSchema,
   loadedCommandSchema,
+  packageJsonPeekSchema,
+  pluginJsonNameSchema,
   pluginManifestSchema,
   type AdvertisedDriver,
   type LoadedCommand,
@@ -24,19 +26,25 @@ type PublicPluginMcpServer = {
   readonly args: readonly string[];
 };
 
-export function readPluginInventory(
-  root: string,
-  disabled: ReadonlySet<string>,
-): {
+export type PluginInventory = {
   readonly plugins: readonly z.infer<typeof consentedPluginSchema>[];
   readonly commands: readonly LoadedCommand[];
   readonly drivers: readonly AdvertisedDriver[];
   readonly publicMcpServers: readonly PublicPluginMcpServer[];
-} {
-  const { presence, load } = buildPluginGraph({
-    installRoot: root,
-    isEnabled: (name) => !disabled.has(name),
-  });
+};
+
+type InventoryNode = {
+  readonly pluginName: string;
+  readonly npmName: string;
+  readonly version: string;
+  readonly root: string;
+};
+
+function assembleInventory(
+  presence: readonly InventoryNode[],
+  load: readonly InventoryNode[],
+  disabled: ReadonlySet<string>,
+): PluginInventory {
   const commandsByVerb = new Map<string, LoadedCommand>();
   for (const node of load) {
     const commands = Object.entries(readInhumanExtension(node.root).commands).flatMap(([verb, declared]) => {
@@ -98,6 +106,49 @@ export function readPluginInventory(
     drivers: [...driversByName.values()],
     publicMcpServers,
   };
+}
+
+export function readPluginInventory(root: string, disabled: ReadonlySet<string>): PluginInventory {
+  const { presence, load } = buildPluginGraph({
+    installRoot: root,
+    isEnabled: (name) => !disabled.has(name),
+  });
+  return assembleInventory(presence, load, disabled);
+}
+
+/** Read-only inventory over host-bundled runtime plugins for server kernels without disk node_modules. */
+export function readBundledPluginInventory(
+  packages: ReadonlyArray<{ readonly npmName: string; readonly rootPath: string }>,
+  disabled: ReadonlySet<string>,
+): PluginInventory {
+  const presence: InventoryNode[] = [];
+  for (const pkg of packages) {
+    try {
+      const rawManifest: unknown = fs.readJsonSync(join(pkg.rootPath, "plugin.json"));
+      const named = pluginJsonNameSchema.safeParse(rawManifest);
+      const manifest = pluginManifestSchema.safeParse(rawManifest);
+      if (!named.success || !manifest.success || named.data.name.trim() === "") continue;
+      let version = "0.0.0";
+      try {
+        const pkgJson = packageJsonPeekSchema.safeParse(fs.readJsonSync(join(pkg.rootPath, "package.json")));
+        if (pkgJson.success && typeof pkgJson.data.version === "string" && pkgJson.data.version.trim() !== "") {
+          version = pkgJson.data.version;
+        }
+      } catch {
+        /* ignore missing package version */
+      }
+      presence.push({
+        pluginName: named.data.name,
+        npmName: pkg.npmName,
+        version,
+        root: pkg.rootPath,
+      });
+    } catch {
+      /* skip malformed or absent bundled package */
+    }
+  }
+  const load = presence.filter((node) => !disabled.has(node.pluginName));
+  return assembleInventory(presence, load, disabled);
 }
 
 function readPluginManifest(pluginRoot: string): z.infer<typeof pluginManifestSchema> {

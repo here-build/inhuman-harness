@@ -2,6 +2,7 @@ export {
   bindBlobWriter,
   externalizePrior,
   externalizeText,
+  runWithBlobWriter,
   writeBlob,
   type BlobWriter,
   type PriorProps,

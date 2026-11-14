@@ -457,4 +457,91 @@ describe("SQLite Storage Engine & LiveShape Reactive Lanes", () => {
     shapeAProj1.dispose();
     shapeB.dispose();
   });
+
+  it("isolates scope_nodes and session_nodes across kernelIds on the same shared DB and UpdateLaneHub", () => {
+    const row = (uuid: string, tag: string, model: string) => ({
+      uuid,
+      tag,
+      columns: {},
+      state: { model },
+      refs: {},
+      refLists: {},
+      children: {},
+      childLists: {},
+      childRecords: {},
+    });
+
+    db.commitScopeNodes(
+      "kernel",
+      {
+        rootId: "root-a",
+        revision: 1,
+        upserts: [row("root-a", "KernelRoot", "alpha")],
+        replaceAll: true,
+      },
+      "tenant-a",
+    );
+    db.commitScopeNodes(
+      "kernel",
+      {
+        rootId: "root-b",
+        revision: 1,
+        upserts: [row("root-b", "KernelRoot", "beta")],
+        replaceAll: true,
+      },
+      "tenant-b",
+    );
+
+    const loadedA = db.loadScopeNodes("kernel", "tenant-a");
+    const loadedB = db.loadScopeNodes("kernel", "tenant-b");
+    expect(loadedA?.rootId).toBe("root-a");
+    expect(loadedB?.rootId).toBe("root-b");
+
+    const receivedA: Array<{ readonly upserts: ReadonlyArray<Record<string, unknown>> }> = [];
+    const receivedB: Array<{ readonly upserts: ReadonlyArray<Record<string, unknown>> }> = [];
+    const unsubA = hub.subscribe(
+      {
+        kind: "shape/subscribe",
+        subscriptionId: "sub-scope-a",
+        lane: "scope_nodes",
+        params: { scopeId: "kernel", kernelId: "tenant-a" },
+      },
+      (msg) => {
+        receivedA.push(msg);
+      },
+    );
+    const unsubB = hub.subscribe(
+      {
+        kind: "shape/subscribe",
+        subscriptionId: "sub-scope-b",
+        lane: "scope_nodes",
+        params: { scopeId: "kernel", kernelId: "tenant-b" },
+      },
+      (msg) => {
+        receivedB.push(msg);
+      },
+    );
+
+    expect(receivedA[0]?.upserts.map((r) => r["nodeId"])).toEqual(["root-a"]);
+    expect(receivedB[0]?.upserts.map((r) => r["nodeId"])).toEqual(["root-b"]);
+
+    db.commitScopeNodes(
+      "kernel",
+      {
+        rootId: "root-a",
+        revision: 2,
+        upserts: [row("child-a", "ConfigNode", "alpha")],
+      },
+      "tenant-a",
+    );
+
+    expect(receivedA).toHaveLength(2);
+    expect(receivedA[1]?.upserts.map((r) => r["nodeId"])).toEqual(["child-a"]);
+    expect(receivedB).toHaveLength(1);
+    expect(db.deleteScopeNodes("kernel", "tenant-a")).toBe(true);
+    expect(db.loadScopeNodes("kernel", "tenant-a")).toBeUndefined();
+    expect(db.loadScopeNodes("kernel", "tenant-b")?.rootId).toBe("root-b");
+    unsubA();
+    unsubB();
+  });
 });

@@ -51,14 +51,13 @@ import { DoorSession } from "@inhuman.tools/substrate/doors";
 import { inspectAgentCall, listAgentCalls, namedWorkerIds, settleCancelledTurn } from "@inhuman.tools/turn/agent-calls";
 import { turnRetentionJson } from "@inhuman.tools/turn/context";
 import { SessionRuntime } from "@inhuman.tools/turn/runtime";
-import { writeBlob } from "@inhuman.tools/turn/tool-runtime";
 import { observable, type IReactionDisposer, reaction, runInAction } from "mobx";
 
 import { pluginStateSnapshotFromHead, restoreSessionPluginState, Refusal, toJS } from "@/extensions";
 import { explainCall } from "@/policy-processor/explain";
 import { scopes } from "@/policy-processor/scope";
 import { isMcpDriver } from "@/providers/mcp";
-import { bindCompletionFace, OpenAiCompatActor } from "@/providers/openai-compat";
+import { bindCompletionFace, bindSessionMediaReaders, OpenAiCompatActor } from "@/providers/openai-compat";
 import { type SessionCommandHost } from "@/session";
 import { behaviorEntriesOf, bindSessionCatalog } from "@/tool-catalog";
 import { resolveEvalPermissionMode, unattendedFailureText } from "@/tool-runtime";
@@ -72,14 +71,11 @@ import {
   decodeVisualBytes,
   fitVisual,
   modelSeesImages,
-  readVisual,
-  writeVisual,
   type FittedVisual,
 } from "./visual-store.js";
 import { ackRequestOf } from "../../ack-requests.js";
 import { applyAckAnswer, applyAskAnswer, promptTtlOf } from "../../ask-answer.js";
 import { utf8TextOf } from "../../blobs/media.js";
-import { readBlobSync } from "../../blobs/store.js";
 import { vacuumSession, type VacuumCounts } from "../../blobs/vacuum.js";
 import { captureEnv } from "../../capture-env.js";
 import { DaemonRpcMethod, parseRpcInput, RequestHost, RpcInvalidParams } from "../../contract.js";
@@ -140,7 +136,7 @@ function sameEvalProgramInput(
   );
 }
 
-export class SessionDaemon extends RequestHost implements Disposable {
+export class SessionDaemon extends RequestHost implements Disposable, AsyncDisposable {
   readonly doc: SessionDocument;
   readonly orchestrator: SessionOrchestrator;
   readonly sessionRuntime: SessionRuntime;
@@ -155,6 +151,8 @@ export class SessionDaemon extends RequestHost implements Disposable {
   #closed = false;
   #parked = false;
   #parkWait: Promise<void> | null = null;
+  #runtimeDispose: Promise<void> | null = null;
+  #disposingPromise: Promise<void> | null = null;
   #statuslineRunning = false;
   #statuslineAgain = false;
   #statuslineClock: IReactionDisposer | undefined;
@@ -410,7 +408,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     DaemonRpcMethod.fromContract(contract.session.turn.visual, (args) => {
       const visual = seatedVisual(this.root.head, args.id);
       if (visual == null) throw new RpcInvalidParams("unknown picture");
-      const bytes = readVisual(this.sessionId, visual.id);
+      const bytes = this.kernel.visuals.read(this.sessionId, visual.id);
       if (bytes == null) throw new RpcInvalidParams("unknown picture");
       return {
         id: visual.id,
@@ -423,7 +421,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
       };
     }),
     DaemonRpcMethod.fromContract(contract.session.blob.get, (args) => {
-      const blob = readBlobSync(args.sha256);
+      const blob = this.kernel.blobs.readSync(args.sha256);
       if (blob == null) throw new RpcInvalidParams("unknown blob");
       const text = blob.mime.startsWith("text/") ? utf8TextOf(blob.bytes) : null;
       return {
@@ -442,7 +440,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
         counts = vacuumSession(
           this.root,
           (bytes, mime) => {
-            const ref = writeBlob(bytes, mime);
+            const ref = this.kernel.blobs.write(bytes, mime);
             if (!dryRun) {
               this.kernel.recordSessionBlob(this.sessionId, ref.sha256, bytes.byteLength);
             }
@@ -450,7 +448,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
           },
           {
             dryRun,
-            read: (sha256) => readBlobSync(sha256)?.bytes ?? null,
+            read: (sha256) => this.kernel.blobs.readSync(sha256)?.bytes ?? null,
           },
         );
       } catch (error) {
@@ -620,6 +618,10 @@ export class SessionDaemon extends RequestHost implements Disposable {
     this.orchestrator = new SessionOrchestrator(this);
     bindSessionCatalog(this.doc.root, project.kernel.catalog);
     bindSessionProjections(this.doc.root, project.kernel.projections);
+    bindSessionMediaReaders(this.doc.root, {
+      readBlob: project.kernel.blobs.readBytes,
+      readVisual: (id) => project.kernel.visuals.read(this.sessionId, id),
+    });
     // The tools[] face is part of the cached prefix: render the scheme_repl inventory once
     // per session. A turn with a frozen tool set never gets here; the frozen text wins.
     let schemeReplText: string | undefined;
@@ -1004,8 +1006,17 @@ export class SessionDaemon extends RequestHost implements Disposable {
       delete this.project.sessions[this.sessionId];
     });
     this.kernel.dropDaemon(this.sessionId);
-    void this.sessionRuntime[Symbol.asyncDispose]();
+    this.#runtimeDispose ??= this.sessionRuntime[Symbol.asyncDispose]();
     this.#closed = true;
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    if (this.#closed && this.#runtimeDispose === null) return;
+    this.#disposingPromise ??= (async () => {
+      await this.park();
+      await (this.#runtimeDispose ?? this.sessionRuntime[Symbol.asyncDispose]());
+    })();
+    return this.#disposingPromise;
   }
 
   [Symbol.dispose](): void {
@@ -1067,7 +1078,7 @@ export class SessionDaemon extends RequestHost implements Disposable {
     }
     return fitted.map((fit) => {
       const id = randomUUID();
-      writeVisual(this.sessionId, id, fit.bytes);
+      this.kernel.visuals.write(this.sessionId, id, fit.bytes);
       return {
         id,
         mime: fit.mime,

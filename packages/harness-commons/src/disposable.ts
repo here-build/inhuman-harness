@@ -22,7 +22,7 @@ export abstract class DisposableClass implements Disposable {
   protected abstract dispose(): void;
 }
 
-export function disposableGuard<This extends DisposableClass, Args extends unknown[], Result>(
+export function disposableGuard<This extends { readonly disposed: boolean }, Args extends unknown[], Result>(
   method: (this: This, ...args: Args) => Result,
   context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Result>,
 ): (this: This, ...args: Args) => Result {
@@ -31,4 +31,42 @@ export function disposableGuard<This extends DisposableClass, Args extends unkno
     if (this.disposed) throw new Error(`${name}: disposed`);
     return method.call(this, ...args);
   };
+}
+
+/**
+ * [Symbol.asyncDispose] marks the instance disposed once, coalesces concurrent callers
+ * onto a single in-flight teardown promise, and calls `disposeAsync`.
+ */
+export abstract class AsyncDisposableClass implements AsyncDisposable {
+  #disposed = false;
+  #disposing: Promise<void> | null = null;
+
+  get disposed(): boolean {
+    return this.#disposed;
+  }
+
+  get disposing(): boolean {
+    return this.#disposing !== null && !this.#disposed;
+  }
+
+  protected markDisposed(): boolean {
+    if (this.#disposed) return false;
+    this.#disposed = true;
+    return true;
+  }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    if (this.#disposed) return Promise.resolve();
+    this.#disposing ??= (async () => {
+      try {
+        await this.disposeAsync();
+      } finally {
+        this.#disposed = true;
+        this.#disposing = null;
+      }
+    })();
+    return this.#disposing;
+  }
+
+  protected abstract disposeAsync(): Promise<void>;
 }

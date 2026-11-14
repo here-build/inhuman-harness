@@ -11,6 +11,64 @@ import { asRecord } from "./util/read-field.js";
 
 export type ConnectionSecrets = Record<string, string>;
 
+/** Per-kernel secrets vault abstraction (FS-backed locally, DB/memory-backed on server). */
+export interface SecretsVaultPort extends Disposable {
+  readConnectionSecrets(id: string): ConnectionSecrets;
+  writeConnectionSecrets(id: string, secrets: ConnectionSecrets): void;
+  deleteConnectionSecrets(id: string): void;
+}
+
+/** Local contour filesystem secrets store (`<kernelRoot>/secrets.json`). */
+export class FsSecretsVault implements SecretsVaultPort {
+  constructor(private readonly root: string) {}
+
+  readConnectionSecrets(id: string): ConnectionSecrets {
+    return readConnectionSecrets(this.root, id);
+  }
+
+  writeConnectionSecrets(id: string, secrets: ConnectionSecrets): void {
+    writeConnectionSecrets(this.root, id, secrets);
+  }
+
+  deleteConnectionSecrets(id: string): void {
+    deleteConnectionSecrets(this.root, id);
+  }
+
+  [Symbol.dispose](): void {
+    /* stateless handle over root file */
+  }
+}
+
+/** In-memory isolated secrets vault for multi-tenant server kernels or tests. */
+export class MemorySecretsVault implements SecretsVaultPort {
+  readonly #connections = new Map<string, ConnectionSecrets>();
+
+  readConnectionSecrets(id: string): ConnectionSecrets {
+    const bag = this.#connections.get(id);
+    return bag === undefined ? {} : { ...bag };
+  }
+
+  writeConnectionSecrets(id: string, secrets: ConnectionSecrets): void {
+    const cleaned: ConnectionSecrets = {};
+    for (const [key, value] of Object.entries(secrets)) {
+      if (typeof value === "string" && value.length > 0) cleaned[key] = value;
+    }
+    if (Object.keys(cleaned).length === 0) {
+      this.#connections.delete(id);
+    } else {
+      this.#connections.set(id, cleaned);
+    }
+  }
+
+  deleteConnectionSecrets(id: string): void {
+    this.#connections.delete(id);
+  }
+
+  [Symbol.dispose](): void {
+    this.#connections.clear();
+  }
+}
+
 type SecretsFile = {
   connections: Record<string, ConnectionSecrets>;
 };

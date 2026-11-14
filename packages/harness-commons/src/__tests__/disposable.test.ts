@@ -1,48 +1,93 @@
-import { expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { DisposableClass, disposableGuard } from "../disposable.js";
+import { AsyncDisposableClass, DisposableClass, disposableGuard } from "../disposable.js";
 
-class Box extends DisposableClass {
-  releases = 0;
-  value = 1;
+class SyncResource extends DisposableClass {
+  calls = 0;
+
+  @disposableGuard
+  ping(): string {
+    return "pong";
+  }
 
   protected dispose(): void {
-    this.releases += 1;
-    this.value = 0;
-  }
-
-  @disposableGuard
-  read(): number {
-    return this.value;
-  }
-
-  @disposableGuard
-  fail(): never {
-    throw new Error("nope");
+    this.calls += 1;
   }
 }
 
-test("dispose runs the hook once and the guard refuses later calls", () => {
-  const box = new Box();
-  expect(box.read()).toBe(1);
-  expect(() => box.fail()).toThrow("nope");
-  box[Symbol.dispose]();
-  box[Symbol.dispose]();
-  expect({ disposed: box.disposed, releases: box.releases, value: box.value }).toEqual({
-    disposed: true,
-    releases: 1,
-    value: 0,
-  });
-  expect(() => box.read()).toThrow("read: disposed");
-});
+class AsyncResource extends AsyncDisposableClass {
+  calls = 0;
+  readonly release: () => void;
+  readonly #gate: Promise<void>;
 
-test("using disposes at the end of the block", () => {
-  let box: Box;
-  {
-    using inner = new Box();
-    box = inner;
-    expect(inner.disposed).toBe(false);
+  constructor() {
+    super();
+    let resolve!: () => void;
+    this.#gate = new Promise<void>((r) => {
+      resolve = r;
+    });
+    this.release = resolve;
   }
-  expect(box.disposed).toBe(true);
-  expect(box.releases).toBe(1);
+
+  @disposableGuard
+  ping(): string {
+    return "pong";
+  }
+
+  markNow(): boolean {
+    return this.markDisposed();
+  }
+
+  protected async disposeAsync(): Promise<void> {
+    this.calls += 1;
+    await this.#gate;
+  }
+}
+
+describe("DisposableClass and AsyncDisposableClass", () => {
+  it("guards sync methods and makes Symbol.dispose idempotent", () => {
+    const resource = new SyncResource();
+    expect(resource.ping()).toBe("pong");
+    expect(resource.disposed).toBe(false);
+
+    resource[Symbol.dispose]();
+    resource[Symbol.dispose]();
+
+    expect(resource.disposed).toBe(true);
+    expect(resource.calls).toBe(1);
+    expect(() => resource.ping()).toThrow("ping: disposed");
+  });
+
+  it("coalesces concurrent Symbol.asyncDispose callers and transitions disposing -> disposed", async () => {
+    const resource = new AsyncResource();
+    expect(resource.ping()).toBe("pong");
+    expect(resource.disposing).toBe(false);
+    expect(resource.disposed).toBe(false);
+
+    const p1 = resource[Symbol.asyncDispose]();
+    const p2 = resource[Symbol.asyncDispose]();
+    expect(p1).toBe(p2);
+    expect(resource.disposing).toBe(true);
+    expect(resource.disposed).toBe(false);
+    expect(resource.calls).toBe(1);
+
+    resource.release();
+    await Promise.all([p1, p2]);
+
+    expect(resource.disposing).toBe(false);
+    expect(resource.disposed).toBe(true);
+    expect(() => resource.ping()).toThrow("ping: disposed");
+
+    await resource[Symbol.asyncDispose]();
+    expect(resource.calls).toBe(1);
+  });
+
+  it("markDisposed supports synchronous fallback without running disposeAsync afterwards", async () => {
+    const resource = new AsyncResource();
+    expect(resource.markNow()).toBe(true);
+    expect(resource.markNow()).toBe(false);
+    expect(resource.disposed).toBe(true);
+    await resource[Symbol.asyncDispose]();
+    expect(resource.calls).toBe(0);
+  });
 });

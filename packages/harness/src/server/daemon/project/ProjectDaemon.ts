@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, realpathSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, statSync } from "node:fs";
 
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import { projectBotSpecs, ProjectDocument, type SessionDocument } from "@inhuman.tools/harness-model";
@@ -13,7 +13,6 @@ import { isConversationSession, PrivatePluginMcpHost } from "@/runtime";
 import { ToolCallHandler } from "@/tool-runtime";
 
 import { RequestHost } from "../../contract.js";
-import { writeConnectionSecrets } from "../../secrets.js";
 import {
   bindProjectPrivateMcpHost,
   bindProjectRecipes,
@@ -25,7 +24,7 @@ import { botChangeNotice, BotsWatcher, overlayBotDir, projectBotsDir, queueBotNo
 import type { KernelDaemon } from "../kernel/KernelDaemon.js";
 import { SessionDaemon } from "../session/SessionDaemon.js";
 
-export class ProjectDaemon extends RequestHost implements Disposable {
+export class ProjectDaemon extends RequestHost implements Disposable, AsyncDisposable {
   readonly path: string;
   doc!: ProjectDocument;
   readonly toolCalls: ToolCallHandler;
@@ -39,6 +38,8 @@ export class ProjectDaemon extends RequestHost implements Disposable {
   #presence: PresenceRoom | null = null;
   #botsWatcher: BotsWatcher | null = null;
   #botsSnapshot = new Map<string, string>();
+  #disposed = false;
+  #disposingPromise: Promise<void> | null = null;
 
   constructor(
     readonly kernel: KernelDaemon,
@@ -46,8 +47,11 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     readonly globalHost = false,
   ) {
     super();
-    const path = realpathSync(workspacePath);
-    invariant(statSync(path).isDirectory(), `ProjectDaemon: not a directory: ${workspacePath}`);
+    const isServerVirtual = kernel.contour === "server" && (globalHost || !existsSync(workspacePath));
+    const path = isServerVirtual ? workspacePath : realpathSync(workspacePath);
+    if (!isServerVirtual) {
+      invariant(statSync(path).isDirectory(), `ProjectDaemon: not a directory: ${workspacePath}`);
+    }
     this.path = path;
     kernel.registerProject(this);
     this.toolCalls = new ToolCallHandler(kernel);
@@ -62,10 +66,12 @@ export class ProjectDaemon extends RequestHost implements Disposable {
       pluginRoots,
       connections: kernel.doc.root.connections,
       drivers: kernel.doc.root.drivers,
-      writeSecrets: (id, secrets) => writeConnectionSecrets(kernel.root, id, { ...secrets }),
+      writeSecrets: (id, secrets) => kernel.secrets.writeConnectionSecrets(id, { ...secrets }),
     });
     bindProjectPrivateMcpHost(this.kernel.catalog, path, this.#privateMcpHost);
-    mkdirSync(projectSessionsDir(path), { recursive: true });
+    if (!isServerVirtual) {
+      mkdirSync(projectSessionsDir(path), { recursive: true });
+    }
     this.ready = (async () => {
       const loaded = await kernel.loadProjectDoc(path);
       if (kernel.disposed) return;
@@ -77,7 +83,9 @@ export class ProjectDaemon extends RequestHost implements Disposable {
       }
       this.#presence = new PresenceRoom(this.doc.awareness);
       this.#syncProjectBots(false);
-      this.#botsWatcher = new BotsWatcher(projectBotsDir(path), () => this.#syncProjectBots(true));
+      if (!isServerVirtual) {
+        this.#botsWatcher = new BotsWatcher(projectBotsDir(path), () => this.#syncProjectBots(true));
+      }
       if (kernel.disposed) return;
       await this.bootstrapMidMotionNamed();
     })().catch((error: unknown) => {
@@ -85,6 +93,10 @@ export class ProjectDaemon extends RequestHost implements Disposable {
       this[Symbol.dispose]();
       throw error;
     });
+  }
+
+  get disposed(): boolean {
+    return this.#disposed;
   }
 
   get root() {
@@ -316,7 +328,22 @@ export class ProjectDaemon extends RequestHost implements Disposable {
     this.#botsSnapshot = new Map(snap);
   }
 
+  async [Symbol.asyncDispose](): Promise<void> {
+    if (this.#disposed) return;
+    this.#disposingPromise ??= (async () => {
+      const seen = new Set<SessionDaemon>([
+        ...this.#readySessions.values(),
+        ...Object.values(this.sessions),
+      ]);
+      await Promise.allSettled([...seen].map((session) => session[Symbol.asyncDispose]()));
+      this[Symbol.dispose]();
+    })();
+    return this.#disposingPromise;
+  }
+
   [Symbol.dispose](): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
     this.kernel.dropProject(this);
     unbindProjectRecipes(this.kernel.catalog, this.path);
     unbindProjectPrivateMcpHost(this.kernel.catalog, this.path);

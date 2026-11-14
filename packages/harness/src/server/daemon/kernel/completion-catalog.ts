@@ -15,10 +15,11 @@ import { completionConnectionIds, type CredentialsStore } from "@/connections";
 import type { ProductionRuntime } from "@/runtime";
 
 import { RpcInvalidParams } from "../../contract.js";
-import { readConnectionSecrets, writeConnectionSecrets } from "../../secrets.js";
+import { readConnectionSecrets, writeConnectionSecrets, type SecretsVaultPort } from "../../secrets.js";
 
 export type CompletionCatalogHost = {
   readonly root: string;
+  readonly secrets?: SecretsVaultPort;
   readonly runtime: ProductionRuntime;
   readonly doc: {
     readonly awareness: ReactiveAwareness;
@@ -28,10 +29,17 @@ export type CompletionCatalogHost = {
   };
 };
 
-function kernelSecrets(root: string): CredentialsStore {
+function kernelSecrets(host: CompletionCatalogHost): CredentialsStore {
+  if (host.secrets !== undefined) {
+    const secrets = host.secrets;
+    return {
+      read: (id) => secrets.readConnectionSecrets(id),
+      write: (id, bag) => secrets.writeConnectionSecrets(id, { ...bag }),
+    };
+  }
   return {
-    read: (id) => readConnectionSecrets(root, id),
-    write: (id, secrets) => writeConnectionSecrets(root, id, { ...secrets }),
+    read: (id) => readConnectionSecrets(host.root, id),
+    write: (id, secrets) => writeConnectionSecrets(host.root, id, { ...secrets }),
   };
 }
 
@@ -47,7 +55,7 @@ export async function probeCompletionCatalog(
   } catch (error) {
     throw new RpcInvalidParams(error instanceof Error ? error.message : String(error));
   }
-  const secrets = kernelSecrets(host.root);
+  const secrets = kernelSecrets(host);
   return Promise.all(
     catalog.map(async (key) => {
       const spec = connections[key];
