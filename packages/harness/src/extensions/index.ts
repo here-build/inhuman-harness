@@ -8,8 +8,15 @@ export * from "./graph.js";
 export * from "./host.js";
 export * from "./inventory.js";
 export {
+  hasCachedPluginText as hasCachedPluginText,
+  isImmutablePluginRoot as isImmutablePluginRoot,
+  markImmutablePluginRoot as markImmutablePluginRoot,
   parseBehaviorBlock as parseBehaviorBlock,
+  pluginDiskReadCount as pluginDiskReadCount,
+  readPluginText as readPluginText,
+  resetPluginDiskReadCount as resetPluginDiskReadCount,
   resolvePackageSurface as resolvePackageSurface,
+  warmPluginDirectory as warmPluginDirectory,
 } from "./manifest.js";
 export type {
   BehaviorSelection as BehaviorSelection,

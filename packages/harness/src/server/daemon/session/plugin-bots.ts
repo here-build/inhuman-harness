@@ -42,7 +42,7 @@ export function pluginBotRecipes(packages: readonly PluginPackage[], problems: P
   for (const plugin of packages) {
     let bots;
     try {
-      bots = resolvePackageSurface(plugin.root).bots;
+      bots = resolvePackageSurface(plugin.root, { immutable: plugin.immutable }).bots;
     } catch (error) {
       reportProblem(problems, plugin.name, messageOf(error));
       continue;

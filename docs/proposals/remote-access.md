@@ -2,6 +2,9 @@
 
 Status: deployed. The relay has been live at https://harness.inhuman.tools since 2026-10-30. Experimental sandbox, not a commercial production service.
 
+> [!NOTE]
+> The `Y.Doc` and `Yjs binary` room framing described below reflects the initial 2026-10-30 relay deployment. The core daemon and portable multi-tenant server (`@inhuman.tools/harness/server`) now communicate over normalized `LiveShape` `ShapeDeltaFrame` / `PresenceFrame` lanes (see [unified-architecture.md](../architecture/unified-architecture.md) and [thesaurus.md](../architecture/thesaurus.md)).
+
 Run the whole chain locally: `pnpm turbo run build --filter=inhuman... --filter=@inhuman.tools/harness-relay...`, then `pnpm --filter @inhuman.tools/harness-relay test:e2e`. The wire contract between the connector and the relay is `packages/harness-relay/PROTOCOL.md`.
 
 Known gaps: the workflow-graph SSE (`/sessions/:id/workflows/:job`) has no server in local mode either, so it is not tunneled; raw `<a href>` links in the rail ignore the `/m/<id>/app` base on middle-click; logout does not revoke the token at WorkOS; real AuthKit login, device login against WorkOS and Durable Object hibernation have not been exercised by the automated tests, only by hand.

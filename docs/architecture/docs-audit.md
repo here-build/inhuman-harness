@@ -10,7 +10,7 @@
 | --- | --- |
 | Словарь терминов, контуры `Local`/`Server`, 3-DB изоляция, `inhuman`-плагины, `Project` и `Kill-List` | [thesaurus.md](thesaurus.md) |
 | Целевая архитектура клиент+сервер, целевые таблицы БД, `AsyncDisposable`-иерархия, `FS/shell` плагин и DAG волн 0–5 | [unified-architecture.md](unified-architecture.md) |
-| Требования к быстродействию (SLO), методика `T_actual / T_floor` и базовые замеры *(добавляется в Волне 0.5)* | `docs/architecture/performance-requirements.md` |
+| Требования к быстродействию (SLO), методика `T_actual / T_floor` и базовые замеры | [performance-requirements.md](performance-requirements.md) |
 | Живая модель цикла `ReAct` / `CodeAct`, бюджетов и восстановления раунда | [../react-round-lifecycle.md](../react-round-lifecycle.md) |
 | Изоляция встраиваемого `@inhuman.tools/turn/runtime` и контракт с `kley` | [../proposals/session-runtime-isolation.md](../proposals/session-runtime-isolation.md) |
 | Реверс-туннель `inhuman login` через `harness.inhuman.tools` | [../proposals/remote-access.md](../proposals/remote-access.md) |
@@ -22,13 +22,13 @@
 
 | Документ | Категория | Статус и найденный дрейф | Действие |
 | --- | --- | --- | --- |
-| [../../README.md](../../README.md) | Публичный вход | Описывает локальный CLI/Web продукт (`npx inhuman`). Актуален для `Local Contour`; после Волны 5 дополнить ссылкой на переносимую серверную поставку | Оставить без изменений до Волны 5 |
+| [../../README.md](../../README.md) | Публичный вход | Актуализировано в Волне 5: добавлены ссылки на `unified-architecture.md`, `thesaurus.md`, `performance-requirements.md` и `@inhuman.tools/harness/server` | Актуален |
 | [../usage.md](../usage.md) | Руководство оператора | Актуально для `Local Contour` (`~/.harness`, `manual`/`auto`/`yolo`). Упоминание «Closing either client ... this is not cloud execution» остается верным для локального режима | Сохранить как операторский гайд CLI |
-| [../packages.md](../packages.md) | Карта пакетов | Обновлено в Волне 1 (`scope-plane` публичный с каноническим 11-табличным `RowPlane`; приватные адаптеры `scope-plane-electric`, `scope-plane-tinybase`) | Остальные пакеты дообновить в Волне 5 |
+| [../packages.md](../packages.md) | Карта пакетов | Актуализировано в Волнах 1 и 5 (`scope-plane` публичный с каноническим 11-табличным `RowPlane`; добавлены `WorkspaceEnvPort`/`activateProject` в `@inhuman.tools/plugin-sdk` и `@inhuman.tools/harness/server`) | Актуален |
 | [../package-guidelines.md](../package-guidelines.md) | Стандарт пакетов | Актуален | Сохранить |
-| [../testing.md](../testing.md) | Инженерная спецификация | Актуален; в Волне 0.5 дополнить ссылкой на стандартные бенчмарки | Дополнить после Волны 0.5/1 |
+| [../testing.md](../testing.md) | Инженерная спецификация | Актуализировано в Волне 5: добавлена строка запуска бенчмарков `node --expose-gc benchmarks/run.mjs` | Актуален |
 | [../react-round-lifecycle.md](../react-round-lifecycle.md) | Спецификация рантайма | Актуализировано в Волне 2 (`DocumentContainer.transact(...)`, committed node deltas, SQLite node checkpoints) | Сохранить |
-| [../proposals/remote-access.md](../proposals/remote-access.md) | Пропозал / эксплуатация | **Устаревший транспорт**: строки 23–36, 55, 80 описывают `Y.Doc` и `Yjs binary` в `MachineDO` вместо фреймов `ShapeDeltaFrame` / узлов | Актуализировать или пометить `MachineDO` транспорт в Волне 5 |
+| [../proposals/remote-access.md](../proposals/remote-access.md) | Пропозал / эксплуатация | В Волне 5 добавлена статусная заметка: описание `Y.Doc`/`Yjs binary` относится к исходному деплою релея 2026-10-30, тогда как ядро и `@inhuman.tools/harness/server` используют `LiveShape` `ShapeDeltaFrame` / `PresenceFrame` | Актуален как заметка о легаси-деплое |
 | [../proposals/session-runtime-isolation.md](../proposals/session-runtime-isolation.md) и [review](../proposals/session-runtime-isolation-review.md) | Исторический пропозал v0.1→candidate | Зафиксировал встраиваемый `@inhuman.tools/turn/runtime` и первый этап отказа от Yjs-монолита; таблица `ScopePlane`/`Kley` в разделе контекста относится к волне до единой `Agent DB` | Сохранить как исторический контекст; целевой дизайн — в [unified-architecture.md](unified-architecture.md) |
 | [../proposals/live-reasoning-and-loop-state.md](../proposals/live-reasoning-and-loop-state.md) | Активный драфт (working tree) | Соответствует новому стеку (`session_nodes` -> `UpdateLaneHub` -> `shape/delta`, `presence/update`) | Не трогать (принадлежит параллельной задаче) |
 | [../graphic-precision.md](../graphic-precision.md), [web-rebuild](../graphic-precision-web-rebuild.md), [component-coverage](../graphic-precision-component-coverage.md) | UI-дизайн система | Ортогональны слою БД и демона, актуальны для Web UI | Сохранить |

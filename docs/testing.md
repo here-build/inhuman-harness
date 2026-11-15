@@ -14,6 +14,7 @@ its local and Kley hosts are in the
 | `pnpm test:visual` | Terminal structural frame approvals and browser computed appearance/focus approvals |
 | `pnpm verify:logic` | Packaging boundaries, build, types, lint, and default logic |
 | `pnpm verify` | All verification lanes |
+| `node --expose-gc benchmarks/run.mjs` | Client/server throughput, `T_actual / T_floor` efficiency ratios, cold session load, and heap footprint benchmarks (writes `benchmarks/baselines/latest.json`; see [performance requirements](architecture/performance-requirements.md)) |
 
 Logic and visual projects use separate directory whitelists. Place appearance approvals in `__visual__`; put tests that launch child processes in a sibling `__process__` directory so relative imports keep their depth. Pure tape grouping decisions live in `__tests__`. Paint transport byte fixtures remain logic because they lock the protocol consumed by the replica.
 

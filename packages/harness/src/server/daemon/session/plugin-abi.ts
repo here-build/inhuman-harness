@@ -9,7 +9,6 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 
 import { trace } from "@inhuman.tools/harness-diagnostics";
 import { documentRoot, SessionRoot, ToolCallJob } from "@inhuman.tools/harness-model";
@@ -21,6 +20,7 @@ import {
   jsonToVal,
   loadProgram,
   Proc,
+  readPluginText,
   resolvePackageSurface,
   toJS,
   toolResultOf,
@@ -72,7 +72,7 @@ async function loadAbi(
 ): Promise<PluginAbi | null> {
   let surface;
   try {
-    surface = resolvePackageSurface(plugin.root);
+    surface = resolvePackageSurface(plugin.root, { immutable: plugin.immutable });
   } catch (error) {
     reportProblem(problems, plugin.name, messageOf(error));
     return null;
@@ -87,7 +87,7 @@ async function loadAbi(
       filename: abi.path,
       revision: `${plugin.name}@abi`,
       root: plugin.root,
-      read: (path) => readFileSync(path, "utf8"),
+      read: (path) => readPluginText(path, plugin.immutable),
       kind: "behavior",
       environment: examEnvironment(),
     });

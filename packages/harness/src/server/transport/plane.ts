@@ -1,4 +1,4 @@
-import type { PresenceEntryTuple } from "@inhuman.tools/harness-contract/schema";
+import type { PresenceEntryTuple, ShapeSubscribeFrame } from "@inhuman.tools/harness-contract/schema";
 import {
   decodePlaneFrame,
   encodePlaneFrame,
@@ -197,10 +197,11 @@ export interface AttachPlaneOptions {
   readonly connectionId: string;
   readonly laneHub?: UpdateLaneHub;
   readonly room?: PresenceRoom;
+  readonly authorizeSubscribe?: (frame: ShapeSubscribeFrame) => ShapeSubscribeFrame | null;
 }
 
 export function attachPlane(options: AttachPlaneOptions): (text: string) => boolean {
-  const { socket, connectionId, laneHub, room } = options;
+  const { socket, connectionId, laneHub, room, authorizeSubscribe } = options;
   room?.join(socket);
   socket.onClose(() => {
     laneHub?.unsubscribeClient(connectionId);
@@ -216,10 +217,15 @@ export function attachPlane(options: AttachPlaneOptions): (text: string) => bool
         return true;
       case "pong":
         return true;
-      case "shape/subscribe":
+      case "shape/subscribe": {
+        const authorized = authorizeSubscribe !== undefined ? authorizeSubscribe(frame) : frame;
+        if (authorized === null) {
+          socket.close(1008, "forbidden kernel subscription");
+          return false;
+        }
         if (laneHub !== undefined) {
           laneHub.subscribe(
-            frame,
+            authorized,
             (delta) => {
               socket.sendText(encodePlaneFrame(delta));
             },
@@ -227,6 +233,7 @@ export function attachPlane(options: AttachPlaneOptions): (text: string) => bool
           );
         }
         return true;
+      }
       case "shape/unsubscribe":
         laneHub?.unsubscribe(frame.subscriptionId, connectionId);
         return true;

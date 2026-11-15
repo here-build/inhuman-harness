@@ -1486,6 +1486,9 @@ importers:
       '@modelcontextprotocol/server-filesystem':
         specifier: 2026.7.10
         version: 2026.7.10(zod@4.6.7)
+      '@types/better-sqlite3':
+        specifier: 9.6.0
+        version: 9.6.0
       '@types/express':
         specifier: 5.0.6
         version: 5.0.6

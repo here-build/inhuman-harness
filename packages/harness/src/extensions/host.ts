@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { relative, resolve as resolvePath } from "node:path";
 
 import { programDigest } from "./consent.js";
@@ -11,7 +10,7 @@ import {
   type ToolOutcome,
 } from "./dispatch.js";
 import { jsonToVal, loadProgram } from "./eval.js";
-import { type ResolvedBot, resolvePackageSurface } from "./manifest.js";
+import { isImmutablePluginRoot, readPluginText, type ResolvedBot, resolvePackageSurface } from "./manifest.js";
 import { behaviorNoteLog, type NoteLog } from "./notes.js";
 import { type BehaviorPin, pinSources } from "./pin.js";
 import { type BoundReceiver, CallerLedger, callMethod, StateDirectory, type StateStore } from "./state.js";
@@ -24,7 +23,11 @@ export type PluginPackage = {
   readonly root: string;
   /** False when the host config keeps this plugin's foreground bot off the foreground agent. */
   readonly foreground?: boolean;
+  /** True when this package is a host-bundled immutable plugin root whose files may be served from memory cache. */
+  readonly immutable?: boolean;
 };
+
+const immutablePinCache = new Map<string, PinnedBehavior>();
 
 /** Paths are relative to `root`, so a pin names modules, not files on disk. */
 export type PinnedBehavior = BehaviorPin & {
@@ -86,7 +89,7 @@ export function botChoices(
   for (const plugin of packages) {
     let bots: readonly ResolvedBot[];
     try {
-      bots = resolvePackageSurface(plugin.root).bots;
+      bots = resolvePackageSurface(plugin.root, { immutable: plugin.immutable }).bots;
     } catch (error) {
       errors.push(`${plugin.name}: ${messageOf(error)}`);
       continue;
@@ -125,7 +128,7 @@ async function loadBotProgram(choice: BotChoice): Promise<Registry> {
     filename: behavior.programPath,
     revision: "",
     root: choice.plugin.root,
-    read: (path) => readFileSync(path, "utf8"),
+    read: (path) => readPluginText(path, choice.plugin.immutable),
     kind: "behavior",
     config: behavior.configuration,
   });
@@ -134,8 +137,16 @@ async function loadBotProgram(choice: BotChoice): Promise<Registry> {
 export async function pinChoice(choice: BotChoice): Promise<PinnedBehavior> {
   const behavior = choice.bot.behavior;
   PluginSurfaceError.invariant(behavior != null, `${choice.bot.name} selects no behavior`);
+  const useImmutable = choice.plugin.immutable === true || isImmutablePluginRoot(choice.plugin.root);
+  const cacheKey = useImmutable
+    ? `${resolvePath(choice.plugin.root)}\0${choice.plugin.name}\0${choice.bot.name}\0${JSON.stringify(behavior.configuration ?? {})}\0${JSON.stringify(behavior.bindings ?? {})}`
+    : null;
+  if (cacheKey !== null) {
+    const cached = immutablePinCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+  }
   const registry = await loadBotProgram(choice);
-  return {
+  const pinned: PinnedBehavior = {
     ...pinSources(
       choice.plugin.name,
       relative(choice.plugin.root, behavior.programPath),
@@ -146,12 +157,17 @@ export async function pinChoice(choice: BotChoice): Promise<PinnedBehavior> {
     bot: choice.bot.name,
     root: choice.plugin.root,
   };
+  if (cacheKey !== null) {
+    immutablePinCache.set(cacheKey, pinned);
+  }
+  return pinned;
 }
 
-function unchangedOnDisk(pinned: PinnedBehavior): boolean {
+function unchangedOnDisk(pinned: PinnedBehavior, immutable?: boolean): boolean {
+  if (immutable === true || isImmutablePluginRoot(pinned.root)) return true;
   return pinned.modules.every((module) => {
     try {
-      return readFileSync(resolvePath(pinned.root, module.path), "utf8") === module.source;
+      return readPluginText(resolvePath(pinned.root, module.path), false) === module.source;
     } catch {
       return false;
     }
@@ -169,7 +185,7 @@ export async function repin(choices: readonly BotChoice[], previous: AgentPin, e
       prior != null &&
       JSON.stringify(prior.configuration) === JSON.stringify(choice.bot.behavior?.configuration ?? {}) &&
       JSON.stringify(prior.bindings ?? {}) === JSON.stringify(choice.bot.behavior?.bindings ?? {}) &&
-      unchangedOnDisk(prior)
+      unchangedOnDisk(prior, choice.plugin.immutable)
     ) {
       behaviors.push(prior);
       continue;
@@ -359,7 +375,7 @@ export class BehaviorKernel {
     if (this.directory.has(id)) return id;
     let opening = this.#opening.get(id);
     if (opening == null) {
-      opening = this.#openOwner(id, plugin, pkg.root, scope).finally(() => {
+      opening = this.#openOwner(id, plugin, pkg.root, scope, pkg.immutable).finally(() => {
         this.#opening.delete(id);
       });
       this.#opening.set(id, opening);
@@ -368,8 +384,8 @@ export class BehaviorKernel {
     return id;
   }
 
-  async #openOwner(id: string, plugin: string, root: string, scope: StateScope): Promise<void> {
-    const state = resolvePackageSurface(root).states.find((row) => row.scope === scope);
+  async #openOwner(id: string, plugin: string, root: string, scope: StateScope, immutable?: boolean): Promise<void> {
+    const state = resolvePackageSurface(root, { immutable }).states.find((row) => row.scope === scope);
     PluginSurfaceError.invariant(state != null, `${plugin} has no ${scope} state`);
     const registry = await loadProgram({
       agentId: id,
@@ -377,7 +393,7 @@ export class BehaviorKernel {
       filename: state.path,
       revision: "",
       root,
-      read: (path) => readFileSync(path, "utf8"),
+      read: (path) => readPluginText(path, immutable),
       kind: "state",
     });
     PluginSurfaceError.invariant(registry.reducer != null, `${plugin} ${scope} state has no reducer`);

@@ -951,6 +951,7 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
       connectionId,
       laneHub: this.kernel.laneHub,
       room: this.#room,
+      authorizeSubscribe: this.kernel.authorizePlaneSubscribe,
     });
   }
 

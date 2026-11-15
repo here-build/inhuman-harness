@@ -6,7 +6,7 @@
     "cpuModel": "Apple M4 Max",
     "cpuCores": 16,
     "totalMemGb": 128,
-    "timestamp": "2026-11-14T21:21:19.907Z"
+    "timestamp": "2026-11-15T01:10:43.094Z"
   },
   "suites": {
     "storageFlush": {
@@ -16,66 +16,66 @@
         "payloadKb": 382.25,
         "floor": {
           "samples": 20,
-          "minMs": 1.14,
-          "p50Ms": 1.42,
-          "p95Ms": 9.112,
-          "p99Ms": 9.504,
-          "maxMs": 9.504,
-          "meanMs": 2.601,
-          "totalMs": 52.024,
-          "opsPerSec": 384.43
+          "minMs": 1.012,
+          "p50Ms": 1.14,
+          "p95Ms": 8.385,
+          "p99Ms": 9.328,
+          "maxMs": 9.328,
+          "meanMs": 2.185,
+          "totalMs": 43.701,
+          "opsPerSec": 457.65
         },
         "actual": {
           "samples": 20,
-          "minMs": 11.551,
-          "p50Ms": 12.181,
-          "p95Ms": 18.794,
-          "p99Ms": 22.471,
-          "maxMs": 22.471,
-          "meanMs": 13.55,
-          "totalMs": 271,
-          "opsPerSec": 73.8
+          "minMs": 10.591,
+          "p50Ms": 11.546,
+          "p95Ms": 20.171,
+          "p99Ms": 20.796,
+          "maxMs": 20.796,
+          "meanMs": 12.848,
+          "totalMs": 256.969,
+          "opsPerSec": 77.83
         },
         "ratio": {
-          "floorP50Ms": 1.42,
-          "actualP50Ms": 12.181,
-          "floorP95Ms": 9.112,
-          "actualP95Ms": 18.794,
-          "overheadFactor": 8.58,
-          "efficiencyPct": 11.66
+          "floorP50Ms": 1.14,
+          "actualP50Ms": 11.546,
+          "floorP95Ms": 8.385,
+          "actualP95Ms": 20.171,
+          "overheadFactor": 10.13,
+          "efficiencyPct": 9.87
         }
       },
       "incrementalTurnFlush": {
         "seededTurns": 100,
         "floor": {
           "samples": 100,
-          "minMs": 0.047,
-          "p50Ms": 0.05,
-          "p95Ms": 0.069,
-          "p99Ms": 0.078,
-          "maxMs": 0.08,
-          "meanMs": 0.053,
-          "totalMs": 5.298,
-          "opsPerSec": 18875.34
+          "minMs": 0.039,
+          "p50Ms": 0.057,
+          "p95Ms": 0.077,
+          "p99Ms": 0.096,
+          "maxMs": 1.262,
+          "meanMs": 0.071,
+          "totalMs": 7.05,
+          "opsPerSec": 14183.63
         },
         "actual": {
           "samples": 100,
-          "minMs": 0.23,
-          "p50Ms": 0.258,
-          "p95Ms": 0.349,
-          "p99Ms": 0.721,
-          "maxMs": 2.723,
-          "meanMs": 0.294,
-          "totalMs": 29.408,
-          "opsPerSec": 3400.47
+          "minMs": 0.211,
+          "p50Ms": 0.261,
+          "p95Ms": 0.42,
+          "p99Ms": 0.564,
+          "maxMs": 4.623,
+          "meanMs": 0.322,
+          "totalMs": 32.164,
+          "opsPerSec": 3109.08
         },
         "ratio": {
-          "floorP50Ms": 0.05,
-          "actualP50Ms": 0.258,
-          "floorP95Ms": 0.069,
-          "actualP95Ms": 0.349,
-          "overheadFactor": 5.16,
-          "efficiencyPct": 19.38
+          "floorP50Ms": 0.057,
+          "actualP50Ms": 0.261,
+          "floorP95Ms": 0.077,
+          "actualP95Ms": 0.42,
+          "overheadFactor": 4.58,
+          "efficiencyPct": 21.84
         }
       }
     },
@@ -88,97 +88,97 @@
             "samples": 150,
             "minMs": 0.001,
             "p50Ms": 0.001,
-            "p95Ms": 0.002,
-            "p99Ms": 0.002,
-            "maxMs": 0.002,
-            "meanMs": 0.001,
-            "totalMs": 0.203,
-            "opsPerSec": 739360.6
+            "p95Ms": 0.001,
+            "p99Ms": 0.005,
+            "maxMs": 0.357,
+            "meanMs": 0.004,
+            "totalMs": 0.53,
+            "opsPerSec": 283089.37
           },
           "actual": {
             "samples": 150,
-            "minMs": 0.204,
-            "p50Ms": 0.218,
-            "p95Ms": 0.281,
-            "p99Ms": 0.525,
-            "maxMs": 0.927,
-            "meanMs": 0.23,
-            "totalMs": 34.433,
-            "opsPerSec": 4356.27
+            "minMs": 0.198,
+            "p50Ms": 0.231,
+            "p95Ms": 0.363,
+            "p99Ms": 0.708,
+            "maxMs": 1.647,
+            "meanMs": 0.258,
+            "totalMs": 38.64,
+            "opsPerSec": 3882
           },
           "ratio": {
             "floorP50Ms": 0.001,
-            "actualP50Ms": 0.218,
-            "floorP95Ms": 0.002,
-            "actualP95Ms": 0.281,
-            "overheadFactor": 218,
-            "efficiencyPct": 0.46
+            "actualP50Ms": 0.231,
+            "floorP95Ms": 0.001,
+            "actualP95Ms": 0.363,
+            "overheadFactor": 231,
+            "efficiencyPct": 0.43
           }
         },
         "n_10": {
           "subscribers": 10,
           "floor": {
             "samples": 150,
-            "minMs": 0.002,
+            "minMs": 0.001,
             "p50Ms": 0.002,
             "p95Ms": 0.002,
-            "p99Ms": 0.003,
-            "maxMs": 0.003,
+            "p99Ms": 0.004,
+            "maxMs": 0.005,
             "meanMs": 0.002,
-            "totalMs": 0.286,
-            "opsPerSec": 523757.65
+            "totalMs": 0.252,
+            "opsPerSec": 594839.18
           },
           "actual": {
             "samples": 150,
-            "minMs": 1.035,
-            "p50Ms": 1.087,
-            "p95Ms": 1.356,
-            "p99Ms": 1.47,
-            "maxMs": 1.511,
-            "meanMs": 1.121,
-            "totalMs": 168.145,
-            "opsPerSec": 892.09
+            "minMs": 0.201,
+            "p50Ms": 0.232,
+            "p95Ms": 0.339,
+            "p99Ms": 0.573,
+            "maxMs": 4.204,
+            "meanMs": 0.277,
+            "totalMs": 41.559,
+            "opsPerSec": 3609.29
           },
           "ratio": {
             "floorP50Ms": 0.002,
-            "actualP50Ms": 1.087,
+            "actualP50Ms": 0.232,
             "floorP95Ms": 0.002,
-            "actualP95Ms": 1.356,
-            "overheadFactor": 543.5,
-            "efficiencyPct": 0.18
+            "actualP95Ms": 0.339,
+            "overheadFactor": 116,
+            "efficiencyPct": 0.86
           }
         },
         "n_50": {
           "subscribers": 50,
           "floor": {
             "samples": 150,
-            "minMs": 0.004,
+            "minMs": 0.003,
             "p50Ms": 0.004,
-            "p95Ms": 0.005,
-            "p99Ms": 0.006,
-            "maxMs": 0.021,
+            "p95Ms": 0.004,
+            "p99Ms": 0.005,
+            "maxMs": 0.019,
             "meanMs": 0.004,
-            "totalMs": 0.639,
-            "opsPerSec": 234708.36
+            "totalMs": 0.556,
+            "opsPerSec": 269926.42
           },
           "actual": {
             "samples": 150,
-            "minMs": 4.72,
-            "p50Ms": 5.106,
-            "p95Ms": 5.739,
-            "p99Ms": 6.599,
-            "maxMs": 8.54,
-            "meanMs": 5.211,
-            "totalMs": 781.679,
-            "opsPerSec": 191.89
+            "minMs": 0.256,
+            "p50Ms": 0.279,
+            "p95Ms": 0.442,
+            "p99Ms": 0.576,
+            "maxMs": 1.64,
+            "meanMs": 0.305,
+            "totalMs": 45.76,
+            "opsPerSec": 3277.94
           },
           "ratio": {
             "floorP50Ms": 0.004,
-            "actualP50Ms": 5.106,
-            "floorP95Ms": 0.005,
-            "actualP95Ms": 5.739,
-            "overheadFactor": 1276.5,
-            "efficiencyPct": 0.08
+            "actualP50Ms": 0.279,
+            "floorP95Ms": 0.004,
+            "actualP95Ms": 0.442,
+            "overheadFactor": 69.75,
+            "efficiencyPct": 1.43
           }
         }
       }
@@ -189,145 +189,145 @@
         "S": {
           "turnCount": 10,
           "nodeCount": 41,
-          "wireKb": 87.2,
+          "wireKb": 87.96,
           "simulatedRttMs": 0,
           "floor": {
             "samples": 20,
-            "minMs": 0.356,
-            "p50Ms": 0.384,
-            "p95Ms": 0.522,
-            "p99Ms": 0.533,
-            "maxMs": 0.533,
-            "meanMs": 0.406,
-            "totalMs": 8.125,
-            "opsPerSec": 2461.4
+            "minMs": 0.349,
+            "p50Ms": 0.382,
+            "p95Ms": 0.479,
+            "p99Ms": 0.524,
+            "maxMs": 0.524,
+            "meanMs": 0.4,
+            "totalMs": 7.998,
+            "opsPerSec": 2500.6
           },
           "actual": {
             "samples": 20,
-            "minMs": 0.807,
-            "p50Ms": 0.914,
-            "p95Ms": 1.373,
-            "p99Ms": 1.437,
-            "maxMs": 1.437,
-            "meanMs": 0.998,
-            "totalMs": 19.962,
-            "opsPerSec": 1001.9
+            "minMs": 0.777,
+            "p50Ms": 0.867,
+            "p95Ms": 1.224,
+            "p99Ms": 1.412,
+            "maxMs": 1.412,
+            "meanMs": 0.928,
+            "totalMs": 18.563,
+            "opsPerSec": 1077.41
           },
           "ratio": {
-            "floorP50Ms": 0.384,
-            "actualP50Ms": 0.914,
-            "floorP95Ms": 0.522,
-            "actualP95Ms": 1.373,
-            "overheadFactor": 2.38,
-            "efficiencyPct": 42.01
+            "floorP50Ms": 0.382,
+            "actualP50Ms": 0.867,
+            "floorP95Ms": 0.479,
+            "actualP95Ms": 1.224,
+            "overheadFactor": 2.27,
+            "efficiencyPct": 44.06
           }
         },
         "M": {
           "turnCount": 100,
           "nodeCount": 401,
-          "wireKb": 877.27,
+          "wireKb": 884.71,
           "simulatedRttMs": 0,
           "floor": {
             "samples": 15,
-            "minMs": 2.444,
-            "p50Ms": 2.551,
-            "p95Ms": 3.192,
-            "p99Ms": 3.192,
-            "maxMs": 3.192,
-            "meanMs": 2.599,
-            "totalMs": 38.986,
-            "opsPerSec": 384.75
+            "minMs": 2.21,
+            "p50Ms": 2.339,
+            "p95Ms": 2.876,
+            "p99Ms": 2.876,
+            "maxMs": 2.876,
+            "meanMs": 2.413,
+            "totalMs": 36.199,
+            "opsPerSec": 414.38
           },
           "actual": {
             "samples": 15,
-            "minMs": 6.188,
-            "p50Ms": 6.544,
-            "p95Ms": 7.274,
-            "p99Ms": 7.274,
-            "maxMs": 7.274,
-            "meanMs": 6.662,
-            "totalMs": 99.926,
-            "opsPerSec": 150.11
+            "minMs": 5.923,
+            "p50Ms": 6.106,
+            "p95Ms": 7.928,
+            "p99Ms": 7.928,
+            "maxMs": 7.928,
+            "meanMs": 6.361,
+            "totalMs": 95.414,
+            "opsPerSec": 157.21
           },
           "ratio": {
-            "floorP50Ms": 2.551,
-            "actualP50Ms": 6.544,
-            "floorP95Ms": 3.192,
-            "actualP95Ms": 7.274,
-            "overheadFactor": 2.57,
-            "efficiencyPct": 38.98
+            "floorP50Ms": 2.339,
+            "actualP50Ms": 6.106,
+            "floorP95Ms": 2.876,
+            "actualP95Ms": 7.928,
+            "overheadFactor": 2.61,
+            "efficiencyPct": 38.31
           }
         },
         "L": {
           "turnCount": 400,
           "nodeCount": 1601,
-          "wireKb": 3497.49,
+          "wireKb": 3527.19,
           "simulatedRttMs": 0,
           "floor": {
             "samples": 8,
-            "minMs": 9.924,
-            "p50Ms": 10.317,
-            "p95Ms": 12.252,
-            "p99Ms": 12.252,
-            "maxMs": 12.252,
-            "meanMs": 10.623,
-            "totalMs": 84.985,
-            "opsPerSec": 94.13
+            "minMs": 9.057,
+            "p50Ms": 9.228,
+            "p95Ms": 11.318,
+            "p99Ms": 11.318,
+            "maxMs": 11.318,
+            "meanMs": 9.537,
+            "totalMs": 76.295,
+            "opsPerSec": 104.86
           },
           "actual": {
             "samples": 8,
-            "minMs": 25.735,
-            "p50Ms": 26.88,
-            "p95Ms": 41.531,
-            "p99Ms": 41.531,
-            "maxMs": 41.531,
-            "meanMs": 28.745,
-            "totalMs": 229.963,
-            "opsPerSec": 34.79
+            "minMs": 22.161,
+            "p50Ms": 23.458,
+            "p95Ms": 27.297,
+            "p99Ms": 27.297,
+            "maxMs": 27.297,
+            "meanMs": 24.219,
+            "totalMs": 193.754,
+            "opsPerSec": 41.29
           },
           "ratio": {
-            "floorP50Ms": 10.317,
-            "actualP50Ms": 26.88,
-            "floorP95Ms": 12.252,
-            "actualP95Ms": 41.531,
-            "overheadFactor": 2.61,
-            "efficiencyPct": 38.38
+            "floorP50Ms": 9.228,
+            "actualP50Ms": 23.458,
+            "floorP95Ms": 11.318,
+            "actualP95Ms": 27.297,
+            "overheadFactor": 2.54,
+            "efficiencyPct": 39.34
           }
         },
         "M_wan40ms": {
           "turnCount": 100,
           "nodeCount": 401,
-          "wireKb": 883.55,
+          "wireKb": 890.99,
           "simulatedRttMs": 40,
           "floor": {
             "samples": 8,
-            "minMs": 45.013,
-            "p50Ms": 47.018,
-            "p95Ms": 50.181,
-            "p99Ms": 50.181,
-            "maxMs": 50.181,
-            "meanMs": 47.702,
-            "totalMs": 381.618,
-            "opsPerSec": 20.96
+            "minMs": 48.815,
+            "p50Ms": 49.736,
+            "p95Ms": 51.133,
+            "p99Ms": 51.133,
+            "maxMs": 51.133,
+            "meanMs": 49.877,
+            "totalMs": 399.016,
+            "opsPerSec": 20.05
           },
           "actual": {
             "samples": 8,
-            "minMs": 48.626,
-            "p50Ms": 51.038,
-            "p95Ms": 53.401,
-            "p99Ms": 53.401,
-            "maxMs": 53.401,
-            "meanMs": 50.915,
-            "totalMs": 407.318,
-            "opsPerSec": 19.64
+            "minMs": 53.041,
+            "p50Ms": 54.803,
+            "p95Ms": 56.602,
+            "p99Ms": 56.602,
+            "maxMs": 56.602,
+            "meanMs": 54.81,
+            "totalMs": 438.482,
+            "opsPerSec": 18.24
           },
           "ratio": {
-            "floorP50Ms": 47.018,
-            "actualP50Ms": 51.038,
-            "floorP95Ms": 50.181,
-            "actualP95Ms": 53.401,
-            "overheadFactor": 1.09,
-            "efficiencyPct": 92.12
+            "floorP50Ms": 49.736,
+            "actualP50Ms": 54.803,
+            "floorP95Ms": 51.133,
+            "actualP95Ms": 56.602,
+            "overheadFactor": 1.1,
+            "efficiencyPct": 90.75
           }
         }
       },
@@ -337,33 +337,33 @@
         "wireKb": 6.45,
         "floor": {
           "samples": 50,
-          "minMs": 0.127,
-          "p50Ms": 0.137,
-          "p95Ms": 0.196,
-          "p99Ms": 0.209,
-          "maxMs": 0.209,
-          "meanMs": 0.145,
-          "totalMs": 7.245,
-          "opsPerSec": 6901.15
+          "minMs": 0.141,
+          "p50Ms": 0.164,
+          "p95Ms": 0.206,
+          "p99Ms": 0.251,
+          "maxMs": 0.251,
+          "meanMs": 0.167,
+          "totalMs": 8.341,
+          "opsPerSec": 5994.55
         },
         "actual": {
           "samples": 50,
-          "minMs": 0.575,
-          "p50Ms": 0.631,
-          "p95Ms": 0.93,
-          "p99Ms": 1.626,
-          "maxMs": 1.626,
-          "meanMs": 0.684,
-          "totalMs": 34.195,
-          "opsPerSec": 1462.18
+          "minMs": 0.577,
+          "p50Ms": 0.615,
+          "p95Ms": 0.779,
+          "p99Ms": 1.136,
+          "maxMs": 1.136,
+          "meanMs": 0.645,
+          "totalMs": 32.228,
+          "opsPerSec": 1551.44
         },
         "ratio": {
-          "floorP50Ms": 0.137,
-          "actualP50Ms": 0.631,
-          "floorP95Ms": 0.196,
-          "actualP95Ms": 0.93,
-          "overheadFactor": 4.61,
-          "efficiencyPct": 21.71
+          "floorP50Ms": 0.164,
+          "actualP50Ms": 0.615,
+          "floorP95Ms": 0.206,
+          "actualP95Ms": 0.779,
+          "overheadFactor": 3.75,
+          "efficiencyPct": 26.67
         }
       }
     },
@@ -376,61 +376,61 @@
           "copiesAveraged": 10,
           "wireMb": 0.085,
           "floorHeapMb": 0.089,
-          "actualHeapMb": 0.267,
-          "alphaMem": 3,
-          "heapToWireRatio": 3.14
+          "actualHeapMb": 0.269,
+          "alphaMem": 3.02,
+          "heapToWireRatio": 3.16
         },
         "M": {
           "turnCount": 100,
           "nodeCount": 401,
           "copiesAveraged": 3,
           "wireMb": 0.856,
-          "floorHeapMb": 0.91,
-          "actualHeapMb": 2.672,
-          "alphaMem": 2.94,
-          "heapToWireRatio": 3.12
+          "floorHeapMb": 0.903,
+          "actualHeapMb": 2.752,
+          "alphaMem": 3.05,
+          "heapToWireRatio": 3.21
         },
         "L": {
           "turnCount": 400,
           "nodeCount": 1601,
           "copiesAveraged": 2,
           "wireMb": 3.412,
-          "floorHeapMb": 3.604,
-          "actualHeapMb": 10.255,
-          "alphaMem": 2.85,
-          "heapToWireRatio": 3.01
+          "floorHeapMb": 3.603,
+          "actualHeapMb": 10.547,
+          "alphaMem": 2.93,
+          "heapToWireRatio": 3.09
         }
       },
       "sessionSwitchLeak": {
         "cycles": 20,
         "windowCycles": 15,
-        "baselineMb": 34.366,
-        "finalMb": 37.835,
-        "slopeMbPerCycle": 0.0065,
-        "netGrowthMb": 0.042,
+        "baselineMb": 34.695,
+        "finalMb": 38.223,
+        "slopeMbPerCycle": -0.0011,
+        "netGrowthMb": 0.032,
         "hardGateMaxSlopeMbPerCycle": 0.5,
         "passed": true,
         "seriesMb": [
-          37.798,
-          38.069,
-          37.789,
-          38.06,
-          37.793,
-          38.065,
-          37.821,
-          38.083,
-          37.831,
-          37.812,
-          38.087,
-          37.815,
-          38.104,
-          38.077,
-          38.12,
-          37.834,
-          38.123,
-          38.095,
-          38.123,
-          37.835
+          38.199,
+          38.47,
+          38.19,
+          38.461,
+          38.191,
+          38.463,
+          38.193,
+          38.463,
+          38.222,
+          38.476,
+          38.223,
+          38.467,
+          38.494,
+          38.208,
+          38.508,
+          38.22,
+          38.508,
+          38.222,
+          38.51,
+          38.223
         ]
       },
       "ratioPlaceholder": {
@@ -446,15 +446,15 @@
       "suite": "05-server-multikernel-density",
       "kernelCount": 50,
       "turnsPerSession": 20,
-      "mountMsTotal": 307.668,
-      "mountMsPerKernel": 6.153,
-      "totalHeapMb": 21.236,
-      "totalRssMb": 0.516,
-      "mbPerKernel": 0.425,
-      "evictMsTotal": 113.366,
-      "evictMsPerKernel": 2.267,
-      "retainedAfterEvictMb": 0.509,
-      "reclaimedPct": 97.6
+      "mountMsTotal": 221.544,
+      "mountMsPerKernel": 4.431,
+      "totalHeapMb": 21.61,
+      "totalRssMb": 0.453,
+      "mbPerKernel": 0.432,
+      "evictMsTotal": 16.047,
+      "evictMsPerKernel": 0.321,
+      "retainedAfterEvictMb": 0.418,
+      "reclaimedPct": 98.07
     }
   }
 }

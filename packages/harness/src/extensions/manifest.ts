@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { basename, dirname, extname, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { basename, dirname, extname, resolve, sep } from "node:path";
 
 import { parse as parseYaml } from "yaml";
 import type { z } from "zod";
@@ -8,6 +8,98 @@ import { jailedInside } from "./jail.js";
 import { behaviorSelectionSchema } from "./schemas/bot-definition.js";
 import { pluginManifestSchema } from "./schemas/plugin-manifest.js";
 import { PluginSurfaceError } from "./surface-error.js";
+
+const WARM_TEXT_EXTS = new Set([".json", ".scm", ".prompt", ".md", ".hbs", ".yaml", ".yml", ".txt"]);
+const immutableRoots = new Set<string>();
+const fileTextCache = new Map<string, string>();
+const surfaceCache = new Map<string, ResolvedSurface>();
+const warmedPaths = new Set<string>();
+let diskReadCount = 0;
+
+export function pluginDiskReadCount(): number {
+  return diskReadCount;
+}
+
+export function resetPluginDiskReadCount(): void {
+  diskReadCount = 0;
+}
+
+export function markImmutablePluginRoot(root: string): void {
+  const resolved = resolve(root);
+  immutableRoots.add(resolved);
+  warmedPaths.add(resolved);
+  try {
+    const real = realpathSync(resolved);
+    immutableRoots.add(real);
+    warmedPaths.add(real);
+  } catch {
+    /* non-existent path stays registered under its resolved form */
+  }
+}
+
+export function isImmutablePluginRoot(pathOrRoot: string): boolean {
+  const resolved = resolve(pathOrRoot);
+  for (const root of immutableRoots) {
+    if (resolved === root || resolved.startsWith(`${root}${sep}`)) return true;
+  }
+  return false;
+}
+
+export function hasCachedPluginText(filePath: string): boolean {
+  return fileTextCache.has(resolve(filePath));
+}
+
+export function readPluginText(filePath: string, immutable?: boolean): string {
+  const resolved = resolve(filePath);
+  const useCache = immutable === true || isImmutablePluginRoot(resolved);
+  if (useCache) {
+    const cached = fileTextCache.get(resolved);
+    if (cached !== undefined) return cached;
+  }
+  diskReadCount += 1;
+  const text = readFileSync(resolved, "utf8");
+  if (useCache) {
+    fileTextCache.set(resolved, text);
+    warmedPaths.add(resolved);
+    try {
+      const real = realpathSync(resolved);
+      if (real !== resolved) {
+        fileTextCache.set(real, text);
+        warmedPaths.add(real);
+      }
+    } catch {
+      /* ignore realpath miss */
+    }
+  }
+  return text;
+}
+
+function walkWarmDir(dir: string): void {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name === "node_modules" || entry.name === ".git") continue;
+    const child = resolve(dir, entry.name);
+    if (entry.isDirectory()) {
+      warmedPaths.add(child);
+      walkWarmDir(child);
+    } else if (entry.isFile()) {
+      warmedPaths.add(child);
+      if (WARM_TEXT_EXTS.has(extname(entry.name).toLowerCase())) {
+        readPluginText(child, true);
+      }
+    }
+  }
+}
+
+/** Preload an immutable bundled plugin directory into memory so runtime boot reads zero files from disk. */
+export function warmPluginDirectory(root: string): ResolvedSurface {
+  const resolved = resolve(root);
+  markImmutablePluginRoot(resolved);
+  if (existsSync(resolved)) {
+    walkWarmDir(resolved);
+  }
+  return resolvePackageSurface(resolved, { immutable: true });
+}
 
 export type BehaviorSelection = z.infer<typeof behaviorSelectionSchema>;
 
@@ -50,12 +142,17 @@ export type ResolvedSurface = {
   }[];
 };
 
-function readJailed(root: string, spec: string, fromFile?: string): { readonly path: string; readonly source: string } {
+function readJailed(
+  root: string,
+  spec: string,
+  fromFile?: string,
+  immutable?: boolean,
+): { readonly path: string; readonly source: string } {
   const base = fromFile == null ? root : dirname(fromFile);
   const path = jailedInside(root, resolve(base, spec));
   PluginSurfaceError.invariant(path != null, `package escape: ${spec}`);
-  PluginSurfaceError.invariant(existsSync(path), `missing source: ${spec}`);
-  return { path, source: readFileSync(path, "utf8") };
+  PluginSurfaceError.invariant(hasCachedPluginText(path) || existsSync(path), `missing source: ${spec}`);
+  return { path, source: readPluginText(path, immutable) };
 }
 
 function frontmatter(text: string): {
@@ -81,11 +178,19 @@ export function parseBehaviorBlock(raw: unknown): BehaviorSelection | null {
   return parsed.data;
 }
 
-export function resolvePackageSurface(root: string): ResolvedSurface {
-  const manifest = pluginManifestSchema.parse(JSON.parse(readFileSync(resolve(root, "plugin.json"), "utf8")));
+export function resolvePackageSurface(root: string, options?: { readonly immutable?: boolean }): ResolvedSurface {
+  const resolvedRoot = resolve(root);
+  const useImmutable = options?.immutable === true || isImmutablePluginRoot(resolvedRoot);
+  if (useImmutable) {
+    const cached = surfaceCache.get(resolvedRoot);
+    if (cached !== undefined) return cached;
+  }
+  const manifest = pluginManifestSchema.parse(
+    JSON.parse(readPluginText(resolve(resolvedRoot, "plugin.json"), useImmutable)),
+  );
   const ext = manifest.extensions["tools.inhuman"];
   const bots = ext.bots.map((spec): ResolvedBot => {
-    const file = readJailed(root, spec);
+    const file = readJailed(resolvedRoot, spec, undefined, useImmutable);
     const { head, body } = frontmatter(file.source);
     PluginSurfaceError.invariant(
       head.attach == null || head.attach === "foreground",
@@ -124,8 +229,9 @@ export function resolvePackageSurface(root: string): ResolvedSurface {
     };
     const behavior = parseBehaviorBlock(head.behavior);
     if (behavior == null) return { ...shape, behavior: null };
-    const program = readJailed(root, behavior.program, file.path);
-    const environment = behavior.environment == null ? "" : readJailed(root, behavior.environment, file.path).path;
+    const program = readJailed(resolvedRoot, behavior.program, file.path, useImmutable);
+    const environment =
+      behavior.environment == null ? "" : readJailed(resolvedRoot, behavior.environment, file.path, useImmutable).path;
     return {
       ...shape,
       behavior: {
@@ -139,22 +245,27 @@ export function resolvePackageSurface(root: string): ResolvedSurface {
   const states = (["session", "project", "global"] as const).flatMap((scope) => {
     const spec = ext.states?.[scope];
     if (spec == null) return [];
-    const file = readJailed(root, spec);
+    const file = readJailed(resolvedRoot, spec, undefined, useImmutable);
     return [{ scope, path: file.path, source: file.source }];
   });
   for (const skill of ext.skills) {
-    const path = jailedInside(root, resolve(root, skill));
+    const path = jailedInside(resolvedRoot, resolve(resolvedRoot, skill));
     PluginSurfaceError.invariant(path != null, `package escape: ${skill}`);
-    PluginSurfaceError.invariant(existsSync(path), `missing source: ${skill}`);
+    const alreadyKnown = useImmutable && (warmedPaths.has(path) || hasCachedPluginText(path));
+    PluginSurfaceError.invariant(alreadyKnown || existsSync(path), `missing source: ${skill}`);
   }
-  return {
+  const surface: ResolvedSurface = {
     bots,
     skills: ext.skills,
-    abi: ext.abi == null ? null : readJailed(root, ext.abi),
+    abi: ext.abi == null ? null : readJailed(resolvedRoot, ext.abi, undefined, useImmutable),
     states,
     mcp: ext.mcp.map((server) => ({
       name: server.name,
       visibility: server.visibility,
     })),
   };
+  if (useImmutable) {
+    surfaceCache.set(resolvedRoot, surface);
+  }
+  return surface;
 }

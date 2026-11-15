@@ -12,6 +12,11 @@
       "import": "./dist/server/index.js",
       "default": "./dist/server/index.js"
     },
+    "./server": {
+      "types": "./dist/server/portable-server.d.ts",
+      "import": "./dist/server/portable-server.js",
+      "default": "./dist/server/portable-server.js"
+    },
     "./testkit": {
       "types": "./dist/server/testkit/index.d.ts",
       "import": "./dist/server/testkit/index.js",
@@ -48,6 +53,7 @@
     "@inhuman.tools/continuation": "workspace:^",
     "@inhuman.tools/env-capability-module-prompt": "workspace:^",
     "@inhuman.tools/error-with-invariant": "workspace:^",
+    "@inhuman.tools/expectations": "workspace:^",
     "@inhuman.tools/harness-commons": "workspace:^",
     "@inhuman.tools/harness-contract": "workspace:^",
     "@inhuman.tools/harness-diagnostics": "workspace:^",
@@ -57,7 +63,6 @@
     "@inhuman.tools/harness-scheme": "workspace:^",
     "@inhuman.tools/harness-sdk": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
-    "@inhuman.tools/expectations": "workspace:^",
     "@inhuman.tools/plugin-fusion": "workspace:^",
     "@inhuman.tools/plugin-goal": "workspace:^",
     "@inhuman.tools/plugin-offload-tingle": "workspace:^",
@@ -92,6 +97,7 @@
     "@-internal-/eslint-configs": "workspace:*",
     "@inhuman.tools/harness-client": "workspace:^",
     "@modelcontextprotocol/server-filesystem": "2026.7.10",
+    "@types/better-sqlite3": "9.6.0",
     "@types/express": "5.0.6",
     "@types/fs-extra": "11.0.4",
     "@types/node": "^24.19.2",

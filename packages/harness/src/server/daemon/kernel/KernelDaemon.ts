@@ -21,6 +21,7 @@ import {
   sessionTurnsTable,
   type ProjectKind,
   type ScmResourceKind,
+  type ShapeSubscribeFrame,
 } from "@inhuman.tools/harness-contract/schema";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
 import {
@@ -961,6 +962,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
             name: plugin.pluginName,
             root: plugin.rootPath,
             foreground: this.#config().plugins[plugin.pluginName]?.foreground !== false,
+            immutable: contour === "server",
           })),
       approved: (plugin) => new Set(this.#config().plugins[plugin]?.guards),
       store:
@@ -1526,7 +1528,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       kvBag,
       compactBody,
       compactSource: "scm://kernel/compact.scm",
-      inventory: readBundledPluginInventory(packages, disabled),
+      inventory: readBundledPluginInventory(packages, disabled, { immutable: true }),
       registry: this.runtime.registry,
     });
   }
@@ -1868,12 +1870,36 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     return next;
   }
 
+  readonly authorizePlaneSubscribe = (frame: ShapeSubscribeFrame): ShapeSubscribeFrame | null => {
+    const requestedKernel = frame.params.kernelId;
+    if (requestedKernel !== undefined && requestedKernel !== this.kernelId) {
+      return null;
+    }
+    switch (frame.lane) {
+      case "kernel_meta":
+        return { ...frame, params: { ...frame.params, kernelId: this.kernelId } };
+      case "scope_nodes":
+        return { ...frame, params: { ...frame.params, kernelId: this.kernelId } };
+      case "session_nodes":
+        return { ...frame, params: { ...frame.params, kernelId: this.kernelId } };
+      case "active_sessions":
+        return { ...frame, params: { ...frame.params, kernelId: this.kernelId } };
+      case "recent_sessions":
+        return { ...frame, params: { ...frame.params, kernelId: this.kernelId } };
+      case "child_sessions":
+        return { ...frame, params: { ...frame.params, kernelId: this.kernelId } };
+      case "pending_asks":
+        return { ...frame, params: { ...frame.params, kernelId: this.kernelId } };
+    }
+  };
+
   protected override attach(socket: PlaneSocket, connectionId: string): ((text: string) => boolean) | void {
     return attachPlane({
       socket,
       connectionId,
       laneHub: this.laneHub,
       room: this.#room,
+      authorizeSubscribe: this.authorizePlaneSubscribe,
     });
   }
 
@@ -1891,6 +1917,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   /** Mint-until-first-seat. Dropped on occupancy or park; workers are not conversation roots. */
   reserveAttachment(sessionId: string): void {
+    if (sessionIsOccupied(this.doc.awareness, sessionId)) {
+      this.dropReservation(sessionId);
+      return;
+    }
     runInAction(() => this.#reservations.add(sessionId));
   }
 
@@ -2201,7 +2231,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     const sessionId = root.sessionId;
     const now = Date.now();
     const face = sessionColumns(root);
-    const pendingAsks = collectPendingAsks(root, now);
+    const pendingAsks = collectPendingAsks(root, now, this.kernelId);
 
     if (options?.force === true) {
       session.pruneUnreachableNodes();
@@ -2304,6 +2334,13 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   hasStoredSession(sessionId: string): boolean {
     if (this.runtime.replica(sessionId) != null) return true;
+    if (
+      this.db.sqlite
+        .prepare("SELECT 1 FROM sessions WHERE kernel_id = ? AND session_id = ? LIMIT 1")
+        .get(this.kernelId, sessionId) !== undefined
+    ) {
+      return true;
+    }
     return (
       this.db.sqlite
         .prepare("SELECT 1 FROM session_nodes WHERE kernel_id = ? AND session_id = ? LIMIT 1")
@@ -2757,7 +2794,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   }
 }
 
-function collectPendingAsks(root: SessionRoot, now: number): PendingAskRowInsert[] {
+function collectPendingAsks(root: SessionRoot, now: number, kernelId: string): PendingAskRowInsert[] {
   const pendingAsks: PendingAskRowInsert[] = [];
   for (const workItem of root.work) {
     if (!(workItem instanceof SessionTurn)) continue;
@@ -2768,6 +2805,7 @@ function collectPendingAsks(root: SessionRoot, now: number): PendingAskRowInsert
         if (isAck || isAsk) {
           pendingAsks.push({
             jobId: job.uuid,
+            kernelId,
             sessionId: root.sessionId,
             turnId: workItem.uuid,
             kind: isAck ? "ack" : "ask",

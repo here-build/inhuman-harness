@@ -18,7 +18,7 @@ The [root README](../README.md) covers installation and first use.
 
 | Package | Source | Use it for |
 | --- | --- | --- |
-| `@inhuman.tools/plugin-sdk` | [Plugin SDK](../packages/harness-plugin-sdk) | Plugin tools, actions, and optional environment capabilities |
+| `@inhuman.tools/plugin-sdk` | [Plugin SDK](../packages/harness-plugin-sdk) | Plugin tools, actions, `WorkspaceEnvPort`/`activateProject`, and optional environment capabilities |
 | `@inhuman.tools/harness-provider-sdk` | [Provider SDK](../packages/harness-provider-sdk) | Model-provider registration and capability contracts |
 | `@inhuman.tools/harness-sdk` | [Node SDK](../packages/harness-sdk) | Connect to the daemon over a Unix socket and use launch helpers |
 | `@inhuman.tools/harness-client` | [Typed client](../packages/harness-client) | Use the daemon contract with a supplied transport |
@@ -54,7 +54,7 @@ when their documented interface fits your use case.
 
 | Source | Packages and responsibilities |
 | --- | --- |
-| [harness](../packages/harness) | `@inhuman.tools/harness`: daemon, runtime, providers, and sync composition |
+| [harness](../packages/harness) | `@inhuman.tools/harness` (and `@inhuman.tools/harness/server`): daemon, runtime, providers, sync composition, and portable multi-tenant server entry (`createPortableHarnessServer`, `MultiKernelRegistry`, `EncryptedSecretsVault`, `HostRuntimePluginCatalog`, `AsyncCachedBlobBucket`) |
 | [tui](../surfaces/tui), [web](../surfaces/web) | Terminal client and browser client with loopback web server |
 | [quickdraw](../packages/quickdraw) | Internal terminal rendering framework: paint, layout, input, and widgets |
 | [pretty-mcp](../packages/pretty-mcp) | Human-readable MCP and toolkit call summaries used by the clients |

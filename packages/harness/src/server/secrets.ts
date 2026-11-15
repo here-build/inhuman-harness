@@ -9,6 +9,18 @@ import fs from "fs-extra";
 
 import { asRecord } from "./util/read-field.js";
 
+export {
+  EncryptedSecretsVault,
+  MemorySecretsBackend,
+  SecretsAuthError,
+  SqliteSecretsBackend,
+  encodeCanonicalAad,
+  type EncryptedSecretRecord,
+  type EncryptedSecretsVaultOptions,
+  type SecretsKeyRing,
+  type SecretsStoreBackend,
+} from "./secrets-encrypted.js";
+
 export type ConnectionSecrets = Record<string, string>;
 
 /** Per-kernel secrets vault abstraction (FS-backed locally, DB/memory-backed on server). */

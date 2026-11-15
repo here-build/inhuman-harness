@@ -641,6 +641,7 @@ export class ProjectDaemon extends RequestHost implements Disposable, AsyncDispo
       connectionId,
       laneHub: this.kernel.laneHub,
       room: this.#presence ?? undefined,
+      authorizeSubscribe: this.kernel.authorizePlaneSubscribe,
     });
   }
 
