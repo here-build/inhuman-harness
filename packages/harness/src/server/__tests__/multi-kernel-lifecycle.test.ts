@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { KERNEL_SCOPE_ID, type ShapeDeltaFrame } from "@inhuman.tools/harness-contract";
 import { grantLabel, type GrantRow } from "@inhuman.tools/harness-model";
 import { readBlob, readVisual } from "@inhuman.tools/harness-provider-sdk";
-import { UpdateLaneHub } from "@inhuman.tools/scope-plane";
+import { CommitDiffShapeSource, MemoryKvStore, UpdateLaneHub } from "@inhuman.tools/scope-plane";
 import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { runInAction } from "mobx";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -423,5 +423,50 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
     await regOwn[Symbol.asyncDispose]();
     expect(kernel2.disposed).toBe(true);
     await expect(sharedDb.count("sessions")).rejects.toThrow(/closed/);
+  });
+
+  it("isolates per-kernel stores with resolveStore, deduplicates concurrent acquires, and closes owned stores on eviction", async () => {
+    const storeA = new MemoryKvStore();
+    const storeB = new MemoryKvStore();
+    const resolveStore = vi.fn(async (kernelId: string) => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return kernelId.startsWith("tenant-a:")
+        ? { db: storeA, laneHub: new CommitDiffShapeSource(storeA), ownsDb: true, ownsLaneHub: true }
+        : { db: storeB, laneHub: new CommitDiffShapeSource(storeB), ownsDb: false, ownsLaneHub: true };
+    });
+
+    const registry = new MultiKernelRegistry({ resolveStore });
+    onTestFinished(async () => {
+      await registry[Symbol.asyncDispose]();
+      await storeB.close();
+    });
+
+    const [leaseA1, leaseA2, leaseB] = await Promise.all([
+      registry.acquire("tenant-a:user-1"),
+      registry.acquire("tenant-a:user-1"),
+      registry.acquire("tenant-b:user-2"),
+    ]);
+
+    expect(leaseA1.kernel).toBe(leaseA2.kernel);
+    expect(resolveStore).toHaveBeenCalledTimes(2);
+    expect(leaseA1.kernel.db).toBe(storeA);
+    expect(leaseB.kernel.db).toBe(storeB);
+
+    const projA = leaseA1.kernel.project("/virtual/tenant-a/ws");
+    await projA.ready;
+    const sessA = await projA.session("sess-iso-a");
+    await leaseA1.kernel.flushSession(sessA.doc, { force: true });
+
+    expect((await storeA.scan("sessions")).length).toBe(1);
+    expect((await storeB.scan("sessions")).length).toBe(0);
+
+    await sessA.park();
+    leaseA1[Symbol.dispose]();
+    leaseA2[Symbol.dispose]();
+    expect(await registry.evict("tenant-a:user-1")).toBe(true);
+    await expect(storeA.scan("sessions")).rejects.toThrow(/closed/);
+    await expect(storeB.scan("sessions")).resolves.toEqual([]);
+
+    leaseB[Symbol.dispose]();
   });
 });

@@ -760,4 +760,73 @@ describe("Wave 5: EncryptedSecretsVault, HostRuntimePluginCatalog, AsyncCachedBl
     expect(rehydrated.status).toBe(200);
     expect(JSON.stringify(rehydrated.json)).toContain("TENANT_A_VFS_PAYLOAD");
   }, 30_000);
+
+  it("supports prepareRequest and prepareRpc hooks for virtual project auto-provisioning and RPC normalization", async () => {
+    const dir = tempDir("w5-prepare-hooks-");
+    const db = new SqliteKvStore(join(dir, "harness.db"));
+    onTestFinished(() => db.close());
+
+    const registry = new MultiKernelRegistry({ db, ownsDb: false });
+    const server = createPortableHarnessServer({
+      registry,
+      authenticate: (req) => {
+        if (req.headers.authorization !== "Bearer token-a") return null;
+        return { tenantId: "tenant-a", kernelId: "tenant-a:u1", subjectId: "u1" };
+      },
+      async prepareRequest({ kind, req, principal, kernel }) {
+        if (kind !== "upgrade") return;
+        const url = new URL(req.url ?? "/", "http://portable.invalid");
+        if (url.pathname !== "/session" || url.searchParams.has("path")) return;
+        const sessionId = url.searchParams.get("sessionId");
+        const projectId = url.searchParams.get("projectId") ?? "default-proj";
+        const workspacePath = `/virtual/${principal.tenantId}/${projectId}`;
+        if (!kernel.hasProject(workspacePath)) {
+          await kernel.handleRequest(
+            "project/configure",
+            { workspacePath, projectId, kind: "virtual" },
+            { requestId: "auto-proj", connectionId: "internal", remote: false },
+          );
+        }
+        req.url = `/session?path=${encodeURIComponent(workspacePath)}${sessionId ? `&sessionId=${encodeURIComponent(sessionId)}` : ""}`;
+      },
+      prepareRpc({ body }) {
+        if (body.method !== "project/configure" || typeof body.params !== "object" || body.params === null) {
+          return undefined;
+        }
+        const params = body.params as Record<string, unknown>;
+        const rawProjectId = typeof params.projectId === "string" ? params.projectId : "";
+        if (!rawProjectId.startsWith("prefix:")) return undefined;
+        return {
+          params: { ...params, projectId: rawProjectId.slice("prefix:".length) },
+        };
+      },
+    });
+    onTestFinished(() => server[Symbol.asyncDispose]());
+
+    const addr = await server.listen(0, "127.0.0.1");
+
+    const ws = await openWsClient(`${addr.wsUrl}/session?sessionId=auto-sess-1&projectId=proj-auto`, {
+      authorization: "Bearer token-a",
+    });
+    onTestFinished(() => ws.close());
+    await expect(ws.request("kv/set", { key: "topic", value: "hooks", scope: "session" })).resolves.toEqual({ ok: true });
+
+    const listed = await httpJson(`${addr.url}/sessions?projectId=proj-auto`, {
+      headers: { authorization: "Bearer token-a" },
+    });
+    expect(listed.status).toBe(200);
+    expect(JSON.stringify(listed.json)).toContain("auto-sess-1");
+
+    const cfgRes = await httpJson(`${addr.url}/rpc`, {
+      method: "POST",
+      headers: { authorization: "Bearer token-a" },
+      body: {
+        id: 10,
+        method: "project/configure",
+        params: { projectId: "prefix:proj-normalized", workspacePath: "/virtual/tenant-a/norm", kind: "virtual" },
+      },
+    });
+    expect(cfgRes.status).toBe(200);
+    expect((cfgRes.json as { result?: { projectId?: string } }).result?.projectId).toBe("proj-normalized");
+  }, 15_000);
 });

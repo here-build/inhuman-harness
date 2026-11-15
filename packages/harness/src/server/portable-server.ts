@@ -41,12 +41,45 @@ export interface PortablePrincipal {
   readonly subjectId?: string;
 }
 
+export type PortableRequestContext = {
+  readonly kind: "http" | "upgrade";
+  readonly req: IncomingMessage;
+  readonly principal: PortablePrincipal;
+  readonly kernel: KernelDaemon;
+};
+
+export type PortableRpcScope =
+  | { readonly kind: "kernel" }
+  | { readonly kind: "project"; readonly path: string }
+  | { readonly kind: "session"; readonly sessionId: string; readonly path?: string };
+
+export type PortableRpcContext = {
+  readonly body: {
+    readonly id?: string | number | null;
+    readonly method: string;
+    readonly params?: unknown;
+    readonly scope?: PortableRpcScope;
+  };
+  readonly principal: PortablePrincipal;
+  readonly kernel: KernelDaemon;
+};
+
+export type PortableRpcAdjustment = {
+  readonly method?: string;
+  readonly params?: unknown;
+  readonly scope?: PortableRpcScope;
+};
+
 export interface PortableHarnessServerOptions {
   readonly registry: MultiKernelRegistry;
   /** Whether `[Symbol.asyncDispose]` also disposes `registry`. Default: `true`. */
   readonly ownsRegistry?: boolean;
   readonly authenticate: (req: IncomingMessage) => Promise<PortablePrincipal | null> | PortablePrincipal | null;
   readonly allowedOrigins?: readonly string[];
+  /** Optional host hook run after authentication and kernel acquisition before route dispatch. */
+  readonly prepareRequest?: (context: PortableRequestContext) => Promise<void> | void;
+  /** Optional host hook to normalize or auto-provision scope before `POST /rpc` executes. */
+  readonly prepareRpc?: (context: PortableRpcContext) => Promise<PortableRpcAdjustment | void> | PortableRpcAdjustment | void;
 }
 
 export interface PortableListenAddress {
@@ -238,7 +271,18 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
 
     const lease = await registry.acquire(auth.principal.kernelId);
     try {
-      if (method === "GET" && pathname === "/sessions") {
+      if (options.prepareRequest !== undefined) {
+        await options.prepareRequest({
+          kind: "http",
+          req,
+          principal: auth.principal,
+          kernel: lease.kernel,
+        });
+        parsedUrl = new URL(req.url ?? "/", "http://portable.invalid");
+      }
+      const routePathname = parsedUrl.pathname;
+
+      if (method === "GET" && routePathname === "/sessions") {
         const limit = parseSessionsLimit(parsedUrl);
         const projectId = parsedUrl.searchParams.get("projectId") ?? undefined;
         const workspacePath = parsedUrl.searchParams.get("workspacePath") ?? undefined;
@@ -257,10 +301,10 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
         return;
       }
 
-      if (method === "GET" && pathname.startsWith("/sessions/")) {
+      if (method === "GET" && routePathname.startsWith("/sessions/")) {
         let sessionId: string;
         try {
-          sessionId = decodeURIComponent(pathname.slice("/sessions/".length));
+          sessionId = decodeURIComponent(routePathname.slice("/sessions/".length));
         } catch {
           writeJson(res, 400, { error: "invalid session id encoding" });
           return;
@@ -287,7 +331,7 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
         return;
       }
 
-      if (method === "POST" && pathname === "/rpc") {
+      if (method === "POST" && routePathname === "/rpc") {
         let parsedBody: unknown;
         try {
           parsedBody = (await readRequestJson(req)).parsed;
@@ -305,38 +349,52 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
           return;
         }
         const body = bodyResult.data;
-        const scope = body.scope ?? { kind: "kernel" as const };
+        let rpcMethod = body.method;
+        let rpcParams: unknown = body.params ?? {};
+        let rpcScope: PortableRpcScope = body.scope ?? { kind: "kernel" as const };
+        if (options.prepareRpc !== undefined) {
+          const adjusted = await options.prepareRpc({
+            body: { id: body.id, method: rpcMethod, params: rpcParams, scope: rpcScope },
+            principal: auth.principal,
+            kernel: lease.kernel,
+          });
+          if (adjusted !== undefined) {
+            if (adjusted.method !== undefined) rpcMethod = adjusted.method;
+            if (adjusted.params !== undefined) rpcParams = adjusted.params;
+            if (adjusted.scope !== undefined) rpcScope = adjusted.scope;
+          }
+        }
         let host: RequestHost | null = null;
-        switch (scope.kind) {
+        switch (rpcScope.kind) {
           case "kernel":
             host = lease.kernel;
             break;
           case "project": {
-            if (!lease.kernel.hasProject(scope.path)) {
+            if (!lease.kernel.hasProject(rpcScope.path)) {
               writeJson(res, 404, { error: "project not found" });
               return;
             }
-            const project = lease.kernel.project(scope.path);
+            const project = lease.kernel.project(rpcScope.path);
             await project.ready;
             host = project;
             break;
           }
           case "session": {
-            const owner = await findSessionOwnerKernel(lease.kernel, scope.sessionId);
+            const owner = await findSessionOwnerKernel(lease.kernel, rpcScope.sessionId);
             if (owner !== null && owner !== lease.kernelId) {
               writeJson(res, 404, { error: "session not found" });
               return;
             }
-            if (scope.path !== undefined && scope.path !== "") {
-              if (!lease.kernel.hasProject(scope.path)) {
+            if (rpcScope.path !== undefined && rpcScope.path !== "") {
+              if (!lease.kernel.hasProject(rpcScope.path)) {
                 writeJson(res, 404, { error: "project not found" });
                 return;
               }
-              const project = lease.kernel.project(scope.path);
+              const project = lease.kernel.project(rpcScope.path);
               await project.ready;
-              host = await project.session(scope.sessionId);
+              host = await project.session(rpcScope.sessionId);
             } else {
-              host = await resolveSessionHost(lease.kernel, scope.sessionId);
+              host = await resolveSessionHost(lease.kernel, rpcScope.sessionId);
             }
             break;
           }
@@ -346,7 +404,7 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
           return;
         }
         try {
-          const result = await host.handleRequest(body.method, body.params ?? {}, {
+          const result = await host.handleRequest(rpcMethod, rpcParams, {
             requestId: body.id ?? randomUUID(),
             connectionId: `http-${randomUUID()}`,
             remote: true,
@@ -376,7 +434,6 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
   });
 
   server.on("upgrade", (req, socket, head) => {
-    const url = req.url ?? "/";
     const goneRef = { gone: false };
     socket.on("error", () => {
       goneRef.gone = true;
@@ -394,9 +451,9 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
         refuseUpgrade(socket, goneRef, 403, "Forbidden");
         return;
       }
-      const classified = classifyPublicUpgrade(url);
-      if (classified.action === "refuse") {
-        refuseUpgrade(socket, goneRef, classified.status, classified.reason);
+      const [rawPathname = "/"] = (req.url ?? "/").split("?");
+      if (rawPathname !== "/kernel" && rawPathname !== "/project" && rawPathname !== "/session") {
+        refuseUpgrade(socket, goneRef, UPGRADE_NOT_FOUND, "not found");
         return;
       }
 
@@ -410,6 +467,22 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
       const lease = await registry.acquire(auth.principal.kernelId);
       let transferred = false;
       try {
+        if (options.prepareRequest !== undefined) {
+          await options.prepareRequest({
+            kind: "upgrade",
+            req,
+            principal: auth.principal,
+            kernel: lease.kernel,
+          });
+        }
+        if (goneRef.gone || socket.destroyed) return;
+
+        const classified = classifyPublicUpgrade(req.url ?? "/");
+        if (classified.action === "refuse") {
+          refuseUpgrade(socket, goneRef, classified.status, classified.reason);
+          return;
+        }
+
         let host: RequestHost | null = null;
         if (classified.action === "open") {
           const { key } = classified;
@@ -545,7 +618,12 @@ export {
   type BundledPluginSpec,
   type HostRuntimePluginCatalogOptions,
 } from "./host-plugin-catalog.js";
-export { type KernelLease, type MultiKernelRegistryOptions, MultiKernelRegistry } from "./multi-kernel-registry.js";
+export {
+  type KernelLease,
+  type KernelStoreBinding,
+  type MultiKernelRegistryOptions,
+  MultiKernelRegistry,
+} from "./multi-kernel-registry.js";
 
 export {
   type AsyncSecretsStoreBackend,

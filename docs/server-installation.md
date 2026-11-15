@@ -11,13 +11,13 @@ This guide describes how to deploy `@inhuman.tools/harness/server` as a **statel
 | Capability | `"local"` contour (`HarnessDaemon`) | `"server"` contour (`createPortableHarnessServer` / `MultiKernelRegistry`) |
 | --- | --- | --- |
 | Primary transport | UNIX domain socket + loopback HTTP/WS | Portable HTTP + WebSocket server + `MultiKernelRegistry` |
-| Kernel multiplicity | Single host kernel (`kernelId: "local"`) | Pooled stateless in-memory kernels keyed by `kernelId`, bound 1:1 to `tenantId` |
+| Kernel multiplicity | Single host kernel (`kernelId: "local"`) | Pooled in-memory kernels keyed by `kernelId`. One `kernelId` binds to one `tenantId` for the life of the process; one tenant may own many kernels |
 | Persistence backend | `@inhuman.tools/scope-plane-sqlite` (`node:sqlite`, local `.db`) | `@inhuman.tools/scope-plane-postgres` (`pgPoolDriver` + PostgreSQL) |
 | Reactive read plane | `CommitDiffShapeSource` (commit diffs over WebSocket) | `CommitDiffShapeSource` (active turn WS) + `@inhuman.tools/scope-plane-electric` (HTTP shapes via ElectricSQL) |
 | Filesystem watcher (`KernelReflector`) | Watches local user directory & `.scm` files | **Disabled**; Scheme policy and compaction resources live in `scm_resources` DB rows |
 | Local `FS` / `shell` plugin | Enabled by default | **Disabled** unless explicitly enabled per project; `plugin/install` RPC is rejected |
-| Host plugins | Loaded per workspace/install | Pre-warmed once in `HostRuntimePluginCatalog` (`0` disk reads per kernel boot) |
-| Lifecycle & eviction | Resident daemon process | `KernelLease` ref-counting + `idleEvictMs` + `Symbol.dispose` / `Symbol.asyncDispose` |
+| Host plugins | Loaded per workspace/install | Warmed once in `HostRuntimePluginCatalog`. `warm()` reads seed manifests from disk at process start and then reuses the cache; later kernel boots do not re-read those files |
+| Lifecycle & eviction | Resident daemon process | `KernelLease` ref-counting. `idleEvictMs` defaults to `0` (timer off). A positive value evicts only after the last lease drops and the kernel has no live session roots |
 
 ---
 
@@ -50,21 +50,22 @@ Production deployments separate product transactional data, high-frequency agent
    - Stores users, tenants/workspaces, roles/memberships, domain records, and external session identifiers.
    - Stores **no** agent prompt history, runtime KV state, or encrypted model credentials.
 
-2. **Dedicated Control / Agent Schema (`harness.*` in PostgreSQL)**
-   - Provision a dedicated PostgreSQL schema (or dedicated database host) and apply `HARNESS_POSTGRES_DDL` exported from `@inhuman.tools/harness-contract/schema` (also bootstrapped idempotently by `await db.bootstrap()`).
+2. **Dedicated Agent State Schema (`harness.*` in shared or per-tenant PostgreSQL)**
+   - Provision the agent schema inside a shared database or **per-tenant / BYO-PostgreSQL databases** via `MultiKernelRegistry({ resolveStore })`, applying `HARNESS_POSTGRES_DDL` exported from `@inhuman.tools/harness-contract/schema` (also bootstrapped idempotently by `await db.bootstrap()`).
+   - Storing `harness.*` inside each tenant's own data database lets reactive list shapes share the tenant's PostgreSQL replication stream (no second ElectricSQL instance) and ensures enterprise BYO-PostgreSQL tenants retain conversation history on their own database server.
    - Canonical 11 `kernel_id`-partitioned tables:
      `kernel_state`, `projects`, `scope_nodes`, `sessions`, `pending_asks`, `session_turns`, `session_nodes`, `session_effects`, `session_blobs`, `scm_resources`, and `plugin_state_logs`.
-   - All WAL-replicated tables configure `REPLICA IDENTITY FULL` so ElectricSQL `/v1/shape` streams carry complete row values across filtered predicates (`WHERE kernel_id = $1 ...`).
+   - `HARNESS_POSTGRES_DDL` sets `REPLICA IDENTITY FULL` on every one of those tables, including `kernel_state` and `scm_resources`. `session_effects` and `session_blobs` are in the DDL but do not get that `ALTER` (their deletes are not streamed as full row images).
    - Zero local SQLite files or ephemeral disk state are required on agent pods: any pod can evict a kernel or restart cold and rehydrate transparently from PostgreSQL.
 
-3. **Dedicated Secrets Storage (`vault.harness_connection_secrets` in PostgreSQL)**
+3. **Dedicated Secrets Storage (`<schema>.harness_connection_secrets` in PostgreSQL)**
    - Separate storage schema holding AES-256-GCM encrypted provider API keys and integration tokens, isolated from agent `sessions` / `session_nodes` / `LiveShape` streams.
    - `PostgresSecretsBackend` (`@inhuman.tools/scope-plane-postgres`) implements `AsyncSecretsStoreBackend` over table `"<schema>"."harness_connection_secrets"`:
      - Primary key: `(tenant_id, kernel_id, connection_id)`
      - Envelope columns: `kid TEXT`, `iv BYTEA`, `auth_tag BYTEA`, `ciphertext BYTEA`, `updated_at_ms BIGINT`
    - `EncryptedSecretsVault` binds canonical Additional Authenticated Data (`encodeCanonicalAad(tenantId, kernelId, connectionId)`) to prevent cross-tenant or cross-connection ciphertext transplant attacks, supports key rotation via `SecretsKeyRing`, and stays safe under synchronous runtime access:
      - `KernelDaemon` automatically calls `await secrets.warm()` during kernel acquisition/boot so in-turn `readConnectionSecrets()` calls remain synchronous.
-     - Writes enqueue ordered async write-through persistence and drain via `await secrets.flush()` during graceful disposal.
+     - Writes enqueue ordered async write-through persistence. `await secrets.flush()` waits for that queue. Kernel shutdown only reaches that flush when session teardown finishes inside `SHUTDOWN_DEADLINE_MS` (5s); if the deadline fires first, the flush is skipped. `EncryptedSecretsVault[Symbol.dispose]()` does not flush, and registry dispose calls it. `rewrapAllAsync()` does flush after rewriting.
      - Key rotation re-wraps persisted records cleanly via `await vault.rewrapAllAsync()`.
 
 ---
@@ -75,7 +76,7 @@ Production deployments separate product transactional data, high-frequency agent
 
 ### Server service dependencies
 
-- `@inhuman.tools/harness` (`@inhuman.tools/harness/server` exports `createPortableHarnessServer`, `MultiKernelRegistry`, `HostRuntimePluginCatalog`, `EncryptedSecretsVault`, `MemorySecretsBackend`, `MemorySecretsVault`, `SecretsAuthError`, `encodeCanonicalAad`, `CommitDiffShapeSource`, `MemoryKvStore`, `AsyncCachedBlobBucket`, `MemoryAsyncBlobBucket`, `blobKeyOf`, `sha256OfBlobKey`, `DriverRegistry`, `openDriverRegistry`, `PRODUCT_PROVIDERS`, `viewWire`, `toolsFor`, `completionCatalogOf`, and `liveToolDescriptionOf`)
+- `@inhuman.tools/harness` (`@inhuman.tools/harness/server` exports `createPortableHarnessServer`, `MultiKernelRegistry`, `HostRuntimePluginCatalog`, `EncryptedSecretsVault`, `MemorySecretsBackend`, `MemorySecretsVault`, `SqliteSecretsBackend`, `SecretsAuthError`, `encodeCanonicalAad`, `CommitDiffShapeSource`, `MemoryKvStore`, `AsyncCachedBlobBucket`, `MemoryAsyncBlobBucket`, `blobKeyOf`, `sha256OfBlobKey`, `DriverRegistry`, `openDriverRegistry`, `PRODUCT_PROVIDERS`, `viewWire`, `toolsFor`, `completionCatalogOf`, and `liveToolDescriptionOf`). It does not export `pgPoolDriver`, `PostgresKvStore`, or `PostgresSecretsBackend`; those come from `@inhuman.tools/scope-plane-postgres`, and `pg` is not a runtime dependency of `@inhuman.tools/harness`
 - `@inhuman.tools/scope-plane` (`HarnessKvStore`, `ShapeSource`, `CommitDiffShapeSource`, `LiveShape`, `MemoryKvStore`)
 - `@inhuman.tools/scope-plane-postgres` (`pgPoolDriver`, `PostgresKvStore`, `PostgresSecretsBackend`)
 - `@inhuman.tools/scope-plane-electric` (when reading shapes directly from ElectricSQL in backend/worker processes)
@@ -102,7 +103,7 @@ Production deployments separate product transactional data, high-frequency agent
 
 In the `"server"` contour, tenant users cannot execute arbitrary local disk code or call `plugin/install`. Register curated plugins once at startup via `HostRuntimePluginCatalog`:
 
-1. **Seed packages**: `includeSeedPackages: true` preloads bundled runtime plugins from immutable memory caches (`0` per-kernel disk I/O).
+1. **Seed packages**: seed packages are included unless `includeSeedPackages: false`. `await catalog.warm()` reads their manifests, commands, and bot graphs once into memory. Later kernel boots reuse that cache. A malformed optional package is skipped, not failed.
 2. **Custom server `InhumanPlugin` extensions**: implement domain capabilities (virtual document collections, cloud storage, SQL query tools, remote APIs, or VM bridges) via `@inhuman.tools/plugin-sdk`.
 3. **Virtual workspaces via `WorkspaceEnvPort`**: return `{ workspaceEnv }` from `activateProject(ctx, config)` so path resolution and write-admission policy validate against a logical root without probing the container filesystem.
 
@@ -204,16 +205,19 @@ const catalog = await new HostRuntimePluginCatalog({
 }).warm();
 
 // 4. Pooled per-kernel registry with idle eviction (stateless: RAM only caches active leases)
+// Pass either a shared `db`/`laneHub` OR `resolveStore(kernelId)` for per-tenant / BYO-Postgres stores.
 const blobBuckets: AsyncCachedBlobBucket[] = [];
 const registry = new MultiKernelRegistry({
-  db: agentDb,
-  ownsDb: true,
-  laneHub,
-  ownsLaneHub: true,
+  resolveStore(kernelId) {
+    const [tenantId] = kernelId.split(":", 2);
+    const tenantPool = getOrCreateTenantPool(tenantId!);
+    const db = new PostgresKvStore(pgPoolDriver(tenantPool), { schema: "harness" });
+    return { db, ownsDb: false, ownsLaneHub: true };
+  },
   idleEvictMs: 10 * 60_000,
   ...catalog.kernelOptions(),
   createSecretsVault(kernelId) {
-    const [tenantId] = kernelId.split(":", 1);
+    const [tenantId] = kernelId.split(":", 2);
     return new EncryptedSecretsVault({
       backend: secretsBackend,
       keyRing,
@@ -223,10 +227,13 @@ const registry = new MultiKernelRegistry({
     });
   },
   createBlobBucket(kernelId) {
-    const [tenantId] = kernelId.split(":", 1);
+    const [tenantId] = kernelId.split(":", 2);
     const cache = new AsyncCachedBlobBucket({
-      // Scope S3 keys strictly by tenantId (for example `tenants/<tenantId>/blobs/<sha256>`).
-      remote: createObjectStorageBlobBucket({ prefix: `tenants/${tenantId}/blobs/` }),
+      // No S3 adapter ships with the harness. `remote` must implement `BlobBucket`
+      // (`put` / `get` / `head` / `delete` / `list`). Bucket keys are content
+      // addresses (`sha256/<hex>`); put the tenant prefix inside that adapter
+      // (for example `tenants/<tenantId>/blobs/sha256/<hex>`).
+      remote: createTenantBlobBucket(tenantId!),
       maxCacheBytes: 64 * 1024 * 1024,
     });
     blobBuckets.push(cache);
@@ -240,7 +247,9 @@ const server = createPortableHarnessServer({
   ownsRegistry: true,
   allowedOrigins: [process.env.PUBLIC_ORIGIN!],
   async authenticate(req) {
-    // Verify a shared gateway secret (timing-safe) alongside verified Hono headers.
+    // The harness does not check a gateway secret. Compare it here, in constant time,
+    // and return null when it does not match. Verified identity headers are only as
+    // trustworthy as this callback.
     const tenantId = req.headers["x-verified-tenant-id"];
     const userId = req.headers["x-verified-user-id"];
     if (typeof tenantId !== "string" || !tenantId || typeof userId !== "string" || !userId) {
@@ -252,6 +261,9 @@ const server = createPortableHarnessServer({
       subjectId: userId,
     };
   },
+  // Optional hooks:
+  // prepareRequest({ kind, req, principal, kernel }) — sync host connections or auto-configure virtual projects
+  // prepareRpc({ body, principal, kernel }) — normalize external project IDs before POST /rpc dispatch
 });
 
 const address = await server.listen(Number(process.env.HARNESS_PORT ?? 8799), "127.0.0.1");
@@ -260,10 +272,20 @@ console.log(`Portable harness server listening on ${address.url}`);
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, () => {
     void (async () => {
-      await server[Symbol.asyncDispose](); // drains active kernels, flushes PostgresKvStore & secrets
-      await Promise.allSettled(blobBuckets.map((bucket) => bucket[Symbol.asyncDispose]()));
+      // Blob write-behind is not part of server dispose. `AsyncCachedBlobBucket`
+      // `[Symbol.dispose]` drops the RAM cache without waiting for remote uploads,
+      // and a later `asyncDispose` is then a no-op. Flush first.
+      await Promise.all(blobBuckets.map((bucket) => bucket.flush()));
+      // `server[Symbol.asyncDispose]()` closes sockets and disposes the registry.
+      // Kernel async dispose flushes dirty KV rows and `secrets.flush()`, but that
+      // wait races a 5s deadline (`SHUTDOWN_DEADLINE_MS`). On expiry the flush is
+      // skipped. Registry dispose also calls `kernel[Symbol.dispose]()`, which
+      // disposes the vault synchronously and does not flush pending ciphertext.
+      await server[Symbol.asyncDispose]();
       await secretsBackend.close();
       await pool.end();
+      // `pool` is only the shared secrets/bootstrap pool. Also end every pool
+      // created by `getOrCreateTenantPool`.
     })().finally(() => process.exit(0));
   });
 }
@@ -276,9 +298,9 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 
 | Route | Protocol | Purpose |
 | --- | --- | --- |
-| `GET /healthz` | HTTP | Unauthenticated liveness probe (`{ ok: true }`, still checks `allowedOrigins` if `Origin` header is present) |
+| `GET /healthz` | HTTP | Liveness probe (`{ ok: true }`). No `authenticate` call. If `allowedOrigins` is set, a present `Origin` that is not in the set is `403`; a missing `Origin` is allowed |
 | `GET /sessions?limit=&projectId=&workspacePath=` | HTTP | Cold/SSR list of recent sessions evaluated from `recent_sessions` lane for the authenticated kernel |
-| `GET /sessions/:sessionId` | HTTP | Session snapshot (`sessions` row + `session_nodes` rows) or `404` if owned by another kernel |
+| `GET /sessions/:sessionId` | HTTP | Snapshot for a session stored on this kernel (`200`, `session` may be `null` when only nodes exist). `404` when the row belongs to another kernel and this kernel has not stored the session |
 | `POST /rpc` | HTTP | JSON-RPC call `{ id, method, params, scope }` (`kernel` \| `project` \| `session`) |
 | `/kernel` | WebSocket | Kernel-plane JSON-RPC, presence (`seat` awareness), and kernel-scoped `LiveShape` subscriptions |
 | `/project?path=...` | WebSocket | Project-plane JSON-RPC and `scope_nodes` subscriptions |
@@ -299,8 +321,10 @@ https://app.example.com {
     reverse_proxy 127.0.0.1:8788
   }
 
-  handle /v1/shape* {
-    # Proxy browser ElectricSQL shape requests through the auth gateway so tenant WHERE filters stay server-enforced
+  @electric path /v1/shape /v1/shape/*
+  handle @electric {
+    # Proxy browser ElectricSQL shape requests through the auth gateway so tenant WHERE filters stay server-enforced.
+    # Caddy path matchers are not globs; `/v1/shape*` does not match.
     reverse_proxy 127.0.0.1:8788
   }
 
@@ -354,8 +378,8 @@ export function registerAgentGatewayRoutes(app: Hono, harnessOrigin: string, gat
 
 For sidebar session lists powered by ElectricSQL directly from `harness.sessions`:
 
-- Table: `harness.sessions` (control PostgreSQL database)
-- `WHERE` predicate: `kernel_id = $1 and project_id = $2 and archived_at_ms is null and mode = 'assistant'`
+- Table: `harness.sessions` (tenant data PostgreSQL database or shared control DB)
+- `WHERE` predicate: `kernel_id = $1 and project_id = $2 and parent_session_id is null and archived_at_ms is null`
 - Bound params (server-injected, never client-supplied): `params[0] = "${tenantId}:${userId}"`, `params[1] = workspaceId`
 - Columns read by clients: `session_id`, `title`, `last_active_at_ms` (Unix epoch ms), `running` (`boolean`).
 
@@ -368,7 +392,7 @@ For sidebar session lists powered by ElectricSQL directly from `harness.sessions
 
 Before running turns in a tenant workspace, provision:
 
-1. **Model connection (secrets go directly to `EncryptedSecretsVault` -> PostgreSQL `vault`)**:
+1. **Model connection (secrets go to `EncryptedSecretsVault`, then to the schema passed to `PostgresSecretsBackend`, default `public`)**:
    `POST /rpc` with `scope: { kind: "kernel" }`:
    ```json
    {
@@ -382,7 +406,7 @@ Before running turns in a tenant workspace, provision:
      }
    }
    ```
-   Returns `{ result: { id: "<connectionId>" } }`. Never store provider secrets inside `kernel_state.kvs_json`, `projects.kvs_json`, or `session_nodes`.
+   The HTTP body is `{ jsonrpc: "2.0", id, result: { id: "<connectionId>" } }`. `connect/adopt` rejects an unknown driver (`openai-compat` must already be in the kernel driver registry). Never store provider secrets inside `kernel_state.kvs_json`, `projects.kvs_json`, or `session_nodes`.
 
 2. **Virtual workspace overlay (`Project.pluginConfigs`)**:
    `POST /rpc` with `scope: { kind: "kernel" }`:

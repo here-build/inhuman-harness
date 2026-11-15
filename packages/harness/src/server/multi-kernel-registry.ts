@@ -1,9 +1,10 @@
 /**
  * Multi-tenant server registry mapping `kernelId` -> pooled `KernelDaemon`.
  *
- * Shares one Agent DB (`HarnessKvStore`) and one `ShapeSource` across tenant
- * kernels in the `"server"` contour while giving each kernel its own isolated
- * secrets vault, blob bucket, visual store, and idle-eviction lifecycle.
+ * Supports either one shared Agent DB (`HarnessKvStore`) or a per-kernel
+ * `resolveStore` factory for database-per-tenant / cluster-sharded isolation in
+ * the `"server"` contour while giving each kernel its own secrets vault, blob
+ * bucket, visual store, and idle-eviction lifecycle.
  */
 import { AsyncDisposableClass } from "@inhuman.tools/harness-commons";
 import { fail } from "@inhuman.tools/harness-diagnostics";
@@ -17,11 +18,20 @@ import { KernelDaemon } from "./daemon/kernel/KernelDaemon.js";
 import type { VisualStorePort } from "./daemon/session/visual-store.js";
 import type { SecretsVaultPort } from "./secrets.js";
 
-export type MultiKernelRegistryOptions = {
+export type KernelStoreBinding = {
   readonly db: HarnessKvStore;
+  readonly laneHub?: ShapeSource;
+  readonly ownsDb?: boolean;
+  readonly ownsLaneHub?: boolean;
+};
+
+export type MultiKernelRegistryOptions = {
+  readonly db?: HarnessKvStore;
   readonly ownsDb?: boolean;
   readonly laneHub?: ShapeSource;
   readonly ownsLaneHub?: boolean;
+  /** Optional per-kernel store resolver (for database-per-tenant or schema-per-tenant isolation). */
+  readonly resolveStore?: (kernelId: string) => Promise<KernelStoreBinding> | KernelStoreBinding;
   /** Idle TTL after the last lease is released. Values `<= 0` disable timer eviction. */
   readonly idleEvictMs?: number;
   readonly createSecretsVault?: (kernelId: string) => SecretsVaultPort;
@@ -37,32 +47,58 @@ export interface KernelLease extends Disposable, AsyncDisposable {
   readonly kernel: KernelDaemon;
 }
 
+type ResolvedStore = {
+  readonly db: HarnessKvStore;
+  readonly laneHub: ShapeSource;
+  readonly ownsDb: boolean;
+  readonly ownsLaneHub: boolean;
+};
+
 type RegistryEntry = {
   readonly kernelId: string;
   readonly kernel: KernelDaemon;
+  readonly store: ResolvedStore;
   leases: number;
   lastReleasedAtMs: number;
   idleTimer: NodeJS.Timeout | null;
 };
 
 export class MultiKernelRegistry extends AsyncDisposableClass {
-  readonly db: HarnessKvStore;
-  readonly laneHub: ShapeSource;
+  readonly #sharedDb: HarnessKvStore | null;
+  readonly #sharedLaneHub: ShapeSource | null;
   readonly #ownsDb: boolean;
   readonly #ownsLaneHub: boolean;
   readonly #idleEvictMs: number;
   readonly #options: MultiKernelRegistryOptions;
   readonly #entries = new Map<string, RegistryEntry>();
+  readonly #creating = new Map<string, Promise<RegistryEntry>>();
   readonly #evicting = new Map<string, Promise<void>>();
 
   constructor(options: MultiKernelRegistryOptions) {
     super();
-    this.db = options.db;
-    this.#ownsDb = options.ownsDb ?? false;
-    this.laneHub = options.laneHub ?? new CommitDiffShapeSource(options.db);
-    this.#ownsLaneHub = options.ownsLaneHub ?? options.laneHub === undefined;
+    if (options.db === undefined && options.resolveStore === undefined) {
+      throw new Error("MultiKernelRegistry requires either db or resolveStore");
+    }
+    this.#sharedDb = options.db ?? null;
+    this.#ownsDb = options.db !== undefined ? (options.ownsDb ?? false) : false;
+    this.#sharedLaneHub = options.laneHub ?? (options.db !== undefined ? new CommitDiffShapeSource(options.db) : null);
+    this.#ownsLaneHub = options.db !== undefined ? (options.ownsLaneHub ?? options.laneHub === undefined) : false;
     this.#idleEvictMs = options.idleEvictMs ?? 0;
     this.#options = options;
+  }
+
+  get db(): HarnessKvStore {
+    if (this.#sharedDb === null) {
+      throw new Error("MultiKernelRegistry: no shared db configured; read kernel.db via acquire()");
+    }
+    return this.#sharedDb;
+  }
+
+  get laneHub(): ShapeSource {
+    if (this.#sharedLaneHub === null) {
+      throw new Error("MultiKernelRegistry: no shared laneHub configured; read kernel.laneHub via acquire()");
+    }
+    return this.#sharedLaneHub;
   }
 
   get size(): number {
@@ -82,44 +118,36 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
   }
 
   async acquire(kernelId: string): Promise<KernelLease> {
-    if (this.disposed || this.disposing) {
-      throw new Error("MultiKernelRegistry: disposed");
-    }
-    while (this.#evicting.has(kernelId)) {
-      await this.#evicting.get(kernelId);
-    }
-    if (this.disposed || this.disposing) {
-      throw new Error("MultiKernelRegistry: disposed");
-    }
+    let entry: RegistryEntry;
+    while (true) {
+      if (this.disposed || this.disposing) {
+        throw new Error("MultiKernelRegistry: disposed");
+      }
+      const evicting = this.#evicting.get(kernelId);
+      if (evicting !== undefined) {
+        await evicting;
+        continue;
+      }
 
-    let entry = this.#entries.get(kernelId);
-    if (entry === undefined) {
-      const secrets = this.#options.createSecretsVault?.(kernelId);
-      const blobBucket = this.#options.createBlobBucket?.(kernelId);
-      const visuals = this.#options.createVisualStore?.(kernelId);
-      const registry = this.#options.createRegistry?.(kernelId);
-      const kernel = new KernelDaemon({
-        contour: "server",
-        kernelId,
-        db: this.db,
-        ownsDb: false,
-        laneHub: this.laneHub,
-        ownsLaneHub: false,
-        ...(secrets !== undefined ? { secrets, ownsSecrets: true } : {}),
-        ...(blobBucket !== undefined ? { blobBucket, ownsBlobs: true } : {}),
-        ...(visuals !== undefined ? { visuals, ownsVisuals: true } : {}),
-        ...(registry !== undefined ? { registry } : {}),
-        ...(this.#options.bundledPlugins !== undefined ? { bundledPlugins: this.#options.bundledPlugins } : {}),
-        ...(this.#options.runtimePlugins !== undefined ? { runtimePlugins: this.#options.runtimePlugins } : {}),
-      });
-      entry = {
-        kernelId,
-        kernel,
-        leases: 0,
-        lastReleasedAtMs: Date.now(),
-        idleTimer: null,
-      };
-      this.#entries.set(kernelId, entry);
+      const existing = this.#entries.get(kernelId);
+      if (existing !== undefined) {
+        entry = existing;
+        break;
+      }
+
+      let creating = this.#creating.get(kernelId);
+      if (creating === undefined) {
+        creating = this.#createEntry(kernelId).finally(() => {
+          if (this.#creating.get(kernelId) === creating) {
+            this.#creating.delete(kernelId);
+          }
+        });
+        this.#creating.set(kernelId, creating);
+      }
+      entry = await creating;
+      if (this.#entries.get(kernelId) === entry) {
+        break;
+      }
     }
 
     if (entry.idleTimer !== null) {
@@ -187,7 +215,11 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
     let evictPromise: Promise<void> | undefined;
     evictPromise = (async () => {
       try {
-        await entry.kernel[Symbol.asyncDispose]();
+        try {
+          await entry.kernel[Symbol.asyncDispose]();
+        } finally {
+          await this.#disposeEntryStore(entry.store);
+        }
       } finally {
         if (this.#evicting.get(kernelId) === evictPromise) {
           this.#evicting.delete(kernelId);
@@ -213,6 +245,69 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
     return evicted;
   }
 
+  async #createEntry(kernelId: string): Promise<RegistryEntry> {
+    let store: ResolvedStore;
+    if (this.#options.resolveStore !== undefined) {
+      const binding = await this.#options.resolveStore(kernelId);
+      store = {
+        db: binding.db,
+        laneHub: binding.laneHub ?? new CommitDiffShapeSource(binding.db),
+        ownsDb: binding.ownsDb ?? false,
+        ownsLaneHub: binding.ownsLaneHub ?? binding.laneHub === undefined,
+      };
+    } else {
+      store = {
+        db: this.#sharedDb!,
+        laneHub: this.#sharedLaneHub!,
+        ownsDb: false,
+        ownsLaneHub: false,
+      };
+    }
+
+    if (this.disposed || this.disposing) {
+      await this.#disposeEntryStore(store);
+      throw new Error("MultiKernelRegistry: disposed");
+    }
+
+    const secrets = this.#options.createSecretsVault?.(kernelId);
+    const blobBucket = this.#options.createBlobBucket?.(kernelId);
+    const visuals = this.#options.createVisualStore?.(kernelId);
+    const registry = this.#options.createRegistry?.(kernelId);
+    const kernel = new KernelDaemon({
+      contour: "server",
+      kernelId,
+      db: store.db,
+      ownsDb: false,
+      laneHub: store.laneHub,
+      ownsLaneHub: false,
+      ...(secrets !== undefined ? { secrets, ownsSecrets: true } : {}),
+      ...(blobBucket !== undefined ? { blobBucket, ownsBlobs: true } : {}),
+      ...(visuals !== undefined ? { visuals, ownsVisuals: true } : {}),
+      ...(registry !== undefined ? { registry } : {}),
+      ...(this.#options.bundledPlugins !== undefined ? { bundledPlugins: this.#options.bundledPlugins } : {}),
+      ...(this.#options.runtimePlugins !== undefined ? { runtimePlugins: this.#options.runtimePlugins } : {}),
+    });
+    const entry: RegistryEntry = {
+      kernelId,
+      kernel,
+      store,
+      leases: 0,
+      lastReleasedAtMs: Date.now(),
+      idleTimer: null,
+    };
+    this.#entries.set(kernelId, entry);
+    return entry;
+  }
+
+  async #disposeEntryStore(store: ResolvedStore): Promise<void> {
+    if (store.ownsLaneHub) {
+      store.laneHub.dispose();
+    }
+    if (store.ownsDb) {
+      await store.db.close();
+    }
+  }
+
   #isIdle(entry: RegistryEntry): boolean {
     return entry.leases === 0 && entry.kernel.liveSessionRoots().length === 0;
   }
@@ -225,7 +320,9 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
         entry.idleTimer = null;
       }
       this.#entries.delete(entry.kernelId);
-      void entry.kernel[Symbol.asyncDispose]().catch(() => undefined);
+      void entry.kernel[Symbol.asyncDispose]()
+        .catch(() => undefined)
+        .finally(() => this.#disposeEntryStore(entry.store).catch(() => undefined));
     }
   }
 
@@ -249,6 +346,9 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
   }
 
   protected override async disposeAsync(): Promise<void> {
+    if (this.#creating.size > 0) {
+      await Promise.allSettled(this.#creating.values());
+    }
     for (const entry of this.#entries.values()) {
       if (entry.idleTimer !== null) {
         clearTimeout(entry.idleTimer);
@@ -260,11 +360,11 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
     if (this.#evicting.size > 0) {
       await Promise.allSettled(this.#evicting.values());
     }
-    if (this.#ownsLaneHub) {
-      this.laneHub.dispose();
+    if (this.#ownsLaneHub && this.#sharedLaneHub !== null) {
+      this.#sharedLaneHub.dispose();
     }
-    if (this.#ownsDb) {
-      await this.db.close();
+    if (this.#ownsDb && this.#sharedDb !== null) {
+      await this.#sharedDb.close();
     }
   }
 }
