@@ -542,3 +542,31 @@ export {
   SqliteSecretsBackend,
   type SecretsStoreBackend,
 } from "./secrets-encrypted.js";
+
+export {
+  BLOB_KEY_PREFIX,
+  blobKeyOf,
+  sha256OfBlobKey,
+  type BlobBucket,
+  type BlobBucketSync,
+  type BlobListOptions,
+  type BlobListPage,
+  type BlobStat,
+} from "./blobs/bucket.js";
+export { DriverRegistry, isDriverRegistry, openDriverRegistry } from "../connections/registry.js";
+export { PRODUCT_PROVIDERS } from "./composition.js";
+export { MemorySecretsVault, type SecretsVaultPort } from "./secrets.js";
+export { type OpenAiTool } from "../providers/openai-compat/arg-aliases.js";
+export {
+  completionCatalogOf,
+  liveToolDescriptionOf,
+  type CompletionFace,
+  type LiveToolDescription,
+} from "../providers/openai-compat/completion-face.js";
+export {
+  chatContentText,
+  toolsFor,
+  viewWire,
+  type ChatImagePart,
+  type ChatMessage,
+} from "../providers/openai-compat/actor.js";

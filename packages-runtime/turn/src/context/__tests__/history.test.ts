@@ -30,6 +30,7 @@ import {
   BACKGROUND_TOOL,
   IN_FLIGHT_TOOL,
   NO_TOOLS_SYSTEM,
+  projectHistory,
   projectModelHistory,
   type HistoryMessage,
 } from "../index.js";
@@ -703,5 +704,9 @@ describe("spawn briefs in caller history", () => {
     expect(output.flatMap((row) => row.toolCalls ?? []).find((row) => row.id === "ordinary")?.argsJson).toBe(
       JSON.stringify(args),
     );
+  });
+
+  it("exposes deprecated projectHistory alias pointing to projectModelHistory", () => {
+    expect(projectHistory).toBe(projectModelHistory);
   });
 });

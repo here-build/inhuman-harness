@@ -159,3 +159,10 @@ export class SessionDocument extends DocumentContainer<SessionRoot, SessionAware
     return finish(new SessionDocument(root, { clientId: options?.clientId }));
   }
 }
+
+/**
+ * @deprecated Renamed to {@link SessionDocument} in 0.3.0. Kept as a compatibility alias for downstream callers during v0.3 migration.
+ */
+export const SessionPlexus = SessionDocument;
+/** @deprecated Use {@link SessionDocument} instead. */
+export type SessionPlexus = SessionDocument;

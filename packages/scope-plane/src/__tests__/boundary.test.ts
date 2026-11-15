@@ -62,6 +62,13 @@ const LEGACY_SYMBOL_PATTERNS = [
 
 const LEGACY_SKIP_DIRS = new Set(["node_modules", "dist", ".turbo", "target", "coverage", "build", ".git"]);
 const LEGACY_SELF_FILE = "packages/scope-plane/src/__tests__/boundary.test.ts";
+/** Deprecated compatibility alias kept explicitly for v0.3 downstream migration. */
+const DEPRECATED_COMPAT_ALLOWLIST: Readonly<Record<string, ReadonlySet<string>>> = {
+  SessionPlexus: new Set([
+    "packages/harness-model/src/session/SessionDocument.ts",
+    "packages/harness-model/src/session/__tests__/registration.test.ts",
+  ]),
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -289,7 +296,7 @@ describe("scope tree boundary", () => {
         for (const [index, line] of text.split("\n").entries()) {
           for (const pattern of LEGACY_SYMBOL_PATTERNS) {
             const match = pattern.exec(line);
-            if (match != null) {
+            if (match != null && !DEPRECATED_COMPAT_ALLOWLIST[match[0]]?.has(rel)) {
               violations.push(`${rel}:${index + 1} (${match[0]})`);
             }
           }

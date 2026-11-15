@@ -32,6 +32,8 @@ export {
   type HistoryMessage,
   type HistoryUserPart,
   notificationMessagesOf,
+  projectHistory,
   projectModelHistory,
+  type ProjectHistoryOptions,
   steerMessagesOf,
 } from "./history.js";

@@ -83,9 +83,11 @@ export class PostgresSecretsBackend implements SecretsStoreBackend {
 ### Dependencies to install
 
 **Server service package:**
-- `@inhuman.tools/harness` (import entrypoint `@inhuman.tools/harness/server`)
+- `@inhuman.tools/harness` (import entrypoint `@inhuman.tools/harness/server` — exports `createPortableHarnessServer`, `MultiKernelRegistry`, `HostRuntimePluginCatalog`, `EncryptedSecretsVault`, `SqliteSecretsBackend`, `MemorySecretsBackend`, `MemorySecretsVault`, `type SecretsVaultPort`, `AsyncCachedBlobBucket`, `MemoryAsyncBlobBucket`, `blobKeyOf`, `sha256OfBlobKey`, `type BlobBucket`, `type BlobBucketSync`, `DriverRegistry`, `openDriverRegistry`, and `PRODUCT_PROVIDERS`)
 - `@inhuman.tools/scope-plane` (import `@inhuman.tools/scope-plane/sqlite` on server)
 - `@inhuman.tools/plugin-sdk`
+- `@inhuman.tools/harness-provider-sdk`
+- `@inhuman.tools/expectations`
 - `@inhuman.tools/harness-contract`
 - `@inhuman.tools/harness-model`
 
@@ -448,6 +450,9 @@ export async function openRemoteAgentSession(wsOrigin: string, workspacePath: st
 ```
 
 To receive live approval prompts (`pending_asks`) or sidebar session updates (`recent_sessions`) without polling, send `shape/subscribe` frames over the `/kernel` or `/session` socket. The server filters and pins every subscription to the authenticated `kernelId`.
+
+> [!NOTE]
+> **0.3.x Compatibility Aliases (`SessionPlexus`, `projectHistory`) & Custom Completion Drivers**: For downstream codebases upgrading incrementally from 0.2.x, `@inhuman.tools/harness-model` (`./session` and `.`) keeps `@deprecated export const SessionPlexus = SessionDocument` and `export type SessionPlexus = SessionDocument`, and `@inhuman.tools/turn/context` keeps `@deprecated export const projectHistory = projectModelHistory` so legacy callers continue compiling while host apps adopt `SessionDocument`, `projectModelHistory`, and `RoomConnection`. Custom completion `ExpectationDriver`s registered alongside `PRODUCT_PROVIDERS` via `openDriverRegistry` can import `viewWire`, `toolsFor`, `completionCatalogOf`, and `liveToolDescriptionOf` directly from `@inhuman.tools/harness/server` to read session-bound tool catalogs, live tool descriptions, visuals, and externalized blobs without touching internal modules.
 
 ---
 

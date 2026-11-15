@@ -12,6 +12,13 @@ import { chatgptProvider } from "@/providers/chatgpt";
 import { cacheFlavorFromBaseUrl } from "@/providers/openai-compat";
 
 import { dedicatedCompatDriver, PRODUCT_PROVIDERS, productBins, productRoster } from "../composition.js";
+import {
+  chatContentText,
+  completionCatalogOf,
+  liveToolDescriptionOf,
+  toolsFor,
+  viewWire,
+} from "../portable-server.js";
 
 const EXPECTED_DRIVERS = [
   "openai-compat",
@@ -161,5 +168,13 @@ describe("generic baseUrl profiles", () => {
       }).toEqual({ dedicated: row.dedicated, flavor: row.flavor });
     }
     expect(flattenDrivers(PRODUCT_PROVIDERS).some((driver) => driver.name === "openai-compat")).toBe(true);
+  });
+
+  it("re-exports completion projection helpers from the portable server entrypoint", () => {
+    expect(typeof viewWire).toBe("function");
+    expect(typeof toolsFor).toBe("function");
+    expect(typeof chatContentText).toBe("function");
+    expect(typeof completionCatalogOf).toBe("function");
+    expect(typeof liveToolDescriptionOf).toBe("function");
   });
 });

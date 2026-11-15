@@ -797,3 +797,9 @@ export function* projectModelHistory(
     yield* emitCompletionOnTape(completion, ctx);
   }
 }
+
+/**
+ * Backwards-compatibility alias kept for callers upgrading from 0.2.x.
+ * @deprecated Import `projectModelHistory` instead.
+ */
+export const projectHistory = projectModelHistory;

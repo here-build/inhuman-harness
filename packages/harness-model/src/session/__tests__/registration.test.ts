@@ -11,6 +11,7 @@ import {
   FileMutateToolJob,
   ProgrammaticJob,
   SessionDocument,
+  SessionPlexus,
   SessionSystemPrompt,
   SessionTurn,
   SuccessfulOutcome,
@@ -67,10 +68,19 @@ test("session registration restores nested work before the aggregate model entry
     const aggregate = await import("../../index.js");
     expect({
       session: aggregate.SessionDocument === SessionDocument,
+      plexusSession: SessionPlexus === SessionDocument,
+      plexusAggregate: aggregate.SessionPlexus === SessionDocument,
       turn: aggregate.SessionTurn === SessionTurn,
       file: aggregate.FileMutateToolJob === FileMutateToolJob,
       call: aggregate.BotCallJob === BotCallJob,
-    }).toEqual({ session: true, turn: true, file: true, call: true });
+    }).toEqual({
+      session: true,
+      plexusSession: true,
+      plexusAggregate: true,
+      turn: true,
+      file: true,
+      call: true,
+    });
   } finally {
     replica.destroy();
     owner.destroy();
