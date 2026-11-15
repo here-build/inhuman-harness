@@ -176,4 +176,22 @@ describe("explain: what it says", () => {
     });
     expect(outside.tier).toBe("soft-deny");
   });
+
+  it("context_recall always explains as allow/runs even if mcp-action is denied", async () => {
+    using bag = setup({
+      policy: "auto",
+      policyProgram: FLOOR,
+      user: { classes: { "mcp-action": { resolve: { auto: "deny", manual: "deny" } } } },
+    });
+    const out = await explainCall(scopes.get(bag.root), {
+      kind: "tool",
+      name: "context_recall",
+      args: { ref: "job:123", offset: 0, length: 5000 },
+    });
+    expect(out).toMatchObject({
+      tier: "allow",
+      outcome: "runs",
+      resolver: null,
+    });
+  });
 });

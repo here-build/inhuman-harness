@@ -23,6 +23,7 @@ import {
   coveringGrants,
   fileQuestion,
   type GrantRow,
+  JOB_STOP_TOOL_NAME,
   MCPToolJob,
   matchAckFlags,
   owningTurnId,
@@ -70,6 +71,7 @@ import { evidencePayloadKey } from "./evidence.js";
 import { realpathDeepest, resolvedWorkspacePath } from "./real-path.js";
 import { withReadRoots, withSelfProtection } from "./self-protect.js";
 import type { RunStop } from "./unattended-guard.js";
+import { CONTEXT_RECALL_TOOL_NAME } from "../tool-runtime/recall.js";
 import { workspaceEnvOf } from "../tool-runtime/workspace-env.js";
 
 /**
@@ -146,6 +148,8 @@ export async function floorVerdict(
   rule?: RuleStamp,
   env?: WorkspaceEnvPort,
 ): Promise<FloorVerdict> {
+  // System read-only session utilities never require judge or human approval.
+  if (name === CONTEXT_RECALL_TOOL_NAME || name === JOB_STOP_TOOL_NAME) return APPROVE;
   let verdict: FloorVerdict | undefined;
   if (args != null) {
     switch (clusterOf(name)) {

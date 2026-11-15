@@ -13,6 +13,7 @@ import { when } from "mobx";
 
 import { scopes } from "./scope.js";
 import { noteLicense } from "./unattended-guard.js";
+import { CONTEXT_RECALL_TOOL_NAME } from "../tool-runtime/recall.js";
 
 /**
  * A denial the host decided before the license wait (an already-stamped block or deny). It still
@@ -25,10 +26,18 @@ export async function noteDenied(job: ToolCallJob, root: SessionRoot): Promise<v
 /**
  * A tool's `isSideChannel` skips the floor. `triggersReactLoop: false` is
  * loop control its author chose, not a license. `job_stop` skips too: the
- * body only cancels jobs this session already spawned.
+ * body only cancels jobs this session already spawned. `context_recall`
+ * skips as well: it only reads sealed outputs already recorded in this session.
  */
 export async function license(job: ToolCallJob, _turn: SessionTurn | null, root: SessionRoot): Promise<boolean> {
-  if (job.commFirst || job.isSideChannel || job.name === JOB_STOP_TOOL_NAME) return true;
+  if (
+    job.commFirst ||
+    job.isSideChannel ||
+    job.name === JOB_STOP_TOOL_NAME ||
+    job.name === CONTEXT_RECALL_TOOL_NAME
+  ) {
+    return true;
+  }
   const scope = scopes.get(root);
   scope.admit(job);
   try {

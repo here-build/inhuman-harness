@@ -593,4 +593,41 @@ call: shell curl x`,
       humanApprove: null,
     });
   }, 15_000);
+
+  it("context_recall is always approved without consulting the judge or prompting a human", async () => {
+    let judgeCalls = 0;
+    const makeRecall = (id: string) =>
+      new SystemToolJob({
+        toolCallId: id,
+        name: "context_recall",
+        argsJson: JSON.stringify({ ref: "job:bddf4b0c", offset: 5000, length: 5000 }),
+      });
+
+    for (const cfg of [
+      { policy: "manual" as const, unattended: false },
+      {
+        policy: "auto" as const,
+        unattended: false,
+        user: { classes: { "mcp-action": { resolve: { auto: "deny", manual: "deny" } } } },
+      },
+      { policy: "auto" as const, unattended: true },
+    ]) {
+      using bag = setup({
+        ...cfg,
+        policyProgram: FLOOR,
+        judgeAskProgram: `(classifier/mcp (lambda (name args) "deny"))`,
+        seal() {
+          judgeCalls += 1;
+        },
+      });
+      const recall = makeRecall(`recall-${cfg.policy}-${cfg.unattended}`);
+      bag.enqueue(recall);
+      await settled(recall);
+      expect(recall.orchestrationResult).toBe(true);
+      expect(recall.needsHuman).toBe(false);
+      expect(recall.autoClassifierPending).toBe(false);
+      expect(Object.keys(bag.root.autoModeProblems)).toEqual([]);
+    }
+    expect(judgeCalls).toBe(0);
+  });
 });
