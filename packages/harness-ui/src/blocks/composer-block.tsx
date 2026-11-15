@@ -35,6 +35,7 @@ export interface ApprovalCoverView {
   readonly comment: string;
   readonly disabled: boolean;
   readonly armed: boolean;
+  readonly submitting?: boolean;
   readonly copyYes: string;
   readonly copyNo: string;
   readonly destructive?: boolean;
@@ -300,11 +301,13 @@ function ApprovalCoverCard({ cover }: { readonly cover: ApprovalCoverView }) {
       />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p id={decisionHelpId} className="text-sm text-muted" aria-live="polite">
-          {cover.armed
-            ? `Choose ${cover.copyYes} or ${cover.copyNo} explicitly. Your draft is kept.`
-            : "A new request appeared. Decisions unlock after a short pause."}
-          {cover.riskPhrase == null || cover.riskPhrase === "" ? null : ` ${cover.riskPhrase}`}
-          {cover.armed ? <ShortcutKeys yes={cover.copyYes} no={cover.copyNo} /> : null}
+          {cover.submitting
+            ? "Sending decision…"
+            : cover.armed
+              ? `Choose ${cover.copyYes} or ${cover.copyNo} explicitly. Your draft is kept.`
+              : "A new request appeared. Decisions unlock after a short pause."}
+          {cover.submitting || cover.riskPhrase == null || cover.riskPhrase === "" ? null : ` ${cover.riskPhrase}`}
+          {cover.armed && !cover.submitting ? <ShortcutKeys yes={cover.copyYes} no={cover.copyNo} /> : null}
         </p>
         <div className="flex gap-2">
           <Button variant="secondary" disabled={cover.disabled} onClick={cover.onDeny}>

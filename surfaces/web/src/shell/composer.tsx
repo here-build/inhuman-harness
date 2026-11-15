@@ -78,7 +78,10 @@ const SessionComposer = observer(function SessionComposerView({
     turnIsLive(turn) && turn.uuid !== state.stopping;
   const openTurn = session?.root.findRunningTurn() ?? null;
   const live = running(openTurn) ? openTurn : null;
-  const ask = live?.approvalHead ?? null;
+  const rawAsk = live?.approvalHead ?? null;
+  const [decidedLeafId, setDecidedLeafId] = useState<string | null>(null);
+  const [submittingLeafId, setSubmittingLeafId] = useState<string | null>(null);
+  const ask = rawAsk != null && rawAsk.uuid === decidedLeafId ? null : rawAsk;
   const askId = ask?.uuid ?? null;
   const waitMs = throttleMs(dial.kernel?.root.approvalAskThrottleMs);
   const [comment, setComment] = useState("");
@@ -182,6 +185,18 @@ const SessionComposer = observer(function SessionComposerView({
         : seatForAsk(previous, askId, draftRef.current.trim() === "", waitMs),
     );
   }, [askId, session, waitMs]);
+
+  useEffect(() => {
+    if (decidedLeafId != null && rawAsk?.uuid !== decidedLeafId) {
+      setDecidedLeafId(null);
+    }
+  }, [rawAsk?.uuid, decidedLeafId]);
+
+  useEffect(() => {
+    deciding.current = false;
+    setSubmittingLeafId(null);
+    setDecidedLeafId(null);
+  }, [session]);
 
   // A picker torn down while open never toggles closed.
   useEffect(() => () => dial.look([]), [dial]);
@@ -311,52 +326,65 @@ const SessionComposer = observer(function SessionComposerView({
     refresh();
   }
 
-  /** The daemon applies the answer; this only names the ask it saw. */
-  async function writeApprove(allow: boolean): Promise<void> {
+  /**
+   * Apply a human ask/ack decision, optionally promoting the call's classes to auto first. Keeps
+   * the cover armed and preserves the typed comment if the daemon rejects or fails the request.
+   */
+  async function submitDecision(allow: boolean, alwaysAutoScope?: "session" | "project"): Promise<void> {
     const rpc = dial.sessionRpc;
     if (deciding.current || unavailable || rpc == null || dial.session !== session || ask == null) return;
     const head = session.root.findRunningTurn()?.approvalHead;
     if (head == null || head.humanApprove != null || !confirmCover(seat, head.uuid) || head.uuid !== ask.uuid) return;
+    const classes = alwaysAutoScope != null && head instanceof ToolCallJob ? head.policyClasses : [];
+    if (alwaysAutoScope != null && classes.length === 0) return;
+
     deciding.current = true;
+    const leafId = head.uuid;
     const note = comment.trim();
-    setComment("");
-    setSeat({ phase: "draft", leafId: null });
+    state.status = "";
+    setSubmittingLeafId(leafId);
     try {
+      if (alwaysAutoScope != null) {
+        try {
+          for (const id of classes) {
+            const modeResult = await rpc.request("policy/class-mode", {
+              class: id,
+              mode: "auto",
+              scope: alwaysAutoScope,
+            });
+            if (!isOk(modeResult)) {
+              state.status = "Could not change the class mode.";
+              return;
+            }
+          }
+        } catch (error) {
+          state.status = error instanceof Error ? error.message : "Could not change the class mode.";
+          return;
+        }
+      }
       const sent = answerRequest({
         kind: promptKind(head),
         sessionId: session.root.sessionId,
-        jobId: head.uuid,
+        jobId: leafId,
         yes: allow,
         comment: note,
-        remember: remember.leafId === head.uuid ? choiceByKey(choices, remember.key) : null,
+        remember: remember.leafId === leafId ? choiceByKey(choices, remember.key) : null,
       });
       const result = await rpc.request(sent.method, sent.params);
-      if (!isOk(result)) state.status = "Decision was not accepted.";
+      if (!isOk(result)) {
+        state.status = "Decision was not accepted.";
+        return;
+      }
+      setDecidedLeafId(leafId);
+      setComment("");
+      setSeat({ phase: "draft", leafId: null });
     } catch (error) {
       state.status = error instanceof Error ? error.message : "Could not send the decision.";
     } finally {
       deciding.current = false;
-    }
-    refresh();
-  }
-
-  /**
-   * Allow this call, and from now on let the judge decide every call of its classes (here: this
-   * session, or every session in the project). The override goes in first so the next call sees it.
-   */
-  async function writeAlwaysAuto(scope: "session" | "project"): Promise<void> {
-    const rpc = dial.sessionRpc;
-    if (deciding.current || unavailable || rpc == null || dial.session !== session || ask == null) return;
-    const classes = ask instanceof ToolCallJob ? ask.policyClasses : [];
-    if (classes.length === 0) return;
-    try {
-      for (const id of classes) await rpc.request("policy/class-mode", { class: id, mode: "auto", scope });
-    } catch (error) {
-      state.status = error instanceof Error ? error.message : "Could not change the class mode.";
+      setSubmittingLeafId(null);
       refresh();
-      return;
     }
-    await writeApprove(true);
   }
 
   async function choose(next: ModelChoice): Promise<void> {
@@ -425,8 +453,9 @@ const SessionComposer = observer(function SessionComposerView({
   const choices = ask == null || kind === "ask" ? [] : storeChoices(ask.ackOptions, { bot: botSession(dial) });
   // Offered on a plain ask that the floor classed; an acknowledgement is a flag, not a class mode.
   const alwaysAutoClasses = ask instanceof ToolCallJob && kind === "ask" ? ask.policyClasses : [];
+  const submitting = ask != null && submittingLeafId === ask.uuid;
   decideRef.current = (allow) => {
-    void writeApprove(allow);
+    void submitDecision(allow);
   };
 
   // The cover takes the draft out of the tab order. The heading is where focus lands,
@@ -439,7 +468,7 @@ const SessionComposer = observer(function SessionComposerView({
   useEffect(() => {
     if (!armed) return;
     const onKey = (event: globalThis.KeyboardEvent): void => {
-      if (event.isComposing || event.repeat) return;
+      if (event.isComposing || event.repeat || deciding.current) return;
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
       if (event.key !== "Enter" && event.key !== "Backspace") return;
       event.preventDefault();
@@ -482,13 +511,14 @@ const SessionComposer = observer(function SessionComposerView({
                     flags={ask.ackFlags}
                     choices={choices}
                     remember={remember.leafId === ask.uuid ? remember.key : ""}
-                    disabled={unavailable || !armed}
+                    disabled={unavailable || !armed || submitting}
                     onRemember={(key) => setRemember({ leafId: ask.uuid, key })}
                   />
                 ),
               comment: seat.leafId === ask.uuid ? comment : "",
-              disabled: unavailable || !armed,
+              disabled: unavailable || !armed || submitting,
               armed,
+              submitting,
               copyYes: copy.yes,
               copyNo: copy.no,
               destructive: risk.destructive,
@@ -496,13 +526,13 @@ const SessionComposer = observer(function SessionComposerView({
               alwaysAutoLabels: alwaysAutoClasses.map((id) => CLASS_LABELS[id].toLowerCase()),
               onCommentChange: setComment,
               onDeny: () => {
-                void writeApprove(false);
+                void submitDecision(false);
               },
               onAllow: () => {
-                void writeApprove(true);
+                void submitDecision(true);
               },
               onAlwaysAuto: (scope) => {
-                void writeAlwaysAuto(scope);
+                void submitDecision(true, scope);
               },
             }
       }
