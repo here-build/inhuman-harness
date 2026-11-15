@@ -31,6 +31,7 @@ import { ToolBodyView } from "@inhuman.tools/harness-transcript";
 
 import { agentActivity, agents, agentWorkers, approval, autoUnavailable, conversation } from "../__stories__/scenes.js";
 import { sessionStage, StoryApp } from "../__stories__/story-app.js";
+import { session, speech } from "../__stories__/world.js";
 import "../styles.css";
 
 function face(node: HTMLElement) {
@@ -93,6 +94,9 @@ async function approve() {
   document.documentElement.dataset.scheme = scheme === "light" ? "light" : "dark";
   if (scenario.startsWith("fallback-") || scenario === "native-popover") {
     return approvePopover(scenario, query.get("hold") === "1");
+  }
+  if (scenario === "auxiliary-popup") {
+    return approveAuxiliaryPopup();
   }
   if (scenario === "design-system" || scenario === "design-system-light") {
     return approveDesignSystem();
@@ -308,6 +312,60 @@ async function approvePopover(scenario: string, hold: boolean) {
       throw new Error(`Popover did not restore focus: ${document.activeElement?.outerHTML}`);
   }
   return { ...frame, selected: hold ? "panel held open for review" : "Second provider" };
+}
+
+async function approveAuxiliaryPopup() {
+  const stage = sessionStage(() =>
+    session({
+      id: "auxiliary-popup",
+      turns: [
+        {
+          prompt: "Fill the viewport above the final note",
+          work: [speech("Filler paragraph.\n\n".repeat(25))],
+        },
+        {
+          prompt: "Open the clamped reasoning preview",
+          work: [
+            speech("Final answer.", {
+              thought: "Long reasoning paragraph with enough height to overlap the composer.\n\n".repeat(30),
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const root = createRoot(document.querySelector("#app")!);
+  root.render(createElement(StoryApp, { stage }));
+  const preview = await present<HTMLElement>(".auxiliary-preview");
+  const composerPill = await present<HTMLElement>(".composer-pill");
+  await document.fonts.ready;
+  preview.focus();
+  const popup = await present<HTMLElement>(".auxiliary-popup");
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  if (!popup.matches(":popover-open")) {
+    throw new Error("Auxiliary popup did not enter the native top layer");
+  }
+  const box = popup.getBoundingClientRect();
+  if (box.left < 0 || box.top < 0 || box.right > innerWidth || box.bottom > innerHeight) {
+    throw new Error(
+      `Auxiliary popup overflows viewport: ${JSON.stringify(box.toJSON())} in ${innerWidth} × ${innerHeight}`,
+    );
+  }
+  const pillBox = composerPill.getBoundingClientRect();
+  const overlapLeft = Math.max(box.left, pillBox.left);
+  const overlapRight = Math.min(box.right, pillBox.right);
+  const overlapTop = Math.max(box.top, pillBox.top);
+  const overlapBottom = Math.min(box.bottom, pillBox.bottom);
+  if (overlapBottom - overlapTop <= 8 || overlapRight - overlapLeft <= 32) {
+    throw new Error(
+      `Auxiliary popup (${JSON.stringify(box.toJSON())}) did not overlap composer pill (${JSON.stringify(pillBox.toJSON())})`,
+    );
+  }
+  const hit = document.elementFromPoint((overlapLeft + overlapRight) / 2, (overlapTop + overlapBottom) / 2);
+  if (hit == null || !popup.contains(hit)) {
+    throw new Error(`Expected auxiliary popup above composer pill, hit: ${hit?.outerHTML ?? "null"}`);
+  }
+  return { topLayer: true, hitPopupOverComposer: true };
 }
 
 async function approveDesignSystem() {

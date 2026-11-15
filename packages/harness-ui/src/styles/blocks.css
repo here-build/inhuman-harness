@@ -1765,11 +1765,11 @@
   .auxiliary-popup {
     position: fixed;
     inset: auto;
+    margin: 0;
     left: var(--rt-aux-left, 1rem);
     width: var(--rt-aux-width, calc(100vw - 2rem));
     top: var(--rt-aux-top, var(--rt-y, 1rem));
     box-sizing: border-box;
-    z-index: 20;
     display: block;
     -webkit-line-clamp: unset;
     line-clamp: none;
@@ -1785,6 +1785,10 @@
     text-align: start;
   }
 
+  .auxiliary-popup[data-native-fallback] {
+    z-index: 1000;
+  }
+
   /* The popup has plain content, not the side-note's decorative bar. */
   .auxiliary-popup .tape-thought {
     border: 0;
@@ -1794,13 +1798,6 @@
 
   .auxiliary-popup .tape-thought::before {
     display: none;
-  }
-
-  /* Narrow layouts flatten timeline-main, so use the transcript's body edges. */
-  @container (max-width: 52rem) {
-    .auxiliary-popup {
-      inset-inline: var(--gutter-width);
-    }
   }
 
   .assistant-body {

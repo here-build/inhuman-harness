@@ -198,3 +198,9 @@ it.each([
   if (approval.error) throw new Error(approval.error);
   expect(approval.frame).toMatchSnapshot();
 });
+
+it("renders auxiliary transcript popups in the top layer above the composer", async () => {
+  const approval = await renderedApproval("auxiliary-popup", false);
+  if (approval.error) throw new Error(approval.error);
+  expect(approval.frame).toEqual({ topLayer: true, hitPopupOverComposer: true });
+});

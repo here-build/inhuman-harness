@@ -105,6 +105,8 @@ describe("auxiliary transcript previews", () => {
     expect(note.dataset.previewOpen !== undefined).toBe(true);
     expect(note.style.blockSize).toBe("");
     const popup = note.querySelector<HTMLElement>(".auxiliary-popup")!;
+    expect(popup.getAttribute("popover")).toBe("manual");
+    expect(popup.dataset.nativeFallback !== undefined).toBe(true);
     expect(popup.style.getPropertyValue("position-anchor")).toBe("");
     expect(popup.style.getPropertyValue("--rt-aux-left")).not.toBe("");
     expect(popup.style.getPropertyValue("--rt-y")).not.toBe("");
@@ -146,6 +148,71 @@ describe("auxiliary transcript previews", () => {
     expect(note.dataset.previewOpen !== undefined).toBe(true);
     await act(async () => note.blur());
     expect(note.dataset.previewOpen !== undefined).toBe(false);
+  });
+
+  it("promotes to native manual popover, stops Escape propagation, and dismisses on outside pointerdown", async () => {
+    const note = preview();
+    const openPopovers = new WeakSet<Element>();
+    const popoverNames = ["showPopover", "hidePopover", "matches"] as const;
+    const originalDescriptors = popoverNames.map((name) =>
+      Object.getOwnPropertyDescriptor(HTMLElement.prototype, name),
+    );
+    const matchesDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, "matches");
+    const nativeMatches = matchesDescriptor?.value as ((this: Element, selector: string) => boolean) | undefined;
+    vi.spyOn(Element.prototype, "matches").mockImplementation(function (this: Element, selector: string) {
+      if (selector === ":popover-open") return openPopovers.has(this);
+      return nativeMatches?.call(this, selector) ?? false;
+    });
+    Object.defineProperty(HTMLElement.prototype, "showPopover", {
+      configurable: true,
+      value(this: HTMLElement) {
+        openPopovers.add(this);
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, "hidePopover", {
+      configurable: true,
+      value(this: HTMLElement) {
+        openPopovers.delete(this);
+      },
+    });
+
+    const onBodyKeyDown = vi.fn();
+    document.body.addEventListener("keydown", onBodyKeyDown);
+    try {
+      await act(async () => note.focus());
+      const popup = note.querySelector<HTMLElement>(".auxiliary-popup")!;
+      expect(popup).not.toBeNull();
+      expect(popup.getAttribute("popover")).toBe("manual");
+      expect(popup.dataset.nativeFallback !== undefined).toBe(false);
+      expect(openPopovers.has(popup)).toBe(true);
+
+      await act(async () => {
+        note.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      });
+      expect(onBodyKeyDown).not.toHaveBeenCalled();
+      expect(openPopovers.has(popup)).toBe(false);
+      expect(note.querySelector(".auxiliary-popup")).toBeNull();
+
+      await act(async () => note.blur());
+      await act(async () => note.focus());
+      const reopened = note.querySelector<HTMLElement>(".auxiliary-popup")!;
+      expect(openPopovers.has(reopened)).toBe(true);
+      await act(async () => {
+        document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      });
+      expect(openPopovers.has(reopened)).toBe(false);
+      expect(note.querySelector(".auxiliary-popup")).toBeNull();
+    } finally {
+      document.body.removeEventListener("keydown", onBodyKeyDown);
+      if (note.querySelector(".auxiliary-popup") != null) {
+        await act(async () => note.blur());
+      }
+      for (const [index, name] of popoverNames.entries()) {
+        const descriptor = originalDescriptors[index];
+        if (descriptor === undefined) Reflect.deleteProperty(HTMLElement.prototype, name);
+        else Object.defineProperty(HTMLElement.prototype, name, descriptor);
+      }
+    }
   });
 });
 

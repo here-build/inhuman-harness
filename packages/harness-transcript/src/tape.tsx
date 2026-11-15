@@ -637,47 +637,71 @@ function AuxiliaryPreview({ children }: { readonly children: ReactNode }) {
   const popupRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [openPreview, setOpenPreview] = useState(false);
-
-  useFloatingPosition({
-    triggerRef: ref,
-    floatingRef: popupRef,
-    isOpen: openPreview,
-    placement: "bottom-start",
-    offset: 0,
-    viewportMargin: 16,
-  });
+  const native = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
 
   useIsomorphicLayoutEffect(() => {
     if (!openPreview || typeof window === "undefined") return;
     const popup = popupRef.current;
     const host = ref.current;
     if (!popup || !host) return;
+    // Promote into the top layer before measuring so sticky side-note stacking cannot bury the popup beneath the composer.
+    if (native && popup.isConnected && !popup.matches(":popover-open")) {
+      popup.showPopover();
+    }
+    const timeline = host.closest(".timeline");
+    const main = timeline?.querySelector<HTMLElement>(".timeline-main") ?? null;
+    const slot = host.closest<HTMLElement>(".annotation-slot");
     const updateBounds = () => {
-      const main = host.closest(".timeline")?.querySelector<HTMLElement>(".timeline-main");
       const hostRect = host.getBoundingClientRect();
       const mainRect = main?.getBoundingClientRect();
+      const slotRect = slot?.getBoundingClientRect();
+      // Narrow layouts flatten .timeline-main via display: contents; fall back to .annotation-slot on grid-column 3.
+      const columnRect =
+        mainRect && mainRect.width > 0 ? mainRect : slotRect && slotRect.width > 0 ? slotRect : undefined;
       const vw = window.innerWidth > 0 ? window.innerWidth : 1024;
       const vh = window.innerHeight > 0 ? window.innerHeight : 768;
       const margin = 16;
-      if (mainRect && mainRect.width > 0) {
-        popup.style.setProperty("--rt-aux-left", `${Math.round(mainRect.left)}px`);
-        popup.style.setProperty("--rt-aux-width", `${Math.round(mainRect.width)}px`);
+      if (columnRect) {
+        popup.style.setProperty("--rt-aux-left", `${Math.round(columnRect.left)}px`);
+        popup.style.setProperty("--rt-aux-width", `${Math.round(columnRect.width)}px`);
       } else {
         popup.style.setProperty("--rt-aux-left", `${margin}px`);
         popup.style.setProperty("--rt-aux-width", `${Math.max(240, vw - margin * 2)}px`);
       }
-      const clampedTop = Math.max(margin, Math.min(hostRect.top, Math.max(margin, vh - margin - popup.offsetHeight)));
+      const popupHeight = popup.getBoundingClientRect().height || popup.offsetHeight;
+      const clampedTop = Math.max(margin, Math.min(hostRect.top, Math.max(margin, vh - margin - popupHeight)));
       popup.style.setProperty("--rt-aux-top", `${Math.round(clampedTop)}px`);
       popup.style.setProperty("--rt-y", `${Math.round(clampedTop)}px`);
     };
     updateBounds();
+    const rafId = window.requestAnimationFrame(updateBounds);
+    const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(updateBounds) : null;
+    resizeObserver?.observe(popup);
+    resizeObserver?.observe(host);
+    if (main != null) resizeObserver?.observe(main);
+    if (slot != null) resizeObserver?.observe(slot);
     window.addEventListener("resize", updateBounds);
     window.addEventListener("scroll", updateBounds, { capture: true, passive: true });
     return () => {
+      window.cancelAnimationFrame(rafId);
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", updateBounds);
       window.removeEventListener("scroll", updateBounds, { capture: true });
+      if (native && popup.matches(":popover-open")) popup.hidePopover();
     };
-  }, [openPreview, children]);
+  }, [openPreview, native, children]);
+
+  useEffect(() => {
+    if (!openPreview) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !ref.current?.contains(event.target)) {
+        if (closeTimer.current != null) clearTimeout(closeTimer.current);
+        setOpenPreview(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [openPreview]);
 
   const cancelClose = () => {
     if (closeTimer.current != null) clearTimeout(closeTimer.current);
@@ -741,7 +765,9 @@ function AuxiliaryPreview({ children }: { readonly children: ReactNode }) {
         }
       }}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
+        if (event.key === "Escape" && openPreview) {
+          event.preventDefault();
+          event.stopPropagation();
           cancelClose();
           setOpenPreview(false);
         }
@@ -749,7 +775,7 @@ function AuxiliaryPreview({ children }: { readonly children: ReactNode }) {
     >
       <div className="auxiliary-content">{children}</div>
       {openPreview ? (
-        <div ref={popupRef} className="auxiliary-popup">
+        <div ref={popupRef} popover="manual" data-native-fallback={!native || undefined} className="auxiliary-popup">
           {children}
         </div>
       ) : null}
