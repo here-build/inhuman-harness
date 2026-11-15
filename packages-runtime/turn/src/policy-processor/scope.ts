@@ -52,6 +52,7 @@ import {
   type Policy,
   type Which,
 } from "@inhuman.tools/policy/floor";
+import type { WorkspaceEnvPort } from "@inhuman.tools/plugin-sdk";
 import {
   checkTirith,
   tirithClass,
@@ -69,14 +70,20 @@ import { evidencePayloadKey } from "./evidence.js";
 import { realpathDeepest, resolvedWorkspacePath } from "./real-path.js";
 import { withReadRoots, withSelfProtection } from "./self-protect.js";
 import type { RunStop } from "./unattended-guard.js";
+import { workspaceEnvOf } from "../tool-runtime/workspace-env.js";
 
 /**
  * Lexical verdict joined with the verdict for where the path really leads (symlinks), stricter wins:
  * a link inside the root to a blocked file is judged as the blocked file.
  */
-async function fileVerdict(judge: Policy["explainRead"], rootPath: string, raw: string): Promise<FloorVerdict> {
+async function fileVerdict(
+  judge: Policy["explainRead"],
+  rootPath: string,
+  raw: string,
+  env?: WorkspaceEnvPort,
+): Promise<FloorVerdict> {
   const lexical = judge(workspacePath(rootPath, raw));
-  const resolved = await resolvedWorkspacePath(rootPath, raw).catch(() => undefined);
+  const resolved = await resolvedWorkspacePath(rootPath, raw, env).catch(() => undefined);
   return resolved === undefined ? lexical : join([lexical, judge(resolved)]);
 }
 
@@ -85,10 +92,13 @@ async function fileVerdict(judge: Policy["explainRead"], rootPath: string, raw: 
  * (a link may lead out of the workspace), so both must be roots or `/tmp/x` would never match
  * `/private/tmp/x`.
  */
-export async function withRealRoots(roots: readonly string[]): Promise<string[]> {
+export async function withRealRoots(roots: readonly string[], env?: WorkspaceEnvPort): Promise<string[]> {
+  if (env !== undefined && env.resolveCanonicalPath == null) {
+    return [...new Set(roots)].toSorted();
+  }
   const out = new Set<string>(roots);
   for (const root of roots) {
-    const real = await realpathDeepest(root).catch(() => undefined);
+    const real = await realpathDeepest(root, env).catch(() => undefined);
     if (real !== undefined) out.add(real);
   }
   return [...out].toSorted();
@@ -134,16 +144,17 @@ export async function floorVerdict(
   rootPath: string,
   mcpName: string,
   rule?: RuleStamp,
+  env?: WorkspaceEnvPort,
 ): Promise<FloorVerdict> {
   let verdict: FloorVerdict | undefined;
   if (args != null) {
     switch (clusterOf(name)) {
       case "read":
-        verdict = await fileVerdict(policy.explainRead, rootPath, fileQuestion(name, args) ?? ".");
+        verdict = await fileVerdict(policy.explainRead, rootPath, fileQuestion(name, args) ?? ".", env);
         break;
       case "write": {
         const question = fileQuestion(name, args);
-        if (question != null) verdict = await fileVerdict(policy.explainWrite, rootPath, question);
+        if (question != null) verdict = await fileVerdict(policy.explainWrite, rootPath, question, env);
         break;
       }
       case "bash":
@@ -155,7 +166,7 @@ export async function floorVerdict(
         if (typeof args.cwd === "string" && args.cwd !== "" && args.cwd !== ".") {
           verdict = join([
             verdict ?? cast("ask", "unmodelled", "host:no-command"),
-            await fileVerdict(policy.explainRead, rootPath, args.cwd),
+            await fileVerdict(policy.explainRead, rootPath, args.cwd, env),
           ]);
         }
         break;
@@ -255,9 +266,10 @@ class FloorHandle {
       this.scope.root.path === input.rootPath;
     try {
       if (source.trim() === "") return;
+      const env = workspaceEnvOf(this.scope.root);
       let policy: Policy;
       try {
-        policy = await this.scope.compiledPolicy(source, await withRealRoots(input.roots));
+        policy = await this.scope.compiledPolicy(source, await withRealRoots(input.roots, env));
       } catch (error_) {
         // An operator policy that does not compile must not quietly demote the session to
         // the (possibly looser) dist floor, and "ask" would let a stored grant run
@@ -271,7 +283,15 @@ class FloorHandle {
       }
       if (!current()) return;
       const args = this.job.args;
-      let verdict = await floorVerdict(policy, input.name, args, input.rootPath, mcpNameOf(this.job), input.rule);
+      let verdict = await floorVerdict(
+        policy,
+        input.name,
+        args,
+        input.rootPath,
+        mcpNameOf(this.job),
+        input.rule,
+        env,
+      );
       let tirith: TirithReport | undefined;
       if (this.scope.mcpPersistDenies?.(this.job) === true) {
         verdict = cast(

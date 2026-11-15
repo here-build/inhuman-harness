@@ -39,7 +39,9 @@ export class ProjectRoot extends Model<any, null> {
 
   @state accessor projectId: string = "";
   @state accessor kind: ProjectKind = "local";
+  @state accessor title: string = "";
   @state accessor path: string = "";
+  @state accessor pluginsConfigured: boolean = false;
   @state.list accessor enabledPlugins: string[] = [];
   @state.record accessor pluginConfigs: Record<string, string> = {};
 
@@ -52,6 +54,34 @@ export class ProjectRoot extends Model<any, null> {
 
   getPluginConfig(pluginId: string): string | undefined {
     return this.pluginConfigs[pluginId.trim()];
+  }
+
+  @state.action
+  configureOverlay(overlay: {
+    readonly projectId?: string;
+    readonly kind?: ProjectKind;
+    readonly title?: string;
+    readonly enabledPlugins?: readonly string[];
+    readonly pluginConfigs?: Readonly<Record<string, string>>;
+  }): void {
+    if (overlay.projectId !== undefined) this.projectId = overlay.projectId;
+    if (overlay.kind !== undefined) this.kind = overlay.kind;
+    if (overlay.title !== undefined) this.title = overlay.title;
+    if (overlay.enabledPlugins !== undefined) {
+      this.pluginsConfigured = true;
+      this.enabledPlugins.splice(0, this.enabledPlugins.length, ...overlay.enabledPlugins);
+    }
+    if (overlay.pluginConfigs !== undefined) {
+      for (const existingKey of Object.keys(this.pluginConfigs)) {
+        if (!Object.hasOwn(overlay.pluginConfigs, existingKey)) {
+          delete this.pluginConfigs[existingKey];
+        }
+      }
+      for (const [key, value] of Object.entries(overlay.pluginConfigs)) {
+        const trimmed = key.trim();
+        if (trimmed !== "") this.pluginConfigs[trimmed] = value;
+      }
+    }
   }
 
   /**
@@ -82,7 +112,9 @@ export class ProjectRoot extends Model<any, null> {
       | {
           projectId?: string;
           kind?: ProjectKind;
+          title?: string;
           path?: string;
+          pluginsConfigured?: boolean;
           enabledPlugins?: string[];
           pluginConfigs?: Record<string, string>;
           defaultPermissionMode?: PermissionMode | "";

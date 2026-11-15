@@ -20,3 +20,12 @@ export { cancelUnstartedTool } from "./approval/approved.js";
 export { distPolicySource, loadPolicySource } from "./approval/dist.js";
 export { inboundTurnGuard, publishPolicyError, stampLicenseDeny } from "./approval/inbound.js";
 export { resolveEvalPermissionMode, unattendedFailureText } from "./approval/unattended.js";
+export {
+  bindWorkspaceEnv,
+  createLocalFsWorkspaceEnv,
+  createVirtualWorkspaceEnv,
+  workspaceEnvOf,
+  type WorkspaceEnvPort,
+  type WriteAdmitProbe,
+} from "./workspace-env.js";
+export { writeFileAdmitSnap, overwriteExistingDoor } from "./write-admit.js";

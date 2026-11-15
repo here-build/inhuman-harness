@@ -54,6 +54,7 @@ import { action } from "mobx";
 import { externalizePrior } from "./blob-port.js";
 import { peelAgentCallArgs, requestIdOf } from "./peel.js";
 import { workerToolAllowed } from "./worker-tools.js";
+import { workspaceEnvOf } from "./workspace-env.js";
 import { lineStartOfSpan, writeFileAdmitSnap } from "./write-admit.js";
 import { policyOfTurn, stampJobRetention } from "../context/retention/index.js";
 import { peelShellCwd } from "../policy-processor/peel-cwd.js";
@@ -499,10 +500,11 @@ export class ToolCallHandler {
         }),
       );
     }
-    const fileRoot = ctx.session?.path.trim() ?? "";
+    const workspaceEnv = ctx.session == null ? undefined : workspaceEnvOf(ctx.session);
+    const fileRoot = workspaceEnv?.logicalRoot.trim() || ctx.session?.path.trim() || "";
     const fileSnap =
       (name === "write_file" || name === "edit_file") && fileRoot !== ""
-        ? writeFileAdmitSnap(fileRoot, argsJson)
+        ? writeFileAdmitSnap(fileRoot, argsJson, workspaceEnv)
         : null;
     let oldString = "";
     if (name === "edit_file") {

@@ -28,11 +28,13 @@ export class KernelReflector implements Disposable {
     readonly path: string,
     readonly root: KernelRoot,
     readonly registry: DriverRegistry = openDriverRegistry(PRODUCT_PROVIDERS),
+    private readonly onReflect?: () => void,
   ) {
     reflectKernel(path, root, registry);
     this.#watcher = new FileSetWatcher([], () => {
       if (this.#closed) return;
       reflectKernel(path, root, registry);
+      this.onReflect?.();
     });
     this.ready = Promise.resolve();
     this.#disposeReaction = reaction(

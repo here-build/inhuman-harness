@@ -115,9 +115,9 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
     await expect(kernelA.handleRequest("plugin/install", { spec: "left-pad" })).rejects.toBeInstanceOf(
       RpcInvalidParams,
     );
-    await expect(
-      kernelA.handleRequest("plugin/remove", { name: "toolkit", confirm: true }),
-    ).rejects.toBeInstanceOf(RpcInvalidParams);
+    await expect(kernelA.handleRequest("plugin/remove", { name: "toolkit", confirm: true })).rejects.toBeInstanceOf(
+      RpcInvalidParams,
+    );
 
     await kernelA.handleRequest("config/set", { defaultPermissionMode: "yolo" });
     await kernelB.handleRequest("config/set", { defaultPermissionMode: "manual" });
@@ -247,9 +247,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
       sha256: refA.sha256,
       text: "tenant-a-secret-payload",
     });
-    await expect(sessA.handleRequest("blob/get", { sha256: refB.sha256 })).rejects.toBeInstanceOf(
-      RpcInvalidParams,
-    );
+    await expect(sessA.handleRequest("blob/get", { sha256: refB.sha256 })).rejects.toBeInstanceOf(RpcInvalidParams);
     await expect(sessB.handleRequest("blob/get", { sha256: refB.sha256 })).resolves.toMatchObject({
       sha256: refB.sha256,
       text: "tenant-b-secret-payload",

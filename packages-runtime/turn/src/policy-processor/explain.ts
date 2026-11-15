@@ -26,6 +26,7 @@ import { CLASSES, classesOf, join, cast, type ClassId, type FloorVerdict } from 
 import { tirithClass, tirithDisposition, tirithFailure } from "@inhuman.tools/policy-tirith";
 
 import { floorVerdict, withRealRoots, type LicenseScope } from "./scope.js";
+import { workspaceEnvOf } from "../tool-runtime/workspace-env.js";
 
 export type ExplainProbe =
   | { readonly kind: "shell"; readonly command: string; readonly cwd?: string }
@@ -103,8 +104,9 @@ export async function explainCall(
       ? ruleStampFor(layers, { tool: name, ...(ruleMcp === undefined ? {} : { mcp: ruleMcp }) })
       : {};
   try {
-    const policy = await scope.compiledPolicy(source, await withRealRoots(readRootList(root.readRoots).toSorted()));
-    verdict = await floorVerdict(policy, name, args, root.path, mcpName, rule);
+    const env = workspaceEnvOf(root);
+    const policy = await scope.compiledPolicy(source, await withRealRoots(readRootList(root.readRoots).toSorted(), env));
+    verdict = await floorVerdict(policy, name, args, root.path, mcpName, rule, env);
   } catch (error) {
     verdict = cast("block", "policy-fault", "host:policy-invalid");
     return finish(

@@ -236,6 +236,29 @@ export const pluginProjectionDef = z.object({
 
 export const exclusiveSlotsDef = z.array(nonempty);
 
+export type WriteAdmitProbe = {
+  readonly exists: boolean;
+  readonly isDirectory?: boolean;
+  readonly canonicalPath?: string;
+  readonly textContent?: string | null;
+};
+
+export interface WorkspaceEnvPort {
+  readonly logicalRoot: string;
+  resolveCanonicalPath?(absoluteOrLogicalPath: string): Promise<string | null> | string | null;
+  resolveCanonicalPathSync?(absoluteOrLogicalPath: string): string | null;
+  probeWriteTarget?(absoluteOrLogicalPath: string): WriteAdmitProbe;
+}
+
+export type ProjectPluginKind = "local" | "remote" | "virtual";
+
+export type ProjectPluginContext = {
+  readonly kernelId: string;
+  readonly projectId: string;
+  readonly kind: ProjectPluginKind;
+  readonly workspacePath: string;
+};
+
 export const pluginDef = z
   .object({
     apiVersion: z.literal(1).optional(),
@@ -246,6 +269,8 @@ export const pluginDef = z
     mcpServers: z.array(mcpServerDef).default([]),
     exclusiveSlots: exclusiveSlotsDef.default([]),
     projection: pluginProjectionDef.optional(),
+    projectConfigSchema: zodType.optional(),
+    activateProject: fn.optional(),
   })
   .superRefine((bag, ctx) => {
     const seen = new Set<string>();

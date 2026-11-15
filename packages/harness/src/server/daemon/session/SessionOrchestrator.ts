@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 
 import { EvalTrace } from "@here.build/arrival/provenance";
+import { type DriverSpec, Job, walkWork, WorkExpectation } from "@inhuman.tools/expectations";
+import { ConnectionMiss, type DriverConnectionClass, type ExpectationDriver } from "@inhuman.tools/expectations/driver";
+import { dropConnection, Orchestrator } from "@inhuman.tools/expectations/executor";
 import { docTag, fail, step, trace } from "@inhuman.tools/harness-diagnostics";
 import {
   AGENT_ASK,
@@ -50,9 +53,6 @@ import {
   connectionSupports,
 } from "@inhuman.tools/harness-provider-sdk";
 import { interpretSchemeRepl, liveModelsOf } from "@inhuman.tools/harness-scheme";
-import { type DriverSpec, Job, walkWork, WorkExpectation } from "@inhuman.tools/expectations";
-import { ConnectionMiss, type DriverConnectionClass, type ExpectationDriver } from "@inhuman.tools/expectations/driver";
-import { dropConnection, Orchestrator } from "@inhuman.tools/expectations/executor";
 import { type ToolCall } from "@inhuman.tools/tool-call-normalize";
 import {
   closeTurn,
@@ -225,20 +225,23 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     // mid-session tightening applies to the next call.
     const projectPath = this.sessionDaemon.project.path;
     const projectRoot = this.sessionDaemon.project.root;
+    const isLocalProject = this.sessionDaemon.project.kind === "local";
     const syncAuthorization = () => {
       if (!this.canApplyResults) return;
       const session = this.session.root;
       // The user's own per-project overlay (kernel state) sits on the user layer: both are the user's.
       const user = overlayUserLayer(this.kernel.root.authorizationJson, projectRoot.authorizationJson);
       if (session.authorizationUserJson !== user) session.authorizationUserJson = user;
-      const project = readProjectAuthorization(projectPath);
+      const project = isLocalProject ? readProjectAuthorization(projectPath) : "";
       if (session.authorizationProjectJson !== project) session.authorizationProjectJson = project;
     };
     runInAction(syncAuthorization);
-    const poll = setInterval(() => {
-      if (this.activated && !this.#closed) runInAction(syncAuthorization);
-    }, PROJECT_LAYER_POLL_MS);
-    poll.unref();
+    const poll = isLocalProject
+      ? setInterval(() => {
+          if (this.activated && !this.#closed) runInAction(syncAuthorization);
+        }, PROJECT_LAYER_POLL_MS)
+      : undefined;
+    poll?.unref();
     const stopAuthorization = reaction(
       () => (this.activated ? [this.kernel.root.authorizationJson, projectRoot.authorizationJson] : null),
       () => {
@@ -264,7 +267,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       publishPolicyError(this.session, notice.text);
     };
     this.#disposeAutoAllow = () => {
-      clearInterval(poll);
+      if (poll !== undefined) clearInterval(poll);
       stopAuthorization();
       stopGrants();
     };
@@ -538,7 +541,9 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
                 openRound: async (resumed) => {
                   const behavior = await this.#behavior.enterTurn(turn, resumed, signal);
                   return (
-                    behavior != null && !turnLoopStopped(turn, signal) && (await this.#behavior.openRound(turn, behavior))
+                    behavior != null &&
+                    !turnLoopStopped(turn, signal) &&
+                    (await this.#behavior.openRound(turn, behavior))
                   );
                 },
                 closeRound: (settle) => this.#behavior.closeRound(turn, settle),

@@ -6,6 +6,7 @@ import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { parseJsonRecord } from "@inhuman.tools/harness-model/json-record";
+import type { WorkspaceEnvPort } from "@inhuman.tools/plugin-sdk";
 
 const MAX_FILE_READ_BYTES = 4 * 1024 * 1024;
 
@@ -69,12 +70,36 @@ function insideRoot(root: string, file: string): boolean {
  * be read or probed here; anything else is left to the licensed body, which captures prior content
  * after approval and keeps the overwrite door.
  */
-export function writeFileAdmitSnap(root: string, argsJson: string): WriteAdmitSnap {
+export function writeFileAdmitSnap(root: string, argsJson: string, env?: WorkspaceEnvPort): WriteAdmitSnap {
   const args = parseJsonRecord(argsJson === "" ? "{}" : argsJson);
   const raw = args !== null && typeof args.path === "string" ? args.path : "";
   if (raw.trim() === "") return { existed: null, priorContent: null, refuse: null };
-  const target = path.resolve(root, raw);
   const unknown: WriteAdmitSnap = { existed: null, priorContent: null, refuse: null };
+
+  if (env !== undefined) {
+    if (env.probeWriteTarget == null) return unknown;
+    const baseInput = env.logicalRoot.trim() || root;
+    if (baseInput.trim() === "") return unknown;
+    const base = path.resolve(baseInput);
+    const target = path.resolve(base, raw);
+    if (!insideRoot(base, target)) return unknown;
+    try {
+      const resolvedBase = env.resolveCanonicalPathSync?.(base);
+      if (env.resolveCanonicalPathSync != null && resolvedBase == null) return unknown;
+      const realRoot = path.resolve(resolvedBase ?? base);
+      const probe = env.probeWriteTarget(target);
+      if (!probe.exists) return { existed: false, priorContent: null, refuse: null };
+      const realTarget = path.resolve(probe.canonicalPath ?? env.resolveCanonicalPathSync?.(target) ?? target);
+      if (!insideRoot(realRoot, realTarget)) return unknown;
+      if (probe.isDirectory === true) return unknown;
+      const refuse = overwriteExistingOf(args ?? {}) ? null : overwriteExistingDoor(raw);
+      return { existed: true, priorContent: probe.textContent ?? null, refuse };
+    } catch {
+      return unknown;
+    }
+  }
+
+  const target = path.resolve(root, raw);
   try {
     const realRoot = realpathSync(root);
     if (!insideRoot(path.resolve(root), target)) return unknown;

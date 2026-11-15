@@ -17,7 +17,9 @@ import {
   mcpServerDef,
   pluginProjectionDef,
   REASONING_EFFORTS,
+  type ProjectPluginContext,
   type ToolRepresentation,
+  type WorkspaceEnvPort,
   NormalizedActionDefinition,
 } from "./schemas/plugin.js";
 
@@ -34,6 +36,7 @@ function declaredRepresentation(value: unknown, fallback: ToolRepresentation): T
 
 export type PluginCallContext = {
   readonly root?: string;
+  readonly workspaceEnv?: WorkspaceEnvPort;
   readonly turn?: unknown;
   readonly completion?: unknown | null;
   readonly invocation?: unknown;
@@ -133,7 +136,22 @@ export type BotCallToolDefinition<I = unknown, O = unknown> = {
 
 export type ToolDefinition<I = unknown, O = unknown> = FunctionToolDefinition<I, O> | BotCallToolDefinition<I, O>;
 
-export type NormalizedPluginDefinition = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous tool collection (contravariant TIn)
+export type AnyActivatedTool = ToolDefinition<any, any> | { readonly toToolDefinition: () => ToolDefinition<any, any> };
+
+export type ActivatedProjectPlugin = Partial<Disposable & AsyncDisposable> & {
+  readonly tools?: readonly AnyActivatedTool[] | Readonly<Record<string, AnyActivatedTool>>;
+  readonly envCapabilities?: ReadonlyArray<EnvCapability | unknown>;
+  readonly bots?: readonly BotDefinition[] | Readonly<Record<string, BotDefinition>>;
+  readonly workspaceEnv?: WorkspaceEnvPort;
+};
+
+export type ActivateProjectFn<TConfig = Record<string, unknown>> = (
+  ctx: ProjectPluginContext,
+  config: TConfig,
+) => Promise<ActivatedProjectPlugin | void> | ActivatedProjectPlugin | void;
+
+export type NormalizedPluginDefinition<TConfig = any> = {
   readonly apiVersion: 1;
   readonly tools: readonly ToolDefinition[];
   readonly bots: readonly BotDefinition[];
@@ -142,6 +160,8 @@ export type NormalizedPluginDefinition = {
   readonly envCapabilities: readonly EnvCapability[];
   readonly exclusiveSlots: readonly string[];
   readonly projection?: PluginProjection<any, any>;
+  readonly projectConfigSchema?: ZodType<TConfig>;
+  readonly activateProject?: ActivateProjectFn<TConfig>;
 };
 
 function toolRecord(value: unknown): Record<string, unknown> | null {
@@ -180,6 +200,8 @@ function pluginBag(value: unknown): Record<string, unknown> | null {
       mcpServers?: readonly unknown[];
       exclusiveSlots?: readonly string[];
       projection?: unknown;
+      projectConfigSchema?: ZodType;
+      activateProject?: unknown;
       apiVersion?: unknown;
     };
     return {
@@ -191,6 +213,8 @@ function pluginBag(value: unknown): Record<string, unknown> | null {
       mcpServers: plugin.mcpServers,
       exclusiveSlots: plugin.exclusiveSlots,
       projection: plugin.projection,
+      projectConfigSchema: plugin.projectConfigSchema,
+      activateProject: plugin.activateProject,
     };
   }
   if ("default" in record && record.default != null) return pluginBag(record.default);
@@ -323,6 +347,14 @@ export function normalizeDefinitions(exported: unknown, pluginName = ""): Normal
     serverNames.add(server.name);
   }
   const projection = normalizeProjection(bag.projection, pluginName);
+  const projectConfigSchema =
+    bag.projectConfigSchema === undefined
+      ? undefined
+      : (parseNamed(inhumanShape.pluginDef.shape.projectConfigSchema, bag.projectConfigSchema, `${pluginName}: projectConfigSchema`) as ZodType);
+  const activateProject =
+    bag.activateProject === undefined
+      ? undefined
+      : (parseNamed(inhumanShape.pluginDef.shape.activateProject, bag.activateProject, `${pluginName}: activateProject`) as ActivateProjectFn<any>);
   return {
     apiVersion: 1,
     tools,
@@ -332,6 +364,8 @@ export function normalizeDefinitions(exported: unknown, pluginName = ""): Normal
     envCapabilities,
     exclusiveSlots: parseExclusiveSlots(pluginName, bag),
     projection,
+    ...(projectConfigSchema === undefined ? {} : { projectConfigSchema }),
+    ...(activateProject === undefined ? {} : { activateProject }),
   };
 }
 

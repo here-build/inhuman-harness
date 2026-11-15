@@ -14,6 +14,7 @@ import { z } from "zod";
 import {
   normalizeDefinitions,
   resolveReferences,
+  type ActivateProjectFn,
   type BotDefinition,
   type McpServerDefinition,
   type NormalizedPluginDefinition,
@@ -28,8 +29,11 @@ export type { ToolContinuation } from "@inhuman.tools/harness-commons";
 export {
   normalizeDefinitions as normalizeDefinitions,
   resolveReferences as resolveReferences,
+  type ActivatedProjectPlugin as ActivatedProjectPlugin,
+  type ActivateProjectFn as ActivateProjectFn,
   type BotCallToolDefinition as BotCallToolDefinition,
   type BotDefinition as BotDefinition,
+  type BotDefinition as BotContributionInput,
   isReasoningEffort as isReasoningEffort,
   type ReasoningEffort as ReasoningEffort,
   type NormalizedPluginDefinition as NormalizedPluginDefinition,
@@ -274,7 +278,7 @@ export function defineAction<TArgs, TOut>(def: InhumanActionDef<TArgs, TOut>): I
 /** Plugin bag accepts any tool arity; the constructor normalizes to erased instances. */
 export type AnyInhumanTool = InhumanTool<any, any>;
 
-export type InhumanPluginDef = {
+export type InhumanPluginDef<TConfig = any> = {
   readonly apiVersion?: 1;
   readonly tools?: readonly AnyInhumanTool[];
   readonly actions?: readonly (InhumanAction | NormalizedActionDefinition)[];
@@ -284,11 +288,15 @@ export type InhumanPluginDef = {
   readonly exclusiveSlots?: readonly string[];
   /** Pack projection over trajectory metadata plus wire stamps from the head projection. */
   readonly projection?: PluginProjection<any, any>;
+  /** Optional Zod schema validating per-project startup configuration for this plugin. */
+  readonly projectConfigSchema?: z.ZodType<TConfig>;
+  /** Optional per-project activation hook returning dynamic tools, bots, or a WorkspaceEnvPort. */
+  readonly activateProject?: ActivateProjectFn<TConfig>;
 };
 
 const pluginBrand = inhumanBrand.plugin;
 
-export class InhumanPlugin {
+export class InhumanPlugin<TConfig = any> {
   readonly [pluginBrand] = true as const;
 
   readonly apiVersion: 1;
@@ -299,10 +307,15 @@ export class InhumanPlugin {
   readonly mcpServers: readonly McpServerDefinition[];
   readonly exclusiveSlots: readonly string[];
   readonly projection?: PluginProjection<any, any>;
-  readonly definition: NormalizedPluginDefinition;
+  readonly projectConfigSchema?: z.ZodType<TConfig>;
+  readonly activateProject?: ActivateProjectFn<TConfig>;
+  readonly definition: NormalizedPluginDefinition<TConfig>;
 
-  constructor(def: InhumanPluginDef = {}) {
-    this.definition = resolveReferences(normalizeDefinitions(def, "InhumanPlugin"), "InhumanPlugin");
+  constructor(def: InhumanPluginDef<TConfig> = {}) {
+    this.definition = resolveReferences(
+      normalizeDefinitions(def, "InhumanPlugin"),
+      "InhumanPlugin",
+    ) as NormalizedPluginDefinition<TConfig>;
     this.apiVersion = this.definition.apiVersion;
     this.tools = Object.freeze(
       this.definition.tools.map((tool) => new InhumanTool(tool as InhumanToolDef<unknown, unknown>)),
@@ -315,6 +328,8 @@ export class InhumanPlugin {
     this.mcpServers = Object.freeze([...this.definition.mcpServers]);
     this.exclusiveSlots = Object.freeze([...this.definition.exclusiveSlots]);
     this.projection = this.definition.projection;
+    this.projectConfigSchema = this.definition.projectConfigSchema;
+    this.activateProject = this.definition.activateProject;
   }
 
   static isInhumanPlugin(value: unknown): value is InhumanPlugin {

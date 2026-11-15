@@ -4,6 +4,8 @@
  */
 import { projectPluginSpec, type KernelRoot } from "@inhuman.tools/harness-model";
 import { InhumanPlugin } from "@inhuman.tools/plugin-sdk";
+import { createLocalFsWorkspaceEnv } from "@inhuman.tools/turn/tool-runtime";
+import { z } from "zod";
 
 import type { CatalogEntry } from "@/tool-catalog";
 
@@ -25,6 +27,9 @@ export const SHELL_PLUGIN_NAME = "shell";
 export const METADATA_PLUGIN_NAME = "metadata";
 export const SCHEME_REPL_PLUGIN_NAME = "scheme-repl";
 export const WEB_SEARCH_PLUGIN_NAME = "web-search";
+export const LOCAL_ENV_PLUGIN_NAME = "@inhuman.tools/plugin-local-env";
+
+export const TOGGLEABLE_HOST_PLUGINS: ReadonlySet<string> = new Set([TOOLKIT_PLUGIN_NAME, SHELL_PLUGIN_NAME]);
 
 export const SYSTEM_PLUGIN_NAMES = new Set([
   TOOLKIT_PLUGIN_NAME,
@@ -35,9 +40,41 @@ export const SYSTEM_PLUGIN_NAMES = new Set([
   NAMED_AGENTS_PLUGIN_NAME,
 ]);
 
-export const toolkitPlugin = new InhumanPlugin({ tools: [...DIST_TOOLS] });
+export const localEnvProjectConfigSchema = z
+  .object({
+    cwd: z.string().trim().min(1).optional(),
+  })
+  .passthrough();
+
+export function expandPluginNames(names: Iterable<string>): Set<string> {
+  const expanded = new Set<string>();
+  for (const raw of names) {
+    const name = raw.trim();
+    if (name === "") continue;
+    if (name === LOCAL_ENV_PLUGIN_NAME) {
+      expanded.add(TOOLKIT_PLUGIN_NAME);
+      expanded.add(SHELL_PLUGIN_NAME);
+    } else {
+      expanded.add(name);
+    }
+  }
+  return expanded;
+}
+
+export const toolkitPlugin = new InhumanPlugin({
+  tools: [...DIST_TOOLS],
+  projectConfigSchema: localEnvProjectConfigSchema,
+  activateProject(ctx, config) {
+    const cwd = typeof config?.cwd === "string" && config.cwd.trim() !== "" ? config.cwd.trim() : undefined;
+    if (ctx.kind !== "local" && cwd === undefined) return undefined;
+    return {
+      workspaceEnv: createLocalFsWorkspaceEnv(cwd ?? ctx.workspacePath),
+    };
+  },
+});
 export const shellPlugin = new InhumanPlugin({
   tools: [shellTool, jobStopTool],
+  projectConfigSchema: localEnvProjectConfigSchema,
 });
 export const metadataPlugin = new InhumanPlugin({
   tools: [updateMetadataTool, contextNeedTool, contextRecallTool],

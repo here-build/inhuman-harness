@@ -6,6 +6,7 @@ import { Writable } from "node:stream";
 import { isDeepStrictEqual } from "node:util";
 
 import { DefaultedMap } from "@here.build/collections";
+import { disposeKernelConnections, dropConnection } from "@inhuman.tools/expectations/executor";
 import { asUserPrompt } from "@inhuman.tools/harness-commons";
 import {
   contract,
@@ -18,6 +19,7 @@ import {
   pendingAsksTable,
   sessionsTable,
   sessionTurnsTable,
+  type ProjectKind,
   type ScmResourceKind,
 } from "@inhuman.tools/harness-contract/schema";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
@@ -26,10 +28,12 @@ import {
   DEFAULT_COMPACT_TRIGGERS,
   DEFAULT_COMPACT_KEEP_TURNS,
   bindSessionProjections,
+  InstalledPlugin,
   PluginProjectionRegistry,
   KernelDocument,
   HOST_QUEUE_VERBS,
   ProjectDocument,
+  projectPluginSpec,
   SessionDocument,
   SessionTurn,
   sessionIsOccupied,
@@ -46,7 +50,7 @@ import { applyKv, type KvProposal, type PermissionMode } from "@inhuman.tools/ha
 import { runWithBlobReader, runWithVisualReader } from "@inhuman.tools/harness-provider-sdk";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import type { DocumentContainer } from "@inhuman.tools/model";
-import { disposeKernelConnections, dropConnection } from "@inhuman.tools/expectations/executor";
+import type { InhumanPlugin } from "@inhuman.tools/plugin-sdk";
 import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane/sqlite";
 import {
   glanceAskLine,
@@ -122,7 +126,17 @@ import { projectKernelConfigToRoot, reflectKernel } from "./fs-reflection/reflec
 import { defaultCompactSource } from "../../defaults/index.js";
 import { parseConfigJson, parseKvBag, connectionSliceSchema, type ConfigJson } from "../../schemas/well-known.js";
 import { FsSecretsVault, MemorySecretsVault, type SecretsVaultPort } from "../../secrets.js";
-import { HOST_PLUGINS, projectHostPluginSpecs, SYSTEM_PLUGIN_NAMES } from "../../system-plugins/index.js";
+import {
+  HOST_PLUGINS,
+  LOCAL_ENV_PLUGIN_NAME,
+  SHELL_PLUGIN_NAME,
+  SYSTEM_PLUGIN_NAMES,
+  TOGGLEABLE_HOST_PLUGINS,
+  TOOLKIT_PLUGIN_NAME,
+  expandPluginNames,
+  projectHostPluginSpecs,
+} from "../../system-plugins/index.js";
+import { catalogEntryFromTool } from "../../toolkit/tool-entry.js";
 import { KernelToolCatalog } from "../../toolkit/tool-table.js";
 import { attachPlane, PresenceRoom, type PlaneSocket } from "../../transport/plane.js";
 import {
@@ -138,12 +152,7 @@ import { ProjectDaemon } from "../project/ProjectDaemon.js";
 import { pluginAbiCatalog } from "../session/plugin-abi.js";
 import { botRevisions, pluginBotRecipes, reportProblem, type PluginProblems } from "../session/plugin-bots.js";
 import type { SessionDaemon } from "../session/SessionDaemon.js";
-import {
-  bindVisualStore,
-  FsVisualStore,
-  MemoryVisualStore,
-  type VisualStorePort,
-} from "../session/visual-store.js";
+import { bindVisualStore, FsVisualStore, MemoryVisualStore, type VisualStorePort } from "../session/visual-store.js";
 
 const KERNEL_PACKAGE = {
   name: "harness-kernel",
@@ -183,6 +192,7 @@ export type KernelDaemonOptions = {
   readonly visuals?: VisualStorePort;
   readonly ownsVisuals?: boolean;
   readonly bundledPlugins?: ReadonlyArray<{ readonly npmName: string; readonly rootPath: string }>;
+  readonly runtimePlugins?: Readonly<Record<string, InhumanPlugin>>;
 };
 
 export class KernelDaemon extends RequestHost implements Disposable, AsyncDisposable {
@@ -194,12 +204,14 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   readonly secrets: SecretsVaultPort;
   readonly blobs: BlobStore;
   readonly visuals: VisualStorePort;
+  readonly runtimePlugins: Readonly<Record<string, InhumanPlugin>>;
   readonly #ownsDb: boolean;
   readonly #ownsLaneHub: boolean;
   readonly #ownsSecrets: boolean;
   readonly #ownsBlobs: boolean;
   readonly #ownsVisuals: boolean;
   readonly #bundledPlugins?: ReadonlyArray<{ readonly npmName: string; readonly rootPath: string }>;
+  readonly #pendingProjectKinds = new Map<string, ProjectKind>();
   doc!: KernelDocument;
   #room!: PresenceRoom;
   readonly #flushStops = new Map<string, () => void>();
@@ -522,9 +534,15 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       void dropConnection(this.doc.root, args.id).catch((error: unknown) => fail("connect/logout", error));
       return { ok: true as const };
     }),
-    DaemonRpcMethod.fromContract(contract.kernel.plugin.set, (args) => {
-      RpcInvalidParams.invariant(this.doc.root.plugins[args.name] != null, `plugin/set: unknown plugin ${args.name}`);
+    DaemonRpcMethod.fromContract(contract.kernel.plugin.set, async (args) => {
+      const known =
+        this.doc.root.plugins[args.name] != null ||
+        args.name === LOCAL_ENV_PLUGIN_NAME ||
+        TOGGLEABLE_HOST_PLUGINS.has(args.name) ||
+        Object.hasOwn(this.runtimePlugins, args.name);
+      RpcInvalidParams.invariant(known, `plugin/set: unknown plugin ${args.name}`);
       this.adjustConfig((config) => applyPluginSet(config, args));
+      await this.#reconcileOpenProjects();
       return { ok: true as const };
     }),
     DaemonRpcMethod.fromContract(contract.kernel.plugin.install, async (args) => {
@@ -568,6 +586,12 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         this.contour === "local",
         "plugin/remove: server contour uses host-installed runtime plugins only",
       );
+      const isBuiltIn =
+        args.name === LOCAL_ENV_PLUGIN_NAME ||
+        TOGGLEABLE_HOST_PLUGINS.has(args.name) ||
+        SYSTEM_PLUGIN_NAMES.has(args.name) ||
+        Object.hasOwn(this.runtimePlugins, args.name);
+      RpcInvalidParams.invariant(!isBuiltIn, `plugin/remove: built-in plugin ${args.name} cannot be removed`);
       const plugin = this.doc.root.plugins[args.name];
       RpcInvalidParams.invariant(plugin != null, `plugin/remove: unknown plugin ${args.name}`);
       if (args.confirm === false) {
@@ -739,6 +763,153 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       await project.ready;
       return { ok: true as const, path: project.path };
     }),
+    DaemonRpcMethod.fromContract(contract.kernel.project.configure, async (args) => {
+      const rawWorkspace = args.workspacePath.trim();
+      RpcInvalidParams.invariant(rawWorkspace !== "", "project/configure: workspacePath is required");
+      const existingById = args.projectId !== undefined ? this.db.getProject(args.projectId) : undefined;
+      if (existingById !== undefined) {
+        RpcInvalidParams.invariant(
+          existingById.kernelId === this.kernelId,
+          `project/configure: project ${args.projectId} belongs to another kernel`,
+        );
+      }
+      const existingRow =
+        existingById ??
+        this.db
+          .listProjects(this.kernelId)
+          .find((row) => row.workspacePath === rawWorkspace || row.projectId === rawWorkspace);
+      const kind: ProjectKind = args.kind ?? existingRow?.kind ?? (this.contour === "local" ? "local" : "virtual");
+
+      let resolvedWorkspace: string;
+      if (kind === "local") {
+        try {
+          RpcInvalidParams.invariant(
+            existsSync(rawWorkspace),
+            `project/configure: local directory does not exist: ${rawWorkspace}`,
+          );
+          resolvedWorkspace = realpathSync(rawWorkspace);
+          RpcInvalidParams.invariant(
+            statSync(resolvedWorkspace).isDirectory(),
+            `project/configure: not a directory: ${rawWorkspace}`,
+          );
+        } catch (error) {
+          if (error instanceof RpcInvalidParams) throw error;
+          RpcInvalidParams.invariant(false, `project/configure: invalid local directory: ${rawWorkspace}`);
+        }
+      } else {
+        resolvedWorkspace = rawWorkspace;
+      }
+
+      const knownServerPlugins = new Set<string>([
+        ...Object.keys(HOST_PLUGINS),
+        ...TOGGLEABLE_HOST_PLUGINS,
+        LOCAL_ENV_PLUGIN_NAME,
+        ...SYSTEM_PLUGIN_NAMES,
+        ...Object.keys(this.runtimePlugins),
+        ...Object.keys(this.doc.root.plugins),
+      ]);
+
+      if (this.contour === "server" && args.enabledPlugins !== undefined) {
+        for (const name of args.enabledPlugins) {
+          RpcInvalidParams.invariant(
+            knownServerPlugins.has(name),
+            `project/configure: unknown or disallowed plugin ${name} on server contour`,
+          );
+        }
+      }
+
+      let validatedConfigs: Record<string, Record<string, unknown>> | undefined;
+      if (args.pluginConfigs !== undefined) {
+        validatedConfigs = {};
+        for (const [pluginName, rawCfg] of Object.entries(args.pluginConfigs)) {
+          const plugin =
+            pluginName === LOCAL_ENV_PLUGIN_NAME
+              ? HOST_PLUGINS[TOOLKIT_PLUGIN_NAME]
+              : (this.runtimePlugins[pluginName] ?? HOST_PLUGINS[pluginName]);
+          if (this.contour === "server" && plugin == null && !knownServerPlugins.has(pluginName)) {
+            RpcInvalidParams.invariant(false, `project/configure: unknown plugin config ${pluginName}`);
+          }
+          if (plugin?.projectConfigSchema !== undefined) {
+            const parsed = plugin.projectConfigSchema.safeParse(rawCfg);
+            RpcInvalidParams.invariant(
+              parsed.success,
+              `project/configure: invalid config for ${pluginName}: ${
+                parsed.success ? "" : parsed.error.issues.map((issue) => issue.message).join("; ")
+              }`,
+            );
+            validatedConfigs[pluginName] = parsed.data as Record<string, unknown>;
+          } else {
+            validatedConfigs[pluginName] = { ...rawCfg };
+          }
+        }
+      }
+
+      this.#pendingProjectKinds.set(resolvedWorkspace, kind);
+      let project: ProjectDaemon;
+      try {
+        project = this.project(resolvedWorkspace);
+        await project.ready;
+      } finally {
+        this.#pendingProjectKinds.delete(resolvedWorkspace);
+      }
+
+      const projectId =
+        args.projectId?.trim() || existingRow?.projectId || project.projectId || projectScopeId(project.path);
+      const title = args.title ?? project.title ?? "";
+      const pluginsConfigured = args.enabledPlugins !== undefined ? true : project.root.pluginsConfigured;
+      const enabledPlugins =
+        args.enabledPlugins !== undefined ? [...args.enabledPlugins] : [...project.root.enabledPlugins];
+      const existingConfigs: Record<string, Record<string, unknown>> = {};
+      for (const [k, raw] of Object.entries(project.root.pluginConfigs)) {
+        try {
+          const parsed: unknown = JSON.parse(raw);
+          if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+            existingConfigs[k] = { ...(parsed as Record<string, unknown>) };
+          }
+        } catch {
+          // Ignore malformed persisted plugin config JSON when merging.
+        }
+      }
+      const nextPluginConfigs = validatedConfigs ?? existingConfigs;
+
+      if (pluginsConfigured) {
+        for (const pluginName of expandPluginNames(enabledPlugins)) {
+          const plugin = this.runtimePlugins[pluginName] ?? HOST_PLUGINS[pluginName];
+          if (plugin?.projectConfigSchema === undefined) continue;
+          const rawForPlugin =
+            nextPluginConfigs[pluginName] ??
+            (pluginName === TOOLKIT_PLUGIN_NAME || pluginName === SHELL_PLUGIN_NAME
+              ? nextPluginConfigs[LOCAL_ENV_PLUGIN_NAME]
+              : undefined) ??
+            {};
+          const parsed = plugin.projectConfigSchema.safeParse(rawForPlugin);
+          RpcInvalidParams.invariant(
+            parsed.success,
+            `project/configure: missing or invalid config for enabled plugin ${pluginName}: ${
+              parsed.success ? "" : parsed.error.issues.map((issue) => issue.message).join("; ")
+            }`,
+          );
+        }
+      }
+
+      await project.applyConfiguration({
+        projectId,
+        kind,
+        title,
+        pluginsConfigured,
+        enabledPlugins,
+        pluginConfigs: nextPluginConfigs,
+      });
+
+      return {
+        projectId,
+        workspacePath: project.path,
+        kind,
+        title,
+        enabledPlugins: [...project.effectiveEnabledPlugins],
+        pluginConfigs: nextPluginConfigs,
+      };
+    }),
   ];
 
   constructor(root: string, registry?: DriverRegistry);
@@ -753,14 +924,14 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       typeof rootOrOptions === "string" ? { root: rootOrOptions, registry } : rootOrOptions;
     const contour: KernelContour = options.contour ?? "local";
     const kernelId = options.kernelId ?? "local";
-    const resolvedRoot =
-      options.root ?? (contour === "server" ? `server://kernel/${kernelId}` : "");
+    const resolvedRoot = options.root ?? (contour === "server" ? `server://kernel/${kernelId}` : "");
     if (contour === "local" && resolvedRoot === "") {
       throw new Error("KernelDaemon(local): root directory is required");
     }
     this.contour = contour;
     this.kernelId = kernelId;
     this.root = resolvedRoot;
+    this.runtimePlugins = options.runtimePlugins ?? {};
     this.#bundledPlugins = options.bundledPlugins;
     if (contour === "local") {
       mkdirSync(this.root, { recursive: true });
@@ -773,20 +944,14 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     this.#ownsDb = options.ownsDb ?? options.db === undefined;
     this.laneHub = options.laneHub ?? new UpdateLaneHub(this.db);
     this.#ownsLaneHub = options.ownsLaneHub ?? options.laneHub === undefined;
-    this.secrets =
-      options.secrets ??
-      (contour === "server" ? new MemorySecretsVault() : new FsSecretsVault(this.root));
+    this.secrets = options.secrets ?? (contour === "server" ? new MemorySecretsVault() : new FsSecretsVault(this.root));
     this.#ownsSecrets = options.ownsSecrets ?? options.secrets === undefined;
-    const bucket =
-      options.blobBucket ??
-      (contour === "server" ? new MemoryBlobBucket() : new FsBlobBucket(this.root));
+    const bucket = options.blobBucket ?? (contour === "server" ? new MemoryBlobBucket() : new FsBlobBucket(this.root));
     this.blobs = new BlobStore(bucket, {
       ownsBucket: options.ownsBlobs ?? options.blobBucket === undefined,
     });
     this.#ownsBlobs = true;
-    this.visuals =
-      options.visuals ??
-      (contour === "server" ? new MemoryVisualStore() : new FsVisualStore(this.root));
+    this.visuals = options.visuals ?? (contour === "server" ? new MemoryVisualStore() : new FsVisualStore(this.root));
     this.#ownsVisuals = options.ownsVisuals ?? options.visuals === undefined;
     this.behavior = new BehaviorKernel({
       packages: () =>
@@ -832,8 +997,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         bindBlobBucket(bucket);
       }
     }
-    const effectiveRegistry =
-      options.registry ?? registry ?? openDriverRegistry(PRODUCT_PROVIDERS);
+    const effectiveRegistry = options.registry ?? registry ?? openDriverRegistry(PRODUCT_PROVIDERS);
     this.runtime = new ProductionRuntime({
       registry: effectiveRegistry,
       catalog: this.catalog,
@@ -932,7 +1096,11 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     }
     if (this.#closed) return;
     projectHostPluginSpecs(kernel.root);
+    for (const [name, plugin] of Object.entries(this.runtimePlugins)) {
+      projectPluginSpec(kernel.root, name, plugin.tools);
+    }
     this.projections.install(HOST_PLUGINS);
+    this.projections.install(this.runtimePlugins);
     this.#packPluginHost = new PackPluginCatalogHost({
       catalog: this.catalog,
       kernelRoot: this.root,
@@ -977,20 +1145,32 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       { fireImmediately: true },
     );
     if (this.contour === "local") {
-      this.#reflector = new KernelReflector(this.root, kernel.root, this.runtime.registry);
+      this.#reflector = new KernelReflector(this.root, kernel.root, this.runtime.registry, () => {
+        this.#syncHostAndRuntimePlugins();
+        void this.#reconcileOpenProjects().catch((error: unknown) => fail("plugin reflect reconcile", error));
+      });
       await Promise.all([this.#reflector.ready, initialAbi, initialRevisions]);
       if (this.#closed) return;
+      this.#syncHostAndRuntimePlugins();
       warmCompletionCatalog(this, this);
       this.#homeWatcher = new BotsWatcher(defaultBotsHome(this.root), () => this.#syncHomeBots(true));
     } else {
       await Promise.all([initialAbi, initialRevisions]);
       if (this.#closed) return;
+      this.#syncHostAndRuntimePlugins();
       warmCompletionCatalog(this, this);
     }
     this.#globalHost = new ProjectDaemon(this, this.root, true);
     await this.#globalHost.ready;
     if (this.#closed) return;
     const storedWorkspaces = new Set<string>(Object.keys(kernel.root.projects));
+    const projectKindsByWorkspace = new Map<string, ProjectKind>();
+    for (const row of this.db.listProjects(this.kernelId)) {
+      const workspace = row.workspacePath?.trim() || row.projectId;
+      if (workspace === "") continue;
+      storedWorkspaces.add(workspace);
+      projectKindsByWorkspace.set(workspace, row.kind);
+    }
     const scopeRows = this.db.sqlite
       .prepare("SELECT DISTINCT scope_id FROM scope_nodes WHERE kernel_id = ? AND scope_id LIKE 'project:%'")
       .all(this.kernelId) as Array<{ readonly scope_id: string }>;
@@ -1000,7 +1180,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     for (const workspace of storedWorkspaces) {
       if (this.#closed) return;
       if (workspace === "" || workspace === this.#globalHost.path) continue;
-      if (this.contour === "local" && !existsSync(workspace)) continue;
+      const storedKind = projectKindsByWorkspace.get(workspace);
+      const mustExistOnDisk = storedKind === "local" || (storedKind === undefined && this.contour === "local");
+      if (mustExistOnDisk && !existsSync(workspace)) continue;
       // One unloadable project is that project's failure, not the kernel's.
       await this.project(workspace).ready.catch((error: unknown) => fail(`project ${workspace}`, error));
     }
@@ -1169,7 +1351,11 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           continue;
         }
         const name = entry.source.pluginName;
-        if (HOST_PACK_PLUGINS.has(name) || (plugins.has(name) && !fresh.has(name))) {
+        if (
+          HOST_PACK_PLUGINS.has(name) ||
+          Object.hasOwn(this.runtimePlugins, name) ||
+          (plugins.has(name) && !fresh.has(name))
+        ) {
           kept.push(entry);
           continue;
         }
@@ -1387,6 +1573,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       const next = parseConfigJson(update(current) ?? current);
       this.#writeServerScm("policy", "config.json", `${JSON.stringify(next, null, 2)}\n`);
       this.#syncServerReflection();
+      if (this.doc != null) this.#syncHostAndRuntimePlugins(next);
       return next;
     }
     const next = adjustJson<ConfigJson>(join(this.root, "config.json"), (raw) => {
@@ -1394,7 +1581,88 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       return parseConfigJson(update(config) ?? config);
     });
     reflectKernel(this.root, this.doc.root, this.runtime.registry);
+    if (this.doc != null) this.#syncHostAndRuntimePlugins(next);
     return next;
+  }
+
+  pendingKindFor(workspacePath: string): ProjectKind | undefined {
+    return this.#pendingProjectKinds.get(workspacePath);
+  }
+
+  effectiveEnabledPluginNames(config: ConfigJson = this.#config()): Set<string> {
+    const enabled = new Set<string>();
+    if (this.doc != null) {
+      for (const [key, spec] of Object.entries(this.doc.root.plugins)) {
+        const name = spec.pluginName.trim() === "" ? key : spec.pluginName;
+        if (TOGGLEABLE_HOST_PLUGINS.has(name) || Object.hasOwn(this.runtimePlugins, name)) continue;
+        if (spec.enabled) enabled.add(name);
+      }
+    }
+    for (const name of TOGGLEABLE_HOST_PLUGINS) {
+      const explicit = config.plugins[name]?.enabled ?? config.plugins[LOCAL_ENV_PLUGIN_NAME]?.enabled;
+      if (explicit ?? this.contour === "local") {
+        enabled.add(name);
+      }
+    }
+    for (const name of Object.keys(this.runtimePlugins)) {
+      if (config.plugins[name]?.enabled !== false) {
+        enabled.add(name);
+      }
+    }
+    return enabled;
+  }
+
+  #syncHostAndRuntimePlugins(config: ConfigJson = this.#config()): void {
+    if (this.doc == null || this.doc.isDestroyed) return;
+    const enabledSet = this.effectiveEnabledPluginNames(config);
+    const runtimeNames = new Set(Object.keys(this.runtimePlugins));
+    const runtimeEntries = Object.entries(this.runtimePlugins).flatMap(([name, plugin]) =>
+      enabledSet.has(name)
+        ? plugin.tools.map((tool) => catalogEntryFromTool(tool, { kind: "pack", pluginName: name }))
+        : [],
+    );
+
+    runInAction(() => {
+      for (const name of runtimeNames) {
+        const existing = this.doc.root.plugins[name];
+        const pluginEnabled = enabledSet.has(name);
+        const pluginForeground = config.plugins[name]?.foreground !== false;
+        if (existing === undefined) {
+          this.doc.root.plugins[name] = new InstalledPlugin({
+            pluginName: name,
+            description: "",
+            sourceNpm: "",
+            sourceVersion: "",
+            rootPath: "",
+            enabled: pluginEnabled,
+            foreground: pluginForeground,
+            modules: [],
+          });
+        } else {
+          if (existing.pluginName !== name) existing.pluginName = name;
+          if (existing.enabled !== pluginEnabled) existing.enabled = pluginEnabled;
+          if (existing.foreground !== pluginForeground) existing.foreground = pluginForeground;
+        }
+      }
+      const nextEnabled = [...enabledSet];
+      const current = this.doc.root.enabledPlugins;
+      const sameEnabled =
+        current.length === nextEnabled.length && current.every((value, idx) => value === nextEnabled[idx]);
+      if (!sameEnabled) {
+        this.doc.root.enabledPlugins = nextEnabled;
+      }
+    });
+
+    this.catalog.syncHostAndRuntimePlugins(enabledSet, runtimeNames, runtimeEntries);
+  }
+
+  async #reconcileOpenProjects(): Promise<void> {
+    const seen = new Set<ProjectDaemon>();
+    if (this.#globalHost != null && this.#globalHost.doc != null) seen.add(this.#globalHost);
+    for (const project of this.#projects.values()) {
+      if (project.doc != null) seen.add(project);
+    }
+    await Promise.all([...seen].map((project) => project.reconcileProjectPlugins()));
   }
 
   /** Stored grants of project, bot and global scope (`grants.json`). Session grants live on their session. */
@@ -2300,10 +2568,14 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     warmNativeDirectoryPicker();
   }
 
+  flushProjectDoc(path: string, options?: { readonly force?: boolean }): void {
+    const projectDoc = this.#projectDocs.get(path);
+    if (projectDoc == null || projectDoc.isDestroyed) return;
+    this.#flushScopeSync(projectScopeId(path), projectDoc, options);
+  }
+
   hasProject(workspacePath: string): boolean {
-    if (this.contour === "server" && !existsSync(workspacePath)) {
-      return Object.hasOwn(this.doc.root.projects, workspacePath);
-    }
+    if (Object.hasOwn(this.doc.root.projects, workspacePath)) return true;
     try {
       const resolved = realpathSync(workspacePath);
       return Object.hasOwn(this.doc.root.projects, resolved);
@@ -2316,7 +2588,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     if (this.#globalHost != null) {
       if (path === this.#globalHost.path) return this.#globalHost;
       try {
-        if (realpathSync(path) === this.#globalHost.path) return this.#globalHost;
+        if (existsSync(path) && realpathSync(path) === this.#globalHost.path) return this.#globalHost;
       } catch {
         // Constructor still validates; this is only the hidden-host hit.
       }

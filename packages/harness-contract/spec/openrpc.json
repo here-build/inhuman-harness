@@ -7647,6 +7647,135 @@
       "x-host": "kernel"
     },
     {
+      "name": "project/configure",
+      "summary": "Create or update a project overlay and its per-plugin configuration.",
+      "description": "Registers or updates a reusable project configuration overlay (local, remote, or virtual), including enabled runtime plugins and validated per-plugin startup configuration.",
+      "tags": [
+        {
+          "name": "kernel.project"
+        }
+      ],
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "projectId",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "name": "workspacePath",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        {
+          "name": "kind",
+          "required": false,
+          "schema": {
+            "enum": [
+              "local",
+              "remote",
+              "virtual"
+            ],
+            "type": "string"
+          }
+        },
+        {
+          "name": "title",
+          "required": false,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "enabledPlugins",
+          "required": false,
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "name": "pluginConfigs",
+          "required": false,
+          "schema": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "projectId": {
+              "type": "string"
+            },
+            "workspacePath": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "local",
+                "remote",
+                "virtual"
+              ],
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "enabledPlugins": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "pluginConfigs": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": [
+            "projectId",
+            "workspacePath",
+            "kind",
+            "title",
+            "enabledPlugins",
+            "pluginConfigs"
+          ]
+        }
+      },
+      "x-host": "kernel"
+    },
+    {
       "name": "ui/resolve",
       "summary": "Answer a parked UI form",
       "description": "Finishes a call that answered `{form: \"ui\", pending, body}`. The reply is the resumed call's result, or another park form. `kind: \"cancel\"` aborts the parked call. Closing the socket cancels every park it owns.",

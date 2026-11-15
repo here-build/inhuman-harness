@@ -74,6 +74,9 @@ export class KernelToolCatalog extends DisposableClass {
   /** Tools declared by this agent's pinned behavior. The behavior is their grant. */
   @observable.shallow
   accessor behaviorEntries: CatalogEntry[] = [];
+  /** Project-activated plugin tool overrides/extensions layered onto a project view. */
+  @observable.shallow
+  accessor projectPackEntries: CatalogEntry[] = [];
   /** Per-instance project overlay. Not a process table keyed only by path string. */
   readonly #projectRecipesByPath = new Map<string, readonly CatalogRecipe[]>();
 
@@ -92,6 +95,9 @@ export class KernelToolCatalog extends DisposableClass {
     } else {
       for (const entry of this.packEntries) map.set(entry.wireName, entry);
       for (const entry of this.connectionEntries) map.set(entry.wireName, entry);
+    }
+    for (const entry of this.projectPackEntries) {
+      if (this.permits?.(entry.wireName) !== false) map.set(entry.wireName, entry);
     }
     for (const entry of this.privateWorkerEntries) map.set(entry.wireName, entry);
     for (const entry of this.behaviorEntries) {
@@ -225,6 +231,7 @@ export class KernelToolCatalog extends DisposableClass {
     this.projectRecipes = [];
     this.privateWorkerEntries = [];
     this.behaviorEntries = [];
+    this.projectPackEntries = [];
     this.connectionHost = undefined;
     this.botRevisions = new Map();
     releaseCatalogRoots(this);

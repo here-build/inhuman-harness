@@ -7,6 +7,7 @@
  */
 import { AsyncDisposableClass } from "@inhuman.tools/harness-commons";
 import { fail } from "@inhuman.tools/harness-diagnostics";
+import type { InhumanPlugin } from "@inhuman.tools/plugin-sdk";
 import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane/sqlite";
 
 import type { DriverRegistry } from "@/connections";
@@ -28,6 +29,7 @@ export type MultiKernelRegistryOptions = {
   readonly createVisualStore?: (kernelId: string) => VisualStorePort;
   readonly createRegistry?: (kernelId: string) => DriverRegistry;
   readonly bundledPlugins?: ReadonlyArray<{ readonly npmName: string; readonly rootPath: string }>;
+  readonly runtimePlugins?: Readonly<Record<string, InhumanPlugin>>;
 };
 
 export interface KernelLease extends Disposable, AsyncDisposable {
@@ -108,6 +110,7 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
         ...(visuals !== undefined ? { visuals, ownsVisuals: true } : {}),
         ...(registry !== undefined ? { registry } : {}),
         ...(this.#options.bundledPlugins !== undefined ? { bundledPlugins: this.#options.bundledPlugins } : {}),
+        ...(this.#options.runtimePlugins !== undefined ? { runtimePlugins: this.#options.runtimePlugins } : {}),
       });
       entry = {
         kernelId,
@@ -239,9 +242,7 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
     ) {
       entry.idleTimer = setTimeout(() => {
         entry.idleTimer = null;
-        void this.evict(entry.kernelId).catch((error: unknown) =>
-          fail(`multi-kernel evict ${entry.kernelId}`, error),
-        );
+        void this.evict(entry.kernelId).catch((error: unknown) => fail(`multi-kernel evict ${entry.kernelId}`, error));
       }, this.#idleEvictMs);
       entry.idleTimer.unref();
     }
@@ -257,7 +258,7 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
     const activeIds = [...this.#entries.keys()];
     await Promise.allSettled(activeIds.map((id) => this.evict(id, { force: true })));
     if (this.#evicting.size > 0) {
-      await Promise.allSettled([...this.#evicting.values()]);
+      await Promise.allSettled(this.#evicting.values());
     }
     if (this.#ownsLaneHub) {
       this.laneHub.dispose();

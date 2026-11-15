@@ -409,6 +409,13 @@ const kernel = {
     })
       .input(shapes.projectPickInput)
       .output(shapes.projectPickOutput),
+    configure: rpc("kernel", "project/configure", {
+      summary: "Create or update a project overlay and its per-plugin configuration.",
+      description:
+        "Registers or updates a reusable project configuration overlay (local, remote, or virtual), including enabled runtime plugins and validated per-plugin startup configuration.",
+    })
+      .input(shapes.projectConfigureInput)
+      .output(shapes.projectConfigureOutput),
   },
 };
 

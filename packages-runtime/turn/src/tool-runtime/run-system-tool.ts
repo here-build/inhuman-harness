@@ -29,6 +29,7 @@ import { runWithExtraRoot } from "./extra-root.js";
 import { pendingPropose, pluginCallContextOf } from "./plugin-context.js";
 import { ToolError } from "./tool-error.js";
 import { workerToolAllowed } from "./worker-tools.js";
+import { workspaceEnvOf } from "./workspace-env.js";
 import { lineStartOfSpan } from "./write-admit.js";
 import { behaviorEntriesOf, catalogOf, requireCatalog } from "../tool-catalog/index.js";
 
@@ -180,7 +181,8 @@ export async function executeSystemTool(
       return;
     }
 
-    const root = session.path.trim() === "" ? process.cwd() : session.path;
+    const workspaceEnv = workspaceEnvOf(session);
+    const root = workspaceEnv?.logicalRoot.trim() || (session.path.trim() === "" ? process.cwd() : session.path);
     // Extra-root follows the license, not the human bit. Yolo and auto
     // remainder leave approved null; writing it here would derive HITL.
     // block never licenses. A folder the human said to treat as part of the session is a floor approve for
@@ -217,6 +219,7 @@ export async function executeSystemTool(
             onTail: live?.push,
             ...pluginCallContextOf(session, job, signal, entry.source.kind === "pack" ? entry.source.pluginName : ""),
             root,
+            ...(workspaceEnv === undefined ? {} : { workspaceEnv }),
           }),
         );
       } catch (error) {

@@ -60,19 +60,14 @@ import { isMcpDriver } from "@/providers/mcp";
 import { bindCompletionFace, bindSessionMediaReaders, OpenAiCompatActor } from "@/providers/openai-compat";
 import { type SessionCommandHost } from "@/session";
 import { behaviorEntriesOf, bindSessionCatalog } from "@/tool-catalog";
-import { resolveEvalPermissionMode, unattendedFailureText } from "@/tool-runtime";
+import { bindWorkspaceEnv, resolveEvalPermissionMode, unattendedFailureText } from "@/tool-runtime";
 
 import { cancelAgentCall } from "./agent-calls-operator.js";
 import { completeCallExceptionally } from "./agent-runtime.js";
 import { withInstructions } from "./instructions.js";
 import { SessionOrchestrator } from "./SessionOrchestrator.js";
 import { watchGitStatusline } from "./statusline-git.js";
-import {
-  decodeVisualBytes,
-  fitVisual,
-  modelSeesImages,
-  type FittedVisual,
-} from "./visual-store.js";
+import { decodeVisualBytes, fitVisual, modelSeesImages, type FittedVisual } from "./visual-store.js";
 import { ackRequestOf } from "../../ack-requests.js";
 import { applyAckAnswer, applyAskAnswer, promptTtlOf } from "../../ask-answer.js";
 import { utf8TextOf } from "../../blobs/media.js";
@@ -589,6 +584,9 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
     this.#stopSeenTurns = this.doc.onPatch(recordSeenTurns);
     if (!this.#hydrated) {
       runInAction(() => {
+        if (!project.globalHost && this.doc.root.projectId === "") {
+          this.doc.root.projectId = project.projectId;
+        }
         const seed = sessionMintKvs(project.kernel.doc.root.kvs, project.root.kvs);
         if (seed.length > 0) this.doc.root.applyKvs(seed);
         const lastUsed = sessionMintLastUsedConnectionModel(
@@ -603,6 +601,10 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
         if (this.doc.root.standingPermissionMode !== policy) this.doc.root.standingPermissionMode = policy;
         this.#syncSkills();
       });
+    } else if (!project.globalHost && this.doc.root.projectId === "") {
+      runInAction(() => {
+        this.doc.root.projectId = project.projectId;
+      });
     }
     this.sessionRuntime = new SessionRuntime(this.doc, {
       kind: "durable",
@@ -616,7 +618,8 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
       },
     });
     this.orchestrator = new SessionOrchestrator(this);
-    bindSessionCatalog(this.doc.root, project.kernel.catalog);
+    bindSessionCatalog(this.doc.root, project.effectiveCatalog);
+    bindWorkspaceEnv(this.doc.root, project.workspaceEnv);
     bindSessionProjections(this.doc.root, project.kernel.projections);
     bindSessionMediaReaders(this.doc.root, {
       readBlob: project.kernel.blobs.readBytes,
@@ -651,7 +654,7 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
       this.sessionRuntime.recover(
         { kind: "resume" },
         {
-          catalog: this.project.kernel.catalog,
+          catalog: this.project.effectiveCatalog,
           releaseCall: (call) =>
             completeCallExceptionally(
               call,
@@ -766,7 +769,7 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
   }
 
   #ensureGitWatch(): void {
-    if (this.#closed) return;
+    if (this.#closed || this.project.kind !== "local") return;
     if (this.#statuslineGitWatch != null) return;
     this.#statuslineGitWatch = watchGitStatusline(this.root.path, () => this.requestStatusline("git"));
   }
@@ -821,7 +824,9 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
   /** Standing instructions plus project and user instruction files. */
   #constitution() {
     const base = this.root.agent.spec.instructions || HARNESS_CONSTITUTION;
-    return asSystemPrompt(withInstructions(base, this.root.path));
+    return this.project.kind === "local"
+      ? asSystemPrompt(withInstructions(base, this.root.path))
+      : asSystemPrompt(base);
   }
 
   /** R1: kernel config layered with session kv; kv may only shorten retention. */
@@ -834,7 +839,7 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
    * enters the cached prefix at turn boundaries only and a mid-turn change cannot move it.
    */
   #sessionEnv(): Record<string, string> {
-    const env = captureEnv(this.root.path);
+    const env = this.project.kind === "local" ? captureEnv(this.root.path) : { Platform: process.platform };
     return this.root.mode === "" ? env : { Mode: this.root.mode, ...env };
   }
 
@@ -1206,8 +1211,9 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
 
   #behaviorToolStamp(): string {
     const entries = behaviorEntriesOf(this.root);
-    if (entries.length === 0) return "";
-    return JSON.stringify(entries.map((entry) => [entry.wireName, entry.description, entry.parameters]));
+    return entries.length === 0
+      ? ""
+      : JSON.stringify(entries.map((entry) => [entry.wireName, entry.description, entry.parameters]));
   }
 
   /** Behavior attaches after the turn is minted. Re-freeze when its tools moved. */
@@ -1271,7 +1277,8 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
   }
 
   #syncSkills(): void {
-    const next = discoverProjectSkills(this.root.path, undefined, this.#queuedVerbs());
+    const next =
+      this.project.kind === "local" ? discoverProjectSkills(this.root.path, undefined, this.#queuedVerbs()) : [];
     const current = this.root.skills;
     if (
       current.length === next.length &&

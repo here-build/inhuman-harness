@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { ProjectKind } from "../schema/rows.js";
 import { uiFormSchema } from "./rpc.js";
 
 /**
@@ -416,3 +417,27 @@ export const projectPickOutput = z.union([
   z.object({ ok: z.literal(true), path: z.string() }),
   z.object({ ok: z.literal(false) }),
 ]);
+
+const jsonObject = z.record(z.string(), z.unknown());
+
+export const projectKind = z.enum(["local", "remote", "virtual"]) satisfies z.ZodType<ProjectKind>;
+
+export const projectConfigureInput = z.object({
+  projectId: z.string().trim().min(1).optional(),
+  workspacePath: z.string().trim().min(1),
+  kind: projectKind.optional(),
+  title: z.string().optional(),
+  enabledPlugins: z.array(z.string().trim().min(1)).optional(),
+  pluginConfigs: z.record(z.string(), jsonObject).optional(),
+});
+export type ProjectConfigureInput = z.infer<typeof projectConfigureInput>;
+
+export const projectConfigureOutput = z.object({
+  projectId: z.string(),
+  workspacePath: z.string(),
+  kind: projectKind,
+  title: z.string(),
+  enabledPlugins: z.array(z.string()),
+  pluginConfigs: z.record(z.string(), jsonObject),
+});
+export type ProjectConfigureOutput = z.infer<typeof projectConfigureOutput>;

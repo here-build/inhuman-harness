@@ -8152,6 +8152,130 @@
         "x-host": "kernel"
       }
     },
+    "/kernel/project/configure": {
+      "post": {
+        "operationId": "kernel.project.configure",
+        "summary": "Create or update a project overlay and its per-plugin configuration.",
+        "description": "Registers or updates a reusable project configuration overlay (local, remote, or virtual), including enabled runtime plugins and validated per-plugin startup configuration.",
+        "tags": [
+          "kernel.project"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "projectId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "workspacePath": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "enum": [
+                      "local",
+                      "remote",
+                      "virtual"
+                    ],
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "enabledPlugins": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "pluginConfigs": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  }
+                },
+                "required": [
+                  "workspacePath"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "workspacePath": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "enum": [
+                        "local",
+                        "remote",
+                        "virtual"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "enabledPlugins": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "pluginConfigs": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "projectId",
+                    "workspacePath",
+                    "kind",
+                    "title",
+                    "enabledPlugins",
+                    "pluginConfigs"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "x-rpc-method": "project/configure",
+        "x-host": "kernel"
+      }
+    },
     "/ui/resolve": {
       "post": {
         "operationId": "ui.resolve",

@@ -1,15 +1,19 @@
 import type { ConfigJson } from "../../schemas/well-known.js";
+import { expandPluginNames } from "../../system-plugins/index.js";
 
 export function applyPluginSet(
   config: ConfigJson,
   args: { readonly name: string; readonly enabled?: boolean; readonly foreground?: boolean },
 ): void {
-  const current = config.plugins[args.name] ?? {};
-  config.plugins[args.name] = {
-    ...current,
-    ...(args.enabled === undefined ? {} : { enabled: args.enabled }),
-    ...(args.foreground === undefined ? {} : { foreground: args.foreground }),
-  };
+  const names = expandPluginNames([args.name]);
+  for (const name of names) {
+    const current = config.plugins[name] ?? {};
+    config.plugins[name] = {
+      ...current,
+      ...(args.enabled === undefined ? {} : { enabled: args.enabled }),
+      ...(args.foreground === undefined ? {} : { foreground: args.foreground }),
+    };
+  }
 }
 
 export function applyConfigSet(
