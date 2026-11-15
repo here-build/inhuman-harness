@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-client",
-  "version": "0.2.1",
+  "version": "0.4.0",
   "description": "Transport-agnostic typed client for the harness daemon, built on the harness-contract.",
   "type": "module",
   "main": "./dist/index.js",

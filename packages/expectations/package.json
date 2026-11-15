@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/expectations",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Work graph: WorkExpectation, Job, ExpectationDriver, and honoring executor.",
   "license": "MIT",
   "author": "Merkle Bonsai",

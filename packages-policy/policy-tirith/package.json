@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/policy-tirith",
-  "version": "0.2.1",
+  "version": "0.4.0",
   "description": "Host-side Tirith inspection: statement units, the package policy, and the floor map.",
   "type": "module",
   "main": "./dist/index.js",

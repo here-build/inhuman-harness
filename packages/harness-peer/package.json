@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-peer",
-  "version": "0.2.1",
+  "version": "0.4.0",
   "description": "Browser- and React-Native-safe dial onto the harness daemon: SQLite reactive shape lanes, structured presence, and the JSON-RPC port. No node:, no ws.",
   "type": "module",
   "main": "./dist/index.js",

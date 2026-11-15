@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/scope-plane",
-  "version": "0.0.1",
+  "version": "0.4.0",
   "description": "Scope tree types, inheritance, and the row port. Adapters are separate packages.",
   "publishConfig": {
     "access": "public"

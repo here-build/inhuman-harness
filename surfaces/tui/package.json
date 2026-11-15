@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-tui",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Terminal shell for the harness daemon: the Tea state machine, Ratatui paint pipeline, and host/worker bridge.",
   "type": "module",
   "main": "./dist/index.js",

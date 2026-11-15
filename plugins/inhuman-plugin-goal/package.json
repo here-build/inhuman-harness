@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/plugin-goal",
-  "version": "0.0.1",
+  "version": "0.4.0",
   "description": "Single-session goal. /goal calls session methods; the foreground hook continues the loop.",
   "license": "MIT",
   "keywords": [

@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/plugin-offload-tingle",
-  "version": "0.0.1",
+  "version": "0.4.0",
   "description": "Cited project memory. Writer and scout behaviors, with an optional SQLite MCP adapter.",
   "type": "module",
   "exports": {

@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/model",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Stage 3 MobX reactive entity kernel, Drizzle schema validation, two-pass graph hydration, and revision patch recorder.",
   "type": "module",
   "main": "./dist/index.js",
