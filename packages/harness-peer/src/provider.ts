@@ -256,11 +256,22 @@ export class RoomConnection {
       switch (frame.kind) {
         case "shape/delta": {
           if (frame.subscriptionId === ROOM_NODES_SUBSCRIPTION_ID) {
-            this.#nodeLaneOffset = frame.offset;
-            applyNodeShapeDelta(this.doc, frame);
-            if (!this.synced) {
-              this.synced = true;
-              this.emit("sync", true);
+            try {
+              applyNodeShapeDelta(this.doc, frame);
+              this.#nodeLaneOffset = frame.offset;
+              if (!this.synced) {
+                this.synced = true;
+                this.emit("sync", true);
+              }
+            } catch {
+              if (!frame.reset) {
+                this.#nodeLaneOffset = 0;
+                const resetFrame = defaultNodeLaneFrame(this.roomname, this.params, undefined);
+                if (resetFrame != null && ws.readyState === WS_OPEN) {
+                  ws.send(encodeShapeSubscribe(resetFrame));
+                }
+              }
+              break;
             }
           } else {
             const sub = this.#laneSubscriptions.get(frame.subscriptionId);
