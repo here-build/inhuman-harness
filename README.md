@@ -110,6 +110,7 @@ limits are in the [user guide](docs/usage.md).
 - [Package map](docs/packages.md) — the CLI, SDKs, libraries, and internal packages.
 - [Package guidelines](docs/package-guidelines.md) — the standard for a consumer-ready package.
 - [RPC contract](packages/harness-contract/spec/README.md) — the daemon's client interface.
+- [Server installation guide](docs/server-installation.md) — deploying `@inhuman.tools/harness/server` in a multi-tenant backend behind Caddy, Hono, and PostgreSQL.
 - [Architecture](docs/architecture/unified-architecture.md), [thesaurus](docs/architecture/thesaurus.md), and [performance SLOs](docs/architecture/performance-requirements.md) — local daemon and portable multi-tenant server (`@inhuman.tools/harness/server`) design.
 - [Report a bug or suggest a feature](https://github.com/here-build/inhuman-harness/issues).
 

@@ -10,6 +10,7 @@
 | --- | --- |
 | Словарь терминов, контуры `Local`/`Server`, 3-DB изоляция, `inhuman`-плагины, `Project` и `Kill-List` | [thesaurus.md](thesaurus.md) |
 | Целевая архитектура клиент+сервер, целевые таблицы БД, `AsyncDisposable`-иерархия, `FS/shell` плагин и DAG волн 0–5 | [unified-architecture.md](unified-architecture.md) |
+| Гайд по переносимой серверной инсталляции (`@inhuman.tools/harness/server`, 3-DB изоляция, Caddy + Hono + PostgreSQL) | [../server-installation.md](../server-installation.md) |
 | Требования к быстродействию (SLO), методика `T_actual / T_floor` и базовые замеры | [performance-requirements.md](performance-requirements.md) |
 | Живая модель цикла `ReAct` / `CodeAct`, бюджетов и восстановления раунда | [../react-round-lifecycle.md](../react-round-lifecycle.md) |
 | Изоляция встраиваемого `@inhuman.tools/turn/runtime` и контракт с `kley` | [../proposals/session-runtime-isolation.md](../proposals/session-runtime-isolation.md) |
@@ -24,6 +25,7 @@
 | --- | --- | --- | --- |
 | [../../README.md](../../README.md) | Публичный вход | Актуализировано в Волне 5: добавлены ссылки на `unified-architecture.md`, `thesaurus.md`, `performance-requirements.md` и `@inhuman.tools/harness/server` | Актуален |
 | [../usage.md](../usage.md) | Руководство оператора | Актуально для `Local Contour` (`~/.harness`, `manual`/`auto`/`yolo`). Упоминание «Closing either client ... this is not cloud execution» остается верным для локального режима | Сохранить как операторский гайд CLI |
+| [../server-installation.md](../server-installation.md) | Гайд по серверной инсталляции | Обобщённый английский гайд по развёртыванию `@inhuman.tools/harness/server` (3-DB изоляция, `EncryptedSecretsVault`, `HostRuntimePluginCatalog`, Caddy + Hono + PostgreSQL) | Актуален (поддерживать при миграциях потребителей) |
 | [../packages.md](../packages.md) | Карта пакетов | Актуализировано в Волнах 1 и 5 (`scope-plane` публичный с каноническим 11-табличным `RowPlane`; добавлены `WorkspaceEnvPort`/`activateProject` в `@inhuman.tools/plugin-sdk` и `@inhuman.tools/harness/server`) | Актуален |
 | [../package-guidelines.md](../package-guidelines.md) | Стандарт пакетов | Актуален | Сохранить |
 | [../testing.md](../testing.md) | Инженерная спецификация | Актуализировано в Волне 5: добавлена строка запуска бенчмарков `node --expose-gc benchmarks/run.mjs` | Актуален |
