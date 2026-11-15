@@ -12,13 +12,7 @@ import { chatgptProvider } from "@/providers/chatgpt";
 import { cacheFlavorFromBaseUrl } from "@/providers/openai-compat";
 
 import { dedicatedCompatDriver, PRODUCT_PROVIDERS, productBins, productRoster } from "../composition.js";
-import {
-  chatContentText,
-  completionCatalogOf,
-  liveToolDescriptionOf,
-  toolsFor,
-  viewWire,
-} from "../portable-server.js";
+import { chatContentText, completionCatalogOf, liveToolDescriptionOf, toolsFor, viewWire } from "../portable-server.js";
 
 const EXPECTED_DRIVERS = [
   "openai-compat",

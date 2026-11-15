@@ -18,6 +18,7 @@ import {
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
+import { loadSessionRuntimeMetaFromKv } from "@inhuman.tools/scope-plane";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { KernelDaemon } from "../daemon/kernel/KernelDaemon.js";
@@ -147,14 +148,14 @@ describe("blob/vacuum", () => {
       same: parseStoredBlob(summarizer.promptMessages[1]?.contentBlobJson ?? null)?.sha256,
     });
 
-    // What is in SQLite is normalized rows of the vacuumed document, and it opens as a session.
-    const loaded = kernel.db.loadSessionNodes("s-vacuum");
+    // What is in the store is normalized rows of the vacuumed document, and it opens as a session.
+    const loaded = await kernel.loadSessionNodes("s-vacuum");
     if (loaded === undefined) throw new Error("the session nodes did not read");
     const restored = SessionDocument.fromNodeRows(loaded.rows, {
       rootId: loaded.rootId,
       sessionId: "s-vacuum",
       revision: loaded.revision,
-      meta: kernel.db.loadSessionRuntimeMeta("s-vacuum"),
+      meta: await loadSessionRuntimeMetaFromKv(kernel.db, "s-vacuum"),
     });
     try {
       const jobs = restored.getAllOfType(FileMutateToolJob);

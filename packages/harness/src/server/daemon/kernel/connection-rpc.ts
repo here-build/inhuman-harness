@@ -3,8 +3,8 @@
  * List is generic expectation rows; optional `abilityClaim` filters DriverSpec.abilityClaim.
  * Secrets never appear in list/get.
  */
-import { type ConnectionListRow, type ConnectionStatus } from "@inhuman.tools/harness-contract";
 import type { ConnectionSpec } from "@inhuman.tools/expectations";
+import { type ConnectionListRow, type ConnectionStatus } from "@inhuman.tools/harness-contract";
 
 import { loginMcpHttp, type McpOAuthHost, filterMcpToolNames, mcpToolsSettingOf } from "@/providers/mcp";
 

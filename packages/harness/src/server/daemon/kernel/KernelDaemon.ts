@@ -8,19 +8,17 @@ import { isDeepStrictEqual } from "node:util";
 import { DefaultedMap } from "@here.build/collections";
 import { disposeKernelConnections, dropConnection } from "@inhuman.tools/expectations/executor";
 import { asUserPrompt } from "@inhuman.tools/harness-commons";
+import { contract, encodeUiDefinition, KERNEL_SCOPE_ID, projectScopeId } from "@inhuman.tools/harness-contract";
 import {
-  contract,
-  encodeUiDefinition,
-  KERNEL_SCOPE_ID,
-  projectScopeId,
+  splitRowPairId,
+  type KernelStateRow,
   type PendingAskRowInsert,
-} from "@inhuman.tools/harness-contract";
-import {
-  pendingAsksTable,
-  sessionsTable,
-  sessionTurnsTable,
   type ProjectKind,
+  type ProjectRow,
+  type ProjectRowInsert,
   type ScmResourceKind,
+  type ScmResourceRow,
+  type SessionRow,
   type ShapeSubscribeFrame,
 } from "@inhuman.tools/harness-contract/schema";
 import { fail, step } from "@inhuman.tools/harness-diagnostics";
@@ -52,7 +50,22 @@ import { runWithBlobReader, runWithVisualReader } from "@inhuman.tools/harness-p
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
 import type { DocumentContainer } from "@inhuman.tools/model";
 import type { InhumanPlugin } from "@inhuman.tools/plugin-sdk";
-import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane/sqlite";
+import {
+  CommitDiffShapeSource,
+  commitScopeNodesInBatch,
+  commitSessionNodesInBatch,
+  insertSessionBlobInBatch,
+  loadScopeNodesFromKv,
+  loadSessionNodesFromKv,
+  loadSessionRuntimeMetaFromKv,
+  MemoryKvStore,
+  normalizeHarnessRow,
+  type HarnessKvStore,
+  type LoadedNodeRows,
+  type ShapeSource,
+  upsertSessionEffectInBatch,
+} from "@inhuman.tools/scope-plane";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import {
   glanceAskLine,
   sessionColumns,
@@ -62,7 +75,6 @@ import {
 } from "@inhuman.tools/turn/runtime";
 import type { SessionCheckpoint, SessionReceipt } from "@inhuman.tools/turn/session-runtime";
 import { runWithBlobWriter } from "@inhuman.tools/turn/tool-runtime";
-import { eq } from "drizzle-orm";
 import fs from "fs-extra";
 import { autorun, comparer, observable, reaction, runInAction, type IReactionDisposer } from "mobx";
 
@@ -181,9 +193,9 @@ export type KernelDaemonOptions = {
   readonly contour?: KernelContour;
   readonly kernelId?: string;
   readonly root?: string;
-  readonly db?: HarnessDatabase;
+  readonly db?: HarnessKvStore;
   readonly ownsDb?: boolean;
-  readonly laneHub?: UpdateLaneHub;
+  readonly laneHub?: ShapeSource;
   readonly ownsLaneHub?: boolean;
   readonly registry?: DriverRegistry;
   readonly secrets?: SecretsVaultPort;
@@ -200,8 +212,8 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   readonly contour: KernelContour;
   readonly kernelId: string;
   readonly root: string;
-  readonly db: HarnessDatabase;
-  readonly laneHub: UpdateLaneHub;
+  readonly db: HarnessKvStore;
+  readonly laneHub: ShapeSource;
   readonly secrets: SecretsVaultPort;
   readonly blobs: BlobStore;
   readonly visuals: VisualStorePort;
@@ -261,6 +273,15 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   #closed = false;
   #disposedSync = false;
   #disposingPromise: Promise<void> | null = null;
+  readonly #dbStateStore: DbStateStore | null = null;
+  readonly #projectsCache = new Map<string, ProjectRow>();
+  readonly #scmCache = new Map<string, ScmResourceRow>();
+  #kernelStateCache: KernelStateRow | undefined;
+  readonly #sessionsCache = new Map<string, SessionRow>();
+  readonly #storedSessionIds = new Set<string>();
+  readonly #sessionNodeRowLengths = new Map<string, Map<string, number>>();
+  readonly #bootProjectScopeIds = new Set<string>();
+  readonly #writeChains = new Map<string, Promise<void>>();
   /**
    * Serializes mutating `execute`. A second write door races.
    * PARK_RELEASE: `ui()` drops this chain while the browser is open —
@@ -767,7 +788,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     DaemonRpcMethod.fromContract(contract.kernel.project.configure, async (args) => {
       const rawWorkspace = args.workspacePath.trim();
       RpcInvalidParams.invariant(rawWorkspace !== "", "project/configure: workspacePath is required");
-      const existingById = args.projectId !== undefined ? this.db.getProject(args.projectId) : undefined;
+      const existingById = args.projectId !== undefined ? this.getCachedProject(args.projectId) : undefined;
       if (existingById !== undefined) {
         RpcInvalidParams.invariant(
           existingById.kernelId === this.kernelId,
@@ -776,9 +797,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       }
       const existingRow =
         existingById ??
-        this.db
-          .listProjects(this.kernelId)
-          .find((row) => row.workspacePath === rawWorkspace || row.projectId === rawWorkspace);
+        this.listCachedProjects().find((row) => row.workspacePath === rawWorkspace || row.projectId === rawWorkspace);
       const kind: ProjectKind = args.kind ?? existingRow?.kind ?? (this.contour === "local" ? "local" : "virtual");
 
       let resolvedWorkspace: string;
@@ -938,12 +957,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       mkdirSync(this.root, { recursive: true });
     }
     this.db =
-      options.db ??
-      new HarnessDatabase(contour === "server" ? ":memory:" : join(this.root, "harness.db"), {
-        kernelId: this.kernelId,
-      });
+      options.db ?? (contour === "server" ? new MemoryKvStore() : new SqliteKvStore(join(this.root, "harness.db")));
     this.#ownsDb = options.ownsDb ?? options.db === undefined;
-    this.laneHub = options.laneHub ?? new UpdateLaneHub(this.db);
+    this.laneHub = options.laneHub ?? new CommitDiffShapeSource(this.db, { defaultKernelId: this.kernelId });
     this.#ownsLaneHub = options.ownsLaneHub ?? options.laneHub === undefined;
     this.secrets = options.secrets ?? (contour === "server" ? new MemorySecretsVault() : new FsSecretsVault(this.root));
     this.#ownsSecrets = options.ownsSecrets ?? options.secrets === undefined;
@@ -954,6 +970,15 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     this.#ownsBlobs = true;
     this.visuals = options.visuals ?? (contour === "server" ? new MemoryVisualStore() : new FsVisualStore(this.root));
     this.#ownsVisuals = options.ownsVisuals ?? options.visuals === undefined;
+    const dbStateStore =
+      contour === "server"
+        ? new DbStateStore({
+            db: this.db,
+            kernelId: this.kernelId,
+            sessionRoot: (sessionId) => this.runtime.replica(sessionId)?.root,
+          })
+        : null;
+    this.#dbStateStore = dbStateStore;
     this.behavior = new BehaviorKernel({
       packages: () =>
         Object.values(this.doc.root.plugins)
@@ -966,16 +991,11 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           })),
       approved: (plugin) => new Set(this.#config().plugins[plugin]?.guards),
       store:
-        contour === "server"
-          ? new DbStateStore({
-              db: this.db,
-              kernelId: this.kernelId,
-              sessionRoot: (sessionId) => this.runtime.replica(sessionId)?.root,
-            })
-          : new KernelStateStore(
-              () => this.root,
-              (sessionId) => this.runtime.replica(sessionId)?.root,
-            ),
+        dbStateStore ??
+        new KernelStateStore(
+          () => this.root,
+          (sessionId) => this.runtime.replica(sessionId)?.root,
+        ),
     });
     this.#remote = new RemoteAccess({
       credentials: {
@@ -1021,7 +1041,50 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   /** Dispose can land at any await; each one bails rather than build on a closed kernel. */
   async #boot(): Promise<void> {
-    this.doc = this.#hydrateKernel();
+    await this.secrets.warm?.();
+    if (this.#closed) return;
+    await this.#dbStateStore?.warm();
+    if (this.#closed) return;
+    const [kernelState, projects, scmResources, sessions, sessionNodeKeys, scopeNodeKeys, preloadedKernelNodes] =
+      await Promise.all([
+        this.db.get("kernel_state", this.kernelId),
+        this.db.scan("projects", { where: { kernelId: this.kernelId } }),
+        this.db.scan("scm_resources", { where: { kernelId: this.kernelId } }),
+        this.db.scan("sessions", { where: { kernelId: this.kernelId } }),
+        this.db.keys("session_nodes", { kernelId: this.kernelId }),
+        this.db.keys("scope_nodes", { kernelId: this.kernelId }),
+        loadScopeNodesFromKv(this.db, KERNEL_SCOPE_ID, this.kernelId),
+      ]);
+    if (this.#closed) return;
+    this.#kernelStateCache = kernelState;
+    for (const row of projects) {
+      this.#projectsCache.set(row.projectId, row);
+    }
+    for (const row of scmResources) {
+      this.#scmCache.set(row.id, row);
+    }
+    for (const row of sessions) {
+      this.#sessionsCache.set(row.sessionId, row);
+      this.#storedSessionIds.add(row.sessionId);
+    }
+    for (const key of sessionNodeKeys) {
+      const pair = splitRowPairId(key);
+      if (pair !== null) this.#storedSessionIds.add(pair[0]);
+    }
+    const kernelScopePrefix = `${this.kernelId}:`;
+    for (const key of scopeNodeKeys) {
+      const pair = splitRowPairId(key);
+      if (pair === null) continue;
+      const owner = pair[0];
+      const scopeId =
+        this.kernelId !== "local" && owner.startsWith(kernelScopePrefix)
+          ? owner.slice(kernelScopePrefix.length)
+          : owner;
+      if (scopeId.startsWith("project:")) {
+        this.#bootProjectScopeIds.add(scopeId.slice("project:".length));
+      }
+    }
+    this.doc = this.#hydrateKernel(preloadedKernelNodes);
     if (this.#closed) return;
     const kernel = this.doc;
     this.runtime.bind(kernel.root, this.contour === "local" ? { moduleRoot: this.root } : undefined);
@@ -1167,17 +1230,14 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     if (this.#closed) return;
     const storedWorkspaces = new Set<string>(Object.keys(kernel.root.projects));
     const projectKindsByWorkspace = new Map<string, ProjectKind>();
-    for (const row of this.db.listProjects(this.kernelId)) {
+    for (const row of this.listCachedProjects()) {
       const workspace = row.workspacePath?.trim() || row.projectId;
       if (workspace === "") continue;
       storedWorkspaces.add(workspace);
       projectKindsByWorkspace.set(workspace, row.kind);
     }
-    const scopeRows = this.db.sqlite
-      .prepare("SELECT DISTINCT scope_id FROM scope_nodes WHERE kernel_id = ? AND scope_id LIKE 'project:%'")
-      .all(this.kernelId) as Array<{ readonly scope_id: string }>;
-    for (const row of scopeRows) {
-      storedWorkspaces.add(row.scope_id.slice("project:".length));
+    for (const workspace of this.#bootProjectScopeIds) {
+      storedWorkspaces.add(workspace);
     }
     for (const workspace of storedWorkspaces) {
       if (this.#closed) return;
@@ -1238,10 +1298,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     });
     if (prunedSessions.size > 0) {
       for (const path of touchedProjectPaths) {
-        const projectDoc = this.#projectDocs.get(path);
-        if (projectDoc != null) this.#flushScopeSync(projectScopeId(path), projectDoc);
+        await this.flushProjectDoc(path);
       }
-      this.flushKernel();
+      await this.flushKernel();
     }
     for (const [id, glance] of Object.entries(kernel.root.sessions)) {
       if (glance?.resident !== true) continue;
@@ -1249,11 +1308,12 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       await this.attachSession(id).catch((error: unknown) => fail(`resident ${id}`, error));
     }
     // An attach in flight when dispose ran may have registered a daemon after it.
-    if (this.#closed) {
-      this[Symbol.dispose]();
-    } else {
+    if (!this.#closed) {
       this.#activate();
       if (this.contour === "local" && remoteLoggedIn(this.secrets)) this.#connector?.start();
+      if (this.#drains.size > 0) {
+        await Promise.allSettled(this.#drains);
+      }
     }
   }
 
@@ -1454,16 +1514,32 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     return projectBotsDir(path);
   }
 
+  listCachedProjects(): ProjectRow[] {
+    return [...this.#projectsCache.values()];
+  }
+
+  getCachedProject(projectId: string): ProjectRow | undefined {
+    return this.#projectsCache.get(projectId);
+  }
+
+  async upsertProjectRow(row: ProjectRowInsert): Promise<void> {
+    const normalized = normalizeHarnessRow("projects", row);
+    this.#projectsCache.set(normalized.projectId, normalized);
+    await this.#enqueueWrite("meta:projects", "project upsert", () =>
+      this.db.set("projects", normalized).then(() => undefined),
+    );
+  }
+
   #scmResourceId(kind: ScmResourceKind, name: string): string {
-    return `${this.kernelId}\0kernel\0${kind}\0${name}`;
+    return JSON.stringify([this.kernelId, "kernel", kind, name]);
   }
 
   #readServerScm(kind: ScmResourceKind, name: string): string | undefined {
-    return this.db.getScmResource(this.#scmResourceId(kind, name))?.source;
+    return this.#scmCache.get(this.#scmResourceId(kind, name))?.source;
   }
 
   #writeServerScm(kind: ScmResourceKind, name: string, source: string): void {
-    this.db.upsertScmResource({
+    const row: ScmResourceRow = {
       id: this.#scmResourceId(kind, name),
       kernelId: this.kernelId,
       scope: "kernel",
@@ -1473,6 +1549,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       source,
       sha256: createHash("sha256").update(source).digest("hex"),
       updatedAtMs: Date.now(),
+    };
+    this.#scmCache.set(row.id, row);
+    void this.#enqueueWrite(`scm:${row.id}`, "scm write", () => this.db.set("scm_resources", row), {
+      swallowError: true,
     });
   }
 
@@ -1511,7 +1591,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     const compactBody = this.#readServerScm("command", "compact.scm") ?? defaultCompactSource();
     let kvBag: Record<string, string> = {};
     try {
-      const state = this.db.getKernelState(this.kernelId);
+      const state = this.#kernelStateCache;
       kvBag = state !== undefined ? parseKvBag(JSON.parse(state.kvsJson)) : { ...this.doc.root.kvs };
     } catch {
       kvBag = { ...this.doc.root.kvs };
@@ -1810,13 +1890,13 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     if (this.contour === "server") {
       let current: Record<string, string> = {};
       try {
-        const state = this.db.getKernelState(this.kernelId);
+        const state = this.#kernelStateCache;
         current = parseKvBag(state !== undefined ? JSON.parse(state.kvsJson) : { ...this.doc?.root.kvs });
       } catch {
         current = parseKvBag({ ...this.doc?.root.kvs });
       }
       const next = parseKvBag(update(current) ?? current);
-      this.db.upsertKernelState({
+      const nextState: KernelStateRow = {
         id: this.kernelId,
         kernelId: this.kernelId,
         defaultModel: next.model ?? "",
@@ -1824,6 +1904,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
         enabledPluginsJson: JSON.stringify(this.doc?.root.enabledPlugins ?? []),
         kvsJson: JSON.stringify(next),
         updatedAtMs: Date.now(),
+      };
+      this.#kernelStateCache = nextState;
+      void this.#enqueueWrite("meta:kernel_state", "kernel state write", () => this.db.set("kernel_state", nextState), {
+        swallowError: true,
       });
       return next;
     }
@@ -1987,6 +2071,52 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     return room;
   }
 
+  #enqueueWrite<T>(
+    channel: string,
+    label: string,
+    fn: () => Promise<T>,
+    options?: { readonly swallowError?: boolean },
+  ): Promise<T> {
+    const prev = this.#writeChains.get(channel);
+    const run = prev === undefined ? fn() : prev.then(fn, fn);
+    const drain = run
+      .then(
+        () => undefined,
+        (error: unknown) => {
+          if (options?.swallowError) fail(label, error);
+        },
+      )
+      .finally(() => {
+        if (this.#writeChains.get(channel) === drain) {
+          this.#writeChains.delete(channel);
+        }
+        this.#drains.delete(drain);
+      });
+    this.#writeChains.set(channel, drain);
+    this.#drains.add(drain);
+    return options?.swallowError === true ? (drain as Promise<T>) : run;
+  }
+
+  #recordSessionNodeRows(
+    sessionId: string,
+    rows: readonly { readonly uuid: string }[],
+    options?: { readonly replaceAll?: boolean; readonly deletes?: readonly string[] },
+  ): void {
+    let map = this.#sessionNodeRowLengths.get(sessionId);
+    if (options?.replaceAll || map === undefined) {
+      map = new Map<string, number>();
+      this.#sessionNodeRowLengths.set(sessionId, map);
+    }
+    if (options?.deletes !== undefined) {
+      for (const deletedId of options.deletes) {
+        map.delete(deletedId);
+      }
+    }
+    for (const row of rows) {
+      map.set(row.uuid, JSON.stringify(row).length);
+    }
+  }
+
   #bindScopeFlush(scopeId: string, doc: DocumentContainer<any, any>, afterFlush?: () => void): void {
     const slot = `scope:${scopeId}`;
     if (this.#flushStops.has(slot)) return;
@@ -1994,12 +2124,15 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     const flushNow = (): void => {
       scheduled = false;
       if (this.#closed) return;
-      try {
-        this.#flushScopeSync(scopeId, doc);
-        afterFlush?.();
-      } catch (error) {
-        fail("scope flush", error);
-      }
+      void this.#flushScope(scopeId, doc).then(
+        () => {
+          if (!this.#closed) afterFlush?.();
+          return undefined;
+        },
+        (error: unknown) => {
+          fail("scope flush", error);
+        },
+      );
     };
     const unsub = doc.onPatch(() => {
       if (scheduled || this.#closed) return;
@@ -2019,13 +2152,11 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     const flushNow = (): void => {
       timer = undefined;
       if (this.#closed) return;
-      try {
-        const delta = session.peekNodeDelta();
-        if (delta.upserts.length === 0 && delta.deletes.length === 0) return;
-        this.#flushSessionSync(session);
-      } catch (error) {
+      const delta = session.peekNodeDelta();
+      if (delta.upserts.length === 0 && delta.deletes.length === 0) return;
+      void this.#flushSession(session).catch((error: unknown) => {
         fail("session flush", error);
-      }
+      });
     };
     const unsub = session.onPatch(() => {
       if (timer !== undefined || this.#closed) return;
@@ -2042,7 +2173,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   }
 
   /**
-   * Persist the session's nodes and normalized tables in SQLite.
+   * Persist the session's nodes and normalized tables in the backing KV store.
    * `force` replaces all stored `session_nodes` rows for this session after pruning unreachable nodes.
    */
   async flushSession(
@@ -2050,7 +2181,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     options?: { readonly force?: boolean; readonly checkpoint?: SessionCheckpoint },
   ): Promise<void> {
     if (options?.checkpoint != null) {
-      this.commitCheckpoint(options.checkpoint, { force: options.force });
+      await this.commitCheckpoint(options.checkpoint, { force: options.force });
       session.commitNodeDelta({
         revision: options.checkpoint.revision,
         upserts: options.checkpoint.upsertedNodes,
@@ -2058,55 +2189,40 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       });
       return;
     }
-    this.#flushSessionSync(session, options);
+    await this.#flushSession(session, options);
   }
 
-  commitCheckpoint(checkpoint: SessionCheckpoint, options?: { readonly force?: boolean }): SessionReceipt {
-    this.db.writeTransaction(
-      ["sessions", "session_nodes", "session_turns", "pending_asks", "session_effects"],
-      (tx) => {
-        const row = checkpoint.sessionRow;
-        tx.insert(sessionsTable)
-          .values({
-            sessionId: checkpoint.sessionId,
-            kernelId: this.kernelId,
-            projectId: row.projectId ?? "",
-            title: row.title ?? "",
-            workspacePath: row.workspacePath ?? "",
-            mode: row.mode ?? "assistant",
-            permissionMode: row.permissionMode ?? "manual",
-            running: row.running ?? false,
-            headTurnId: row.headTurnId ?? null,
-            parentSessionId: row.parentSessionId ?? null,
-            parentCallId: row.parentCallId ?? null,
-            depth: row.depth ?? 0,
-            revision: checkpoint.revision,
-            createdAtMs: row.createdAtMs ?? Date.now(),
-            lastActiveAtMs: row.lastActiveAtMs ?? Date.now(),
-            archivedAtMs: row.archivedAtMs ?? null,
-          })
-          .onConflictDoUpdate({
-            target: sessionsTable.sessionId,
-            set: {
-              kernelId: this.kernelId,
-              ...(row.projectId !== undefined ? { projectId: row.projectId } : {}),
-              ...(row.title !== undefined ? { title: row.title } : {}),
-              ...(row.workspacePath !== undefined ? { workspacePath: row.workspacePath } : {}),
-              ...(row.mode !== undefined ? { mode: row.mode } : {}),
-              ...(row.permissionMode !== undefined ? { permissionMode: row.permissionMode } : {}),
-              ...(row.running !== undefined ? { running: row.running } : {}),
-              ...(row.headTurnId !== undefined ? { headTurnId: row.headTurnId } : {}),
-              ...(row.parentSessionId !== undefined ? { parentSessionId: row.parentSessionId } : {}),
-              ...(row.parentCallId !== undefined ? { parentCallId: row.parentCallId } : {}),
-              ...(row.depth !== undefined ? { depth: row.depth } : {}),
-              revision: checkpoint.revision,
-              lastActiveAtMs: row.lastActiveAtMs ?? Date.now(),
-              ...(row.archivedAtMs !== undefined ? { archivedAtMs: row.archivedAtMs } : {}),
-            },
-          })
-          .run();
+  async commitCheckpoint(
+    checkpoint: SessionCheckpoint,
+    options?: { readonly force?: boolean },
+  ): Promise<SessionReceipt> {
+    await this.#enqueueWrite(`session:${checkpoint.sessionId}`, "checkpoint commit", async () => {
+      const row = checkpoint.sessionRow;
+      const prev =
+        this.#sessionsCache.get(checkpoint.sessionId) ?? (await this.db.get("sessions", checkpoint.sessionId));
+      const now = Date.now();
+      const nextSessionRow: SessionRow = {
+        sessionId: checkpoint.sessionId,
+        kernelId: this.kernelId,
+        projectId: row.projectId ?? prev?.projectId ?? "",
+        title: row.title ?? prev?.title ?? "",
+        workspacePath: row.workspacePath ?? prev?.workspacePath ?? "",
+        mode: row.mode ?? prev?.mode ?? "assistant",
+        permissionMode: row.permissionMode ?? prev?.permissionMode ?? "manual",
+        running: row.running ?? prev?.running ?? false,
+        headTurnId: row.headTurnId !== undefined ? row.headTurnId : (prev?.headTurnId ?? null),
+        parentSessionId: row.parentSessionId !== undefined ? row.parentSessionId : (prev?.parentSessionId ?? null),
+        parentCallId: row.parentCallId !== undefined ? row.parentCallId : (prev?.parentCallId ?? null),
+        depth: row.depth ?? prev?.depth ?? 0,
+        revision: checkpoint.revision,
+        createdAtMs: row.createdAtMs ?? prev?.createdAtMs ?? now,
+        lastActiveAtMs: row.lastActiveAtMs ?? now,
+        archivedAtMs: row.archivedAtMs !== undefined ? row.archivedAtMs : (prev?.archivedAtMs ?? null),
+      };
 
-        this.db.commitSessionNodesInTx(
+      await this.db.batch((tx) => {
+        tx.set("sessions", nextSessionRow);
+        commitSessionNodesInBatch(
           tx,
           checkpoint.sessionId,
           {
@@ -2118,32 +2234,29 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
           },
           this.kernelId,
         );
-
         for (const turn of checkpoint.dirtyTurns) {
-          tx.insert(sessionTurnsTable)
-            .values(turn)
-            .onConflictDoUpdate({
-              target: sessionTurnsTable.turnId,
-              set: {
-                status: turn.status,
-                cancelRequested: turn.cancelRequested,
-                reducerExited: turn.reducerExited,
-                endedAtMs: turn.endedAtMs,
-              },
-            })
-            .run();
+          tx.set("session_turns", turn);
         }
-
-        tx.delete(pendingAsksTable).where(eq(pendingAsksTable.sessionId, checkpoint.sessionId)).run();
-        for (const ask of checkpoint.pendingAsks) {
-          tx.insert(pendingAsksTable).values(ask).run();
+        tx.retainOnly(
+          "pending_asks",
+          { sessionId: checkpoint.sessionId },
+          checkpoint.pendingAsks.map((ask) => ask.jobId),
+        );
+        if (checkpoint.pendingAsks.length > 0) {
+          tx.setMany("pending_asks", checkpoint.pendingAsks);
         }
-
         for (const eff of checkpoint.effectRecords) {
-          this.db.upsertSessionEffectInTx(tx, eff);
+          upsertSessionEffectInBatch(tx, eff, this.kernelId);
         }
-      },
-    );
+      });
+
+      this.#sessionsCache.set(checkpoint.sessionId, nextSessionRow);
+      this.#storedSessionIds.add(checkpoint.sessionId);
+      this.#recordSessionNodeRows(checkpoint.sessionId, checkpoint.upsertedNodes, {
+        replaceAll: options?.force === true,
+        deletes: checkpoint.deletedNodeIds,
+      });
+    });
 
     return {
       sessionId: checkpoint.sessionId,
@@ -2152,10 +2265,31 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     };
   }
 
-  flushKernel(options?: { readonly force?: boolean }): void {
+  async flushKernel(options?: { readonly force?: boolean }): Promise<void> {
     if (this.doc == null) return;
-    this.#flushScopeSync(KERNEL_SCOPE_ID, this.doc, options);
-    this.#syncKernelStateToDb(this.doc);
+    await Promise.all([this.#flushScope(KERNEL_SCOPE_ID, this.doc, options), this.#syncKernelStateToDbAsync(this.doc)]);
+  }
+
+  async #flushAllDirtyBeforeCloseAsync(): Promise<void> {
+    const tasks: Promise<void>[] = [];
+    for (const session of this.runtime.replicaValues()) {
+      if (session.isDestroyed) continue;
+      const delta = session.peekNodeDelta();
+      if (delta.upserts.length > 0 || delta.deletes.length > 0) {
+        tasks.push(this.#flushSession(session).catch(() => undefined));
+      }
+    }
+    for (const [path, projectDoc] of this.#projectDocs) {
+      if (projectDoc.isDestroyed) continue;
+      tasks.push(this.#flushScope(projectScopeId(path), projectDoc).catch(() => undefined));
+    }
+    if (this.doc != null && !this.doc.isDestroyed) {
+      tasks.push(this.#flushScope(KERNEL_SCOPE_ID, this.doc).catch(() => undefined));
+      tasks.push(this.#syncKernelStateToDbAsync(this.doc).catch(() => undefined));
+    }
+    if (tasks.length > 0) {
+      await Promise.allSettled(tasks);
+    }
   }
 
   #flushAllDirtyBeforeClose(): void {
@@ -2164,7 +2298,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       try {
         const delta = session.peekNodeDelta();
         if (delta.upserts.length > 0 || delta.deletes.length > 0) {
-          this.#flushSessionSync(session);
+          void this.#flushSession(session).catch(() => undefined);
         }
       } catch {
         // Best-effort drain on shutdown; read-only or unbooted DBs must not fail dispose.
@@ -2173,49 +2307,73 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     for (const [path, projectDoc] of this.#projectDocs) {
       if (projectDoc.isDestroyed) continue;
       try {
-        this.#flushScopeSync(projectScopeId(path), projectDoc);
+        void this.#flushScope(projectScopeId(path), projectDoc).catch(() => undefined);
       } catch {
         // Ignore shutdown flush failures.
       }
     }
     if (this.doc != null && !this.doc.isDestroyed) {
       try {
-        this.#flushScopeSync(KERNEL_SCOPE_ID, this.doc);
-        this.#syncKernelStateToDb(this.doc);
+        void this.#flushScope(KERNEL_SCOPE_ID, this.doc).catch(() => undefined);
+        void this.#syncKernelStateToDbAsync(this.doc).catch(() => undefined);
       } catch {
         // Ignore shutdown flush failures.
       }
     }
   }
 
-  #flushScopeSync(scopeId: string, doc: DocumentContainer<any, any>, options?: { readonly force?: boolean }): void {
+  #flushScope(
+    scopeId: string,
+    doc: DocumentContainer<any, any>,
+    options?: { readonly force?: boolean },
+  ): Promise<void> {
     if (options?.force === true) {
-      doc.pruneUnreachableNodes();
-      const rows = doc.toNodeRows();
-      const revision = Math.max(doc.revision, 1);
-      this.db.commitScopeNodes(
-        scopeId,
-        {
-          rootId: doc.root.uuid,
-          revision,
-          upserts: rows,
-          deletes: [],
-          replaceAll: true,
-        },
-        this.kernelId,
-      );
-      doc.markAllNodesCommitted();
-      return;
+      return this.#enqueueWrite(`scope:${scopeId}`, "scope flush", async () => {
+        if (doc.isDestroyed) return;
+        doc.pruneUnreachableNodes();
+        const capturedRevision = doc.revision;
+        const rows = doc.toNodeRows();
+        const revision = Math.max(capturedRevision, 1);
+        const rootId = doc.root.uuid;
+        await this.db.batch((tx) => {
+          commitScopeNodesInBatch(
+            tx,
+            scopeId,
+            {
+              rootId,
+              revision,
+              upserts: rows,
+              deletes: [],
+              replaceAll: true,
+            },
+            this.kernelId,
+          );
+        });
+        if (!doc.isDestroyed) {
+          doc.commitSnapshot({
+            revision: capturedRevision,
+            upserts: rows,
+            replaceAll: true,
+          });
+        }
+      });
     }
-    const delta = doc.peekNodeDelta();
-    if (delta.upserts.length === 0 && delta.deletes.length === 0) return;
-    this.db.commitScopeNodes(scopeId, delta, this.kernelId);
-    doc.commitNodeDelta(delta);
+    return this.#enqueueWrite(`scope:${scopeId}`, "scope flush", async () => {
+      if (doc.isDestroyed) return;
+      const delta = doc.peekNodeDelta();
+      if (delta.upserts.length === 0 && delta.deletes.length === 0) return;
+      await this.db.batch((tx) => {
+        commitScopeNodesInBatch(tx, scopeId, delta, this.kernelId);
+      });
+      if (!doc.isDestroyed) {
+        doc.commitNodeDelta(delta);
+      }
+    });
   }
 
-  #syncKernelStateToDb(kernel: KernelDocument = this.doc): void {
+  #buildKernelStateRow(kernel: KernelDocument): KernelStateRow {
     const root = kernel.root;
-    this.db.upsertKernelState({
+    return {
       id: this.kernelId,
       kernelId: this.kernelId,
       defaultModel: root.kvs.model ?? "",
@@ -2223,10 +2381,29 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       enabledPluginsJson: JSON.stringify(root.enabledPlugins),
       kvsJson: JSON.stringify(root.kvs),
       updatedAtMs: Date.now(),
-    });
+    };
   }
 
-  #flushSessionSync(session: SessionDocument, options?: { readonly force?: boolean }): void {
+  #syncKernelStateToDb(kernel: KernelDocument = this.doc): void {
+    const nextState = this.#buildKernelStateRow(kernel);
+    this.#kernelStateCache = nextState;
+    void this.#enqueueWrite(
+      "meta:kernel_state",
+      "kernel state sync",
+      () => this.db.set("kernel_state", nextState).then(() => undefined),
+      { swallowError: true },
+    );
+  }
+
+  #syncKernelStateToDbAsync(kernel: KernelDocument = this.doc): Promise<void> {
+    const nextState = this.#buildKernelStateRow(kernel);
+    this.#kernelStateCache = nextState;
+    return this.#enqueueWrite("meta:kernel_state", "kernel state sync", () =>
+      this.db.set("kernel_state", nextState).then(() => undefined),
+    );
+  }
+
+  #flushSession(session: SessionDocument, options?: { readonly force?: boolean }): Promise<void> {
     const root = session.root;
     const sessionId = root.sessionId;
     const now = Date.now();
@@ -2235,126 +2412,148 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
     if (options?.force === true) {
       session.pruneUnreachableNodes();
+      const capturedRevision = session.revision;
       const rows = session.toNodeRows();
-      const revision = Math.max(session.revision, 1);
-      this.db.writeTransaction(["sessions", "session_nodes", "pending_asks"], (tx) => {
-        tx.insert(sessionsTable)
-          .values({
-            sessionId,
-            kernelId: this.kernelId,
-            projectId: root.projectId,
-            ...face,
-            revision,
-            createdAtMs: now,
-            lastActiveAtMs: now,
-          })
-          .onConflictDoUpdate({
-            target: sessionsTable.sessionId,
-            set: {
-              kernelId: this.kernelId,
-              projectId: root.projectId,
-              ...face,
-              revision,
-              lastActiveAtMs: now,
-            },
-          })
-          .run();
-        this.db.commitSessionNodesInTx(
-          tx,
+      const revision = Math.max(capturedRevision, 1);
+      return this.#enqueueWrite(`session:${sessionId}`, "session flush", async () => {
+        const prev = this.#sessionsCache.get(sessionId);
+        const sessionRow: SessionRow = {
+          archivedAtMs: prev?.archivedAtMs ?? null,
+          parentSessionId: prev?.parentSessionId ?? null,
+          parentCallId: prev?.parentCallId ?? null,
+          depth: prev?.depth ?? 0,
+          ...face,
           sessionId,
-          {
-            rootId: root.uuid,
-            revision,
+          kernelId: this.kernelId,
+          projectId: root.projectId,
+          revision,
+          createdAtMs: prev?.createdAtMs ?? now,
+          lastActiveAtMs: now,
+        };
+        await this.db.batch((tx) => {
+          tx.set("sessions", sessionRow);
+          commitSessionNodesInBatch(
+            tx,
+            sessionId,
+            {
+              rootId: root.uuid,
+              revision,
+              upserts: rows,
+              deletes: [],
+              replaceAll: true,
+            },
+            this.kernelId,
+          );
+          tx.retainOnly(
+            "pending_asks",
+            { sessionId },
+            pendingAsks.map((ask) => ask.jobId),
+          );
+          if (pendingAsks.length > 0) {
+            tx.setMany("pending_asks", pendingAsks);
+          }
+        });
+        this.#sessionsCache.set(sessionId, sessionRow);
+        this.#storedSessionIds.add(sessionId);
+        this.#recordSessionNodeRows(sessionId, rows, { replaceAll: true });
+        if (!session.isDestroyed) {
+          session.commitSnapshot({
+            revision: capturedRevision,
             upserts: rows,
-            deletes: [],
             replaceAll: true,
-          },
-          this.kernelId,
-        );
-        tx.delete(pendingAsksTable).where(eq(pendingAsksTable.sessionId, sessionId)).run();
-        for (const ask of pendingAsks) {
-          tx.insert(pendingAsksTable).values(ask).run();
+          });
         }
       });
-      session.markAllNodesCommitted();
-      return;
     }
 
     const delta = session.peekNodeDelta();
     const revision = delta.revision;
     const hasNodeDelta = delta.upserts.length > 0 || delta.deletes.length > 0;
-    this.db.writeTransaction(
-      hasNodeDelta ? ["sessions", "session_nodes", "pending_asks"] : ["sessions", "pending_asks"],
-      (tx) => {
-        tx.insert(sessionsTable)
-          .values({
-            sessionId,
-            kernelId: this.kernelId,
-            projectId: root.projectId,
-            ...face,
-            revision,
-            createdAtMs: now,
-            lastActiveAtMs: now,
-          })
-          .onConflictDoUpdate({
-            target: sessionsTable.sessionId,
-            set: {
-              kernelId: this.kernelId,
-              projectId: root.projectId,
-              ...face,
-              revision,
-              lastActiveAtMs: now,
-            },
-          })
-          .run();
+    return this.#enqueueWrite(`session:${sessionId}`, "session flush", async () => {
+      const prev = this.#sessionsCache.get(sessionId);
+      const sessionRow: SessionRow = {
+        archivedAtMs: prev?.archivedAtMs ?? null,
+        parentSessionId: prev?.parentSessionId ?? null,
+        parentCallId: prev?.parentCallId ?? null,
+        depth: prev?.depth ?? 0,
+        ...face,
+        sessionId,
+        kernelId: this.kernelId,
+        projectId: root.projectId,
+        revision,
+        createdAtMs: prev?.createdAtMs ?? now,
+        lastActiveAtMs: now,
+      };
+      await this.db.batch((tx) => {
+        tx.set("sessions", sessionRow);
         if (hasNodeDelta) {
-          this.db.commitSessionNodesInTx(tx, sessionId, delta, this.kernelId);
+          commitSessionNodesInBatch(tx, sessionId, delta, this.kernelId);
         }
-        tx.delete(pendingAsksTable).where(eq(pendingAsksTable.sessionId, sessionId)).run();
-        for (const ask of pendingAsks) {
-          tx.insert(pendingAsksTable).values(ask).run();
+        tx.retainOnly(
+          "pending_asks",
+          { sessionId },
+          pendingAsks.map((ask) => ask.jobId),
+        );
+        if (pendingAsks.length > 0) {
+          tx.setMany("pending_asks", pendingAsks);
         }
-      },
-    );
-    if (hasNodeDelta) {
-      session.commitNodeDelta(delta);
-    }
+      });
+      this.#sessionsCache.set(sessionId, sessionRow);
+      this.#storedSessionIds.add(sessionId);
+      if (hasNodeDelta) {
+        this.#recordSessionNodeRows(sessionId, delta.upserts, { deletes: delta.deletes });
+        if (!session.isDestroyed) {
+          session.commitNodeDelta(delta);
+        }
+      }
+    });
   }
 
   recordSessionBlob(sessionId: string, blobId: string, _byteSize?: number): void {
-    this.db.writeTransaction(["session_blobs"], (tx) => {
-      this.db.insertSessionBlobInTx(tx, {
-        sessionId,
-        kernelId: this.kernelId,
-        blobId,
-        createdAtMs: Date.now(),
-      });
-    });
+    void this.#enqueueWrite(
+      `session:${sessionId}`,
+      "session blob record",
+      () =>
+        this.db
+          .batch((tx) => {
+            insertSessionBlobInBatch(
+              tx,
+              {
+                sessionId,
+                kernelId: this.kernelId,
+                blobId,
+                createdAtMs: Date.now(),
+              },
+              this.kernelId,
+            );
+          })
+          .then(() => undefined),
+      { swallowError: true },
+    );
   }
 
   hasStoredSession(sessionId: string): boolean {
     if (this.runtime.replica(sessionId) != null) return true;
-    if (
-      this.db.sqlite
-        .prepare("SELECT 1 FROM sessions WHERE kernel_id = ? AND session_id = ? LIMIT 1")
-        .get(this.kernelId, sessionId) !== undefined
-    ) {
-      return true;
-    }
-    return (
-      this.db.sqlite
-        .prepare("SELECT 1 FROM session_nodes WHERE kernel_id = ? AND session_id = ? LIMIT 1")
-        .get(this.kernelId, sessionId) !== undefined
-    );
+    return this.#storedSessionIds.has(sessionId);
   }
 
   sessionStoredBytes(sessionId: string): number {
-    const row = this.db.sqlite
-      .prepare(
-        "SELECT COALESCE(SUM(LENGTH(row_json)), 0) AS bytes FROM session_nodes WHERE kernel_id = ? AND session_id = ?",
-      )
-      .get(this.kernelId, sessionId) as { readonly bytes: number } | undefined;
-    return row?.bytes ?? 0;
+    const map = this.#sessionNodeRowLengths.get(sessionId);
+    if (map === undefined) return 0;
+    let total = 0;
+    for (const len of map.values()) {
+      total += len;
+    }
+    return total;
+  }
+
+  async loadSessionNodes(sessionId: string): Promise<LoadedNodeRows | undefined> {
+    const loaded = await loadSessionNodesFromKv(this.db, sessionId);
+    if (loaded !== undefined) {
+      this.#storedSessionIds.add(sessionId);
+      this.#recordSessionNodeRows(sessionId, loaded.rows, { replaceAll: true });
+    }
+    return loaded;
   }
 
   async mintSessionDocument(sessionId: string, path: string): Promise<SessionDocument> {
@@ -2363,27 +2562,36 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       this.#bindSessionFlush(sessionId, live);
       return live;
     }
-    const existingOwner = this.db.sqlite
-      .prepare("SELECT kernel_id FROM sessions WHERE session_id = ? LIMIT 1")
-      .get(sessionId) as { readonly kernel_id: string } | undefined;
-    if (existingOwner !== undefined && existingOwner.kernel_id !== this.kernelId) {
+    const existingRow = await this.db.get("sessions", sessionId);
+    if (existingRow !== undefined && existingRow.kernelId !== this.kernelId) {
       throw new Error(`mintSessionDocument: session ${sessionId} belongs to another kernel`);
     }
-    if (this.hasStoredSession(sessionId)) {
-      const loaded = this.db.loadSessionNodes(sessionId);
+    if (existingRow === undefined) {
+      const existingNodes = await this.db.scan("session_nodes", { where: { sessionId }, limit: 1 });
+      if (existingNodes[0] !== undefined && existingNodes[0].kernelId !== this.kernelId) {
+        throw new Error(`mintSessionDocument: session ${sessionId} belongs to another kernel`);
+      }
+    }
+    if (this.hasStoredSession(sessionId) || existingRow !== undefined) {
+      if (existingRow !== undefined) {
+        this.#sessionsCache.set(sessionId, existingRow);
+        this.#storedSessionIds.add(sessionId);
+      }
+      const loaded = await this.loadSessionNodes(sessionId);
       if (loaded !== undefined) {
+        const meta = await loadSessionRuntimeMetaFromKv(this.db, sessionId);
         const restored = SessionDocument.fromNodeRows(loaded.rows, {
           rootId: loaded.rootId,
           sessionId,
           revision: loaded.revision,
-          meta: this.db.loadSessionRuntimeMeta(sessionId),
+          meta,
         });
         this.#bindSessionFlush(sessionId, restored);
         return restored;
       }
     }
     const boot = SessionDocument.create(sessionId, path);
-    this.#flushSessionSync(boot, { force: true });
+    await this.#flushSession(boot, { force: true });
     this.#bindSessionFlush(sessionId, boot);
     return boot;
   }
@@ -2397,7 +2605,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       this.#bindScopeFlush(scopeId, held);
       return { doc: held, existing: true };
     }
-    const loaded = this.db.loadScopeNodes(scopeId, this.kernelId);
+    const loaded = await loadScopeNodesFromKv(this.db, scopeId, this.kernelId);
     if (loaded !== undefined) {
       const restored = ProjectDocument.fromNodeRows(loaded.rows, {
         rootId: loaded.rootId,
@@ -2409,7 +2617,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     }
     const boot = ProjectDocument.create(path);
     this.#projectDocs.set(path, boot);
-    this.#flushScopeSync(scopeId, boot, { force: true });
+    await this.#flushScope(scopeId, boot, { force: true });
     this.#bindScopeFlush(scopeId, boot);
     return { doc: boot, existing: false };
   }
@@ -2435,16 +2643,22 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   async #acquireSessionNow(sessionId: string): Promise<SessionDocument | undefined> {
     const live = this.runtime.replica(sessionId);
     if (live != null) return live;
-    if (!this.hasStoredSession(sessionId)) return undefined;
-    const loaded = this.db.loadSessionNodes(sessionId);
+    if (!this.hasStoredSession(sessionId)) {
+      const row = await this.db.get("sessions", sessionId);
+      if (row === undefined || row.kernelId !== this.kernelId) return undefined;
+      this.#sessionsCache.set(sessionId, row);
+      this.#storedSessionIds.add(sessionId);
+    }
+    const loaded = await this.loadSessionNodes(sessionId);
     if (loaded === undefined) return undefined;
+    const meta = await loadSessionRuntimeMetaFromKv(this.db, sessionId);
     const interned = this.runtime.replica(sessionId);
     if (interned != null) return interned;
     const restored = SessionDocument.fromNodeRows(loaded.rows, {
       rootId: loaded.rootId,
       sessionId,
       revision: loaded.revision,
-      meta: this.db.loadSessionRuntimeMeta(sessionId),
+      meta,
     });
     this.internSession(sessionId, restored);
     return restored;
@@ -2605,10 +2819,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     warmNativeDirectoryPicker();
   }
 
-  flushProjectDoc(path: string, options?: { readonly force?: boolean }): void {
+  flushProjectDoc(path: string, options?: { readonly force?: boolean }): Promise<void> {
     const projectDoc = this.#projectDocs.get(path);
-    if (projectDoc == null || projectDoc.isDestroyed) return;
-    this.#flushScopeSync(projectScopeId(path), projectDoc, options);
+    if (projectDoc == null || projectDoc.isDestroyed) return Promise.resolve();
+    return this.#flushScope(projectScopeId(path), projectDoc, options);
   }
 
   hasProject(workspacePath: string): boolean {
@@ -2695,16 +2909,41 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       );
       const disposeProjects = Promise.allSettled(projects.map((project) => project[Symbol.asyncDispose]()));
       await Promise.race([Promise.all([stopConnector, disposeSessions, disposeProjects]), deadline]);
-      while (this.#drains.size > 0 && !expired) {
-        await Promise.race([Promise.allSettled(this.#drains), deadline]);
+      if (!expired) {
+        await Promise.race([
+          (async () => {
+            await this.#flushAllDirtyBeforeCloseAsync();
+            while (this.#drains.size > 0 && !expired) {
+              await Promise.allSettled(this.#drains);
+            }
+            await this.#dbStateStore?.flush();
+            await this.secrets.flush?.();
+          })(),
+          deadline,
+        ]);
       }
       clearTimeout(timer);
-      this[Symbol.dispose]();
+      this.#disposeInternal(true);
+      if (this.#ownsSecrets) {
+        const asyncDisposeSecrets = this.secrets[Symbol.asyncDispose];
+        if (asyncDisposeSecrets !== undefined) {
+          await asyncDisposeSecrets.call(this.secrets).catch(() => undefined);
+        } else {
+          this.secrets[Symbol.dispose]();
+        }
+      }
+      if (this.#ownsDb) {
+        await this.db.close().catch(() => undefined);
+      }
     })();
     return this.#disposingPromise;
   }
 
   [Symbol.dispose](): void {
+    this.#disposeInternal(false);
+  }
+
+  #disposeInternal(skipAsyncOwnedClose: boolean): void {
     if (this.#disposedSync) return;
     this.#disposedSync = true;
     this.#closed = true;
@@ -2728,7 +2967,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     this.#projects.clear();
     for (const stop of this.#flushStops.values()) stop();
     this.#flushStops.clear();
-    this.#flushAllDirtyBeforeClose();
+    if (!skipAsyncOwnedClose) {
+      this.#flushAllDirtyBeforeClose();
+    }
     this.doc?.awareness.destroy();
     this.doc?.destroy();
     for (const session of this.runtime.replicaValues()) {
@@ -2763,13 +3004,12 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     this.catalog[Symbol.dispose]();
     if (this.#ownsBlobs) this.blobs[Symbol.dispose]();
     if (this.#ownsVisuals) this.visuals[Symbol.dispose]();
-    if (this.#ownsSecrets) this.secrets[Symbol.dispose]();
+    if (this.#ownsSecrets && !skipAsyncOwnedClose) this.secrets[Symbol.dispose]();
     if (this.#ownsLaneHub) this.laneHub.dispose();
-    if (this.#ownsDb) this.db[Symbol.dispose]();
+    if (this.#ownsDb && !skipAsyncOwnedClose) void this.db.close().catch(() => undefined);
   }
 
-  #hydrateKernel(): KernelDocument {
-    const loaded = this.db.loadScopeNodes(KERNEL_SCOPE_ID, this.kernelId);
+  #hydrateKernel(loaded?: LoadedNodeRows): KernelDocument {
     if (loaded !== undefined) {
       const restored = KernelDocument.fromNodeRows(loaded.rows, {
         rootId: loaded.rootId,
@@ -2787,7 +3027,9 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     runInAction(() => {
       boot.root.kernelId = this.kernelId;
     });
-    this.#flushScopeSync(KERNEL_SCOPE_ID, boot, { force: true });
+    void this.#flushScope(KERNEL_SCOPE_ID, boot, { force: true }).catch((error: unknown) => {
+      fail("kernel boot flush", error);
+    });
     this.#syncKernelStateToDb(boot);
     this.#bindScopeFlush(KERNEL_SCOPE_ID, boot, () => this.#syncKernelStateToDb(boot));
     return boot;

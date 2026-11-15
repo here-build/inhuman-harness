@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { walkWork } from "@inhuman.tools/expectations";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   SessionSystemPrompt,
@@ -15,7 +16,7 @@ import {
   findEvalTurnByRequestId,
   hostingTurnOf,
 } from "@inhuman.tools/harness-model";
-import { walkWork } from "@inhuman.tools/expectations";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -259,10 +260,10 @@ describe("eval admission", () => {
     expect({ busy: findEvalTurnByRequestId(busySession.root, "req-busy") }).toEqual({ busy: null });
 
     const persistSession = await openSession();
-    expect(persistSession.kernel.db.loadSessionNodes(persistSession.sessionId)).toBeDefined();
-    persistSession.kernel.db.sqlite.pragma("query_only = ON");
+    expect(await persistSession.kernel.loadSessionNodes(persistSession.sessionId)).toBeDefined();
+    (persistSession.kernel.db as SqliteKvStore).setReadOnly(true);
     onTestFinished(() => {
-      persistSession.kernel.db.sqlite.pragma("query_only = OFF");
+      (persistSession.kernel.db as SqliteKvStore).setReadOnly(false);
     });
     const target = join(persistSession.root.path, "escaped.txt");
     await expect(

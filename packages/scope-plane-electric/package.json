@@ -1,8 +1,7 @@
 {
   "name": "@inhuman.tools/scope-plane-electric",
-  "version": "0.0.1",
-  "private": true,
-  "description": "Postgres writer and Electric wakeups for the scope plane. Cloud runtime; depends only on @inhuman.tools/scope-plane.",
+  "version": "0.3.0",
+  "description": "PostgreSQL ElectricSQL ShapeSource and RowPlane bindings for @inhuman.tools/scope-plane.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,17 +12,22 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "src", "!**/__tests__"],
+  "files": ["dist", "src", "!**/__tests__", "README.md", "LICENSE.md"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "pnpm --filter @inhuman.tools/scope-plane build && tsc -p tsconfig.json --noEmit && vitest run",
-    "test:postgres": "pnpm --filter @inhuman.tools/scope-plane build && tsc -p tsconfig.json --noEmit && SCOPE_PLANE_POSTGRES_TEST=1 vitest run src/__tests__/postgres.test.ts",
-    "typecheck": "pnpm --filter @inhuman.tools/scope-plane build && tsc -p tsconfig.json --noEmit"
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "test:postgres": "SCOPE_PLANE_POSTGRES_TEST=1 vitest run src/__tests__/postgres.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@electric-sql/client": "1.5.28",
+    "@inhuman.tools/harness-contract": "workspace:^",
     "@inhuman.tools/scope-plane": "workspace:^"
   },
   "devDependencies": {

@@ -4,8 +4,8 @@
  * handler reads through {@link BlobStore.readSync} (or {@link readBlobSync} for single-kernel local compatibility).
  */
 import { fail } from "@inhuman.tools/harness-diagnostics";
-import { bindBlobReader } from "@inhuman.tools/harness-provider-sdk";
 import { SHA256_HEX } from "@inhuman.tools/harness-model";
+import { bindBlobReader } from "@inhuman.tools/harness-provider-sdk";
 import { bindBlobWriter, type BlobWriter } from "@inhuman.tools/turn/tool-runtime";
 
 import { blobKeyOf, type BlobBucketSync } from "./bucket.js";

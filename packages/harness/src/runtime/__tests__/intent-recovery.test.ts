@@ -25,7 +25,12 @@ import {
   TurnPromptChunk,
   TurnSteerChunk,
 } from "@inhuman.tools/harness-model";
-import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
+import {
+  commitSessionNodesInBatch,
+  loadSessionNodesFromKv,
+  loadSessionRuntimeMetaFromKv,
+} from "@inhuman.tools/scope-plane";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { joinReleased, type CallsCatalog } from "@inhuman.tools/turn/agent-calls";
 import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
@@ -96,50 +101,52 @@ function closedTurn(
   return turn;
 }
 
-function bindSession(label: string) {
+async function bindSession(label: string) {
   const root = tempRoot(label);
   const dbPath = join(root, "harness.db");
-  const db = new HarnessDatabase(dbPath);
+  const db = new SqliteKvStore(dbPath);
   const doc = SessionDocument.create(label, `/tmp/${label}`);
   let closed = false;
-  onTestFinished(() => {
+  onTestFinished(async () => {
     if (!doc.isDestroyed) doc.destroy();
     if (!closed) {
       closed = true;
-      db.close();
+      await db.close();
     }
   });
-  db.insertSession({
+  await db.set("sessions", {
     sessionId: label,
     workspacePath: doc.root.path,
     createdAtMs: Date.now(),
     lastActiveAtMs: Date.now(),
   });
-  const flush = (): void => {
+  const flush = async (): Promise<void> => {
     const delta = doc.peekNodeDelta();
-    db.commitSessionNodes(label, {
-      rootId: doc.root.uuid,
-      revision: delta.revision,
-      upserts: delta.upserts,
-      deletes: delta.deletes,
+    await db.batch((tx) => {
+      commitSessionNodesInBatch(tx, label, {
+        rootId: doc.root.uuid,
+        revision: delta.revision,
+        upserts: delta.upserts,
+        deletes: delta.deletes,
+      });
     });
     doc.commitNodeDelta(delta);
   };
-  flush();
+  await flush();
   return { root, dbPath, db, sessionId: label, doc, flush };
 }
 
 /** Cold open from SQLite on disk, then recover: the rows a restart reads are the coverage. */
-function restore(dbPath: string, sessionId: string, catalog?: CallsCatalog) {
-  const cold = new HarnessDatabase(dbPath);
+async function restore(dbPath: string, sessionId: string, catalog?: CallsCatalog) {
+  const cold = new SqliteKvStore(dbPath);
   onTestFinished(() => cold.close());
-  const loaded = cold.loadSessionNodes(sessionId);
+  const loaded = await loadSessionNodesFromKv(cold, sessionId);
   if (loaded === undefined) throw new Error(`open failed: not-found (${sessionId})`);
   const doc = SessionDocument.fromNodeRows(loaded.rows, {
     rootId: loaded.rootId,
     sessionId,
     revision: loaded.revision,
-    meta: cold.loadSessionRuntimeMeta(sessionId),
+    meta: await loadSessionRuntimeMetaFromKv(cold, sessionId),
   });
   onTestFinished(() => {
     if (!doc.isDestroyed) doc.destroy();
@@ -149,7 +156,7 @@ function restore(dbPath: string, sessionId: string, catalog?: CallsCatalog) {
 
 describe("intent gate on real SQLite storage", () => {
   it("intent/checkpoint roundtrip covers the flushed prefix", async () => {
-    const { db, sessionId, doc, flush } = bindSession("roundtrip");
+    const { db, sessionId, doc, flush } = await bindSession("roundtrip");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -157,10 +164,10 @@ describe("intent gate on real SQLite storage", () => {
       orchestrationResult: true,
     });
     doc.root.head = closedTurn(job);
-    const beforeRows = db.loadSessionNodes(sessionId)?.rows ?? [];
+    const beforeRows = (await loadSessionNodesFromKv(db, sessionId))?.rows ?? [];
     expect(beforeRows.some((row) => row.uuid === job.uuid)).toBe(false);
     const gate = await persistJobIntent(flush, job);
-    const afterRows = db.loadSessionNodes(sessionId)?.rows ?? [];
+    const afterRows = (await loadSessionNodesFromKv(db, sessionId))?.rows ?? [];
     expect({
       ok: gate.ok,
       required: gate.ok ? gate.required : false,
@@ -175,7 +182,7 @@ describe("intent gate on real SQLite storage", () => {
   });
 
   it("failed write is not success and does not admit dispatch", async () => {
-    const { db, sessionId, doc, flush } = bindSession("fail-write");
+    const { db, sessionId, doc, flush } = await bindSession("fail-write");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -183,10 +190,10 @@ describe("intent gate on real SQLite storage", () => {
       orchestrationResult: true,
     });
     doc.root.head = closedTurn(job);
-    db.sqlite.pragma("query_only = ON");
+    db.setReadOnly(true);
     const gate = await persistJobIntent(flush, job);
-    db.sqlite.pragma("query_only = OFF");
-    const stored = db.loadSessionNodes(sessionId)?.rows ?? [];
+    db.setReadOnly(false);
+    const stored = (await loadSessionNodesFromKv(db, sessionId))?.rows ?? [];
     expect({
       gate,
       dispatch: gate.ok,
@@ -203,7 +210,7 @@ describe("intent gate on real SQLite storage", () => {
   });
 
   it("a cold database handle sees the durable intent flush", async () => {
-    const { dbPath, sessionId, doc, flush } = bindSession("loaded");
+    const { dbPath, sessionId, doc, flush } = await bindSession("loaded");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -213,22 +220,22 @@ describe("intent gate on real SQLite storage", () => {
     doc.root.head = closedTurn(job);
     const gate = await persistJobIntent(flush, job);
     expect(gate.ok).toBe(true);
-    const cold = new HarnessDatabase(dbPath);
+    const cold = new SqliteKvStore(dbPath);
     try {
-      const loaded = cold.loadSessionNodes(sessionId);
+      const loaded = await loadSessionNodesFromKv(cold, sessionId);
       expect({
         opened: loaded !== undefined,
         hasJob: loaded?.rows.some((row) => row.uuid === job.uuid) ?? false,
       }).toEqual({ opened: true, hasJob: true });
     } finally {
-      cold.close();
+      await cold.close();
     }
   });
 });
 
 describe("job recovery from real on-disk SQLite rows", () => {
   it("recovers an unsettled system tool as unknown-no-replay", async () => {
-    const { dbPath, sessionId, doc, flush } = bindSession("unknown-sys");
+    const { dbPath, sessionId, doc, flush } = await bindSession("unknown-sys");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -239,7 +246,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
     const gate = await persistJobIntent(flush, job);
     expect(gate.ok).toBe(true);
 
-    const recovered = restore(dbPath, sessionId);
+    const recovered = await restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:system-tool");
     expect({
       action: row?.action,
@@ -256,7 +263,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("does not replay an unsettled file mutate from disk", async () => {
-    const { dbPath, sessionId, doc, flush } = bindSession("unknown-write");
+    const { dbPath, sessionId, doc, flush } = await bindSession("unknown-write");
     const job = new FileMutateToolJob({
       toolCallId: "w1",
       name: "write_file",
@@ -267,7 +274,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
-    const recovered = restore(dbPath, sessionId);
+    const recovered = await restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:file-mutate");
     expect({
       action: row?.action,
@@ -281,7 +288,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("treats dispatched MCP without a result as unknown", async () => {
-    const { dbPath, sessionId, doc, flush } = bindSession("unknown-mcp");
+    const { dbPath, sessionId, doc, flush } = await bindSession("unknown-mcp");
     const job = new MCPToolJob({
       toolCallId: "m1",
       name: "mcp__x__t",
@@ -297,7 +304,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
-    const recovered = restore(dbPath, sessionId);
+    const recovered = await restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:mcp-tool");
     const mcp = row?.job instanceof MCPToolJob ? row.job : undefined;
     expect({
@@ -308,7 +315,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("settles cancelRequested on a restored turn", async () => {
-    const { dbPath, sessionId, doc, flush } = bindSession("cancel");
+    const { dbPath, sessionId, doc, flush } = await bindSession("cancel");
     const job = new SystemToolJob({
       toolCallId: "c1",
       name: "read_file",
@@ -325,7 +332,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
-    const recovered = restore(dbPath, sessionId);
+    const recovered = await restore(dbPath, sessionId);
     const turnRow = recovered.find((item) => item.kind === "harness:session:turn");
     const leaf = recovered.find((item) => item.kind === "harness:job:system-tool");
     expect({
@@ -342,7 +349,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("resume-queued context-need is not completed as unknown", async () => {
-    const { dbPath, sessionId, doc, flush } = bindSession("need");
+    const { dbPath, sessionId, doc, flush } = await bindSession("need");
     const job = new ContextNeedToolJob({
       triggersReactLoop: false,
       tapeHidden: true,
@@ -353,9 +360,9 @@ describe("job recovery from real on-disk SQLite rows", () => {
     doc.root.head = closedTurn(job);
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
-    flush();
+    await flush();
 
-    const recovered = restore(dbPath, sessionId);
+    const recovered = await restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:context-need");
     expect({
       action: row?.action,
@@ -371,7 +378,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
   it.each([{ name: "child", CallType: AgentCallJob }])(
     "rejoins an owned $name invocation without adopting bot acceptance",
     async ({ name, CallType }) => {
-      const { dbPath, sessionId, doc, flush } = bindSession(`${name}-rejoin`);
+      const { dbPath, sessionId, doc, flush } = await bindSession(`${name}-rejoin`);
       const call = new CallType({
         name: "agent__ask",
         orchestrationResult: true,
@@ -380,9 +387,9 @@ describe("job recovery from real on-disk SQLite rows", () => {
       doc.root.head = closedTurn(call);
       const gate = await persistJobIntent(flush, call);
       expect(gate.ok).toBe(true);
-      flush();
+      await flush();
 
-      const recovered = restore(dbPath, sessionId);
+      const recovered = await restore(dbPath, sessionId);
       const row = recovered.find((item) => item.kind === "harness:job:child-agent-call");
       const child = row?.job instanceof AgentCallJob ? row.job : undefined;
       expect({ action: row?.action, worker: child?.workerSessionId, completed: child?.completed }).toEqual({
@@ -395,7 +402,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
 
   it("a recovered BotCall resumes; its join waits on the re-run delivery, not on caller fields", async () => {
     const catalog = catalogOf([botCall("offload")]);
-    const { dbPath, sessionId, doc, flush } = bindSession("accept");
+    const { dbPath, sessionId, doc, flush } = await bindSession("accept");
     const call = new BotCallJob({
       name: "offload",
       background: true,
@@ -408,7 +415,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
     const gated = await persistJobIntent(flush, call);
     expect(gated.ok).toBe(true);
 
-    const recovered = restore(dbPath, sessionId, catalog);
+    const recovered = await restore(dbPath, sessionId, catalog);
     const row = recovered.find((item) => item.kind === "harness:job:bot-call");
     const resumed = row?.job instanceof BotCallJob ? row.job : undefined;
     expect({
@@ -417,8 +424,8 @@ describe("job recovery from real on-disk SQLite rows", () => {
     }).toEqual({ action: "resume-inner", join: false });
   });
 
-  it("cancelRequested without catalog skips call-lifetime Calls", () => {
-    const { dbPath, sessionId, doc, flush } = bindSession("cancel-work");
+  it("cancelRequested without catalog skips call-lifetime Calls", async () => {
+    const { dbPath, sessionId, doc, flush } = await bindSession("cancel-work");
     const call = new BotCallJob({
       name: "offload",
       background: true,
@@ -433,9 +440,9 @@ describe("job recovery from real on-disk SQLite rows", () => {
     });
     turn.pushChild(call);
     doc.root.head = turn;
-    flush();
+    await flush();
 
-    const recovered = restore(dbPath, sessionId);
+    const recovered = await restore(dbPath, sessionId);
     const callRow = recovered.find((item) => item.kind === "harness:job:bot-call");
     expect({
       completed: callRow?.job.completed,
@@ -444,7 +451,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
   });
 
   it("queued completion without intent is not auto-replayed after owner death once intended", async () => {
-    const { dbPath, sessionId, doc, flush } = bindSession("completion");
+    const { dbPath, sessionId, doc, flush } = await bindSession("completion");
     const job = new CompletionJob({
       expectation: new CompletionExpectation({ connectionId: "c" }),
       orchestrationResult: true,
@@ -453,7 +460,7 @@ describe("job recovery from real on-disk SQLite rows", () => {
     const gated = await persistJobIntent(flush, job);
     expect(gated.ok).toBe(true);
 
-    const recovered = restore(dbPath, sessionId);
+    const recovered = await restore(dbPath, sessionId);
     const row = recovered.find((item) => item.kind === "harness:job:completion");
     const completion = row?.job instanceof CompletionJob ? row.job : undefined;
     expect({

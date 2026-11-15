@@ -356,6 +356,31 @@ export class DocumentContainer<TRoot extends Model = Model, TAwareness extends A
     this.#detachedCandidates.clear();
   }
 
+  /**
+   * Commit a previously captured full snapshot without wiping nodes registered
+   * or dirtied at higher revisions while an asynchronous storage write was in flight.
+   */
+  commitSnapshot(snapshot: {
+    readonly revision: number;
+    readonly upserts: readonly { readonly uuid: string }[];
+    readonly replaceAll?: boolean;
+  }): void {
+    const upsertedIds = new Set<string>();
+    for (const row of snapshot.upserts) {
+      upsertedIds.add(row.uuid);
+    }
+    if (snapshot.replaceAll) {
+      this.#committedNodeIds.clear();
+    }
+    for (const id of upsertedIds) {
+      this.#committedNodeIds.add(id);
+      const dirtyRev = this.#dirtyNodeRevisions.get(id);
+      if (dirtyRev !== undefined && dirtyRev <= snapshot.revision) {
+        this.#dirtyNodeRevisions.delete(id);
+      }
+    }
+  }
+
   peekNodeDelta(): ModelNodeDelta {
     this.registerNode(this.root);
     if (this.#detachedCandidates.size > 0) {

@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import type { Duplex } from "node:stream";
 
+import { CommitDiffShapeSource, type ShapeSource } from "@inhuman.tools/scope-plane";
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 
@@ -18,6 +19,21 @@ import { readField } from "./util/read-field.js";
 const MAX_RPC_BODY_BYTES = 4 * 1024 * 1024;
 const DEFAULT_SESSIONS_LIMIT = 50;
 const MAX_SESSIONS_LIMIT = 500;
+
+async function evaluateLaneFrame(
+  kernel: KernelDaemon,
+  frame: Parameters<NonNullable<ShapeSource["evaluateLane"]>>[0],
+): Promise<Record<string, unknown>[]> {
+  if (kernel.laneHub.evaluateLane !== undefined) {
+    return kernel.laneHub.evaluateLane(frame);
+  }
+  const hub = new CommitDiffShapeSource(kernel.db, { defaultKernelId: kernel.kernelId });
+  try {
+    return await hub.evaluateLane(frame);
+  } finally {
+    hub.dispose();
+  }
+}
 
 export interface PortablePrincipal {
   readonly tenantId: string;
@@ -98,18 +114,18 @@ function refuseUpgrade(socket: Duplex, goneRef: { gone: boolean }, status: numbe
   socket.destroy();
 }
 
-function findSessionOwnerKernel(kernel: KernelDaemon, sessionId: string): string | null {
-  const row = kernel.db.sqlite.prepare("SELECT kernel_id FROM sessions WHERE session_id = ? LIMIT 1").get(sessionId) as
-    { readonly kernel_id: string } | undefined;
-  if (row !== undefined) return row.kernel_id;
-  const nodeRow = kernel.db.sqlite
-    .prepare("SELECT kernel_id FROM session_nodes WHERE session_id = ? LIMIT 1")
-    .get(sessionId) as { readonly kernel_id: string } | undefined;
-  return nodeRow?.kernel_id ?? null;
+async function findSessionOwnerKernel(kernel: KernelDaemon, sessionId: string): Promise<string | null> {
+  const row = await kernel.db.get("sessions", sessionId);
+  if (row !== undefined) return row.kernelId;
+  const nodeRows = await kernel.db.scan("session_nodes", { where: { sessionId }, limit: 1 });
+  return nodeRows[0]?.kernelId ?? null;
 }
 
 async function resolveSessionHost(kernel: KernelDaemon, sessionId: string): Promise<RequestHost | null> {
-  if (!kernel.hasStoredSession(sessionId)) return null;
+  if (!kernel.hasStoredSession(sessionId)) {
+    const owner = await findSessionOwnerKernel(kernel, sessionId);
+    if (owner !== kernel.kernelId) return null;
+  }
   const doc = kernel.sessionDoc(sessionId) ?? (await kernel.acquireSession(sessionId));
   if (doc == null) return null;
   if (doc.root.agent.spec.recipeScope === "global") {
@@ -226,7 +242,7 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
         const limit = parseSessionsLimit(parsedUrl);
         const projectId = parsedUrl.searchParams.get("projectId") ?? undefined;
         const workspacePath = parsedUrl.searchParams.get("workspacePath") ?? undefined;
-        const sessions = lease.kernel.laneHub.evaluateLane({
+        const sessions = await evaluateLaneFrame(lease.kernel, {
           kind: "shape/subscribe",
           subscriptionId: "http",
           lane: "recent_sessions",
@@ -253,21 +269,21 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
           writeJson(res, 404, { error: "not found" });
           return;
         }
-        if (!lease.kernel.hasStoredSession(sessionId)) {
+        let sessionRow = await lease.kernel.db.get("sessions", sessionId);
+        if (sessionRow !== undefined && sessionRow.kernelId !== lease.kernelId) {
+          sessionRow = undefined;
+        }
+        if (sessionRow === undefined && !lease.kernel.hasStoredSession(sessionId)) {
           writeJson(res, 404, { error: "session not found" });
           return;
         }
-        const sessionRow =
-          lease.kernel.db.sqlite
-            .prepare("SELECT * FROM sessions WHERE kernel_id = ? AND session_id = ? LIMIT 1")
-            .get(lease.kernelId, sessionId) ?? null;
-        const nodes = lease.kernel.laneHub.evaluateLane({
+        const nodes = await evaluateLaneFrame(lease.kernel, {
           kind: "shape/subscribe",
           subscriptionId: "http",
           lane: "session_nodes",
           params: { kernelId: lease.kernelId, sessionId },
         });
-        writeJson(res, 200, { kernelId: lease.kernelId, sessionId, session: sessionRow, nodes });
+        writeJson(res, 200, { kernelId: lease.kernelId, sessionId, session: sessionRow ?? null, nodes });
         return;
       }
 
@@ -306,7 +322,7 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
             break;
           }
           case "session": {
-            const owner = findSessionOwnerKernel(lease.kernel, scope.sessionId);
+            const owner = await findSessionOwnerKernel(lease.kernel, scope.sessionId);
             if (owner !== null && owner !== lease.kernelId) {
               writeJson(res, 404, { error: "session not found" });
               return;
@@ -417,7 +433,7 @@ export function createPortableHarnessServer(options: PortableHarnessServerOption
             return;
           }
           if (classified.sessionId !== undefined && classified.sessionId !== "") {
-            const owner = findSessionOwnerKernel(lease.kernel, classified.sessionId);
+            const owner = await findSessionOwnerKernel(lease.kernel, classified.sessionId);
             if (owner !== null && owner !== lease.kernelId) {
               refuseUpgrade(socket, goneRef, UPGRADE_NOT_FOUND, "not found");
               return;
@@ -532,6 +548,7 @@ export {
 export { type KernelLease, type MultiKernelRegistryOptions, MultiKernelRegistry } from "./multi-kernel-registry.js";
 
 export {
+  type AsyncSecretsStoreBackend,
   EncryptedSecretsVault,
   type EncryptedSecretRecord,
   encodeCanonicalAad,
@@ -570,3 +587,11 @@ export {
   type ChatImagePart,
   type ChatMessage,
 } from "../providers/openai-compat/actor.js";
+
+export {
+  type HarnessKvStore,
+  MemoryKvStore,
+  UpdateLaneHub,
+  CommitDiffShapeSource,
+  type ShapeSource,
+} from "@inhuman.tools/scope-plane";

@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { KERNEL_SCOPE_ID, type ShapeDeltaFrame } from "@inhuman.tools/harness-contract";
 import { grantLabel, type GrantRow } from "@inhuman.tools/harness-model";
 import { readBlob, readVisual } from "@inhuman.tools/harness-provider-sdk";
-import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane/sqlite";
+import { UpdateLaneHub } from "@inhuman.tools/scope-plane";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { runInAction } from "mobx";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -34,7 +35,7 @@ function makeGlobalCommandGrant(id: string, argv0: string): GrantRow {
 describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
   it("isolates config, grants, kvs, secrets, virtual projects, sessions, and UpdateLaneHub deltas across tenants with zero FS", async () => {
     const tmpBase = await mkdtemp(join(tmpdir(), "harness-multi-kernel-nofs-"));
-    const db = new HarnessDatabase(":memory:");
+    const db = new SqliteKvStore(":memory:");
     const laneHub = new UpdateLaneHub(db);
     const registry = new MultiKernelRegistry({
       db,
@@ -45,7 +46,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
     onTestFinished(async () => {
       await registry[Symbol.asyncDispose]();
       laneHub.dispose();
-      db[Symbol.dispose]();
+      await db.close();
     });
 
     const tenantADeltas: ShapeDeltaFrame[] = [];
@@ -171,18 +172,18 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
       /belongs to another kernel/,
     );
 
-    const dbRowA = db.getSession("sess-tenant-a");
-    const dbRowB = db.getSession("sess-tenant-b");
+    const dbRowA = await db.get("sessions", "sess-tenant-a");
+    const dbRowB = await db.get("sessions", "sess-tenant-b");
     expect(dbRowA).toMatchObject({ kernelId: "tenant-a", projectId: "proj-alpha" });
     expect(dbRowB).toMatchObject({ kernelId: "tenant-b", projectId: "proj-beta" });
 
     // Flush kernels so kernel_state and scope_nodes reflect latest changes
-    kernelA.flushKernel();
-    kernelB.flushKernel();
+    await kernelA.flushKernel();
+    await kernelB.flushKernel();
 
     // UpdateLaneHub live deltas for tenant-a must never include tenant-b rows
-    const scopeARows = db.listScopeNodeRows(KERNEL_SCOPE_ID, "tenant-a");
-    const scopeBRows = db.listScopeNodeRows(KERNEL_SCOPE_ID, "tenant-b");
+    const scopeARows = await db.scan("scope_nodes", { where: { kernelId: "tenant-a", scopeId: KERNEL_SCOPE_ID } });
+    const scopeBRows = await db.scan("scope_nodes", { where: { kernelId: "tenant-b", scopeId: KERNEL_SCOPE_ID } });
     expect(scopeARows.length).toBeGreaterThan(0);
     expect(scopeBRows.length).toBeGreaterThan(0);
 
@@ -214,7 +215,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
   });
 
   it("isolates AsyncLocalStorage blob/visual contexts, DbStateStore logs, and per-kernel blob vacuuming", async () => {
-    const db = new HarnessDatabase(":memory:");
+    const db = new SqliteKvStore(":memory:");
     const bucketA = new MemoryBlobBucket();
     const bucketB = new MemoryBlobBucket();
     const registry = new MultiKernelRegistry({
@@ -224,7 +225,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
     });
     onTestFinished(async () => {
       await registry[Symbol.asyncDispose]();
-      db[Symbol.dispose]();
+      await db.close();
     });
 
     const [leaseA, leaseB] = await Promise.all([registry.acquire("tenant-a"), registry.acquire("tenant-b")]);
@@ -294,7 +295,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
     // Vacuum scoped by kernelId only retains referenced blobs of that kernel
     kernelA.recordSessionBlob("sess-a", refA.sha256, bytesA.byteLength);
     const orphanA = kernelA.blobs.write(Buffer.from("orphan-a"), "text/plain");
-    const deleted = vacuumDatabaseBlobs(
+    const deleted = await vacuumDatabaseBlobs(
       db,
       {
         list: () => bucketA.listHashes(),
@@ -318,16 +319,17 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
     const storeB = new DbStateStore({ db, kernelId: "tenant-b", sessionRoot: () => undefined });
     storeA.save(owner, [jsonToVal(["alpha"])]);
     storeB.save(owner, [jsonToVal(["beta"])]);
+    await Promise.all([storeA.flush(), storeB.flush()]);
     expect(storeA.load(owner)).not.toEqual(storeB.load(owner));
-    expect(db.listPluginStateLogs(undefined, undefined, undefined, "tenant-a")).toHaveLength(1);
-    expect(db.listPluginStateLogs(undefined, undefined, undefined, "tenant-b")).toHaveLength(1);
+    expect(await db.scan("plugin_state_logs", { where: { kernelId: "tenant-a" } })).toHaveLength(1);
+    expect(await db.scan("plugin_state_logs", { where: { kernelId: "tenant-b" } })).toHaveLength(1);
 
     leaseA[Symbol.dispose]();
     leaseB[Symbol.dispose]();
   });
 
   it("handles idle eviction, TTL auto-eviction, coalesced acquire-during-evict, and cold re-hydration from shared DB", async () => {
-    const db = new HarnessDatabase(":memory:");
+    const db = new SqliteKvStore(":memory:");
     const laneHub = new UpdateLaneHub(db);
     const registry = new MultiKernelRegistry({
       db,
@@ -339,7 +341,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
     onTestFinished(async () => {
       await registry[Symbol.asyncDispose]();
       laneHub.dispose();
-      db[Symbol.dispose]();
+      await db.close();
     });
 
     const leaseA1 = await registry.acquire("tenant-a");
@@ -358,7 +360,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
       sessA.root.projectId = "proj-cold";
     });
     await firstKernelA.flushSession(sessA.doc, { force: true });
-    firstKernelA.flushKernel({ force: true });
+    await firstKernelA.flushKernel({ force: true });
 
     // Park session and verify active lease blocks eviction
     await sessA.park();
@@ -372,7 +374,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
     });
     expect(firstKernelA.disposed).toBe(true);
     expect(leaseB.kernel.disposed).toBe(false);
-    expect(db.isClosed).toBe(false);
+    await expect(db.count("sessions")).resolves.toBeGreaterThanOrEqual(0);
 
     // Re-acquire tenant-a -> cold re-hydrates full state from SQLite
     const leaseA2 = await registry.acquire("tenant-a");
@@ -401,7 +403,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
   });
 
   it("cascades Symbol.asyncDispose idempotently and respects ownsDb", async () => {
-    const sharedDb = new HarnessDatabase(":memory:");
+    const sharedDb = new SqliteKvStore(":memory:");
     const regNoOwn = new MultiKernelRegistry({ db: sharedDb, ownsDb: false });
     const lease1 = await regNoOwn.acquire("t-1");
     const kernel1 = lease1.kernel;
@@ -410,7 +412,7 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
     await Promise.all([regNoOwn[Symbol.asyncDispose](), regNoOwn[Symbol.asyncDispose]()]);
     expect(regNoOwn.disposed).toBe(true);
     expect(kernel1.disposed).toBe(true);
-    expect(sharedDb.isClosed).toBe(false);
+    await expect(sharedDb.count("sessions")).resolves.toBeGreaterThanOrEqual(0);
     await expect(regNoOwn.acquire("t-2")).rejects.toThrow(/disposed/);
 
     const regOwn = new MultiKernelRegistry({ db: sharedDb, ownsDb: true });
@@ -420,6 +422,6 @@ describe("MultiKernelRegistry & server-contour KernelDaemon", () => {
 
     await regOwn[Symbol.asyncDispose]();
     expect(kernel2.disposed).toBe(true);
-    expect(sharedDb.isClosed).toBe(true);
+    await expect(sharedDb.count("sessions")).rejects.toThrow(/closed/);
   });
 });

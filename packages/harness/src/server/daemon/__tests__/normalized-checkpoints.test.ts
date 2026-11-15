@@ -1,22 +1,34 @@
 import { SkillSpec } from "@inhuman.tools/harness-model";
-import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
+import {
+  loadSessionNodesFromKv,
+  loadSessionRuntimeMetaFromKv,
+  commitSessionNodesInBatch,
+} from "@inhuman.tools/scope-plane";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { SessionRuntime } from "@inhuman.tools/turn/session-runtime";
 import { expect, it } from "vitest";
 
 it("persists actual checkpoint deltas across delayed acknowledgements and detached-node reattachment", async () => {
-  const db = new HarnessDatabase();
-  db.insertSession({ sessionId: "sql-delta", createdAtMs: 1, lastActiveAtMs: 1 });
+  const db = new SqliteKvStore();
+  await db.set("sessions", {
+    sessionId: "sql-delta",
+    workspacePath: "",
+    createdAtMs: 1,
+    lastActiveAtMs: 1,
+  });
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   let first = true;
   const runtime = SessionRuntime.create("sql-delta", {
     kind: "durable",
     async commit(checkpoint) {
-      db.commitSessionNodes(checkpoint.sessionId, {
-        rootId: checkpoint.rootNodeId,
-        revision: checkpoint.revision,
-        upserts: checkpoint.upsertedNodes,
-        deletes: checkpoint.deletedNodeIds,
+      await db.batch((tx) => {
+        commitSessionNodesInBatch(tx, checkpoint.sessionId, {
+          rootId: checkpoint.rootNodeId,
+          revision: checkpoint.revision,
+          upserts: checkpoint.upsertedNodes,
+          deletes: checkpoint.deletedNodeIds,
+        });
       });
       if (first) {
         first = false;
@@ -37,7 +49,7 @@ it("persists actual checkpoint deltas across delayed acknowledgements and detach
     runtime.root.kvs.during = "second";
     release.resolve();
     await pending;
-    const loaded = db.loadSessionNodes("sql-delta");
+    const loaded = await loadSessionNodesFromKv(db, "sql-delta");
     if (loaded === undefined) throw new Error("missing checkpoint");
     const restored = SessionRuntime.restore(
       "sql-delta",
@@ -45,7 +57,7 @@ it("persists actual checkpoint deltas across delayed acknowledgements and detach
         rootId: loaded.rootId,
         revision: loaded.revision,
         rows: loaded.rows,
-        meta: db.loadSessionRuntimeMeta("sql-delta"),
+        meta: await loadSessionRuntimeMetaFromKv(db, "sql-delta"),
       },
       { kind: "memory" },
     );
@@ -56,13 +68,13 @@ it("persists actual checkpoint deltas across delayed acknowledgements and detach
     await runtime.flush();
     runtime.root.skills.push(skill);
     await runtime.flush();
-    const reattached = db.loadSessionNodes("sql-delta");
+    const reattached = await loadSessionNodesFromKv(db, "sql-delta");
     const skillRow = reattached?.rows.find((row) => row.uuid === skill.uuid);
     expect(skillRow?.state.name).toBe("remembered");
   } finally {
     release.resolve();
     await runtime[Symbol.asyncDispose]();
     runtime.session.destroy();
-    db.close();
+    await db.close();
   }
 });

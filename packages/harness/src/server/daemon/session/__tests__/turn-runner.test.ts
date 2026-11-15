@@ -1,6 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { walkWork } from "@inhuman.tools/expectations";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   CompletionExpectation,
@@ -16,7 +17,6 @@ import {
   ToolCallJob,
   TurnPromptChunk,
 } from "@inhuman.tools/harness-model";
-import { walkWork } from "@inhuman.tools/expectations";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";

@@ -2,8 +2,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 
-import { KernelDocument, type KernelRoot } from "@inhuman.tools/harness-model";
 import { ExpectationDriver } from "@inhuman.tools/expectations/driver";
+import { KernelDocument, type KernelRoot } from "@inhuman.tools/harness-model";
 import { observable, when } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
 

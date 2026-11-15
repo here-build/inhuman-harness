@@ -21,6 +21,7 @@ import {
   WebSearchExpectation,
   WebSearchToolJob,
 } from "@inhuman.tools/harness-model";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { joinReleased } from "@inhuman.tools/turn/agent-calls";
 import { observable, runInAction, when } from "mobx";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -80,10 +81,10 @@ async function openLive(label: string) {
 }
 
 function lockDatabase(kernel: KernelDaemon): void {
-  kernel.db.sqlite.pragma("query_only = ON");
+  (kernel.db as SqliteKvStore).setReadOnly(true);
   onTestFinished(() => {
     try {
-      kernel.db.sqlite.pragma("query_only = OFF");
+      (kernel.db as SqliteKvStore).setReadOnly(false);
     } catch {}
   });
 }
@@ -268,7 +269,7 @@ describe("live intent receipts and recovery gate", () => {
     await restored.ready;
     restored.catalog.replacePack([botCall("offload")]);
     expect(restored.sessionDoc("idle")).toBeUndefined();
-    const open = vi.spyOn(restored.db, "loadSessionNodes");
+    const open = vi.spyOn(restored, "loadSessionNodes");
     await restored.acquireSession("idle");
     await restored.acquireSession("cancel");
     const attached = await restored.attachSession("idle");

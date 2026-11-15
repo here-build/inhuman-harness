@@ -10,7 +10,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { prompt } from "@inhuman.tools/harness-commons";
-import { rowPairId, sessionBlobsTable, sessionsTable } from "@inhuman.tools/harness-contract/schema";
 import {
   AgentCallJob,
   BLOB_HEAD_CHARS,
@@ -26,7 +25,8 @@ import {
   SessionTurn,
   storedBlobJson,
 } from "@inhuman.tools/harness-model";
-import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
+import { insertSessionBlobInBatch } from "@inhuman.tools/scope-plane";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { describe, expect, it } from "vitest";
 
 import { projectModelHistory } from "@/context";
@@ -442,35 +442,28 @@ describe("vacuumSession", () => {
   });
 
   describe("vacuumDatabaseBlobs", () => {
-    it("deletes unreferenced blob IDs from bucket without hydrating sessions", () => {
+    it("deletes unreferenced blob IDs from bucket without hydrating sessions", async () => {
       const tmpDir = mkdtempSync(join(tmpdir(), "harness-vacuum-db-"));
       try {
-        const db = new HarnessDatabase(join(tmpDir, "harness.db"));
-        db.writeTransaction(["sessions", "session_blobs"], (tx) => {
-          tx.insert(sessionsTable)
-            .values({
-              sessionId: "s1",
-              createdAtMs: Date.now(),
-              lastActiveAtMs: Date.now(),
-              workspacePath: "/tmp",
-            })
-            .run();
-          tx.insert(sessionBlobsTable)
-            .values([
-              {
-                id: rowPairId("s1", "referenced-hash-1"),
-                sessionId: "s1",
-                blobId: "referenced-hash-1",
-                createdAtMs: Date.now(),
-              },
-              {
-                id: rowPairId("s1", "referenced-hash-2"),
-                sessionId: "s1",
-                blobId: "referenced-hash-2",
-                createdAtMs: Date.now(),
-              },
-            ])
-            .run();
+        const db = new SqliteKvStore(join(tmpDir, "harness.db"));
+        const now = Date.now();
+        await db.batch((tx) => {
+          tx.set("sessions", {
+            sessionId: "s1",
+            createdAtMs: now,
+            lastActiveAtMs: now,
+            workspacePath: "/tmp",
+          });
+          insertSessionBlobInBatch(tx, {
+            sessionId: "s1",
+            blobId: "referenced-hash-1",
+            createdAtMs: now,
+          });
+          insertSessionBlobInBatch(tx, {
+            sessionId: "s1",
+            blobId: "referenced-hash-2",
+            createdAtMs: now,
+          });
         });
 
         const deleted: string[] = [];
@@ -481,10 +474,10 @@ describe("vacuumSession", () => {
           },
         };
 
-        const count = vacuumDatabaseBlobs(db, bucket);
+        const count = await vacuumDatabaseBlobs(db, bucket);
         expect(count).toBe(2);
         expect(deleted).toEqual(["orphan-hash-1", "orphan-hash-2"]);
-        db.close();
+        await db.close();
       } finally {
         rmSync(tmpDir, { recursive: true, force: true });
       }

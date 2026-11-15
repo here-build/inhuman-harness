@@ -13,6 +13,7 @@ import {
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -116,9 +117,9 @@ describe("turn/rewind", () => {
     };
 
     await session.handleRequest("turn/rewind", { turnId: one.uuid });
-    session.kernel.db.sqlite.pragma("query_only = ON");
+    (session.kernel.db as SqliteKvStore).setReadOnly(true);
     onTestFinished(() => {
-      session.kernel.db.sqlite.pragma("query_only = OFF");
+      (session.kernel.db as SqliteKvStore).setReadOnly(false);
     });
     const beforeEval = { head: session.root.head?.prompt, tip: session.root.tip?.prompt };
     const persist = await refused(

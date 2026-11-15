@@ -34,7 +34,7 @@ describe("acquisition and activation gates", () => {
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
 
-    const open = vi.spyOn(restored.db, "loadSessionNodes");
+    const open = vi.spyOn(restored, "loadSessionNodes");
     expect({
       doc: restored.sessionDoc("idle"),
       live: restored.liveSession("idle"),
@@ -100,7 +100,7 @@ describe("acquisition and activation gates", () => {
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
     const hydrate = vi.spyOn(SessionDocument, "fromNodeRows");
-    const open = vi.spyOn(restored.db, "loadSessionNodes");
+    const open = vi.spyOn(restored, "loadSessionNodes");
     const [a, b] = await Promise.all([restored.acquireSession("idle"), restored.acquireSession("idle")]);
     expect({
       same: a === b,

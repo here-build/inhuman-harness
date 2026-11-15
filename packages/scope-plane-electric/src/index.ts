@@ -219,3 +219,12 @@ export function subscribeElectricLiveShape<TRow extends Record<string, unknown>,
     abortController.abort();
   };
 }
+
+export {
+  compileElectricLaneQuery,
+  ElectricShapeSource,
+  type ElectricLaneQuerySpec,
+  type ElectricShapeSourceOptions,
+  type ElectricShapeStreamFactory,
+  type ElectricShapeStreamLike,
+} from "./shape-source.js";

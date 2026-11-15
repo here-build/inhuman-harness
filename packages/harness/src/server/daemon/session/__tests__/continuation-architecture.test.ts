@@ -17,14 +17,16 @@ import {
 import { expect, onTestFinished, test } from "vitest";
 
 import {
+  beginCaptureCut,
   boundaries,
   captureCut,
   configureJudge,
+  finishCaptureCut,
   liveSession,
   replicaOf,
   rounds,
   startTurn,
-  type SessionCut,
+  type PendingSessionCut,
   wait,
 } from "./fixtures/live-continuation.js";
 
@@ -315,10 +317,10 @@ test("all persisted response/decision/admission cuts recover once and remain sta
   live.session.root.permissionMode = "yolo";
   const { turn } = await startTurn(live);
   const source = rounds(turn)[0]!;
-  const images = new Map<string, { image: SessionCut; effect: string }>();
+  const images = new Map<string, { image: PendingSessionCut; effect: string }>();
   const violations: unknown[] = [];
   const capture = (): void => {
-    const image = captureCut(live);
+    const image = beginCaptureCut(live);
     const view = SessionDocument.fromNodeRows(image.rows, {
       rootId: image.rootId,
       sessionId: live.session.sessionId,
@@ -382,7 +384,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
     cuts: ["boundary-undecided", "decision-recorded", "metadata-recorded", "provider-settled", "successor-recorded"],
   });
   for (const [phase, { image, effect }] of images) {
-    const recovered = await liveSession(image, { "effect.txt": effect }, live.project.path);
+    const recovered = await liveSession(await finishCaptureCut(image), { "effect.txt": effect }, live.project.path);
     recovered.model.reply({ text: "Recovered answer." });
     const resumed = recovered.session.root.head as SessionTurn;
     await wait(() => resumed.reducerExited);
@@ -403,7 +405,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
       phase,
       effect: "seed\nhit",
     });
-    let stableImage = captureCut(recovered);
+    let stableImage = await captureCut(recovered);
     const identities = rounds(resumed).map((job) => job.uuid);
     for (let restart = 0; restart < 2; restart += 1) {
       const restarted = await liveSession(stableImage, { "effect.txt": "seed\nhit" }, live.project.path);
@@ -415,7 +417,7 @@ test("all persisted response/decision/admission cuts recover once and remain sta
         tools: toolJobs(final).map((job) => job.toolCallId),
       }).toEqual({ phase, exited: true, rounds: identities, tools: ["title", "effect"] });
       expect(readFileSync(join(restarted.project.path, "effect.txt"), "utf8")).toBe("seed\nhit");
-      stableImage = captureCut(restarted);
+      stableImage = await captureCut(restarted);
     }
   }
 }, 40_000);
@@ -428,7 +430,7 @@ test("repeated restarts abandon each interrupted provider attempt and grant one 
   for (let restart = 0; restart < 2; restart += 1) {
     await wait(() => rounds(current).at(-1)?.orchestrated === true);
     abandoned.push(rounds(current).at(-1)!.uuid);
-    const image = captureCut(live);
+    const image = await captureCut(live);
     live = await liveSession(image, {}, live.project.path);
     current = live.session.root.head as SessionTurn;
     await wait(() => rounds(current).length === restart + 2);
@@ -465,12 +467,12 @@ test("a forced compaction and its expansion boundary survive the same durable cu
   const live = await liveSession(undefined, {}, undefined, true);
   const { turn } = await startTurn(live);
   const source = rounds(turn)[0]!;
-  let image: SessionCut | null = null;
+  let image: PendingSessionCut | null = null;
   let compactId = "";
   const violations: string[] = [];
   const doc = live.session.doc;
   const capture = (): void => {
-    const snapshot = captureCut(live);
+    const snapshot = beginCaptureCut(live);
     const replica = SessionDocument.fromNodeRows(snapshot.rows, {
       rootId: snapshot.rootId,
       sessionId: live.session.sessionId,
@@ -508,7 +510,7 @@ test("a forced compaction and its expansion boundary survive the same durable cu
     captured: image != null,
     compacts: turn.children.filter((job) => job instanceof CompactJob).length,
   }).toEqual({ violations: [], captured: true, compacts: 1 });
-  const recovered = await liveSession(image!, {}, live.project.path, true);
+  const recovered = await liveSession(await finishCaptureCut(image!), {}, live.project.path, true);
   recovered.model.reply({ text: "Recovered answer." });
   const restored = recovered.session.root.head as SessionTurn;
   await wait(() => restored.reducerExited);

@@ -6,6 +6,7 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { KernelDaemon } from "../kernel/KernelDaemon.js";
@@ -65,15 +66,15 @@ describe("local SQLite/runtime integration", () => {
     await project.ready;
     const session = await project.session("s1");
     await kernel.flushSession(session.doc);
-    kernel.db.sqlite.pragma("query_only = ON");
+    (kernel.db as SqliteKvStore).setReadOnly(true);
     onTestFinished(() => {
       try {
-        kernel.db.sqlite.pragma("query_only = OFF");
+        (kernel.db as SqliteKvStore).setReadOnly(false);
       } catch {}
     });
     session.root.applyKvs([{ form: "kv-set", key: "mark", value: "dirty" }]);
     await expect(kernel.flushSession(session.doc)).rejects.toThrow();
-    kernel.db.sqlite.pragma("query_only = OFF");
+    (kernel.db as SqliteKvStore).setReadOnly(false);
     expect({
       mark: session.root.kvs.mark,
       loaded: kernel.sessionDoc("s1") === session.doc,
@@ -117,7 +118,7 @@ describe("local SQLite/runtime integration", () => {
     const session = await project.session("seated");
     session.root.agent.spec.resident = true;
     await kernel.flushSession(session.doc);
-    kernel.flushKernel();
+    await kernel.flushKernel();
     expect(kernel.doc.root.sessions.seated?.resident).toBe(true);
     kernel[Symbol.dispose]();
 

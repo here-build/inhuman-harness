@@ -1,8 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 
-import Database, { type Database as BetterSqliteDatabase, type Statement } from "better-sqlite3";
+import type { AsyncSecretsStoreBackend, EncryptedSecretRecord, SecretsStoreBackend } from "@inhuman.tools/scope-plane";
 
 import type { ConnectionSecrets, SecretsVaultPort } from "./secrets.js";
 
@@ -21,24 +19,6 @@ export type SecretsKeyRing = {
   readonly activeKid: string;
   readonly keys: Readonly<Record<string, Uint8Array>>;
 };
-
-export type EncryptedSecretRecord = {
-  readonly tenantId: string;
-  readonly kernelId: string;
-  readonly connectionId: string;
-  readonly kid: string;
-  readonly iv: Uint8Array;
-  readonly authTag: Uint8Array;
-  readonly ciphertext: Uint8Array;
-  readonly updatedAtMs: number;
-};
-
-export interface SecretsStoreBackend extends Disposable {
-  getRecord(tenantId: string, kernelId: string, connectionId: string): EncryptedSecretRecord | undefined;
-  putRecord(record: EncryptedSecretRecord): void;
-  deleteRecord(tenantId: string, kernelId: string, connectionId: string): void;
-  listConnectionIds(tenantId: string, kernelId: string): string[];
-}
 
 function copyRecord(record: EncryptedSecretRecord): EncryptedSecretRecord {
   return {
@@ -130,136 +110,37 @@ export class MemorySecretsBackend implements SecretsStoreBackend {
   }
 }
 
-type SqliteSecretRow = {
-  readonly tenant_id: string;
-  readonly kernel_id: string;
-  readonly connection_id: string;
-  readonly kid: string;
-  readonly iv: Buffer;
-  readonly auth_tag: Buffer;
-  readonly ciphertext: Buffer;
-  readonly updated_at_ms: number;
-};
-
-export class SqliteSecretsBackend implements SecretsStoreBackend {
-  readonly #db: BetterSqliteDatabase;
-  readonly #getStmt: Statement<[string, string, string], SqliteSecretRow>;
-  readonly #putStmt: Statement<[string, string, string, string, Buffer, Buffer, Buffer, number]>;
-  readonly #deleteStmt: Statement<[string, string, string]>;
-  readonly #listStmt: Statement<[string, string], { readonly connection_id: string }>;
-  #disposed = false;
-
-  constructor(dbPath: string) {
-    if (dbPath !== ":memory:" && !dbPath.startsWith("file:")) {
-      mkdirSync(dirname(dbPath), { recursive: true });
-    }
-    this.#db = new Database(dbPath);
-    if (dbPath !== ":memory:") {
-      this.#db.pragma("journal_mode = WAL");
-    }
-    this.#db.exec(`
-      CREATE TABLE IF NOT EXISTS encrypted_connection_secrets (
-        tenant_id TEXT NOT NULL,
-        kernel_id TEXT NOT NULL,
-        connection_id TEXT NOT NULL,
-        kid TEXT NOT NULL,
-        iv BLOB NOT NULL,
-        auth_tag BLOB NOT NULL,
-        ciphertext BLOB NOT NULL,
-        updated_at_ms INTEGER NOT NULL,
-        PRIMARY KEY (tenant_id, kernel_id, connection_id)
-      );
-    `);
-    this.#getStmt = this.#db.prepare(
-      `SELECT tenant_id, kernel_id, connection_id, kid, iv, auth_tag, ciphertext, updated_at_ms
-       FROM encrypted_connection_secrets
-       WHERE tenant_id = ? AND kernel_id = ? AND connection_id = ?`,
-    );
-    this.#putStmt = this.#db.prepare(
-      `INSERT INTO encrypted_connection_secrets
-         (tenant_id, kernel_id, connection_id, kid, iv, auth_tag, ciphertext, updated_at_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(tenant_id, kernel_id, connection_id) DO UPDATE SET
-         kid = excluded.kid,
-         iv = excluded.iv,
-         auth_tag = excluded.auth_tag,
-         ciphertext = excluded.ciphertext,
-         updated_at_ms = excluded.updated_at_ms`,
-    );
-    this.#deleteStmt = this.#db.prepare(
-      `DELETE FROM encrypted_connection_secrets WHERE tenant_id = ? AND kernel_id = ? AND connection_id = ?`,
-    );
-    this.#listStmt = this.#db.prepare(
-      `SELECT connection_id FROM encrypted_connection_secrets WHERE tenant_id = ? AND kernel_id = ?`,
-    );
-  }
-
-  /** Read-only escape hatch for tests verifying DB state and key rotation. */
-  get sqlite(): BetterSqliteDatabase {
-    return this.#db;
-  }
-
-  getRecord(tenantId: string, kernelId: string, connectionId: string): EncryptedSecretRecord | undefined {
-    if (this.#disposed) throw new Error("SqliteSecretsBackend: disposed");
-    const row = this.#getStmt.get(tenantId, kernelId, connectionId);
-    if (row === undefined) return undefined;
-    return {
-      tenantId: row.tenant_id,
-      kernelId: row.kernel_id,
-      connectionId: row.connection_id,
-      kid: row.kid,
-      iv: new Uint8Array(row.iv),
-      authTag: new Uint8Array(row.auth_tag),
-      ciphertext: new Uint8Array(row.ciphertext),
-      updatedAtMs: row.updated_at_ms,
-    };
-  }
-
-  putRecord(record: EncryptedSecretRecord): void {
-    if (this.#disposed) throw new Error("SqliteSecretsBackend: disposed");
-    this.#putStmt.run(
-      record.tenantId,
-      record.kernelId,
-      record.connectionId,
-      record.kid,
-      Buffer.from(record.iv),
-      Buffer.from(record.authTag),
-      Buffer.from(record.ciphertext),
-      record.updatedAtMs,
-    );
-  }
-
-  deleteRecord(tenantId: string, kernelId: string, connectionId: string): void {
-    if (this.#disposed) return;
-    this.#deleteStmt.run(tenantId, kernelId, connectionId);
-  }
-
-  listConnectionIds(tenantId: string, kernelId: string): string[] {
-    if (this.#disposed) throw new Error("SqliteSecretsBackend: disposed");
-    return this.#listStmt.all(tenantId, kernelId).map((row) => row.connection_id);
-  }
-
-  [Symbol.dispose](): void {
-    if (this.#disposed) return;
-    this.#disposed = true;
-    this.#db.close();
-  }
-}
-
 export type EncryptedSecretsVaultOptions = {
-  readonly backend: SecretsStoreBackend;
+  readonly backend: SecretsStoreBackend | AsyncSecretsStoreBackend;
   readonly keyRing: SecretsKeyRing;
   readonly tenantId: string;
   readonly kernelId: string;
   readonly ownsBackend?: boolean;
 };
 
+function isPromiseLike(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
+function isAsyncBackend(backend: SecretsStoreBackend | AsyncSecretsStoreBackend): backend is AsyncSecretsStoreBackend {
+  return Symbol.asyncDispose in backend && !(Symbol.dispose in backend);
+}
+
 export class EncryptedSecretsVault implements SecretsVaultPort {
-  readonly #backend: SecretsStoreBackend;
+  readonly #backend: SecretsStoreBackend | AsyncSecretsStoreBackend;
+  readonly #isAsyncBackend: boolean;
   readonly #keyRing: SecretsKeyRing;
   readonly #tenantId: string;
   readonly #kernelId: string;
   readonly #ownsBackend: boolean;
+  #warmedCache: Map<string, EncryptedSecretRecord> | null = null;
+  #writeQueue: Promise<void> = Promise.resolve();
+  #pendingWrites = 0;
   #disposed = false;
 
   constructor(options: EncryptedSecretsVaultOptions) {
@@ -267,16 +148,70 @@ export class EncryptedSecretsVault implements SecretsVaultPort {
     if (options.kernelId.trim() === "") throw new SecretsAuthError("EncryptedSecretsVault requires kernelId");
     validateKeyRing(options.keyRing);
     this.#backend = options.backend;
+    this.#isAsyncBackend = isAsyncBackend(options.backend);
     this.#keyRing = options.keyRing;
     this.#tenantId = options.tenantId;
     this.#kernelId = options.kernelId;
     this.#ownsBackend = options.ownsBackend ?? false;
   }
 
-  readConnectionSecrets(id: string): ConnectionSecrets {
-    if (this.#disposed) throw new Error("EncryptedSecretsVault: disposed");
-    const record = this.#backend.getRecord(this.#tenantId, this.#kernelId, id);
-    if (record === undefined) return {};
+  async warm(): Promise<void> {
+    if (this.#disposed) return;
+    await this.flush();
+    const cache = new Map<string, EncryptedSecretRecord>();
+    const asyncBackend = this.#backend as AsyncSecretsStoreBackend;
+    if (typeof asyncBackend.listRecords === "function") {
+      const records = await asyncBackend.listRecords(this.#tenantId, this.#kernelId);
+      for (const rec of records) {
+        cache.set(rec.connectionId, copyRecord(rec));
+      }
+    } else {
+      const ids = await this.#backend.listConnectionIds(this.#tenantId, this.#kernelId);
+      for (const id of ids) {
+        const rec = await this.#backend.getRecord(this.#tenantId, this.#kernelId, id);
+        if (rec !== undefined) {
+          cache.set(id, copyRecord(rec));
+        }
+      }
+    }
+    this.#warmedCache = cache;
+  }
+
+  async flush(): Promise<void> {
+    await this.#writeQueue;
+  }
+
+  #enqueueAsyncWrite(op: () => Promise<void> | void): void {
+    const run = async (): Promise<void> => {
+      await op();
+    };
+    const next = this.#pendingWrites === 0 ? run() : this.#writeQueue.then(run);
+    this.#pendingWrites += 1;
+    const tracked = next.finally(() => {
+      this.#pendingWrites -= 1;
+    });
+    this.#writeQueue = tracked.catch(() => {});
+  }
+
+  #getRecordSync(id: string): EncryptedSecretRecord | undefined {
+    if (this.#warmedCache !== null) {
+      return this.#warmedCache.get(id);
+    }
+    if (this.#isAsyncBackend) {
+      throw new SecretsAuthError(
+        `EncryptedSecretsVault with async backend must be warmed via warm() before reading "${id}"`,
+      );
+    }
+    const raw = (this.#backend as SecretsStoreBackend).getRecord(this.#tenantId, this.#kernelId, id);
+    if (isPromiseLike(raw)) {
+      throw new SecretsAuthError(
+        `EncryptedSecretsVault with async backend must be warmed via warm() before reading "${id}"`,
+      );
+    }
+    return raw;
+  }
+
+  #decryptRecord(id: string, record: EncryptedSecretRecord): ConnectionSecrets {
     if (record.tenantId !== this.#tenantId || record.kernelId !== this.#kernelId || record.connectionId !== id) {
       throw new SecretsAuthError(`Secret identity mismatch for connection "${id}"`);
     }
@@ -308,11 +243,18 @@ export class EncryptedSecretsVault implements SecretsVaultPort {
     }
   }
 
+  readConnectionSecrets(id: string): ConnectionSecrets {
+    if (this.#disposed) throw new Error("EncryptedSecretsVault: disposed");
+    const record = this.#getRecordSync(id);
+    if (record === undefined) return {};
+    return this.#decryptRecord(id, record);
+  }
+
   writeConnectionSecrets(id: string, secrets: ConnectionSecrets): void {
     if (this.#disposed) throw new Error("EncryptedSecretsVault: disposed");
     const cleaned = cleanSecrets(secrets);
     if (Object.keys(cleaned).length === 0) {
-      this.#backend.deleteRecord(this.#tenantId, this.#kernelId, id);
+      this.deleteConnectionSecrets(id);
       return;
     }
     validateKeyRing(this.#keyRing);
@@ -326,7 +268,7 @@ export class EncryptedSecretsVault implements SecretsVaultPort {
     cipher.setAAD(encodeCanonicalAad(this.#tenantId, this.#kernelId, id));
     const ciphertext = Buffer.concat([cipher.update(Buffer.from(JSON.stringify(cleaned), "utf8")), cipher.final()]);
     const authTag = cipher.getAuthTag();
-    this.#backend.putRecord({
+    const record: EncryptedSecretRecord = {
       tenantId: this.#tenantId,
       kernelId: this.#kernelId,
       connectionId: id,
@@ -335,26 +277,61 @@ export class EncryptedSecretsVault implements SecretsVaultPort {
       authTag,
       ciphertext,
       updatedAtMs: Date.now(),
-    });
+    };
+
+    if (this.#warmedCache !== null) {
+      this.#warmedCache.set(id, copyRecord(record));
+    }
+
+    if (this.#isAsyncBackend) {
+      this.#enqueueAsyncWrite(() => (this.#backend as AsyncSecretsStoreBackend).putRecord(record));
+      return;
+    }
+
+    const res = (this.#backend as SecretsStoreBackend).putRecord(record) as unknown;
+    if (isPromiseLike(res)) {
+      this.#enqueueAsyncWrite(() => res.then(() => undefined));
+    }
   }
 
   deleteConnectionSecrets(id: string): void {
     if (this.#disposed) return;
-    this.#backend.deleteRecord(this.#tenantId, this.#kernelId, id);
+    this.#warmedCache?.delete(id);
+    if (this.#isAsyncBackend) {
+      this.#enqueueAsyncWrite(() =>
+        (this.#backend as AsyncSecretsStoreBackend).deleteRecord(this.#tenantId, this.#kernelId, id),
+      );
+      return;
+    }
+    const res = (this.#backend as SecretsStoreBackend).deleteRecord(this.#tenantId, this.#kernelId, id) as unknown;
+    if (isPromiseLike(res)) {
+      this.#enqueueAsyncWrite(() => res.then(() => undefined));
+    }
   }
 
   rewrapConnectionSecrets(id: string): boolean {
     if (this.#disposed) throw new Error("EncryptedSecretsVault: disposed");
-    const existing = this.#backend.getRecord(this.#tenantId, this.#kernelId, id);
+    const existing = this.#getRecordSync(id);
     if (existing === undefined) return false;
-    const secrets = this.readConnectionSecrets(id);
+    const secrets = this.#decryptRecord(id, existing);
     this.writeConnectionSecrets(id, secrets);
     return true;
   }
 
   rewrapAll(): number {
     if (this.#disposed) throw new Error("EncryptedSecretsVault: disposed");
-    const ids = this.#backend.listConnectionIds(this.#tenantId, this.#kernelId);
+    let ids: string[];
+    if (this.#warmedCache !== null) {
+      ids = [...this.#warmedCache.keys()];
+    } else if (this.#isAsyncBackend) {
+      throw new SecretsAuthError("EncryptedSecretsVault: warm() must run before synchronous rewrapAll()");
+    } else {
+      const raw = (this.#backend as SecretsStoreBackend).listConnectionIds(this.#tenantId, this.#kernelId);
+      if (isPromiseLike(raw)) {
+        throw new SecretsAuthError("EncryptedSecretsVault: use rewrapAllAsync() or call warm() first");
+      }
+      ids = raw;
+    }
     let count = 0;
     for (const id of ids) {
       if (this.rewrapConnectionSecrets(id)) count += 1;
@@ -362,11 +339,52 @@ export class EncryptedSecretsVault implements SecretsVaultPort {
     return count;
   }
 
+  async rewrapAllAsync(): Promise<number> {
+    if (this.#disposed) throw new Error("EncryptedSecretsVault: disposed");
+    if (this.#warmedCache === null) {
+      await this.warm();
+    }
+    const count = this.rewrapAll();
+    await this.flush();
+    return count;
+  }
+
   [Symbol.dispose](): void {
     if (this.#disposed) return;
     this.#disposed = true;
-    if (this.#ownsBackend) {
-      this.#backend[Symbol.dispose]();
+    this.#warmedCache?.clear();
+    this.#warmedCache = null;
+    if (!this.#ownsBackend) return;
+    if (Symbol.dispose in this.#backend) {
+      (this.#backend as SecretsStoreBackend)[Symbol.dispose]();
+    } else {
+      const asyncBackend = this.#backend as AsyncSecretsStoreBackend;
+      void Promise.resolve(asyncBackend.close?.() ?? asyncBackend[Symbol.asyncDispose]?.()).catch(() => undefined);
+    }
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    if (this.#disposed) {
+      await this.#writeQueue.catch(() => {});
+      return;
+    }
+    await this.#writeQueue.catch(() => {});
+    this.#disposed = true;
+    this.#warmedCache?.clear();
+    this.#warmedCache = null;
+    if (!this.#ownsBackend) return;
+    if (Symbol.asyncDispose in this.#backend) {
+      await (this.#backend as AsyncSecretsStoreBackend)[Symbol.asyncDispose]();
+    } else if (Symbol.dispose in this.#backend) {
+      (this.#backend as SecretsStoreBackend)[Symbol.dispose]();
     }
   }
 }
+
+export { SqliteSecretsBackend } from "@inhuman.tools/scope-plane-sqlite";
+
+export {
+  type AsyncSecretsStoreBackend,
+  type SecretsStoreBackend,
+  type EncryptedSecretRecord,
+} from "@inhuman.tools/scope-plane";

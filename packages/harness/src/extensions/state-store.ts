@@ -8,7 +8,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { SessionRoot } from "@inhuman.tools/harness-model";
-import type { HarnessDatabase } from "@inhuman.tools/scope-plane";
+import type { HarnessKvStore } from "@inhuman.tools/scope-plane";
 import { runInAction } from "mobx";
 
 import { jsonToVal } from "./eval.js";
@@ -86,12 +86,15 @@ export const FsStateStore = KernelStateStore;
  * and `SessionRoot.pluginState` (session scope).
  */
 export class DbStateStore implements StateStore {
-  readonly #db: HarnessDatabase;
+  readonly #db: HarnessKvStore;
   readonly #kernelId: string;
   readonly #session: (sessionId: string) => SessionRoot | undefined;
+  readonly #cache = new Map<string, readonly Val[]>();
+  #writeQueue: Promise<void> = Promise.resolve();
+  #pendingWrites = 0;
 
   constructor(options: {
-    readonly db: HarnessDatabase;
+    readonly db: HarnessKvStore;
     readonly kernelId: string;
     readonly sessionRoot: (sessionId: string) => SessionRoot | undefined;
   }) {
@@ -100,14 +103,40 @@ export class DbStateStore implements StateStore {
     this.#session = options.sessionRoot;
   }
 
+  async warm(): Promise<void> {
+    await this.flush();
+    const rows = await this.#db.scan("plugin_state_logs", {
+      where: { kernelId: this.#kernelId },
+    });
+    for (const row of rows) {
+      this.#cache.set(row.id, decodeLog(row.logJson));
+    }
+  }
+
+  async flush(): Promise<void> {
+    await this.#writeQueue;
+  }
+
+  #enqueueWrite(fn: () => Promise<unknown>): void {
+    const next = this.#pendingWrites === 0 ? fn() : this.#writeQueue.then(fn);
+    this.#pendingWrites += 1;
+    const settled = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    const cleanup = settled.finally(() => {
+      this.#pendingWrites -= 1;
+    });
+    this.#writeQueue = cleanup;
+  }
+
   load(owner: OwnerParts): readonly Val[] | undefined {
     if (owner.scope === "private") return undefined;
     if (owner.scope === "session") {
       const json = this.#session(owner.scopeId)?.pluginState[sessionStateKey(owner)];
       return json == null ? undefined : decodeLog(json);
     }
-    const row = this.#db.getPluginStateLog(this.#rowId(owner));
-    return row === undefined ? undefined : decodeLog(row.logJson);
+    return this.#cache.get(this.#rowId(owner));
   }
 
   save(owner: OwnerParts, log: readonly Val[]): void {
@@ -121,22 +150,26 @@ export class DbStateStore implements StateStore {
       });
       return;
     }
+    const id = this.#rowId(owner);
+    this.#cache.set(id, decodeLog(encoded));
     const dbScope = owner.scope === "global" ? "global" : "project";
     const dbScopeId = owner.scope === "global" ? "kernel" : owner.scopeId;
-    this.#db.upsertPluginStateLog({
-      id: this.#rowId(owner),
-      kernelId: this.#kernelId,
-      plugin: owner.plugin,
-      scope: dbScope,
-      scopeId: dbScopeId,
-      namespace: owner.namespace,
-      logJson: encoded,
-      updatedAtMs: Date.now(),
-    });
+    this.#enqueueWrite(() =>
+      this.#db.set("plugin_state_logs", {
+        id,
+        kernelId: this.#kernelId,
+        plugin: owner.plugin,
+        scope: dbScope,
+        scopeId: dbScopeId,
+        namespace: owner.namespace,
+        logJson: encoded,
+        updatedAtMs: Date.now(),
+      }),
+    );
   }
 
   #rowId(owner: OwnerParts): string {
     const scopeId = owner.scope === "global" ? "kernel" : owner.scopeId;
-    return [this.#kernelId, owner.plugin, owner.scope, scopeId, owner.namespace].join("\0");
+    return JSON.stringify([this.#kernelId, owner.plugin, owner.scope, scopeId, owner.namespace]);
   }
 }

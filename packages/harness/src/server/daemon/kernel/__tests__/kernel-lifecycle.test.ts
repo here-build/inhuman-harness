@@ -82,7 +82,7 @@ describe("kernel lifetime", () => {
     const restored = new KernelDaemon(system);
     onTestFinished(() => restored[Symbol.dispose]());
     await restored.ready;
-    vi.spyOn(restored.db, "loadSessionNodes").mockImplementationOnce(() => {
+    vi.spyOn(restored, "loadSessionNodes").mockImplementationOnce(() => {
       throw new Error("session load failed: overload");
     });
     await expect(restored.acquireSession("s")).rejects.toThrow(/overload/);
@@ -154,7 +154,7 @@ describe("kernel lifetime", () => {
     await kernel.flushSession(session.doc);
     expect({
       occupied: sessionIsOccupied(kernel.doc.awareness, "s"),
-      row: kernel.db.getSession("s"),
+      row: await kernel.db.get("sessions", "s"),
     }).toMatchObject({
       occupied: true,
       row: {
@@ -185,7 +185,7 @@ describe("kernel lifetime", () => {
       project.root.sessions["orphan-session"] = "";
       project.root.botsRoster["orphan-project"] = "orphan-project-worker";
     });
-    kernel.flushKernel();
+    await kernel.flushKernel();
     kernel[Symbol.dispose]();
 
     const restored = new KernelDaemon(system);

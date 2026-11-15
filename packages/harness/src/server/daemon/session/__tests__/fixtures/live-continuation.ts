@@ -11,6 +11,7 @@ import {
   SessionSystemPrompt,
   SessionTurn,
 } from "@inhuman.tools/harness-model";
+import { commitSessionNodesInBatch, upsertSessionEffectInBatch } from "@inhuman.tools/scope-plane";
 import type { SerializedModelRow } from "@inhuman.tools/model";
 import { when } from "mobx";
 import { onTestFinished } from "vitest";
@@ -26,22 +27,42 @@ export type SessionCut = {
   readonly effects: readonly SessionEffectRow[];
 };
 
+export type PendingSessionCut = {
+  readonly rootId: string;
+  readonly revision: number;
+  readonly rows: readonly SerializedModelRow[];
+  readonly effects: Promise<readonly SessionEffectRow[]>;
+};
+
 export const wait = (predicate: () => boolean) => when(predicate, { timeout: 8_000 });
 export const rounds = (turn: SessionTurn) =>
   [...turn.doneWork, ...turn.queue].filter((cell): cell is CompletionJob => cell instanceof CompletionJob);
 export const boundaries = (turn: SessionTurn) =>
   [...turn.doneWork, ...turn.queue].filter((cell): cell is ReACTChunk => cell instanceof ReACTChunk);
 
-export function captureCut(live: {
+type CutTarget = {
   readonly kernel: KernelDaemon;
   readonly session: { readonly sessionId: string; readonly root: { readonly uuid: string }; readonly doc: SessionDocument };
-}): SessionCut {
+};
+
+export function beginCaptureCut(live: CutTarget): PendingSessionCut {
   return {
     rootId: live.session.root.uuid,
     revision: Math.max(live.session.doc.revision, 1),
     rows: live.session.doc.toNodeRows(),
-    effects: live.kernel.db.listSessionEffects(live.session.sessionId),
+    effects: live.kernel.db.scan("session_effects", {
+      where: { sessionId: live.session.sessionId },
+      orderBy: [{ column: "revision", direction: "asc" }],
+    }),
   };
+}
+
+export async function finishCaptureCut(pending: PendingSessionCut): Promise<SessionCut> {
+  return { ...pending, effects: await pending.effects };
+}
+
+export async function captureCut(live: CutTarget): Promise<SessionCut> {
+  return finishCaptureCut(beginCaptureCut(live));
 }
 
 export async function liveSession(
@@ -58,15 +79,15 @@ export async function liveSession(
   const model = installScriptedModel(kernel);
   if (cut != null) {
     const now = Date.now();
-    kernel.db.writeTransaction(["sessions", "session_nodes", "session_effects"], (tx) => {
-      kernel.db.insertSession({
+    await kernel.db.batch((tx) => {
+      tx.set("sessions", {
         sessionId: "s1",
         workspacePath: workspace,
         revision: cut.revision,
         createdAtMs: now,
         lastActiveAtMs: now,
       });
-      kernel.db.commitSessionNodesInTx(tx, "s1", {
+      commitSessionNodesInBatch(tx, "s1", {
         rootId: cut.rootId,
         revision: cut.revision,
         upserts: cut.rows,
@@ -74,7 +95,7 @@ export async function liveSession(
         replaceAll: true,
       });
       for (const effect of cut.effects) {
-        kernel.db.upsertSessionEffectInTx(tx, effect);
+        upsertSessionEffectInBatch(tx, effect);
       }
     });
     kernel[Symbol.dispose]();

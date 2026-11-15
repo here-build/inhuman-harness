@@ -3,6 +3,7 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { ConnectionSpec } from "@inhuman.tools/expectations";
 import { prompt } from "@inhuman.tools/harness-commons";
 import {
   AgentCallJob,
@@ -25,7 +26,6 @@ import {
   SystemToolJob,
   USER_REFUSED,
 } from "@inhuman.tools/harness-model";
-import { ConnectionSpec } from "@inhuman.tools/expectations";
 import { forceStopLoop, namedWorkerIds } from "@inhuman.tools/turn/agent-calls";
 import { when } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";

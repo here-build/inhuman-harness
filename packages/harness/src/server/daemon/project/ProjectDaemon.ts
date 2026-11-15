@@ -91,8 +91,8 @@ export class ProjectDaemon extends RequestHost implements Disposable, AsyncDispo
     super();
     const storedRow = globalHost
       ? undefined
-      : kernel.db
-          .listProjects(kernel.kernelId)
+      : kernel
+          .listCachedProjects()
           .find((row) => row.workspacePath === workspacePath || row.projectId === workspacePath);
     const pendingKind = kernel.pendingKindFor(workspacePath);
     const initialKind: ProjectKind =
@@ -183,7 +183,7 @@ export class ProjectDaemon extends RequestHost implements Disposable, AsyncDispo
       }
       const persistedRow = globalHost
         ? undefined
-        : kernel.db.listProjects(kernel.kernelId).find((row) => row.workspacePath === path || row.projectId === path);
+        : kernel.listCachedProjects().find((row) => row.workspacePath === path || row.projectId === path);
       if (!loaded.existing && persistedRow !== undefined) {
         const persistedEnabled = parseStringArrayJson(persistedRow.enabledPluginsJson);
         this.doc.root.configureOverlay({
@@ -276,8 +276,8 @@ export class ProjectDaemon extends RequestHost implements Disposable, AsyncDispo
         this.root.pluginsConfigured = false;
       });
     }
-    this.kernel.flushProjectDoc(this.path, { force: true });
-    this.kernel.db.upsertProject({
+    await this.kernel.flushProjectDoc(this.path, { force: true });
+    await this.kernel.upsertProjectRow({
       projectId: next.projectId,
       kernelId: this.kernel.kernelId,
       title: next.title,

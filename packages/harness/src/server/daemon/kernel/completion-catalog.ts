@@ -4,11 +4,11 @@
  * intern via session `kv/set` — a remembered model/connection write lands
  * last-choice onto project and kernel while walking candidates.
  */
+import { revalidationDemandOf, type ConnectionSpec } from "@inhuman.tools/expectations";
 import type { ConnectModelsRow } from "@inhuman.tools/harness-contract";
 import { fail } from "@inhuman.tools/harness-diagnostics";
 import { liveModelsOf } from "@inhuman.tools/harness-scheme";
 import type { ReactiveAwareness } from "@inhuman.tools/model";
-import { revalidationDemandOf, type ConnectionSpec } from "@inhuman.tools/expectations";
 import { action, comparer, reaction, type IReactionDisposer } from "mobx";
 
 import { completionConnectionIds, type CredentialsStore } from "@/connections";

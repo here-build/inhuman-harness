@@ -263,7 +263,7 @@ describe("kernel seat machine", () => {
       conversationGlance: kernel.doc.root.sessions.conversation != null,
     }).toEqual({ project: "", conversationGlance: true });
 
-    kernel.flushKernel();
+    await kernel.flushKernel();
     kernel[Symbol.dispose]();
     firstGone = true;
     restored = new KernelDaemon(system);

@@ -6,7 +6,7 @@ import {
   encodePresenceUpdate,
 } from "@inhuman.tools/harness-peer";
 import { ReactiveAwareness, type PresenceEntry } from "@inhuman.tools/model";
-import type { UpdateLaneHub } from "@inhuman.tools/scope-plane";
+import type { ShapeSource } from "@inhuman.tools/scope-plane";
 import { WebSocket } from "ws";
 
 export const PLANE_PING_MS = 10_000;
@@ -195,7 +195,7 @@ export class PresenceRoom {
 export interface AttachPlaneOptions {
   readonly socket: PlaneSocket;
   readonly connectionId: string;
-  readonly laneHub?: UpdateLaneHub;
+  readonly laneHub?: ShapeSource;
   readonly room?: PresenceRoom;
   readonly authorizeSubscribe?: (frame: ShapeSubscribeFrame) => ShapeSubscribeFrame | null;
 }

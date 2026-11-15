@@ -1,0 +1,54 @@
+{
+  "name": "@inhuman.tools/scope-plane-sqlite",
+  "version": "0.3.0",
+  "description": "Local SQLite driver for @inhuman.tools/scope-plane HarnessKvStore and SqliteSecretsBackend.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@inhuman.tools/harness-contract": "workspace:^",
+    "@inhuman.tools/scope-plane": "workspace:^"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "^24.19.2",
+    "better-sqlite3": "13.0.3",
+    "eslint": "10.13.0",
+    "mobx": "6.16.1",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/scope-plane-sqlite"
+  },
+  "browserslist": [
+    "node >= 22"
+  ]
+}

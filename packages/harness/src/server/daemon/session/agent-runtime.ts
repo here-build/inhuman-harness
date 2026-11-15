@@ -5,6 +5,7 @@
  */
 import { createHash } from "node:crypto";
 
+import type { Job } from "@inhuman.tools/expectations";
 import { asSystemPrompt, asUserPrompt } from "@inhuman.tools/harness-commons";
 import { fail } from "@inhuman.tools/harness-diagnostics";
 import {
@@ -31,7 +32,6 @@ import {
   ToolCallJob,
 } from "@inhuman.tools/harness-model";
 import { oneShotModelError, parseModelRef } from "@inhuman.tools/harness-scheme";
-import type { Job } from "@inhuman.tools/expectations";
 import {
   completeCallExceptionally as completeCallOnScope,
   forceStopLoop,

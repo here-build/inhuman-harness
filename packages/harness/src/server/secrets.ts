@@ -15,6 +15,7 @@ export {
   SecretsAuthError,
   SqliteSecretsBackend,
   encodeCanonicalAad,
+  type AsyncSecretsStoreBackend,
   type EncryptedSecretRecord,
   type EncryptedSecretsVaultOptions,
   type SecretsKeyRing,
@@ -28,6 +29,9 @@ export interface SecretsVaultPort extends Disposable {
   readConnectionSecrets(id: string): ConnectionSecrets;
   writeConnectionSecrets(id: string, secrets: ConnectionSecrets): void;
   deleteConnectionSecrets(id: string): void;
+  warm?(): Promise<void>;
+  flush?(): Promise<void>;
+  [Symbol.asyncDispose]?(): Promise<void>;
 }
 
 /** Local contour filesystem secrets store (`<kernelRoot>/secrets.json`). */

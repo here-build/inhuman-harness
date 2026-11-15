@@ -35,7 +35,7 @@ import {
   type SessionRoot,
 } from "@inhuman.tools/harness-model";
 import type { DocumentContainer } from "@inhuman.tools/model";
-import type { HarnessDatabase } from "@inhuman.tools/scope-plane";
+import type { HarnessKvStore } from "@inhuman.tools/scope-plane";
 import { runInAction } from "mobx";
 
 /** Stores bytes under their hash and returns the reference. Throws when the bucket refuses. */
@@ -141,15 +141,16 @@ export function vacuumSession(root: SessionRoot, put: BlobPut, options: VacuumOp
 }
 
 /**
- * Sweeps the blob bucket against unreferenced blob hashes stored in SQLite `session_blobs`.
+ * Sweeps the blob bucket against unreferenced blob hashes stored in `session_blobs`.
  * Does not hydrate any session document into memory.
  */
-export function vacuumDatabaseBlobs(
-  db: HarnessDatabase,
+export async function vacuumDatabaseBlobs(
+  db: HarnessKvStore,
   bucket: { list(): Iterable<string>; delete(sha256: string): void },
   kernelId?: string,
-): number {
-  const referenced = new Set(db.listReferencedBlobIds(kernelId));
+): Promise<number> {
+  const rows = await db.scan("session_blobs", kernelId !== undefined ? { where: { kernelId } } : undefined);
+  const referenced = new Set(rows.map((row) => row.blobId));
   let deletedCount = 0;
   for (const sha256 of bucket.list()) {
     if (!referenced.has(sha256)) {

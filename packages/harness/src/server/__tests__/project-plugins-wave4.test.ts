@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { SessionSystemPrompt, SessionTurn, SystemToolJob } from "@inhuman.tools/harness-model";
 import { defineTool, InhumanPlugin, type WorkspaceEnvPort } from "@inhuman.tools/plugin-sdk";
-import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { explainCall } from "@inhuman.tools/turn/explain";
 import { runInAction } from "mobx";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -29,8 +29,8 @@ function tempDir(prefix: string): string {
 describe("Wave 4: project pluginConfigs overlay, toggleable FS/shell, and WorkspaceEnvPort", () => {
   it("validates project/configure schemas, persists virtual projects, stamps projectId, and disposes/rehydrates on evict", async () => {
     const dir = tempDir("w4-cfg-");
-    const db = new HarnessDatabase(join(dir, "harness.db"));
-    onTestFinished(() => db[Symbol.dispose]());
+    const db = new SqliteKvStore(join(dir, "harness.db"));
+    onTestFinished(() => db.close());
 
     const lifecycleEvents: string[] = [];
     let activateCount = 0;
@@ -159,7 +159,7 @@ describe("Wave 4: project pluginConfigs overlay, toggleable FS/shell, and Worksp
       },
     });
 
-    const dbRow = db.getProject("proj-v1");
+    const dbRow = await db.get("projects", "proj-v1");
     expect(dbRow).toMatchObject({
       projectId: "proj-v1",
       kernelId: "tenant-w4",
@@ -225,8 +225,8 @@ describe("Wave 4: project pluginConfigs overlay, toggleable FS/shell, and Worksp
 
   it("toggles FS/shell via toolkit, shell, and @inhuman.tools/plugin-local-env across server and local contours", async () => {
     const dir = tempDir("w4-toggle-");
-    const db = new HarnessDatabase(join(dir, "harness.db"));
-    onTestFinished(() => db[Symbol.dispose]());
+    const db = new SqliteKvStore(join(dir, "harness.db"));
+    onTestFinished(() => db.close());
 
     const serverKernel = new KernelDaemon({
       contour: "server",
@@ -335,8 +335,8 @@ describe("Wave 4: project pluginConfigs overlay, toggleable FS/shell, and Worksp
 
   it("enforces symlink policy prohibit and writeFileAdmitSnap via virtual VFS WorkspaceEnvPort without host FS", async () => {
     const dir = tempDir("w4-vfs-");
-    const db = new HarnessDatabase(join(dir, "harness.db"));
-    onTestFinished(() => db[Symbol.dispose]());
+    const db = new SqliteKvStore(join(dir, "harness.db"));
+    onTestFinished(() => db.close());
 
     const virtualWs = "/virtual/ws";
     const files = new Map<string, string>([

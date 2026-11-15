@@ -50,6 +50,7 @@
     "@inhuman.tools/harness-sdk": "workspace:^",
     "@inhuman.tools/harness-tui": "workspace:^",
     "@inhuman.tools/harness-web-app": "workspace:^",
+    "better-sqlite3": "13.0.3",
     "clipanion": "4.0.0-rc.4",
     "mobx": "6.16.1",
     "typanion": "3.14.0"

@@ -15,10 +15,10 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./sqlite": {
-      "types": "./dist/sqlite.d.ts",
-      "import": "./dist/sqlite.js",
-      "default": "./dist/sqlite.js"
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js",
+      "default": "./dist/testing.js"
     },
     "./live-shape": {
       "types": "./dist/live-shape.d.ts",
@@ -37,13 +37,10 @@
   "dependencies": {
     "@inhuman.tools/harness-contract": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
-    "better-sqlite3": "13.0.3",
-    "drizzle-orm": "0.44.5",
     "mobx": "6.16.1"
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
-    "@types/better-sqlite3": "9.6.0",
     "@types/node": "^24.19.2",
     "eslint": "10.13.0",
     "typescript": "6.0.3",

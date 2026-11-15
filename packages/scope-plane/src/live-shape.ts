@@ -8,7 +8,7 @@ import {
 import type { DocumentContainer, Model, SerializedModelRow } from "@inhuman.tools/model";
 import { createAtom, observable, runInAction, when, type IAtom, type ObservableMap } from "mobx";
 
-import type { UpdateLaneHub } from "./lane-server.js";
+import type { ShapeSource } from "./shape-source.js";
 
 function hasApplyRow<T>(val: unknown): val is { applyRow: (row: T) => void } {
   return (
@@ -23,7 +23,7 @@ export interface ShapeTransport {
   subscribe(frame: ShapeSubscribeFrame, onDelta: (frame: ShapeDeltaFrame) => void): () => void;
 }
 
-export function createLocalShapeTransport(hub: UpdateLaneHub, clientId = "local"): ShapeTransport {
+export function createLocalShapeTransport(hub: Pick<ShapeSource, "subscribe">, clientId = "local"): ShapeTransport {
   return {
     subscribe(frame: ShapeSubscribeFrame, onDelta: (frame: ShapeDeltaFrame) => void): () => void {
       return hub.subscribe(frame, onDelta, clientId);

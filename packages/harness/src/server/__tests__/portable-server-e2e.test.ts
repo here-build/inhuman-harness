@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { defineTool, InhumanPlugin, type WorkspaceEnvPort } from "@inhuman.tools/plugin-sdk";
-import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { WebSocket } from "ws";
 import { z } from "zod";
@@ -286,8 +286,8 @@ describe("Wave 5: EncryptedSecretsVault, HostRuntimePluginCatalog, AsyncCachedBl
     expect(catalog.warmed).toBe(true);
     expect(catalog.has("w5-bundled")).toBe(true);
 
-    const db = new HarnessDatabase(join(dir, "harness.db"));
-    onTestFinished(() => db[Symbol.dispose]());
+    const db = new SqliteKvStore(join(dir, "harness.db"));
+    onTestFinished(() => db.close());
 
     resetPluginDiskReadCount();
     const k1 = new KernelDaemon({
@@ -373,8 +373,8 @@ describe("Wave 5: EncryptedSecretsVault, HostRuntimePluginCatalog, AsyncCachedBl
 
   it("isolates tenants across HTTP, RPC, WebSocket, and LiveShape while decrypting secrets and supporting eviction/rehydration", async () => {
     const dir = tempDir("w5-e2e-");
-    const db = new HarnessDatabase(join(dir, "harness.db"));
-    onTestFinished(() => db[Symbol.dispose]());
+    const db = new SqliteKvStore(join(dir, "harness.db"));
+    onTestFinished(() => db.close());
 
     const secretsDbPath = join(dir, "secrets.db");
     const secretsBackend = new SqliteSecretsBackend(secretsDbPath);
@@ -613,7 +613,7 @@ describe("Wave 5: EncryptedSecretsVault, HostRuntimePluginCatalog, AsyncCachedBl
       "Tenant A shape/delta assistant response",
     );
     // Ensure session finishes running cleanly before inspecting HTTP & closing socket.
-    let sessAState: { status: number; json: { session?: { running?: number }; nodes?: unknown[] } } = {
+    let sessAState: { status: number; json: { session?: { running?: boolean }; nodes?: unknown[] } } = {
       status: 0,
       json: {},
     };
@@ -628,12 +628,12 @@ describe("Wave 5: EncryptedSecretsVault, HostRuntimePluginCatalog, AsyncCachedBl
       sessAState = (await httpJson(`${addr.url}/sessions/sess-a`, {
         headers: { origin: allowedOrigin, authorization: "Bearer token-a" },
       })) as typeof sessAState;
-      if (sessAState.status === 200 && sessAState.json.session?.running === 0) break;
+      if (sessAState.status === 200 && sessAState.json.session?.running === false) break;
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
 
     expect(sessAState.status).toBe(200);
-    expect(sessAState.json.session?.running).toBe(0);
+    expect(sessAState.json.session?.running).toBe(false);
     expect(JSON.stringify(sessAState.json.nodes)).toContain("TENANT_A_VFS_PAYLOAD");
     expect(compat.requestHeaders.length).toBeGreaterThanOrEqual(2);
     expect(compat.requestHeaders.every((h) => h.authorization === `Bearer ${liveSecret}`)).toBe(true);

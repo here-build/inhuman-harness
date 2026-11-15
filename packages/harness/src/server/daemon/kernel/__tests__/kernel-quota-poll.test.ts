@@ -6,8 +6,8 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ReactiveAwareness } from "@inhuman.tools/model";
 import { publishRevalidationDemand, publishRevalidationDemandFocus } from "@inhuman.tools/expectations";
+import { ReactiveAwareness } from "@inhuman.tools/model";
 import { mkdtemp } from "fs-extra";
 import { when } from "mobx";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";

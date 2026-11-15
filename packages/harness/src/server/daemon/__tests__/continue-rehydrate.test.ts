@@ -12,7 +12,13 @@ import { KernelDocument, SessionDocument, SessionSystemPrompt, SessionTurn } fro
 import { bindJsonRpc, destroyRoomConnection, RoomConnection, waitForSync } from "@inhuman.tools/harness-peer";
 import { Client } from "@inhuman.tools/harness-sdk";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
-import { HarnessDatabase } from "@inhuman.tools/scope-plane/sqlite";
+import {
+  commitScopeNodesInBatch,
+  commitSessionNodesInBatch,
+  loadScopeNodesFromKv,
+  loadSessionNodesFromKv,
+} from "@inhuman.tools/scope-plane";
+import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
 import { runInAction, when } from "mobx";
 import { describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
@@ -32,15 +38,15 @@ describe("continue rehydrate", () => {
       const host = await daemon.kernel();
       const project = await daemon.project(workspace);
       await host.flushSession(project.sessions[sessionId].doc);
-      host.flushKernel();
+      await host.flushKernel();
     } finally {
       await client[Symbol.asyncDispose]();
       await daemon[Symbol.asyncDispose]();
     }
 
-    const db = new HarnessDatabase(join(kernel, "harness.db"));
+    const db = new SqliteKvStore(join(kernel, "harness.db"));
     try {
-      const loadedSession = db.loadSessionNodes(sessionId);
+      const loadedSession = await loadSessionNodesFromKv(db, sessionId);
       if (loadedSession === undefined) throw new Error("missing session rows");
       const sessionDoc = SessionDocument.fromNodeRows(loadedSession.rows, {
         rootId: loadedSession.rootId,
@@ -49,10 +55,12 @@ describe("continue rehydrate", () => {
       });
       sessionDoc.root.applyKvs([{ form: "kv-set", key: "tail", value: "yes" }]);
       const sessionDelta = sessionDoc.peekNodeDelta();
-      db.commitSessionNodes(sessionId, sessionDelta);
+      await db.batch((tx) => {
+        commitSessionNodesInBatch(tx, sessionId, sessionDelta);
+      });
       sessionDoc.destroy();
 
-      const loadedKernel = db.loadScopeNodes(KERNEL_SCOPE_ID);
+      const loadedKernel = await loadScopeNodesFromKv(db, KERNEL_SCOPE_ID);
       if (loadedKernel === undefined) throw new Error("missing kernel rows");
       const kernelDoc = KernelDocument.fromNodeRows(loadedKernel.rows, {
         rootId: loadedKernel.rootId,
@@ -62,10 +70,12 @@ describe("continue rehydrate", () => {
         kernelDoc.root.termContinue.desk = sessionId;
       });
       const kernelDelta = kernelDoc.peekNodeDelta();
-      db.commitScopeNodes(KERNEL_SCOPE_ID, kernelDelta);
+      await db.batch((tx) => {
+        commitScopeNodesInBatch(tx, KERNEL_SCOPE_ID, kernelDelta);
+      });
       kernelDoc.destroy();
     } finally {
-      db.close();
+      await db.close();
     }
 
     const again = new HarnessDaemon(kernel);
@@ -139,7 +149,7 @@ describe("continue rehydrate", () => {
 
         await host.flushSession(webSession.doc);
         await host.flushSession(restoreSession.doc);
-        host.flushKernel();
+        await host.flushKernel();
       } finally {
         await daemon[Symbol.asyncDispose]();
       }

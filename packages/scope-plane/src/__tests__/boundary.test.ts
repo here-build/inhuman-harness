@@ -11,13 +11,17 @@ const SCOPE_PACKAGES = [
   "packages/scope-plane",
   "packages/scope-plane-tinybase",
   "packages/scope-plane-electric",
+  "packages/scope-plane-sqlite",
+  "packages/scope-plane-postgres",
 ] as const;
 
-const STORAGE = ["tinybase", "@electric-sql/client"] as const;
+const STORAGE = ["tinybase", "@electric-sql/client", "better-sqlite3", "drizzle-orm", "pg"] as const;
 const SCOPE_NAMES = [
   "@inhuman.tools/scope-plane",
   "@inhuman.tools/scope-plane-tinybase",
   "@inhuman.tools/scope-plane-electric",
+  "@inhuman.tools/scope-plane-sqlite",
+  "@inhuman.tools/scope-plane-postgres",
 ] as const;
 const MODEL_NAMES = ["@inhuman.tools/harness-model", "@inhuman.tools/expectations"] as const;
 
@@ -189,20 +193,87 @@ describe("scope tree boundary", () => {
     }
     const electric = depBlock(await packageManifest("packages/scope-plane-electric"), "dependencies");
     for (const name of Object.keys(electric)) {
-      if (name !== "@inhuman.tools/scope-plane" && name !== "@electric-sql/client") {
+      if (
+        name !== "@inhuman.tools/harness-contract" &&
+        name !== "@inhuman.tools/scope-plane" &&
+        name !== "@electric-sql/client"
+      ) {
         violations.push(`scope-plane-electric depends on ${name}`);
       }
     }
+    const corePkg = await packageManifest("packages/scope-plane");
+    const coreAllDeps = {
+      ...depBlock(corePkg, "dependencies"),
+      ...depBlock(corePkg, "devDependencies"),
+      ...depBlock(corePkg, "peerDependencies"),
+    };
+    for (const banned of ["better-sqlite3", "drizzle-orm", "pg", "@electric-sql/client", "tinybase"]) {
+      if (namesOf(banned, Object.keys(coreAllDeps)) != null) {
+        violations.push(`packages/scope-plane depends on ${banned}`);
+      }
+    }
+    for (const hit of await importsUnder("packages/scope-plane/src")) {
+      const banned = namesOf(hit.specifier, [
+        "better-sqlite3",
+        "drizzle-orm",
+        "pg",
+        "node:sqlite",
+        "@electric-sql/client",
+        "tinybase",
+      ]);
+      if (banned != null) violations.push(`${hit.file} imports ${hit.specifier}`);
+    }
+
+    const sqlitePkg = await packageManifest("packages/scope-plane-sqlite");
+    for (const name of Object.keys(depBlock(sqlitePkg, "dependencies"))) {
+      if (name !== "@inhuman.tools/harness-contract" && name !== "@inhuman.tools/scope-plane") {
+        violations.push(`scope-plane-sqlite runtime depends on ${name}`);
+      }
+    }
+    for (const hit of await importsUnder("packages/scope-plane-sqlite/src")) {
+      const banned = namesOf(hit.specifier, ["drizzle-orm", "pg", "@electric-sql/client", "tinybase"]);
+      if (banned != null) violations.push(`${hit.file} imports ${hit.specifier}`);
+    }
+
+    const postgresPkg = await packageManifest("packages/scope-plane-postgres");
+    for (const name of Object.keys(depBlock(postgresPkg, "dependencies"))) {
+      if (name !== "@inhuman.tools/harness-contract" && name !== "@inhuman.tools/scope-plane") {
+        violations.push(`scope-plane-postgres runtime depends on ${name}`);
+      }
+    }
+    for (const hit of await importsUnder("packages/scope-plane-postgres/src")) {
+      const banned = namesOf(hit.specifier, [
+        "better-sqlite3",
+        "drizzle-orm",
+        "node:sqlite",
+        "@electric-sql/client",
+        "tinybase",
+      ]);
+      if (banned != null) violations.push(`${hit.file} imports ${hit.specifier}`);
+    }
+
     for (const hit of await importsUnder("packages/scope-plane-tinybase/src")) {
       if (namesOf(hit.specifier, ["@electric-sql/client", "tinybase/persisters/persister-electric"]) != null) {
         violations.push(`${hit.file} imports ${hit.specifier}`);
       }
     }
     for (const hit of await importsUnder("packages/scope-plane-electric/src")) {
-      if (namesOf(hit.specifier, ["tinybase"]) != null) violations.push(`${hit.file} imports ${hit.specifier}`);
+      if (namesOf(hit.specifier, ["tinybase", "better-sqlite3", "drizzle-orm"]) != null) {
+        violations.push(`${hit.file} imports ${hit.specifier}`);
+      }
     }
 
     const harness = await packageManifest("packages/harness");
+    for (const banned of [
+      "better-sqlite3",
+      "drizzle-orm",
+      "pg",
+      "@inhuman.tools/scope-plane-postgres",
+      "@inhuman.tools/scope-plane-electric",
+      "tinybase",
+    ]) {
+      expect(harness.dependencies).not.toHaveProperty(banned);
+    }
     const harnessDeps = {
       ...depBlock(harness, "dependencies"),
       ...depBlock(harness, "devDependencies"),
@@ -229,6 +300,15 @@ describe("scope tree boundary", () => {
         "tinybase",
       ]);
       if (banned != null) violations.push(`${hit.file} imports ${hit.specifier}`);
+      if (!hit.file.includes("/__tests__/")) {
+        const runtimeBanned = namesOf(hit.specifier, [
+          "better-sqlite3",
+          "drizzle-orm",
+          "pg",
+          "@inhuman.tools/scope-plane-postgres",
+        ]);
+        if (runtimeBanned != null) violations.push(`${hit.file} imports ${hit.specifier}`);
+      }
     }
 
     const rootIndex = await readFile(join(repo, "packages/scope-plane/src/index.ts"), "utf8");

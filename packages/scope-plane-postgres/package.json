@@ -1,0 +1,61 @@
+{
+  "name": "@inhuman.tools/scope-plane-postgres",
+  "version": "0.3.0",
+  "description": "PostgreSQL driver for @inhuman.tools/scope-plane HarnessKvStore and AsyncSecretsStoreBackend.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@inhuman.tools/harness-contract": "workspace:^",
+    "@inhuman.tools/scope-plane": "workspace:^"
+  },
+  "peerDependencies": {
+    "pg": ">=8"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@types/node": "^24.19.2",
+    "@types/pg": "8.23.1",
+    "eslint": "10.13.0",
+    "pg": "^8.23.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/scope-plane-postgres"
+  },
+  "browserslist": [
+    "node >= 22"
+  ]
+}

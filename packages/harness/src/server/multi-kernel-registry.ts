@@ -1,14 +1,14 @@
 /**
  * Multi-tenant server registry mapping `kernelId` -> pooled `KernelDaemon`.
  *
- * Shares one Agent DB (`HarnessDatabase`) and one `UpdateLaneHub` across tenant
+ * Shares one Agent DB (`HarnessKvStore`) and one `ShapeSource` across tenant
  * kernels in the `"server"` contour while giving each kernel its own isolated
  * secrets vault, blob bucket, visual store, and idle-eviction lifecycle.
  */
 import { AsyncDisposableClass } from "@inhuman.tools/harness-commons";
 import { fail } from "@inhuman.tools/harness-diagnostics";
 import type { InhumanPlugin } from "@inhuman.tools/plugin-sdk";
-import { HarnessDatabase, UpdateLaneHub } from "@inhuman.tools/scope-plane/sqlite";
+import { CommitDiffShapeSource, type HarnessKvStore, type ShapeSource } from "@inhuman.tools/scope-plane";
 
 import type { DriverRegistry } from "@/connections";
 
@@ -18,9 +18,9 @@ import type { VisualStorePort } from "./daemon/session/visual-store.js";
 import type { SecretsVaultPort } from "./secrets.js";
 
 export type MultiKernelRegistryOptions = {
-  readonly db: HarnessDatabase;
+  readonly db: HarnessKvStore;
   readonly ownsDb?: boolean;
-  readonly laneHub?: UpdateLaneHub;
+  readonly laneHub?: ShapeSource;
   readonly ownsLaneHub?: boolean;
   /** Idle TTL after the last lease is released. Values `<= 0` disable timer eviction. */
   readonly idleEvictMs?: number;
@@ -46,8 +46,8 @@ type RegistryEntry = {
 };
 
 export class MultiKernelRegistry extends AsyncDisposableClass {
-  readonly db: HarnessDatabase;
-  readonly laneHub: UpdateLaneHub;
+  readonly db: HarnessKvStore;
+  readonly laneHub: ShapeSource;
   readonly #ownsDb: boolean;
   readonly #ownsLaneHub: boolean;
   readonly #idleEvictMs: number;
@@ -59,7 +59,7 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
     super();
     this.db = options.db;
     this.#ownsDb = options.ownsDb ?? false;
-    this.laneHub = options.laneHub ?? new UpdateLaneHub(options.db);
+    this.laneHub = options.laneHub ?? new CommitDiffShapeSource(options.db);
     this.#ownsLaneHub = options.ownsLaneHub ?? options.laneHub === undefined;
     this.#idleEvictMs = options.idleEvictMs ?? 0;
     this.#options = options;
@@ -264,7 +264,7 @@ export class MultiKernelRegistry extends AsyncDisposableClass {
       this.laneHub.dispose();
     }
     if (this.#ownsDb) {
-      this.db[Symbol.dispose]();
+      await this.db.close();
     }
   }
 }
