@@ -103,6 +103,7 @@ function tryOpenBetterSqlite(path: string, options?: SqliteDriverOptions): Sqlit
     if (
       code === "MODULE_NOT_FOUND" ||
       code === "ERR_MODULE_NOT_FOUND" ||
+      code === "ERR_DLOPEN_FAILED" ||
       (error instanceof Error && error.message.includes("Could not locate the bindings file"))
     ) {
       return null;

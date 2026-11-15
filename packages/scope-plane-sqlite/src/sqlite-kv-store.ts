@@ -25,6 +25,7 @@ import {
 } from "@inhuman.tools/scope-plane";
 
 import { openSqliteDriver, type SqliteDriverOptions, type SqliteStatement, type SqliteSyncDriver } from "./driver.js";
+import { migrateLegacySqliteSchema } from "./sqlite-migration.js";
 
 const SQLITE_PARAM_CHUNK = 400;
 
@@ -213,7 +214,15 @@ export class SqliteKvStore implements HarnessKvStore {
   constructor(path = ":memory:", options?: SqliteKvStoreOptions) {
     this.#driver = openSqliteDriver(path, options);
     if (options?.readonly !== true) {
+      const migratedLegacy = migrateLegacySqliteSchema(this.#driver);
       this.#driver.exec(bootstrapHarnessSqliteSql);
+      if (migratedLegacy) {
+        this.#driver
+          .prepare(
+            "DELETE FROM sessions WHERE NOT EXISTS (SELECT 1 FROM session_nodes WHERE session_nodes.session_id = sessions.session_id)",
+          )
+          .run();
+      }
     }
   }
 

@@ -72,6 +72,10 @@ const DEPRECATED_COMPAT_ALLOWLIST: Readonly<Record<string, ReadonlySet<string>>>
     "packages/harness-model/src/session/SessionDocument.ts",
     "packages/harness-model/src/session/__tests__/registration.test.ts",
   ]),
+  "@inhuman.tools/plexus-expectations": new Set([
+    "packages/scope-plane-sqlite/src/sqlite-migration.ts",
+    "packages/scope-plane-sqlite/src/__tests__/sqlite-kv-store.test.ts",
+  ]),
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {

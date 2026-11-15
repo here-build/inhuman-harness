@@ -6,4 +6,5 @@ export {
   type SqliteSyncDriver,
 } from "./driver.js";
 export { SqliteKvStore, type SqliteKvStoreOptions } from "./sqlite-kv-store.js";
+export { migrateLegacySqliteSchema } from "./sqlite-migration.js";
 export { SqliteSecretsBackend } from "./sqlite-secrets-backend.js";
