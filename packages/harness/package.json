@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Harness core: the daemon (kernel and session planes), runtime, providers and the SQLite reactivity plane. Shells attach over harness-peer or harness-sdk.",
   "type": "module",
   "bin": {
