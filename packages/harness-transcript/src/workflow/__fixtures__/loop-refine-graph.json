@@ -1,0 +1,181 @@
+{
+  "roots": [
+    {
+      "kind": "leaf",
+      "id": 60,
+      "label": "spark",
+      "scope": "spark@97:6",
+      "nodeKind": "prompt",
+      "meta": {
+        "kind": "prompt",
+        "path": "spark.prompt",
+        "model": "qwen3.5-9b",
+        "inputs": {
+          "topic": "a tool that teaches itself"
+        },
+        "inputsProvenance": {
+          "topic": []
+        },
+        "reads": {
+          "topic": []
+        }
+      },
+      "value": {
+        "idea": "A self-repairing code editor that learns from your debugging patterns.",
+        "energy": 0.85
+      },
+      "state": "resolved"
+    },
+    {
+      "kind": "fanout",
+      "id": 61,
+      "scope": "loop@61",
+      "stages": [
+        {
+          "label": "loop",
+          "id": 61
+        }
+      ],
+      "iterations": [
+        [
+          {
+            "kind": "leaf",
+            "id": 64,
+            "label": "refine",
+            "scope": "refine@94:12",
+            "nodeKind": "prompt",
+            "meta": {
+              "kind": "prompt",
+              "path": "refine.prompt",
+              "model": "qwen3.5-9b",
+              "inputs": {
+                "idea": "A self-repairing code editor that learns from your debugging patterns."
+              },
+              "inputsProvenance": {
+                "idea": [
+                  60
+                ]
+              },
+              "reads": {
+                "idea": []
+              }
+            },
+            "value": {
+              "idea": "A self-repairing code editor that learns from your debugging patterns.",
+              "improved": true
+            },
+            "state": "resolved"
+          }
+        ],
+        [
+          {
+            "kind": "leaf",
+            "id": 76,
+            "label": "refine",
+            "scope": "refine@94:12",
+            "nodeKind": "prompt",
+            "meta": {
+              "kind": "prompt",
+              "path": "refine.prompt",
+              "model": "qwen3.5-9b",
+              "inputs": {
+                "idea": "A self-repairing code editor that learns from your debugging patterns."
+              },
+              "inputsProvenance": {
+                "idea": [
+                  64
+                ]
+              },
+              "reads": {
+                "idea": []
+              }
+            },
+            "value": {
+              "idea": "A self-repairing editor that turns each debugging session into a reusable fix.",
+              "improved": true
+            },
+            "state": "resolved"
+          }
+        ],
+        [
+          {
+            "kind": "leaf",
+            "id": 88,
+            "label": "refine",
+            "scope": "refine@94:12",
+            "nodeKind": "prompt",
+            "meta": {
+              "kind": "prompt",
+              "path": "refine.prompt",
+              "model": "qwen3.5-9b",
+              "inputs": {
+                "idea": "A self-repairing editor that turns each debugging session into a reusable fix."
+              },
+              "inputsProvenance": {
+                "idea": [
+                  76
+                ]
+              },
+              "reads": {
+                "idea": []
+              }
+            },
+            "value": {
+              "idea": "An editor that watches you debug once, then never lets that bug class return.",
+              "improved": true
+            },
+            "state": "resolved"
+          }
+        ]
+      ],
+      "incoming": 4,
+      "loop": true,
+      "inputs": [
+        {
+          "producer": "spark@97:6",
+          "field": "idea"
+        }
+      ],
+      "outputs": [
+        {
+          "producer": "refine@94:12"
+        }
+      ]
+    },
+    {
+      "kind": "output",
+      "id": -1,
+      "value": {
+        "idea": "An editor that watches you debug once, then never lets that bug class return.",
+        "improved": true
+      },
+      "state": "resolved"
+    }
+  ],
+  "edges": [
+    {
+      "from": 60,
+      "to": 64,
+      "kind": "data",
+      "field": "idea"
+    },
+    {
+      "from": 64,
+      "to": 76,
+      "kind": "data",
+      "field": "idea"
+    },
+    {
+      "from": 76,
+      "to": 88,
+      "kind": "data",
+      "field": "idea"
+    },
+    {
+      "from": 88,
+      "to": -1,
+      "kind": "data"
+    }
+  ],
+  "warnings": []
+}

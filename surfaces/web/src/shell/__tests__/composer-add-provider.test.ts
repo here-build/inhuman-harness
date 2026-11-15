@@ -2,11 +2,11 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import type { AccountSource } from "@inhuman.tools/harness-ui";
 import { makeObservable, observable, runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Composer } from "../composer.js";
-import type { AccountSource } from "../wire-account.js";
 
 type Face = AccountSource & {
   id: string;

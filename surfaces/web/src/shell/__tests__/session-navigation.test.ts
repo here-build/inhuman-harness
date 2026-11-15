@@ -9,11 +9,13 @@ import {
   SessionDocument,
   SessionOverview,
 } from "@inhuman.tools/harness-model";
-import { runInAction } from "mobx";
+import { observable, runInAction } from "mobx";
+import { userEvent, within } from "storybook/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FileSidebar } from "../file-sidebar.js";
-import { sessionHref } from "../path.js";
+import { projectHref, sessionHref } from "../path.js";
+import { ProjectTabs } from "../project-tabs.js";
 import { SessionRail } from "../rail-sessions.js";
 
 const state = vi.hoisted(() => ({ dial: null as unknown }));
@@ -238,5 +240,194 @@ describe("file preview recovery", () => {
     expect(container.querySelector(".file-sidebar-body")?.getAttribute("aria-busy")).toBe("false");
     await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Close file"]')!.click());
     expect(close).toHaveBeenCalledOnce();
+  });
+});
+
+describe("project tabs and menu", () => {
+  const path = "/work/precision";
+  let user: ReturnType<typeof userEvent.setup>;
+  let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
+
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {});
+    user = userEvent.setup({ document });
+    writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+    vi.spyOn(navigator.clipboard, "writeText").mockImplementation(writeText);
+    const project = { root: { path, sessions: { s1: {} }, botsRoster: {} } };
+    state.dial = {
+      kernel: { root: { projects: { [path]: {} }, sessions: {}, botsRoster: {} } },
+      projects: new Map([[path, project]]),
+      project,
+      session: null,
+    };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  async function renderTabs(projectSessions?: ReadonlyMap<string, string>) {
+    const go = vi.fn();
+    const onMint = vi.fn();
+    await act(async () => {
+      root.render(
+        createElement(ProjectTabs, {
+          pane: { kind: "project", path },
+          projectSessions,
+          go,
+          onMint,
+          onBrowseBots: vi.fn(),
+          onAdd: vi.fn(),
+        }),
+      );
+    });
+    return { go, onMint };
+  }
+
+  const trigger = () => within(container).getByRole("button", { name: "precision menu" });
+  const item = (name: string) => within(container).getByRole("menuitem", { name });
+  const popup = () => container.querySelector<HTMLElement>(".gp-native-popover");
+  const settleFocus = () =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    });
+
+  it("handles remembered session links, modifier clicks, remote Add omission, and live MobX projects", async () => {
+    for (const [sessionId, expectedHref] of [
+      [undefined, projectHref(path)],
+      ["s1", sessionHref(path, "s1")],
+      ["missing", projectHref(path)],
+    ] as const) {
+      const { go, onMint } = await renderTabs(sessionId === undefined ? undefined : new Map([[path, sessionId]]));
+      const link = within(container).getByRole("link", { name: "precision" });
+      expect(link.getAttribute("href")).toBe(expectedHref);
+      for (const modifier of ["metaKey", "ctrlKey", "shiftKey", "altKey"] as const) {
+        const event = new MouseEvent("click", { bubbles: true, cancelable: true, [modifier]: true });
+        await act(async () => {
+          link.dispatchEvent(event);
+        });
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(go).not.toHaveBeenCalled();
+      const plain = new MouseEvent("click", { bubbles: true, cancelable: true });
+      await act(async () => {
+        link.dispatchEvent(plain);
+      });
+      expect(plain.defaultPrevented).toBe(true);
+      expect(go).toHaveBeenCalledExactlyOnceWith(expectedHref);
+      expect(onMint).not.toHaveBeenCalled();
+    }
+
+    await act(async () => {
+      root.render(
+        createElement(ProjectTabs, {
+          pane: { kind: "project", path },
+          go: vi.fn(),
+          onMint: vi.fn(),
+          onBrowseBots: vi.fn(),
+        }),
+      );
+    });
+    expect(within(container).queryByRole("button", { name: "Add" })).toBeNull();
+
+    const projects = observable.object<Record<string, string>>({ [path]: "" });
+    const emptyPath = "/work/empty-project";
+    state.dial = {
+      kernel: { root: { projects, sessions: {}, botsRoster: {} } },
+      projects: new Map([[path, { root: { path, sessions: {}, botsRoster: {} } }]]),
+      project: null,
+      session: null,
+    };
+    await act(async () => {
+      root.render(
+        createElement(ProjectTabs, {
+          pane: { kind: "overview" },
+          go: vi.fn(),
+          onMint: vi.fn(),
+          onBrowseBots: vi.fn(),
+          onAdd: vi.fn(),
+          adding: true,
+        }),
+      );
+    });
+    expect(within(container).getByRole<HTMLButtonElement>("button", { name: "Add" }).disabled).toBe(true);
+    expect(within(container).queryByRole("link", { name: "empty-project" })).toBeNull();
+    await act(async () => {
+      runInAction(() => {
+        projects[emptyPath] = "";
+      });
+    });
+    expect(within(container).getByRole("link", { name: "empty-project" }).getAttribute("href")).toBe(
+      projectHref(emptyPath),
+    );
+  });
+
+  it("handles New session minting and Copy path pending/600ms Copied/retry/dismiss cleanup", async () => {
+    const { go, onMint } = await renderTabs();
+    await act(async () => trigger().focus());
+    await act(async () => user.keyboard("{ArrowDown}{ArrowDown}{Enter}"));
+    expect(onMint).toHaveBeenCalledExactlyOnceWith(path);
+    expect(go).not.toHaveBeenCalled();
+    expect(popup()).toBeNull();
+    await settleFocus();
+    expect(document.activeElement).toBe(trigger());
+
+    let finish!: () => void;
+    writeText.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await act(async () => user.click(trigger()));
+    await act(async () => user.click(item("Copy path")));
+    expect(item("Copy path").getAttribute("aria-disabled")).toBe("true");
+    expect(popup()).not.toBeNull();
+
+    vi.useFakeTimers();
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(popup()).not.toBeNull();
+    await act(async () => finish());
+    expect(item("Copied")).toBeTruthy();
+    await act(async () => {
+      vi.advanceTimersByTime(599);
+    });
+    expect(popup()).not.toBeNull();
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(popup()).toBeNull();
+    await act(async () => {
+      vi.advanceTimersByTime(40);
+    });
+    expect(document.activeElement).toBe(trigger());
+    vi.useRealTimers();
+
+    writeText.mockRejectedValueOnce(new Error("Permission denied"));
+    await act(async () => user.click(trigger()));
+    await act(async () => user.click(item("Copy path")));
+    expect(within(container).getByRole("alert").textContent).toContain("Could not copy path");
+    await act(async () => user.click(item("Copy path")));
+    expect(item("Copied")).toBeTruthy();
+
+    let staleFinish!: () => void;
+    writeText.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          staleFinish = resolve;
+        }),
+    );
+    await act(async () => user.keyboard("{Escape}"));
+    await settleFocus();
+    await act(async () => user.click(trigger()));
+    await act(async () => user.click(item("Copy path")));
+    await act(async () => user.keyboard("{Escape}"));
+    await settleFocus();
+    await act(async () => user.click(trigger()));
+    await act(async () => staleFinish());
+    expect(item("Copy path")).toBeTruthy();
   });
 });

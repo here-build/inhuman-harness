@@ -1,6 +1,5 @@
+import { toolLabel } from "@inhuman.tools/harness-transcript/tool-label";
 import { describe, expect, it } from "vitest";
-
-import { toolLabel } from "../tool-label.js";
 
 describe("toolLabel", () => {
   it("names an MCP server and its tool", () => {

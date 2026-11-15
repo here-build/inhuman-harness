@@ -15,8 +15,8 @@ import { looseSessionHref, projectHref, sessionHref, type RouteTarget } from "..
 // Keep the actual router, context, layout, Composer, Tape, and title handling.
 // Only model traversal is replaced: these fixtures are plain observable Dial
 // snapshots rather than live SessionDocument instances, and never open a websocket.
-vi.mock("../shell/tape-read.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../shell/tape-read.js")>();
+vi.mock("@inhuman.tools/harness-transcript/tape-read", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@inhuman.tools/harness-transcript/tape-read")>();
   return {
     ...actual,
     tapeCells: (root: { sessionId: string }) => [

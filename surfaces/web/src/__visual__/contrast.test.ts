@@ -1,16 +1,24 @@
 /* eslint-disable security/detect-non-literal-fs-filename, security/detect-non-literal-regexp -- the stylesheet beside this package */
 /**
- * The color tokens in `styles.css`, held to WCAG 2.2 AA in both schemes:
- * 4.5:1 for text on every surface it sits on, 3:1 for a control's edge and a
- * status glyph. Hover and selection are ink laid over a surface, so they are
- * checked composited over each one.
+ * The color tokens in `@inhuman.tools/harness-ui` `tokens.css` and `.shell-term` in `styles.css`,
+ * held to WCAG 2.2 AA/AAA in both schemes: 4.5:1 for text on every surface it sits on
+ * (7:1+ for primary accent commands), 3:1 for a control's edge and a status glyph.
+ * Hover and selection are ink laid over a surface, so they are checked composited over each one.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-const css = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+const tokensCss = readFileSync(
+  fileURLToPath(new URL("../../../../packages/harness-ui/src/styles/tokens.css", import.meta.url)),
+  "utf8",
+);
+const blocksCss = readFileSync(
+  fileURLToPath(new URL("../../../../packages/harness-ui/src/styles/blocks.css", import.meta.url)),
+  "utf8",
+);
+const webCss = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
 
 type Rgb = readonly [number, number, number];
 type Lab = readonly [number, number, number];
@@ -19,10 +27,20 @@ type Scheme = {
   readonly overlay: ReadonlyMap<string, number>;
 };
 
-/** The `:root` token block: each color a `light-dark(oklch(…), oklch(…))` pair. */
+/** The `:root` token block inside `tokens.css`: each color a `light-dark(oklch(…), oklch(…))` pair. */
 const rootBlock = ((): string => {
-  const open = css.indexOf("{", css.search(/^:root\s*\{/m));
-  return css.slice(open + 1, css.indexOf("\n}", open));
+  const match = /^\s*:root\s*\{([\s\S]*?)^\s*\}/m.exec(tokensCss);
+  if (!match) throw new Error("tokens.css is missing a :root block");
+  return match[1]!;
+})();
+
+/** The `.shell-term` block inside `blocks.css` defining `--vt-0..15`. */
+const shellTermBlock = ((): string => {
+  const match = [...blocksCss.matchAll(/^\s*\.shell-term\s*\{([\s\S]*?)^\s*\}/gm)].find((entry) =>
+    entry[1]?.includes("--vt-0:"),
+  );
+  if (!match) throw new Error("blocks.css is missing a .shell-term block with --vt-0..15");
+  return match[1]!;
 })();
 
 function scheme(side: 0 | 1): Scheme {
@@ -82,6 +100,29 @@ function token(s: Scheme, name: string): Lab {
 
 const color = (s: Scheme, name: string): Rgb => srgb(token(s, name));
 
+function hexRgb(hex: string): Rgb {
+  const clean = hex.slice(1);
+  return [
+    Number.parseInt(clean.slice(0, 2), 16) / 255,
+    Number.parseInt(clean.slice(2, 4), 16) / 255,
+    Number.parseInt(clean.slice(4, 6), 16) / 255,
+  ];
+}
+
+function resolveTerminalValue(s: Scheme, raw: string, side: 0 | 1): Rgb {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("light-dark(") && trimmed.endsWith(")")) {
+    const inner = trimmed.slice("light-dark(".length, -1);
+    const comma = inner.indexOf(",");
+    if (comma === -1) throw new Error(`Invalid light-dark value: ${trimmed}`);
+    return resolveTerminalValue(s, side === 0 ? inner.slice(0, comma) : inner.slice(comma + 1), side);
+  }
+  const v = /^var\(--([\w-]+)\)$/.exec(trimmed);
+  if (v) return color(s, v[1]!);
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return hexRgb(trimmed);
+  throw new Error(`Unsupported terminal color syntax: ${trimmed}`);
+}
+
 /** Ink at an overlay's alpha, composited in sRGB over a surface, as the browser paints it. */
 function laid(s: Scheme, overlay: string, under: string): Rgb {
   const alpha = s.overlay.get(overlay);
@@ -95,7 +136,15 @@ const schemes = { light: scheme(0), dark: scheme(1) };
 
 const SURFACES = ["canvas", "wash", "raised", "field"];
 
-describe.each(Object.entries(schemes))("%s scheme", (_, s) => {
+describe("stylesheet source contract", () => {
+  it("consumes @inhuman.tools/harness-ui styles and scans its primitives without duplicating :root tokens", () => {
+    expect(webCss).toContain('@import "@inhuman.tools/harness-ui/styles.css";');
+    expect(webCss).toContain('@source "../../../packages/harness-ui/src";');
+    expect(webCss).not.toMatch(/^\s*--accent:/m);
+  });
+});
+
+describe.each(Object.entries(schemes))("%s scheme", (schemeName, s) => {
   it("reads every token as a pair", () => {
     expect([...s.lab.keys()]).toEqual(
       expect.arrayContaining([
@@ -137,8 +186,28 @@ describe.each(Object.entries(schemes))("%s scheme", (_, s) => {
     expect(failing).toEqual([]);
   });
 
-  it("keeps primary-command text AA on the lime accent", () => {
-    expect(contrast(color(s, "accent-ink"), color(s, "accent"))).toBeGreaterThanOrEqual(4.5);
+  it("keeps primary-command text AAA on the lime accent and disabled controls AA on wash", () => {
+    expect(contrast(color(s, "accent-ink"), color(s, "accent"))).toBeGreaterThanOrEqual(7);
+    expect(contrast(color(s, "muted"), color(s, "wash"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(color(s, "subtle"), color(s, "wash"))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps all 16 terminal palette colors AA on wash and canvas", () => {
+    const side = schemeName === "light" ? 0 : 1;
+    const failing: string[] = [];
+    for (let index = 0; index < 16; index++) {
+      const match = new RegExp(String.raw`--vt-${index}:\s*([^;]+);`).exec(shellTermBlock);
+      if (!match) {
+        failing.push(`--vt-${index}: missing`);
+        continue;
+      }
+      const fg = resolveTerminalValue(s, match[1]!, side);
+      for (const bg of ["wash", "canvas"]) {
+        const ratio = contrast(fg, color(s, bg));
+        if (ratio < 4.5) failing.push(`--vt-${index} on ${bg}: ${ratio.toFixed(2)}`);
+      }
+    }
+    expect(failing).toEqual([]);
   });
 
   it("distinguishes selection markers and focus outlines from their surfaces", () => {

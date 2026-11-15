@@ -19,13 +19,13 @@ import {
   type Doc,
   type JsonRpcPort,
 } from "@inhuman.tools/harness-peer";
+import { type Feed, foldFrame } from "@inhuman.tools/harness-transcript/workflow/feed";
 import { LiveShape } from "@inhuman.tools/scope-plane";
 import { comparer, observable, reaction, runInAction } from "mobx";
 
 import { appLocation, type AppLocation } from "./location.js";
 import { bindRelayFrames, isRefusal, linkForClose, startPing } from "./remote.js";
 import type { RouteTarget } from "../shell/path.js";
-import { type Feed, foldFrame } from "../workflow/feed.js";
 
 type Held = {
   readonly connection: RoomConnection;

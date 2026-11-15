@@ -1,16 +1,8 @@
 /** The composer draft is local UI state. The tape fills it when a message is edited. */
 
-/** One unsent picture. Bytes are standard base64, with no `data:` prefix. */
-export type DraftPicture = {
-  readonly key: string;
-  readonly mime: string;
-  readonly bytesBase64: string;
-  /** Null until the image has been measured. */
-  readonly width: number | null;
-  readonly height: number | null;
-  /** A file name, or the path a reopened turn already stored. Never invented. */
-  readonly sourcePath: string | null;
-};
+import type { DraftPicture } from "@inhuman.tools/harness-ui";
+
+export type { DraftPicture } from "@inhuman.tools/harness-ui";
 
 export type DraftPocket = {
   draft: string;

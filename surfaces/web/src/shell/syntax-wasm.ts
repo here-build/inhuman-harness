@@ -1,4 +1,4 @@
-import type { ColorScheme, HighlightLine } from "./highlight.js";
+import type { ColorScheme, HighlightLine } from "@inhuman.tools/harness-ui/blocks/syntax";
 
 export type EmbedRegion = {
   readonly start: number;

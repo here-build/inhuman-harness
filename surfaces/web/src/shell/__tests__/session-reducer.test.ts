@@ -9,10 +9,9 @@ import {
   SessionTurn,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
+import { reduceSession, type FileFact, type SessionEvent } from "@inhuman.tools/harness-transcript/session-reducer";
+import { tapeCells, projectUserTurn, type TapeCell } from "@inhuman.tools/harness-transcript/tape-read";
 import { describe, expect, it } from "vitest";
-
-import { reduceSession, type FileFact, type SessionEvent } from "../session-reducer.js";
-import { tapeCells, projectUserTurn, type TapeCell } from "../tape-read.js";
 
 type Mutation = Extract<FileFact, { kind: "mutation" }>;
 

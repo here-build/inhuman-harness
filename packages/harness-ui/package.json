@@ -1,0 +1,127 @@
+{
+  "name": "@inhuman.tools/harness-ui",
+  "version": "0.3.0",
+  "description": "White-label primitives, contextual axes, voice catalogs, and Safari 18.7+ positioning helpers for Inhuman Harness.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./primitives": {
+      "types": "./dist/primitives/index.d.ts",
+      "import": "./dist/primitives/index.js"
+    },
+    "./primitives/*": {
+      "types": "./dist/primitives/*.d.ts",
+      "import": "./dist/primitives/*.js"
+    },
+    "./theme": {
+      "types": "./dist/theme/index.d.ts",
+      "import": "./dist/theme/index.js"
+    },
+    "./voice": {
+      "types": "./dist/voice/index.d.ts",
+      "import": "./dist/voice/index.js"
+    },
+    "./positioning": {
+      "types": "./dist/positioning/index.d.ts",
+      "import": "./dist/positioning/index.js"
+    },
+    "./blocks": {
+      "types": "./dist/blocks/index.d.ts",
+      "import": "./dist/blocks/index.js"
+    },
+    "./blocks/*": {
+      "types": "./dist/blocks/*.d.ts",
+      "import": "./dist/blocks/*.js"
+    },
+    "./compositions": {
+      "types": "./dist/compositions/index.d.ts",
+      "import": "./dist/compositions/index.js"
+    },
+    "./compositions/*": {
+      "types": "./dist/compositions/*.d.ts",
+      "import": "./dist/compositions/*.js"
+    },
+    "./styles.css": "./dist/styles/index.css",
+    "./styles/tokens.css": "./dist/styles/tokens.css",
+    "./styles/axes.css": "./dist/styles/axes.css",
+    "./styles/primitives.css": "./dist/styles/primitives.css",
+    "./styles/blocks.css": "./dist/styles/blocks.css",
+    "./styles/compositions.css": "./dist/styles/compositions.css"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__",
+    "!**/*.test.*"
+  ],
+  "sideEffects": [
+    "./src/**/*.css",
+    "./dist/**/*.css"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-styles.mjs",
+    "clean": "rm -rf dist",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run"
+  },
+  "dependencies": {
+    "@tabler/icons-react": "^3.49.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "react-aria": "^3.53.1",
+    "react-aria-components": "^1.22.1",
+    "react-markdown": "^10.1.0",
+    "react-stately": "^3.51.0",
+    "remark-gfm": "^4.0.1",
+    "remend": "^1.4.0",
+    "tailwind-merge": "^3.7.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@-internal-/eslint-configs": "workspace:*",
+    "@internationalized/date": "^3.12.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "10.13.0",
+    "happy-dom": "^21.0.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "storybook": "10.6.3",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  },
+  "license": "MIT",
+  "author": "Merkle Bonsai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/harness-ui"
+  },
+  "browserslist": {
+    "production": [
+      "last 2 chrome versions",
+      "last 2 firefox versions",
+      "safari >= 18.7",
+      "ios_saf >= 18.7"
+    ],
+    "browser": [
+      "last 2 chrome versions",
+      "last 2 firefox versions",
+      "safari >= 18.7",
+      "ios_saf >= 18.7"
+    ],
+    "node": [
+      "node >= 22"
+    ]
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,7 +1,4 @@
 import { useState } from "react";
-import type { Meta, StoryObj } from "@storybook/react-vite";
-
-import { Page, Schemes, Section } from "./brand-kit.js";
 import {
   AutocompleteRoot,
   useFilter,
@@ -19,7 +16,10 @@ import {
   SliderThumb,
   SliderOutput,
   NativeSelect,
-} from "../components/ui/index.js";
+} from "@inhuman.tools/harness-ui/primitives";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+
+import { Page, Schemes, Section } from "./brand-kit.js";
 
 const meta = { title: "Graphic Precision/Composition", parameters: { layout: "fullscreen" } } satisfies Meta;
 export default meta;
@@ -28,7 +28,6 @@ type Story = StoryObj<typeof meta>;
 export const SharedContexts: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Composition"
       lede="Semantic providers synchronize their styled children without introducing a second event or positioning owner."
     >

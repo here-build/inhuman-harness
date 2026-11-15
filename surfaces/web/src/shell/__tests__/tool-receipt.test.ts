@@ -1,7 +1,16 @@
 import { FileMutateToolJob, ProgrammaticJob, SystemToolJob } from "@inhuman.tools/harness-model";
+import {
+  fileFact,
+  registerLanguageGuesser,
+  schemeReceipt,
+  schemeSummary,
+  toolReceipt,
+} from "@inhuman.tools/harness-transcript/tool-receipt";
 import { describe, expect, it } from "vitest";
 
-import { fileFact, schemeReceipt, schemeSummary, toolReceipt } from "../tool-receipt.js";
+import { wasmGuessLang } from "../syntax-wasm.js";
+
+registerLanguageGuesser(wasmGuessLang);
 
 describe("tool receipts", () => {
   it("extracts only complete successful reads as full-file facts, including empty files", () => {

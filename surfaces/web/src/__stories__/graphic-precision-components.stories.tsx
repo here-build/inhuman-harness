@@ -1,13 +1,14 @@
 import { useState } from "react";
+import { Button } from "@inhuman.tools/harness-ui/primitives/button";
+import { Checkbox } from "@inhuman.tools/harness-ui/primitives/checkbox";
+import { Radio, RadioGroup } from "@inhuman.tools/harness-ui/primitives/radio-group";
+import { Switch } from "@inhuman.tools/harness-ui/primitives/switch";
+import { Tab, TabList, TabPanel, Tabs } from "@inhuman.tools/harness-ui/primitives/tabs";
+import { TextField } from "@inhuman.tools/harness-ui/primitives/text-field";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, userEvent, within } from "storybook/test";
 
 import { Page, Schemes, Section } from "./brand-kit.js";
-import { Button } from "../components/ui/button.js";
-import { Checkbox } from "../components/ui/checkbox.js";
-import { Radio, RadioGroup } from "../components/ui/radio-group.js";
-import { Switch } from "../components/ui/switch.js";
-import { Tab, TabList, TabPanel, Tabs } from "../components/ui/tabs.js";
-import { TextField } from "../components/ui/text-field.js";
 
 const meta = {
   title: "Graphic Precision/Components",
@@ -19,7 +20,6 @@ type Story = StoryObj<typeof meta>;
 export const Buttons: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Buttons"
       lede="Commands retain native button behavior, with one primary action and a visible keyboard focus outline."
     >
@@ -33,6 +33,12 @@ export const Buttons: Story = {
       </Section>
     </Page>
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect((canvas.getAllByRole("button", { name: "Unavailable" })[0] as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(canvas.getAllByRole("button", { name: "Save changes" })[0]!);
+    await expect(canvas.getAllByRole("status")[0]?.textContent).toBe("Form submitted");
+  },
 };
 
 function ButtonExamples() {
@@ -85,7 +91,6 @@ function ButtonExamples() {
 export const LabeledFields: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Labeled fields"
       lede="Persistent labels, descriptions, and validation messages are associated with their native inputs."
     >
@@ -136,7 +141,6 @@ export const LabeledFields: Story = {
 export const SelectionControls: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Selection controls"
       lede="Checkboxes select options, radios choose one value, and switches turn a setting on or off."
     >
@@ -150,6 +154,15 @@ export const SelectionControls: Story = {
       </Section>
     </Page>
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const archived = canvas.getAllByRole("checkbox", { name: "Include archived tasks" })[0] as HTMLInputElement;
+    await userEvent.click(archived);
+    await expect(archived.checked).toBe(true);
+    const jsonRadio = canvas.getAllByRole("radio", { name: "JSON" })[0] as HTMLInputElement;
+    await userEvent.click(jsonRadio);
+    await expect(jsonRadio.checked).toBe(true);
+  },
 };
 
 function SelectionExamples() {
@@ -210,7 +223,6 @@ function SelectionExamples() {
 export const TabNavigation: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Tabs"
       lede="Each tab names one panel. Selection, keyboard focus, and disabled tabs have distinct states."
     >
@@ -247,4 +259,25 @@ export const TabNavigation: Story = {
       </Section>
     </Page>
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const horizontalList = within(canvas.getAllByRole("tablist", { name: "Project sections" })[0]!);
+    const overviewTab = horizontalList.getByRole("tab", { name: "Overview" });
+    const activityTab = horizontalList.getByRole("tab", { name: "Activity" });
+    await expect(overviewTab.getAttribute("aria-selected")).toBe("true");
+    await expect(overviewTab.dataset.selected).toBeDefined();
+    await userEvent.click(activityTab);
+    await expect(activityTab.getAttribute("aria-selected")).toBe("true");
+    await expect(activityTab.dataset.selected).toBeDefined();
+    await expect(overviewTab.getAttribute("aria-selected")).toBe("false");
+
+    const verticalList = within(canvas.getAllByRole("tablist", { name: "Settings sections" })[0]!);
+    const profileTab = verticalList.getByRole("tab", { name: "Profile" });
+    const preferencesTab = verticalList.getByRole("tab", { name: "Preferences" });
+    await expect(profileTab.getAttribute("aria-selected")).toBe("true");
+    await userEvent.click(preferencesTab);
+    await expect(preferencesTab.getAttribute("aria-selected")).toBe("true");
+    await expect(preferencesTab.dataset.selected).toBeDefined();
+    await expect(profileTab.getAttribute("aria-selected")).toBe("false");
+  },
 };

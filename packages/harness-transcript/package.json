@@ -5,7 +5,38 @@
   "description": "The session transcript: the tape, without a composer or a model picker.",
   "type": "module",
   "exports": {
-    ".": "./src/tape.tsx"
+    ".": "./src/tape.tsx",
+    "./blob-cache": "./src/blob-cache.ts",
+    "./context": "./src/context.tsx",
+    "./diff-model": "./src/diff-model.ts",
+    "./diff-view": "./src/diff-view.tsx",
+    "./names": "./src/names.ts",
+    "./plugin-progress": "./src/plugin-progress.ts",
+    "./read-line": "./src/read-line.ts",
+    "./row-title": "./src/row-title.ts",
+    "./scheme-unwrap": "./src/scheme-unwrap.ts",
+    "./session-beats": "./src/session-beats.ts",
+    "./session-reducer": "./src/session-reducer.ts",
+    "./tape-beats": "./src/tape-beats.ts",
+    "./tape-live": "./src/tape-live.ts",
+    "./tape-read": "./src/tape-read.ts",
+    "./tool-label": "./src/tool-label.ts",
+    "./tool-receipt": "./src/tool-receipt.ts",
+    "./workflow/causal": "./src/workflow/causal.ts",
+    "./workflow/cell": "./src/workflow/cell.ts",
+    "./workflow/elk": "./src/workflow/elk.ts",
+    "./workflow/feed": "./src/workflow/feed.ts",
+    "./workflow/iteration-flow": "./src/workflow/iteration-flow.ts",
+    "./workflow/leaf-card": "./src/workflow/leaf-card.tsx",
+    "./workflow/region-elk-layout": "./src/workflow/region-elk-layout.ts",
+    "./workflow/region-geometry": "./src/workflow/region-geometry.ts",
+    "./workflow/region-nesting": "./src/workflow/region-nesting.ts",
+    "./workflow/scope-dag": "./src/workflow/scope-dag.ts",
+    "./workflow/use-region-graph": "./src/workflow/use-region-graph.ts",
+    "./workflow/use-workflow-graph": "./src/workflow/use-workflow-graph.ts",
+    "./workflow/value-summary": "./src/workflow/value-summary.ts",
+    "./workflow/verb-label": "./src/workflow/verb-label.ts",
+    "./workflow/workflow-graph": "./src/workflow/workflow-graph.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -13,12 +44,20 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@here.build/arrival-provenance": "^0.10.0",
     "@inhuman.tools/harness-model": "workspace:^",
+    "@inhuman.tools/harness-peer": "workspace:^",
+    "@inhuman.tools/harness-scheme": "workspace:^",
+    "@inhuman.tools/harness-ui": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
+    "@pierre/diffs": "^1.6.1",
     "@tabler/icons-react": "^3.49.0",
+    "diff": "^9.0.0",
+    "elkjs": "0.12.0",
     "mdast-util-from-markdown": "^2.1.0",
     "mdast-util-gfm": "^3.1.0",
     "micromark-extension-gfm": "^3.0.0",
+    "mobx": "6.16.1",
     "mobx-react-lite": "^4.1.1",
     "react": "^19.3.1",
     "react-aria-components": "^1.22.1",
@@ -42,8 +81,8 @@
     "browser": [
       "last 2 chrome versions",
       "last 2 firefox versions",
-      "last 2 safari versions",
-      "ios_saf >= 16.4"
+      "safari >= 18.7",
+      "ios_saf >= 18.7"
     ],
     "node": [
       "node >= 22"

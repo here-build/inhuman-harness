@@ -1,0 +1,212 @@
+@layer axes {
+  /* -------------------------------------------------------------------------
+   * 1. Surface axis: independent donut scope stopped by .surface-boundary
+   * ------------------------------------------------------------------------- */
+  .surface-boundary:not([data-surface]) {
+    --axis-surface: var(--canvas);
+    --axis-surface-ink: var(--ink);
+    --axis-surface-muted: var(--muted);
+    --axis-surface-rule: var(--line);
+  }
+
+  @scope ([data-surface="paper"]) to (:scope .surface-boundary) {
+    :scope {
+      --axis-surface: var(--canvas);
+      --axis-surface-ink: var(--ink);
+      --axis-surface-muted: var(--muted);
+      --axis-surface-rule: var(--line);
+    }
+  }
+
+  @scope ([data-surface="soft"]) to (:scope .surface-boundary) {
+    :scope {
+      --axis-surface: var(--wash);
+      --axis-surface-ink: var(--ink);
+      --axis-surface-muted: var(--muted);
+      --axis-surface-rule: var(--line);
+    }
+  }
+
+  @scope ([data-surface="well"]) to (:scope .surface-boundary) {
+    :scope {
+      --axis-surface: color-mix(in oklab, var(--wash) 85%, var(--line));
+      --axis-surface-ink: var(--ink);
+      --axis-surface-muted: var(--muted);
+      --axis-surface-rule: var(--edge);
+    }
+  }
+
+  @scope ([data-surface="raised"]) to (:scope .surface-boundary) {
+    :scope {
+      --axis-surface: var(--raised);
+      --axis-surface-ink: var(--ink);
+      --axis-surface-muted: var(--muted);
+      --axis-surface-rule: var(--line);
+    }
+  }
+
+  @scope ([data-surface="field"]) to (:scope .surface-boundary) {
+    :scope {
+      --axis-surface: var(--field);
+      --axis-surface-ink: var(--ink);
+      --axis-surface-muted: var(--muted);
+      --axis-surface-rule: var(--edge);
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * 2. Prominence axis: independent donut scope stopped by .prominence-boundary
+   * ------------------------------------------------------------------------- */
+  .prominence-boundary:not([data-prominence]) {
+    --axis-prominence-bg: var(--field);
+    --axis-prominence-border: var(--edge);
+    --axis-prominence-shadow: none;
+    --axis-prominence-ink: var(--ink);
+  }
+
+  @scope ([data-prominence="ambient"]) to (:scope .prominence-boundary) {
+    :scope {
+      --axis-prominence-bg: transparent;
+      --axis-prominence-border: transparent;
+      --axis-prominence-shadow: none;
+      --axis-prominence-ink: var(--muted);
+    }
+  }
+
+  @scope ([data-prominence="standard"]) to (:scope .prominence-boundary) {
+    :scope {
+      --axis-prominence-bg: var(--field);
+      --axis-prominence-border: var(--line);
+      --axis-prominence-shadow: none;
+      --axis-prominence-ink: var(--ink);
+    }
+  }
+
+  @scope ([data-prominence="raised"]) to (:scope .prominence-boundary) {
+    :scope {
+      --axis-prominence-bg: var(--raised);
+      --axis-prominence-border: var(--edge);
+      --axis-prominence-shadow: var(--overlay-shadow);
+      --axis-prominence-ink: var(--ink);
+    }
+  }
+
+  @scope ([data-prominence="focal"]) to (:scope .prominence-boundary) {
+    :scope {
+      --axis-prominence-bg: var(--accent);
+      --axis-prominence-border: var(--focus);
+      --axis-prominence-shadow: none;
+      --axis-prominence-ink: var(--accent-ink);
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * 3. Emphasis axis: independent donut scope stopped by .emphasis-boundary
+   * ------------------------------------------------------------------------- */
+  .emphasis-boundary:not([data-emphasis]) {
+    --axis-emphasis-fg: var(--ink);
+    --axis-emphasis-bg: transparent;
+    --axis-emphasis-border: var(--line);
+  }
+
+  @scope ([data-emphasis="quiet"]) to (:scope .emphasis-boundary) {
+    :scope {
+      --axis-emphasis-fg: var(--muted);
+      --axis-emphasis-bg: transparent;
+      --axis-emphasis-border: transparent;
+    }
+  }
+
+  @scope ([data-emphasis="neutral"]) to (:scope .emphasis-boundary) {
+    :scope {
+      --axis-emphasis-fg: var(--ink);
+      --axis-emphasis-bg: var(--wash);
+      --axis-emphasis-border: var(--line);
+    }
+  }
+
+  @scope ([data-emphasis="accent"]) to (:scope .emphasis-boundary) {
+    :scope {
+      --axis-emphasis-fg: var(--accent-ink);
+      --axis-emphasis-bg: var(--accent);
+      --axis-emphasis-border: var(--accent);
+    }
+  }
+
+  @scope ([data-emphasis="danger"]) to (:scope .emphasis-boundary) {
+    :scope {
+      --axis-emphasis-fg: var(--danger);
+      --axis-emphasis-bg: color-mix(in oklab, var(--danger) 10%, transparent);
+      --axis-emphasis-border: var(--danger);
+    }
+  }
+
+  @scope ([data-emphasis="warning"]) to (:scope .emphasis-boundary) {
+    :scope {
+      --axis-emphasis-fg: var(--warning);
+      --axis-emphasis-bg: color-mix(in oklab, var(--warning) 10%, transparent);
+      --axis-emphasis-border: var(--warning);
+    }
+  }
+
+  @scope ([data-emphasis="success"]) to (:scope .emphasis-boundary) {
+    :scope {
+      --axis-emphasis-fg: var(--success);
+      --axis-emphasis-bg: color-mix(in oklab, var(--success) 10%, transparent);
+      --axis-emphasis-border: var(--success);
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * 4. Density axis: independent donut scope stopped by .density-boundary
+   * ------------------------------------------------------------------------- */
+  .density-boundary:not([data-density]) {
+    --axis-density-scale: 1;
+    --axis-pad-y: var(--space-y-sm);
+    --axis-pad-x: var(--space-x-sm);
+    --axis-gap: var(--space-x-xs);
+    --axis-control-min-h: var(--control-min-h);
+  }
+
+  @scope ([data-density="compact"]) to (:scope .density-boundary) {
+    :scope {
+      --axis-density-scale: 0.78;
+      --axis-pad-y: 0.14lh;
+      --axis-pad-x: 0.75ch;
+      --axis-gap: 0.45ch;
+      --axis-control-min-h: 1.45lh;
+    }
+  }
+
+  @scope ([data-density="cozy"]) to (:scope .density-boundary) {
+    :scope {
+      --axis-density-scale: 1;
+      --axis-pad-y: 0.25lh;
+      --axis-pad-x: 1.1ch;
+      --axis-gap: 0.7ch;
+      --axis-control-min-h: 1.75lh;
+    }
+  }
+
+  @scope ([data-density="comfortable"]) to (:scope .density-boundary) {
+    :scope {
+      --axis-density-scale: 1.25;
+      --axis-pad-y: 0.42lh;
+      --axis-pad-x: 1.6ch;
+      --axis-gap: 1ch;
+      --axis-control-min-h: 2.1lh;
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * 5. Visibility mode support
+   * ------------------------------------------------------------------------- */
+  [data-visibility="display-none"] {
+    display: none !important;
+  }
+
+  [data-visibility="invisible"] {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}

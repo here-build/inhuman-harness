@@ -1,0 +1,125 @@
+@layer tokens {
+  :root {
+    color-scheme: light dark;
+
+    /* Color planes and inks (OKLCH light-dark pairs) */
+    --canvas: light-dark(oklch(1 0 0), oklch(0.18 0.005 286));
+    --wash: light-dark(oklch(0.967 0.005 286), oklch(0.225 0.005 286));
+    --raised: light-dark(oklch(1 0 0), oklch(0.27 0.005 286));
+    --field: light-dark(oklch(1 0 0), oklch(0.21 0.005 286));
+    --line: light-dark(oklch(0.905 0.005 286), oklch(0.31 0.005 286));
+    --edge: light-dark(oklch(0.62 0.005 286), oklch(0.535 0.005 286));
+    --ink: light-dark(oklch(0.21 0.005 286), oklch(0.93 0.004 286));
+    --muted: light-dark(oklch(0.44 0.005 286), oklch(0.76 0.005 286));
+    --subtle: light-dark(oklch(0.52 0.005 286), oklch(0.665 0.005 286));
+    --danger: light-dark(oklch(0.53 0.2 27), oklch(0.72 0.16 25));
+    --warning: light-dark(oklch(0.53 0.13 65), oklch(0.8 0.15 80));
+    --success: light-dark(oklch(0.5 0.13 152), oklch(0.76 0.15 152));
+    --working: light-dark(oklch(0.53 0.15 255), oklch(0.74 0.13 250));
+    --accent: light-dark(oklch(0.88 0.2 125), oklch(0.84 0.2 125));
+    --accent-ink: light-dark(oklch(0.21 0.005 286), oklch(0.21 0.005 286));
+    --selection-marker: light-dark(oklch(0.44 0.005 286), oklch(0.76 0.005 286));
+    --focus: light-dark(oklch(0.21 0.005 286), oklch(0.93 0.004 286));
+
+    --added-line: light-dark(oklch(0.965 0.04 152), oklch(0.235 0.035 152));
+    --removed-line: light-dark(oklch(0.975 0.032 25), oklch(0.235 0.035 25));
+    --hover: color-mix(in oklab, var(--ink) 7%, transparent);
+    --selected: color-mix(in oklab, var(--ink) 11%, transparent);
+
+    --overlay-shadow: 0 0.75rem 2rem light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.45));
+
+    /* Semantic color aliases for utility-free block and composition CSS */
+    --color-canvas: var(--canvas);
+    --color-wash: var(--wash);
+    --color-raised: var(--raised);
+    --color-field: var(--field);
+    --color-line: var(--line);
+    --color-edge: var(--edge);
+    --color-ink: var(--ink);
+    --color-muted: var(--muted);
+    --color-subtle: var(--subtle);
+    --color-danger: var(--danger);
+    --color-warning: var(--warning);
+    --color-success: var(--success);
+    --color-working: var(--working);
+    --color-hover: var(--hover);
+    --color-selected: var(--selected);
+    --color-accent: var(--accent);
+    --color-accent-ink: var(--accent-ink);
+    --color-selection-marker: var(--selection-marker);
+    --color-focus: var(--focus);
+
+    /* Typography */
+    --font-sans: "Source Sans 3", ui-sans-serif, sans-serif;
+    --font-heading: "Nunito Sans", ui-sans-serif, sans-serif;
+    --font-mono: "Monaspace Krypton", ui-monospace, monospace;
+    --font-weight-normal: 400;
+    --font-weight-strong: 620;
+    --text-xs: 0.8125rem;
+    --text-xs--line-height: 1.125rem;
+    --text-sm: 0.875rem;
+    --text-sm--line-height: 1.25rem;
+    --text-base: 1rem;
+    --text-base--line-height: 1.5rem;
+    --text-lg: 1.25rem;
+    --text-lg--line-height: 1.625rem;
+    --text-xl: 1.25rem;
+    --text-xl--line-height: 1.625rem;
+    --text-2xl: 1.75rem;
+    --text-2xl--line-height: 2.125rem;
+    --spacing: 0.25rem;
+
+    /* White-label corner radius scale (Graphic Precision defaults to sharp 0px corners) */
+    --radius-xs: 0px;
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-pill: 9999px;
+
+    /* Intrinsic Nlh / Nch rhythm tokens */
+    --space-y-xs: 0.15lh;
+    --space-y-sm: 0.28lh;
+    --space-y-md: 0.55lh;
+    --space-y-lg: 0.9lh;
+    --space-x-xs: 0.6ch;
+    --space-x-sm: 1.1ch;
+    --space-x-md: 1.75ch;
+    --space-x-lg: 2.5ch;
+    --measure-prose: 64ch;
+    --control-min-h: 1.75lh;
+
+    /* Leaf transition curve */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --default-transition-duration: 150ms;
+    --default-transition-timing-function: var(--ease-out);
+
+    /* Default contextual axis fallbacks outside explicit scope wrappers */
+    --axis-surface: var(--canvas);
+    --axis-surface-ink: var(--ink);
+    --axis-surface-muted: var(--muted);
+    --axis-surface-rule: var(--line);
+
+    --axis-prominence-bg: var(--field);
+    --axis-prominence-border: var(--edge);
+    --axis-prominence-shadow: none;
+    --axis-prominence-ink: var(--ink);
+
+    --axis-emphasis-fg: var(--ink);
+    --axis-emphasis-bg: transparent;
+    --axis-emphasis-border: var(--line);
+
+    --axis-density-scale: 1;
+    --axis-pad-y: var(--space-y-sm);
+    --axis-pad-x: var(--space-x-sm);
+    --axis-gap: var(--space-x-xs);
+    --axis-control-min-h: var(--control-min-h);
+  }
+
+  :root[data-scheme="light"] {
+    color-scheme: light;
+  }
+
+  :root[data-scheme="dark"] {
+    color-scheme: dark;
+  }
+}

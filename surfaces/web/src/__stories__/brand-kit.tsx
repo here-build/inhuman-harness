@@ -1,34 +1,25 @@
+/* eslint-disable import-x/no-relative-packages -- Storybook brand swatches read the shipped UI package tokens directly. */
 import { createContext, useContext, type CSSProperties, type ReactNode } from "react";
 
-import css from "../styles.css?raw";
+import tokensCss from "../../../../packages/harness-ui/src/styles/tokens.css?raw";
 
 /**
- * Historical brandbook furniture, drawn in the app's current tokens.
- * New Graphic Precision pages can opt out of the archive notice.
+ * Shared documentation frame for Graphic Precision & white-label catalog stories.
  */
 export function Page({
   title,
   lede,
   children,
-  historical = true,
 }: {
   readonly title: string;
   readonly lede: ReactNode;
   readonly children: ReactNode;
-  readonly historical?: boolean;
 }) {
   return (
     <div className="h-dvh overflow-y-auto bg-canvas text-ink">
       <article className="mx-auto flex max-w-[68rem] flex-col gap-16 px-6 py-14 md:px-10">
         <header>
-          <p className="label text-sm text-muted">{historical ? "historical brandbook" : "Graphic Precision"}</p>
-          {historical ? (
-            <aside className="mt-3 border-l-2 border-selection-marker pl-3 text-sm text-muted">
-              Historical reference, not current design rules. The normative guide is{" "}
-              <Mono>docs/graphic-precision.md</Mono>; use the Graphic Precision stories for current foundations and
-              examples.
-            </aside>
-          ) : null}
+          <p className="label text-sm text-muted">Graphic Precision</p>
           <h1 className="mt-1 text-2xl tracking-[-0.025em]">{title}</h1>
           <div className="prose-wrap mt-3 max-w-[62ch] text-muted">{lede}</div>
         </header>
@@ -141,9 +132,10 @@ export type Token = {
   readonly dark: string;
 };
 
-/** The `:root` color pairs, read from the stylesheet the app ships. */
+/** The `:root` color pairs, read from `@inhuman.tools/harness-ui/styles/tokens.css`. */
 export const TOKENS: ReadonlyMap<string, Token> = (() => {
-  const root = css.slice(css.search(/^:root\s*\{/m), css.indexOf("\n}", css.search(/^:root\s*\{/m)));
+  const rootMatch = tokensCss.match(/:root\s*\{([\s\S]*?)\n\s*\}/);
+  const root = rootMatch?.[1] ?? "";
   const found = new Map<string, Token>();
   for (const [, name, light, dark] of root.matchAll(
     /--([\w-]+):\s*light-dark\((oklch\([^)]*\)),\s*(oklch\([^)]*\))\)/g,

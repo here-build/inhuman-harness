@@ -1,7 +1,6 @@
+import { bindBlobCache, blobs } from "@inhuman.tools/harness-transcript/blob-cache";
 import { autorun } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
-
-import { bindBlobCache, blobs } from "../blob-cache.js";
 
 const sha = (n: number): string => n.toString(16).padStart(64, "0");
 

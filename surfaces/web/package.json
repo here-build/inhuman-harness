@@ -39,6 +39,7 @@
     "@inhuman.tools/harness-peer": "workspace:^",
     "@inhuman.tools/harness-scheme": "workspace:^",
     "@inhuman.tools/harness-transcript": "workspace:*",
+    "@inhuman.tools/harness-ui": "workspace:^",
     "@inhuman.tools/model": "workspace:^",
     "@inhuman.tools/expectations": "workspace:^",
     "@inhuman.tools/scope-plane": "workspace:^",

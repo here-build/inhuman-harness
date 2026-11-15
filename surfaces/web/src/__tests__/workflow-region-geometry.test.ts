@@ -7,9 +7,7 @@
  * code guards against.
  */
 import type { Region } from "@here.build/arrival-provenance";
-import { describe, expect, it } from "vitest";
-
-import type { PositionedRegion, WireEnd } from "../workflow/region-elk-layout.js";
+import type { PositionedRegion, WireEnd } from "@inhuman.tools/harness-transcript/workflow/region-elk-layout";
 import {
   type AbsRect,
   cardPoint,
@@ -31,7 +29,8 @@ import {
   zBox,
   zCard,
   zWire,
-} from "../workflow/region-geometry.js";
+} from "@inhuman.tools/harness-transcript/workflow/region-geometry";
+import { describe, expect, it } from "vitest";
 
 let nextId = 1;
 const leaf = (overrides: Partial<Extract<Region, { kind: "leaf" }>> = {}): Extract<Region, { kind: "leaf" }> => ({

@@ -1,8 +1,4 @@
 import { useState } from "react";
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Button as AriaButton, Label, Link, ListBox, ListBoxItem, Text } from "react-aria-components";
-
-import { Page, Schemes, Section } from "./brand-kit.js";
 import {
   TokenField,
   TokenInput,
@@ -16,8 +12,12 @@ import {
   RouterProvider,
   Virtualizer,
   ListLayout,
-} from "../components/ui/advanced.js";
-import { Button } from "../components/ui/button.js";
+} from "@inhuman.tools/harness-ui/primitives/advanced";
+import { Button } from "@inhuman.tools/harness-ui/primitives/button";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Button as AriaButton, Label, Link, ListBox, ListBoxItem, Text } from "react-aria-components";
+
+import { Page, Schemes, Section } from "./brand-kit.js";
 
 const meta = {
   title: "Graphic Precision/Advanced",
@@ -28,11 +28,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Tokens: Story = {
   render: () => (
-    <Page
-      historical={false}
-      title="Inline tokens"
-      lede="Editable prose and named references share one keyboard-accessible field."
-    >
+    <Page title="Inline tokens" lede="Editable prose and named references share one keyboard-accessible field.">
       <Section
         title="Draft a request"
         note="Type between references. Use arrows to move and Shift + arrows to select; Backspace removes a selected reference. The reference copy is read only."
@@ -100,7 +96,6 @@ function TokenExamples() {
 export const Navigation: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Navigation tree"
       lede="Nested destinations retain real links, with a quiet marker on the current page."
     >
@@ -176,11 +171,7 @@ function NavigationExample() {
 
 export const VirtualizedList: Story = {
   render: () => (
-    <Page
-      historical={false}
-      title="Virtualized list"
-      lede="A bounded list keeps a large collection navigable without mounting every row."
-    >
+    <Page title="Virtualized list" lede="A bounded list keeps a large collection navigable without mounting every row.">
       <Section
         title="Choose a document"
         note="Scroll through 1,000 documents, use typeahead, or press End to reach the final item. Selection updates the summary below."

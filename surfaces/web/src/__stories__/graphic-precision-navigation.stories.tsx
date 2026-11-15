@@ -1,9 +1,4 @@
 import { useRef, useState } from "react";
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { UNSAFE_PortalProvider } from "react-aria";
-import { isFileDropItem } from "react-aria-components";
-
-import { Page, Schemes, Section } from "./brand-kit.js";
 import {
   Dialog,
   DropZone,
@@ -12,7 +7,7 @@ import {
   ToastContent,
   ToastQueue,
   ToastRegion,
-} from "../components/ui/feedback.js";
+} from "@inhuman.tools/harness-ui/primitives/feedback";
 import {
   Breadcrumb,
   Breadcrumbs,
@@ -26,7 +21,12 @@ import {
   Separator,
   Text,
   Toolbar,
-} from "../components/ui/navigation.js";
+} from "@inhuman.tools/harness-ui/primitives/navigation";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { UNSAFE_PortalProvider } from "react-aria";
+import { isFileDropItem } from "react-aria-components";
+
+import { Page, Schemes, Section } from "./brand-kit.js";
 
 const meta = {
   title: "Graphic Precision/Navigation and feedback",
@@ -38,7 +38,6 @@ type Story = StoryObj<typeof meta>;
 export const Navigation: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Navigation"
       lede="Links express destinations; commands stay buttons. Structural text stays in natural case."
     >
@@ -94,7 +93,7 @@ function NavigationExample() {
 
 export const Disclosures: Story = {
   render: () => (
-    <Page historical={false} title="Disclosures" lede="Reveal related detail without leaving the current task.">
+    <Page title="Disclosures" lede="Reveal related detail without leaving the current task.">
       <Section
         title="Related sections"
         note="Tab to a heading button and press Enter or Space. Opening a section closes the previous one; the disabled section cannot expand."
@@ -130,11 +129,7 @@ export const Disclosures: Story = {
 
 export const FileFeedback: Story = {
   render: () => (
-    <Page
-      historical={false}
-      title="File feedback"
-      lede="File selection and dropping share the same visible, announced result."
-    >
+    <Page title="File feedback" lede="File selection and dropping share the same visible, announced result.">
       <Section
         title="Project attachments"
         note="Choose files with the keyboard or drop files into the region. Filenames remain literal technical values."
@@ -171,7 +166,6 @@ function FileExample() {
 export const Feedback: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Feedback"
       lede="Dialogs supply content semantics; native dialog adapters keep modal ownership. Notifications remain in the document flow."
     >

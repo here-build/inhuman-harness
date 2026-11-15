@@ -1,7 +1,6 @@
 import { diffJson, type WorkflowFrame } from "@inhuman.tools/harness-model/session";
+import { type Feed, foldFrame } from "@inhuman.tools/harness-transcript/workflow/feed";
 import { describe, expect, it } from "vitest";
-
-import { type Feed, foldFrame } from "../workflow/feed.js";
 
 const graph = (n: number) => ({
   roots: Array.from({ length: n }, (_, id) => ({ kind: "leaf", id })),

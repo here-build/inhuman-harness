@@ -1,10 +1,5 @@
 import { useState } from "react";
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Button, Label } from "react-aria-components";
-import { expect, userEvent, within } from "storybook/test";
-
-import { Page, Schemes, Section as StorySection } from "./brand-kit.js";
-import { buttonVariants } from "../components/ui/button.js";
+import { buttonVariants } from "@inhuman.tools/harness-ui/primitives/button";
 import {
   ListBox,
   ListBoxItem,
@@ -27,7 +22,12 @@ import {
   Tag,
   type Selection,
   type SortDescriptor,
-} from "../components/ui/collections.js";
+} from "@inhuman.tools/harness-ui/primitives/collections";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Button, Label } from "react-aria-components";
+import { expect, userEvent, within } from "storybook/test";
+
+import { Page, Schemes, Section as StorySection } from "./brand-kit.js";
 
 const meta = {
   title: "Graphic Precision/Collections",
@@ -46,7 +46,6 @@ const quietButton = buttonVariants({ variant: "ghost" });
 export const ListSelection: Story = {
   render: () => (
     <Page
-      historical={false}
       title="List selection"
       lede="Object names retain natural case. A muted surface and neutral edge mark selection; the focus outline follows keyboard navigation."
     >
@@ -118,11 +117,7 @@ function ProjectList() {
 
 export const InteractiveRows: Story = {
   render: () => (
-    <Page
-      historical={false}
-      title="Interactive rows"
-      lede="Grid lists keep row selection separate from commands within each row."
-    >
+    <Page title="Interactive rows" lede="Grid lists keep row selection separate from commands within each row.">
       <StorySection
         title="Project actions"
         note="Use Up and Down to navigate rows and Space to select. Tab reaches the Open command."
@@ -170,7 +165,6 @@ function ProjectGrid() {
 export const SortableTable: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Sortable table"
       lede="Names align left; amounts align right with tabular figures. Sort arrows supplement accessible sort direction."
     >
@@ -226,7 +220,6 @@ function ProjectTable() {
 export const ExpandableTree: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Expandable tree"
       lede="Hierarchy uses indentation and an explicit expansion command, without changing the treatment of object names."
     >
@@ -287,7 +280,6 @@ function DocumentTree() {
 export const RemovableTags: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Removable tags"
       lede="Tags name real objects and preserve a quiet, rectangular shape. Removal is available through an explicit command and the keyboard."
     >

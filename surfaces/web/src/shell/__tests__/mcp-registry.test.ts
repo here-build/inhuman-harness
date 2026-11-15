@@ -1,5 +1,3 @@
-import { describe, expect, it } from "vitest";
-
 import {
   connectionInstall,
   mcpCopies,
@@ -7,7 +5,8 @@ import {
   registryAddLabel,
   registryHits,
   type McpFace,
-} from "../mcp-registry.js";
+} from "@inhuman.tools/harness-ui";
+import { describe, expect, it } from "vitest";
 
 const HTTP = "https://mcp.sentry.dev/mcp";
 

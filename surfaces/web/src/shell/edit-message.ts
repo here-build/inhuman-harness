@@ -1,9 +1,9 @@
 import type { SessionTurn, UserVisualIdentity } from "@inhuman.tools/harness-model";
 import { isAtTip, previousPin, resolvedTip } from "@inhuman.tools/harness-model/session";
+import { draftFromStored, readStoredVisual, type StoredVisual } from "@inhuman.tools/harness-ui";
 
 import { fillDraft, hasDraftSlot, noteDraft, releaseFilledDraft } from "./draft-slot.js";
 import { readEmbed } from "./embed.js";
-import { draftFromStored, readStoredVisual, type StoredVisual } from "./picture-draft.js";
 
 type Rpc = {
   request: (method: string, params: unknown) => Promise<unknown>;

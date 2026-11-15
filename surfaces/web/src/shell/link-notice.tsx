@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
+import { LinkNoticeBlock } from "@inhuman.tools/harness-ui/blocks/link-notice-block";
 import { useRouter } from "@tanstack/react-router";
 import { observer } from "mobx-react-lite";
 
 import { looseSessionHref, projectHref, projectNames, sessionHref } from "./path.js";
 import { useDial } from "../client/context.js";
 import type { Link } from "../client/dial.js";
-import { Button } from "../components/ui/button.js";
 
 /**
  * The line to the daemon, in one sentence and at most one action. A state the
@@ -21,51 +21,55 @@ export const LinkNotice = observer(function LinkNoticeView() {
     if (!dial.attaching) return null;
     const target = dial.requestedTarget.kind;
     return (
-      <Waiting>
-        {target === "kernel"
-          ? "Opening the workspace…"
-          : target === "project"
-            ? "Opening the project…"
-            : "Opening the session…"}
-      </Waiting>
+      <LinkNoticeBlock
+        mode="waiting"
+        message={
+          target === "kernel"
+            ? "Opening the workspace…"
+            : target === "project"
+              ? "Opening the project…"
+              : "Opening the session…"
+        }
+      />
     );
   }
   if (link.kind === "reconnecting") {
     return (
-      <Waiting>
-        Reconnecting to the daemon…<span className="link-later"> It hasn’t answered yet.</span>
-      </Waiting>
+      <LinkNoticeBlock
+        mode="waiting"
+        message={
+          <>
+            Reconnecting to the daemon…<span className="link-later"> It hasn’t answered yet.</span>
+          </>
+        }
+      />
     );
   }
   if (link.kind === "offline" && link.redialing) {
     return (
-      <Waiting>
-        This machine is offline.<span className="link-later"> Waiting for it to come back.</span>
-      </Waiting>
+      <LinkNoticeBlock
+        mode="waiting"
+        message={
+          <>
+            This machine is offline.<span className="link-later"> Waiting for it to come back.</span>
+          </>
+        }
+      />
     );
   }
   const go = (href: string) => () => void router.navigate({ href });
   const retry = () => void dial.follow(dial.requestedTarget);
   const { text, action, onAction } = needs(link, dial, go, retry);
   return (
-    <p className="link-notice" role="status">
-      <span className="link-glyph" data-needs="" aria-hidden />
-      <span className="link-text">{text}</span>
-      <Button variant="secondary" disabled={dial.attaching} onClick={onAction}>
-        {action}
-      </Button>
-    </p>
+    <LinkNoticeBlock
+      mode="needs"
+      message={text}
+      actionLabel={action}
+      actionDisabled={dial.attaching}
+      onAction={onAction}
+    />
   );
 });
-
-function Waiting({ children }: { readonly children: ReactNode }) {
-  return (
-    <p className="link-notice" data-waiting="" role="status">
-      <span className="link-glyph" data-waiting="" aria-hidden />
-      <span className="link-text">{children}</span>
-    </p>
-  );
-}
 
 type Need = { readonly text: ReactNode; readonly action: string; readonly onAction: () => void };
 
@@ -106,7 +110,6 @@ function needs(
         : { text: "There is no session at this link.", action: "Open the project", onAction: go(projectHref(path)) };
     }
     case "elsewhere": {
-      // A global session has no project: it opens on its own.
       if (link.path === "") {
         return {
           text: "This session is not part of a project.",

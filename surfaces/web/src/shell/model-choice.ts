@@ -1,19 +1,23 @@
 import { CompletionJob, isReasoningEffort, SessionTurn, type ReasoningEffort } from "@inhuman.tools/harness-model";
+import {
+  openrouterProvider,
+  type ModelChoiceItem,
+  type ModelPricingHint,
+  type ModelWireItem,
+  wireAccount,
+  type AccountSource,
+} from "@inhuman.tools/harness-ui";
 
-import { wireAccount, type AccountSource, type WireAccount } from "./wire-account.js";
-
-/** A completion wire and one live model id on it. */
-export type ModelChoice = {
-  readonly connection: string;
-  readonly model: string;
-};
-
-/** Per-million-token USD rates for a catalog model. */
-export type ModelPricing = {
-  readonly prompt: number;
-  readonly completion: number;
-  readonly cacheRead?: number;
-};
+export {
+  formatModelPricing,
+  modelBadges,
+  modelChoiceValue,
+  naturalName,
+  openrouterProvider,
+  type ModelChoiceItem as ModelChoice,
+  type ModelPricingHint as ModelPricing,
+  type OpenRouterProviderInfo as OpenRouterProvider,
+} from "@inhuman.tools/harness-ui";
 
 export type ModelCapabilityHint = {
   readonly supportsReasoning?: boolean;
@@ -37,27 +41,11 @@ export type ModelCatalogSource = AccountSource & {
 };
 
 /** One completion connection, its live catalog, and its account. */
-export type ModelWire = {
-  readonly connection: string;
-  readonly name: string;
-  readonly choices: readonly ModelChoice[];
-  readonly account: WireAccount;
-  readonly baseUrl?: string;
-  readonly openrouter?: boolean;
-  readonly modelNames?: Readonly<Record<string, string>>;
-  readonly modelPricing?: Readonly<Record<string, ModelPricing>>;
+export type ModelWire = Omit<ModelWireItem, "modelCapabilities"> & {
   readonly modelCapabilities?: Readonly<Record<string, ModelCapabilityHint>>;
 };
 
-export type OpenRouterProvider = {
-  readonly key: string;
-  readonly label: string;
-  readonly icon?: string;
-};
-
 const SMALL_CATALOG = 20;
-
-const BADGE_TAGS = new Set(["free", "thinking", "extended", "beta", "preview", "nitro", "online", "floor", "exacto"]);
 
 const NON_CHAT_TOKENS = new Set([
   "batch",
@@ -92,143 +80,6 @@ const NON_CHAT_PHRASES = [
   "speech-to-text",
   "stable-diffusion",
 ];
-
-const KNOWN_MODEL_TOKENS: Readonly<Record<string, string | undefined>> = {
-  gpt: "GPT",
-  gpt4: "GPT-4",
-  gpt4o: "GPT-4o",
-  gpt5: "GPT-5",
-  chatgpt: "ChatGPT",
-  glm: "GLM",
-  glm4: "GLM-4",
-  chatglm: "ChatGLM",
-  ai: "AI",
-  nvidia: "NVIDIA",
-  openai: "OpenAI",
-  xai: "xAI",
-  deepseek: "DeepSeek",
-  qwen: "Qwen",
-  qwen2: "Qwen2",
-  "qwen2.5": "Qwen2.5",
-  qwen3: "Qwen3",
-  "qwen3.5": "Qwen3.5",
-  qwen4: "Qwen4",
-  qwq: "QwQ",
-  qvq: "QvQ",
-  minimax: "MiniMax",
-  codellama: "CodeLlama",
-  starcoder: "StarCoder",
-  starcoder2: "StarCoder2",
-  deepcoder: "DeepCoder",
-  wizardlm: "WizardLM",
-  wizardcoder: "WizardCoder",
-  internlm: "InternLM",
-  internvl: "InternVL",
-  olmo: "OLMo",
-  olmoe: "OLMoE",
-  molmo: "Molmo",
-  dbrx: "DBRX",
-  rwkv: "RWKV",
-  ernie: "ERNIE",
-  lfm: "LFM",
-  lfm2: "LFM2",
-  afm: "AFM",
-  nemotron: "Nemotron",
-  mixtral: "Mixtral",
-  mistral: "Mistral",
-  pixtral: "Pixtral",
-  codestral: "Codestral",
-  ministral: "Ministral",
-  magistral: "Magistral",
-  devstral: "Devstral",
-  claude: "Claude",
-  sonnet: "Sonnet",
-  haiku: "Haiku",
-  opus: "Opus",
-  gemini: "Gemini",
-  gemma: "Gemma",
-  learnlm: "LearnLM",
-  grok: "Grok",
-  llama: "Llama",
-  hermes: "Hermes",
-  nous: "Nous",
-  sonar: "Sonar",
-  r1: "R1",
-  v2: "V2",
-  "v2.5": "V2.5",
-  v3: "V3",
-  "v3.1": "V3.1",
-  o1: "o1",
-  o3: "o3",
-  o4: "o4",
-  "4o": "4o",
-  vl: "VL",
-  moe: "MoE",
-  it: "IT",
-  fp8: "FP8",
-  fp16: "FP16",
-  bf16: "BF16",
-  int4: "INT4",
-  int8: "INT8",
-  awq: "AWQ",
-  gptq: "GPTQ",
-  gguf: "GGUF",
-};
-
-const OPENROUTER_DEFAULT_PROVIDER: OpenRouterProvider = {
-  key: "openrouter",
-  label: "OpenRouter",
-  icon: "openrouter",
-};
-
-const OPENROUTER_PROVIDERS: Readonly<Record<string, OpenRouterProvider | undefined>> = {
-  nvidia: { key: "nvidia", label: "NVIDIA", icon: "nvidia" },
-  openai: { key: "openai", label: "OpenAI", icon: "openai" },
-  anthropic: { key: "anthropic", label: "Anthropic", icon: "anthropic" },
-  google: { key: "google", label: "Google", icon: "google" },
-  "x-ai": { key: "xai", label: "xAI", icon: "xai" },
-  xai: { key: "xai", label: "xAI", icon: "xai" },
-  "meta-llama": { key: "meta", label: "Meta", icon: "meta" },
-  meta: { key: "meta", label: "Meta", icon: "meta" },
-  mistralai: { key: "mistral", label: "Mistral", icon: "mistral" },
-  mistral: { key: "mistral", label: "Mistral", icon: "mistral" },
-  deepseek: { key: "deepseek", label: "DeepSeek", icon: "deepseek" },
-  qwen: { key: "qwen", label: "Qwen", icon: "qwen" },
-  cohere: { key: "cohere", label: "Cohere", icon: "cohere" },
-  perplexity: { key: "perplexity", label: "Perplexity", icon: "perplexity" },
-  microsoft: { key: "microsoft", label: "Microsoft", icon: "microsoft" },
-  amazon: { key: "amazon", label: "Amazon", icon: "amazon" },
-  aws: { key: "amazon", label: "Amazon", icon: "amazon" },
-  moonshotai: { key: "moonshot", label: "Moonshot", icon: "moonshot" },
-  moonshot: { key: "moonshot", label: "Moonshot", icon: "moonshot" },
-  minimax: { key: "minimax", label: "MiniMax", icon: "minimax" },
-  "z-ai": { key: "zai", label: "Z.AI", icon: "zai" },
-  zai: { key: "zai", label: "Z.AI", icon: "zai" },
-  zhipu: { key: "zai", label: "Z.AI", icon: "zai" },
-  thudm: { key: "zai", label: "Z.AI", icon: "zai" },
-  openrouter: { key: "openrouter", label: "OpenRouter", icon: "openrouter" },
-  huggingface: { key: "huggingface", label: "Hugging Face", icon: "huggingface" },
-  huggingfaceh4: { key: "huggingface", label: "Hugging Face", icon: "huggingface" },
-  ai21: { key: "ai21", label: "AI21", icon: "ai21" },
-  "01-ai": { key: "zeroone", label: "01.AI", icon: "zeroone" },
-  zeroone: { key: "zeroone", label: "01.AI", icon: "zeroone" },
-  inflection: { key: "inflection", label: "Inflection", icon: "inflection" },
-  liquid: { key: "liquid", label: "Liquid", icon: "liquid" },
-  "stepfun-ai": { key: "stepfun", label: "StepFun", icon: "stepfun" },
-  stepfun: { key: "stepfun", label: "StepFun", icon: "stepfun" },
-  tencent: { key: "tencent", label: "Tencent", icon: "tencent" },
-  baidu: { key: "baidu", label: "Baidu", icon: "baidu" },
-  bytedance: { key: "bytedance", label: "ByteDance", icon: "bytedance" },
-  "bytedance-research": { key: "bytedance", label: "ByteDance", icon: "bytedance" },
-  alibaba: { key: "alibaba", label: "Alibaba", icon: "alibaba" },
-  upstage: { key: "upstage", label: "Upstage", icon: "upstage" },
-  snowflake: { key: "snowflake", label: "Snowflake", icon: "snowflake" },
-  nousresearch: { key: "nous", label: "Nous Research" },
-  nous: { key: "nous", label: "Nous Research" },
-  "arcee-ai": { key: "arcee", label: "Arcee AI" },
-  arcee: { key: "arcee", label: "Arcee AI" },
-  allenai: { key: "allenai", label: "AllenAI" },
-};
 
 /**
  * Completion connections from kernel connection faces, named as `/connect`
@@ -283,91 +134,13 @@ export function wireName(
   return name === "" ? connection : name;
 }
 
-export function modelChoiceValue(choice: ModelChoice): string {
-  return JSON.stringify([choice.connection, choice.model]);
-}
-
-/**
- * Formats a model identifier into a curated display name, preferring an API
- * display name when available and stripping provider prefixes and badge tags.
- */
-export function naturalName(id: string, apiName?: string): string {
-  const cleanedApi = apiName === undefined ? "" : stripApiName(apiName);
-  if (cleanedApi !== "") return normalizeModelPhrase(cleanedApi);
-  const slug = stripBadgesFromSlug(stripVendorPrefix(id.trim()));
-  if (slug === "") return id.trim();
-  const normalizedSlug = slug
-    .replaceAll(/\bcommand-r-plus\b/gi, "Command-R+")
-    .replaceAll(/\bcommand-r\+/gi, "Command-R+")
-    .replaceAll(/\bcommand-r\b/gi, "Command-R")
-    .replaceAll(/\bcommand-a\b/gi, "Command-A");
-  return normalizedSlug
-    .split(/[\s_]+/)
-    .flatMap((chunk) => (/^Command-(?:A|R\+?)$/i.test(chunk) ? [chunk] : chunk.split("-")))
-    .filter((part) => part !== "")
-    .map(formatModelToken)
-    .join(" ");
-}
-
-/** Extracts badge tags (`free`, `batch`, `thinking`, etc.) from a model id, API name, or zero pricing. */
-export function modelBadges(id: string, apiName?: string, pricing?: ModelPricing): string[] {
-  const badges: string[] = [];
-  const add = (tag: string): void => {
-    const clean = tag.trim().toLowerCase();
-    if (clean !== "" && BADGE_TAGS.has(clean) && !badges.includes(clean)) badges.push(clean);
-  };
-  const colonParts = id.trim().split(":");
-  for (const part of colonParts.slice(1)) add(part);
-  const baseSlug = stripVendorPrefix(colonParts[0] ?? "");
-  const dashParts = baseSlug.split("-").filter((part) => part !== "");
-  while (dashParts.length > 1) {
-    const tail = dashParts[dashParts.length - 1]!.toLowerCase();
-    if (!BADGE_TAGS.has(tail)) break;
-    add(tail);
-    dashParts.pop();
-  }
-  if (apiName !== undefined) {
-    for (const match of apiName.matchAll(/\(([^()]+)\)/g)) {
-      add(match[1]);
-    }
-  }
-  if (pricing?.prompt === 0 && pricing.completion === 0) {
-    add("free");
-  }
-  return badges;
-}
-
-/** Formats per-million-token pricing as `$cache/$in/$out`, `$in/$out`, or `free`. */
-export function formatModelPricing(pricing: ModelPricing | undefined, badges: readonly string[] = []): string {
-  if (badges.includes("free") || (pricing?.prompt === 0 && pricing.completion === 0)) {
-    return "free";
-  }
-  if (pricing === undefined) return "";
-  const prompt = formatRate(pricing.prompt);
-  const completion = formatRate(pricing.completion);
-  if (pricing.cacheRead !== undefined && pricing.cacheRead > 0) {
-    return `$${formatRate(pricing.cacheRead)}/$${prompt}/$${completion}`;
-  }
-  return `$${prompt}/$${completion}`;
-}
-
-/** Resolves the internal OpenRouter provider group for a `<vendor>/<model>` id. */
-export function openrouterProvider(modelId: string): OpenRouterProvider {
-  const slash = modelId.indexOf("/");
-  if (slash <= 0) return OPENROUTER_DEFAULT_PROVIDER;
-  const rawSlug = modelId.slice(0, slash).trim().toLowerCase();
-  const known = OPENROUTER_PROVIDERS[rawSlug];
-  if (known !== undefined) return known;
-  return { key: rawSlug, label: naturalName(rawSlug) };
-}
-
 /**
  * The model the control names. The session kv wins. When it is empty, the
  * last turn that actually ran a model is what the tape is already showing.
  */
 export function sessionModel(
   root: { readonly kvs?: Readonly<Record<string, string>> | null; readonly head?: unknown } | null | undefined,
-): ModelChoice {
+): ModelChoiceItem {
   const kv = root?.kvs;
   const model = (kv?.model ?? "").trim();
   const connection = (kv?.connection ?? "").trim();
@@ -375,7 +148,7 @@ export function sessionModel(
   return lastTurnModel(root?.head) ?? { connection: "", model: "" };
 }
 
-function lastTurnModel(head: unknown): ModelChoice | null {
+function lastTurnModel(head: unknown): ModelChoiceItem | null {
   const seen = new Set<unknown>();
   let turn: unknown = head;
   while (turn instanceof SessionTurn && !seen.has(turn)) {
@@ -432,9 +205,9 @@ function parseModelNames(raw: unknown): Readonly<Record<string, string>> | undef
   return count > 0 ? out : undefined;
 }
 
-function parseModelPricing(raw: unknown): Readonly<Record<string, ModelPricing>> | undefined {
+function parseModelPricing(raw: unknown): Readonly<Record<string, ModelPricingHint>> | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
-  const out: Record<string, ModelPricing> = {};
+  const out: Record<string, ModelPricingHint> = {};
   let count = 0;
   for (const [key, value] of Object.entries(raw)) {
     if (typeof value !== "object" || value === null) continue;
@@ -474,89 +247,6 @@ function parseModelCapabilities(raw: unknown): Readonly<Record<string, ModelCapa
     count += 1;
   }
   return count > 0 ? out : undefined;
-}
-
-function stripVendorPrefix(id: string): string {
-  const slash = id.indexOf("/");
-  if (slash <= 0 || slash === id.length - 1) return id;
-  return id.slice(slash + 1);
-}
-
-function stripBadgesFromSlug(slug: string): string {
-  const withoutColon = slug.split(":")[0] ?? slug;
-  const parts = withoutColon.split("-").filter((part) => part !== "");
-  while (parts.length > 1 && BADGE_TAGS.has(parts[parts.length - 1]!.toLowerCase())) {
-    parts.pop();
-  }
-  return parts.join("-");
-}
-
-function stripApiName(apiName: string): string {
-  let text = apiName.trim();
-  const colon = text.indexOf(": ");
-  if (colon > 0) text = text.slice(colon + 2).trim();
-  text = text
-    .replaceAll(/\s*\(([^()]+)\)\s*$/g, (full, inner: string) =>
-      BADGE_TAGS.has(inner.trim().toLowerCase()) || inner.trim().toLowerCase() === "self-moderated" ? "" : full,
-    )
-    .trim();
-  return text;
-}
-
-function normalizeModelPhrase(phrase: string): string {
-  const replaced = phrase
-    .replaceAll(/\bcommand[\s-]+r[\s-]+plus\b/gi, "Command-R+")
-    .replaceAll(/\bcommand[\s-]+r\+/gi, "Command-R+")
-    .replaceAll(/\bcommand[\s-]+r\b/gi, "Command-R")
-    .replaceAll(/\bcommand[\s-]+a\b/gi, "Command-A");
-  return replaced
-    .split(/\s+/)
-    .filter((word) => word !== "")
-    .map((word) => {
-      if (/^Command-(?:A|R\+?)$/i.test(word)) return word;
-      if (word.includes("-")) {
-        return word
-          .split("-")
-          .map((sub) => formatModelToken(sub))
-          .join("-");
-      }
-      return formatModelToken(word);
-    })
-    .join(" ");
-}
-
-function formatModelToken(part: string): string {
-  if (/^Command-(?:A|R\+?)$/i.test(part)) {
-    const suffix = part.slice("Command-".length).toUpperCase();
-    return `Command-${suffix}`;
-  }
-  const lower = part.toLowerCase();
-  const known = KNOWN_MODEL_TOKENS[lower];
-  if (known !== undefined) return known;
-  if (lower.startsWith("a") && lower.endsWith("b") && isNumericToken(lower.slice(1, -1))) {
-    return part.toUpperCase();
-  }
-  if (lower.endsWith("b") || lower.endsWith("m") || lower.endsWith("k")) {
-    const unit = lower.slice(-1).toUpperCase();
-    const stem = lower.slice(0, -1);
-    if (isNumericToken(stem)) return `${stem}${unit}`;
-    const xIndex = stem.indexOf("x");
-    if (xIndex > 0 && /^\d+$/.test(stem.slice(0, xIndex)) && isNumericToken(stem.slice(xIndex + 1))) {
-      return `${stem.slice(0, xIndex)}x${stem.slice(xIndex + 1)}${unit}`;
-    }
-  }
-  return part.charAt(0).toUpperCase() + part.slice(1);
-}
-
-function isNumericToken(value: string): boolean {
-  if (value === "") return false;
-  const parts = value.split(".");
-  if (parts.length > 2) return false;
-  return parts.every((segment) => segment !== "" && /^\d+$/.test(segment));
-}
-
-function formatRate(rate: number): string {
-  return Number(rate.toFixed(4)).toString();
 }
 
 function modelIds(raw: unknown, modelNames?: Readonly<Record<string, string>>): string[] {

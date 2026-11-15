@@ -1,6 +1,5 @@
+import { needsOnboarding, providerRows, type DriverSource } from "@inhuman.tools/harness-ui";
 import { describe, expect, it } from "vitest";
-
-import { needsOnboarding, providerRows, type DriverSource } from "../provider-list.js";
 
 const offer = (name: string, baseUrl: string | null, live: boolean, adoptable = true, description = name) => ({
   name,

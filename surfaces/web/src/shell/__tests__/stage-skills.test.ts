@@ -133,4 +133,15 @@ describe("stage skill slash menu", () => {
     await press("Enter");
     expect(navigate).toHaveBeenCalledTimes(1);
   });
+
+  it("preserves the staged draft and announces the error when navigation fails", async () => {
+    navigate.mockRejectedValueOnce(new Error("Navigation failed."));
+    await render();
+    await type("staged draft");
+    await press("Enter");
+    expect(field().value).toBe("staged draft");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("Navigation failed.");
+    expect(prepareMint).toHaveBeenCalledTimes(1);
+    expect(peekSession(prepareMint.mock.calls[0][0])).toBeNull();
+  });
 });

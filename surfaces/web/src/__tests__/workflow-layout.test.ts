@@ -17,11 +17,14 @@
 import { readFileSync } from "node:fs";
 
 import type { Region, RegionGraph } from "@here.build/arrival-provenance";
+import { causalGraph } from "@inhuman.tools/harness-transcript/workflow/causal";
+import { getElk } from "@inhuman.tools/harness-transcript/workflow/elk";
+import {
+  regionElkLayout,
+  type RegionLayout,
+  type WireEnd,
+} from "@inhuman.tools/harness-transcript/workflow/region-elk-layout";
 import { describe, expect, it } from "vitest";
-
-import { causalGraph } from "../workflow/causal.js";
-import { getElk } from "../workflow/elk.js";
-import { regionElkLayout, type RegionLayout, type WireEnd } from "../workflow/region-elk-layout.js";
 
 // The real lazy engine (`elk.bundled.js`, main thread) injected explicitly, as the view does.
 const elk = await getElk();

@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { CLASS_LABELS, FileMutateToolJob, SessionTurn, ToolCallJob, isAtTip } from "@inhuman.tools/harness-model";
 import { ToolBodyView } from "@inhuman.tools/harness-transcript";
-import { IconCornerDownLeft, IconPlayerPlayFilled, IconPlayerStopFilled } from "@tabler/icons-react";
+import { toolSummary } from "@inhuman.tools/harness-transcript/tape-read";
+import { toolLabel } from "@inhuman.tools/harness-transcript/tool-label";
+import { toolReceipt, type ToolBody } from "@inhuman.tools/harness-transcript/tool-receipt";
+import {
+  ComposerBlock,
+  AckBlock,
+  adoptPictureFiles,
+  clipboardImageFiles,
+  turnVisualPayload,
+  useSkillSlash,
+} from "@inhuman.tools/harness-ui";
 import { observer } from "mobx-react-lite";
 
-import { AckBlock } from "./ack-block.js";
 import { ackCopy, answerRequest, choiceByKey, promptKind, storeChoices } from "./ack-prompt.js";
 import { askHeading, askRisk, type AskAct } from "./ask-risk.js";
 import { connectPort } from "./connect-step.js";
@@ -17,21 +26,10 @@ import { completionWires, naturalName, sessionModel, type ModelChoice } from "./
 import { ModelPicker } from "./model-picker.js";
 import { admitStagedSession, peekSession, stagedAgents, takeSession } from "./new-session.js";
 import { PermissionMode } from "./permission-mode.js";
-import { PictureChips } from "./picture-chips.js";
-import { adoptPictureFiles, clipboardImageFiles, turnVisualPayload } from "./picture-draft.js";
-import { PictureDrop } from "./picture-drop.js";
 import { ReasoningEffortPicker } from "./reasoning-effort.js";
 import { SessionStatus } from "./session-status.js";
-import { SkillSlashMenu } from "./skill-slash-menu.js";
 import { StageComposer } from "./stage-composer.js";
-import { toolSummary } from "./tape-read.js";
-import { toolLabel } from "./tool-label.js";
-import { toolReceipt, type ToolBody } from "./tool-receipt.js";
-import { useSkillSlash } from "./use-skill-slash.js";
 import { useDial } from "../client/context.js";
-import { Button } from "../components/ui/button.js";
-import { fieldGlyph, glyph } from "../components/ui/glyph.js";
-import { Textarea } from "../components/ui/input.js";
 
 type DraftState = {
   draft: string;
@@ -94,7 +92,6 @@ const SessionComposer = observer(function SessionComposerView({
   draftRef.current = state.draft;
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
-  const formRef = useRef<HTMLFormElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
   const adoptDrop = useCallback(
     (files: readonly File[]) => {
@@ -106,11 +103,6 @@ const SessionComposer = observer(function SessionComposerView({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const deciding = useRef(false);
   const decideRef = useRef<(allow: boolean) => void>(() => undefined);
-  const headingId = useId();
-  const draftId = useId();
-  const noticeId = useId();
-  const commentId = useId();
-  const decisionHelpId = useId();
 
   useEffect(() => {
     if (session == null) return;
@@ -181,23 +173,6 @@ const SessionComposer = observer(function SessionComposerView({
       clearTimeout(timer);
     };
   }, [session, state, dial, dial.sessionRpc, dial.attaching, dial.session]);
-
-  useLayoutEffect(() => {
-    const form = formRef.current;
-    const field = fieldRef.current;
-    if (form == null || field == null) return;
-    const apply = () => {
-      if (field.closest(".visually-hidden") != null) return;
-      const height = field.offsetHeight;
-      if (height < 8) return;
-      form.style.setProperty("--composer-input-h", `${height}px`);
-    };
-    apply();
-    if (typeof ResizeObserver !== "function") return;
-    const resize = new ResizeObserver(apply);
-    resize.observe(field);
-    return () => resize.disconnect();
-  }, []);
 
   useEffect(() => {
     setComment("");
@@ -475,208 +450,117 @@ const SessionComposer = observer(function SessionComposerView({
   }, [armed]);
 
   return (
-    <form
-      ref={formRef}
-      className="composer sticky bottom-0 z-10"
-      // Before the first kernel there is nothing to write to; the seat stays mounted, unseen.
+    <ComposerBlock
       hidden={dial.kernel == null}
-      onSubmit={(event) => {
-        event.preventDefault();
+      topNotices={
+        <>
+          {dial.kernel == null ? null : <LinkNotice />}
+          <SessionStatus session={session?.root ?? null} />
+        </>
+      }
+      notice={notice}
+      canRestore={canRestore}
+      onRestore={() => {
+        void restore();
       }}
-    >
-      <div className="composer-column">
-        {dial.kernel == null ? null : <LinkNotice />}
-        <SessionStatus session={session?.root ?? null} />
-        <output
-          id={noticeId}
-          className={notice === "" ? "block text-sm text-muted" : "mb-2 block text-sm text-muted"}
-          role="status"
-        >
-          {notice}
-        </output>
-        {canRestore ? (
-          <p className="composer-restore">
-            <span>Later messages are set aside.</span>
-            <Button variant="ghost" onClick={() => void restore()}>
-              Restore
-            </Button>
-          </p>
-        ) : null}
-        {covered ? (
-          <section className="mb-3 rounded-md border border-edge bg-raised p-3" aria-labelledby={headingId}>
-            <div className="mb-3 min-w-0">
-              <h3
-                ref={headingRef}
-                id={headingId}
-                tabIndex={-1}
-                className="composer-ask font-heading text-base font-strong break-words text-balance"
-              >
-                {heading}
-              </h3>
-              {kind === "ask" ? null : <p className="ack-kicker text-sm font-strong text-warning">{copy.kicker}</p>}
-              {summary == null ? null : <p className="mono mt-1 text-sm break-words text-muted">{summary}</p>}
-            </div>
-            {kind === "ask" ? null : <p className="mb-3 text-sm text-muted">{copy.lede}</p>}
-            {ask instanceof ToolCallJob ? <AskReceipt ask={ask} projectPath={projectPath} /> : null}
-            {kind === "ask" ? null : (
-              <AckBlock
-                flags={ask.ackFlags}
-                choices={choices}
-                remember={remember.leafId === ask.uuid ? remember.key : ""}
-                disabled={unavailable || !armed}
-                onRemember={(key) => setRemember({ leafId: ask.uuid, key })}
-              />
-            )}
-            <label htmlFor={commentId} className="mb-1 block text-sm text-ink">
-              Approval comment <span className="text-muted">(optional)</span>
-            </label>
-            <Textarea
-              key={ask.uuid}
-              id={commentId}
-              aria-label="Approval comment"
-              aria-describedby={decisionHelpId}
-              placeholder="Optional comment"
-              rows={2}
-              disabled={unavailable || !armed}
-              value={seat.leafId === ask.uuid ? comment : ""}
-              onChange={(event) => setComment(event.target.value)}
-            />
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <p id={decisionHelpId} className="text-sm text-muted" aria-live="polite">
-                {armed
-                  ? `Choose ${copy.yes} or ${copy.no} explicitly. Your draft is kept.`
-                  : "A new request appeared. Decisions unlock after a short pause."}
-                {risk.phrase === "" ? null : ` ${risk.phrase}`}
-                {armed ? <ShortcutKeys yes={copy.yes} no={copy.no} /> : null}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="secondary" disabled={unavailable || !armed} onClick={() => void writeApprove(false)}>
-                  {copy.no}
-                </Button>
-                <Button
-                  variant={risk.destructive ? "danger" : "default"}
-                  disabled={unavailable || !armed}
-                  onClick={() => void writeApprove(true)}
-                >
-                  {copy.yes}
-                </Button>
-              </div>
-            </div>
-            {alwaysAutoClasses.length === 0 ? null : (
-              <div className="always-auto" role="group" aria-label="Always auto">
-                <span className="text-muted">
-                  Allow, then let auto decide every “
-                  {alwaysAutoClasses.map((id) => CLASS_LABELS[id].toLowerCase()).join(", ")}” call:
-                </span>
-                <Button
-                  variant="secondary"
-                  disabled={unavailable || !armed}
-                  onClick={() => void writeAlwaysAuto("session")}
-                >
-                  Always auto · this session
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={unavailable || !armed}
-                  onClick={() => void writeAlwaysAuto("project")}
-                >
-                  Always auto · this project
-                </Button>
-              </div>
-            )}
-          </section>
-        ) : null}
-        {/* The draft stays mounted. While the cover is up it is inert, so a key meant for the draft cannot land in it. */}
-        <div className={covered ? "visually-hidden" : undefined} inert={covered}>
-          <PictureDrop fieldRef={fieldRef} enabled={!covered && session != null} onDrop={adoptDrop}>
-            <PictureChips
-              disabled={session == null || covered || state.sending}
-              pictures={state.pictures}
-              onRemove={(key) => {
-                state.pictures = state.pictures.filter((picture) => picture.key !== key);
-                state.revision += 1;
-                refresh();
-              }}
-              onPick={(files) => {
-                void adoptPictureFiles(state, files, true, refresh);
-              }}
-            />
-            <SkillSlashMenu menu={slash.menu} />
-            <Textarea
-              {...slash.fieldProps}
-              ref={draftInputRef}
-              id={draftId}
-              aria-label="Message draft"
-              aria-describedby={noticeId}
-              className="composer-draft rounded-none border-0 bg-transparent px-4 py-3 pr-12 text-base pointer-coarse:py-4 pointer-coarse:pr-14"
-              disabled={session == null}
-              placeholder={
-                canResume
-                  ? "Interrupted · Enter to resume, or type a message"
-                  : session?.root.head == null
-                    ? "Ask or describe a change · / for skills"
-                    : "Message · / for skills"
-              }
-              rows={1}
-              value={state.draft}
-              onChange={(event) => {
-                state.draft = event.target.value;
-                slash.track(event.currentTarget);
-                state.revision += 1;
-                refresh();
-              }}
-              onKeyDown={onDraftKey}
-              onPaste={(event) => {
-                const files = clipboardImageFiles(event.clipboardData);
-                if (files.length === 0) return;
-                if (event.clipboardData.getData("text/plain") === "") event.preventDefault();
-                void adoptPictureFiles(state, files, false, refresh);
-              }}
-            />
-            {showEnter ? (
-              <Button
-                variant="ghost"
-                type="button"
-                aria-label="Send"
-                className={fieldActionClass}
-                disabled={!canSend}
-                onClick={() => {
-                  void send();
-                }}
-              >
-                <IconCornerDownLeft {...fieldGlyph} aria-hidden />
-              </Button>
-            ) : null}
-            {canResume ? (
-              <Button
-                variant="ghost"
-                type="button"
-                aria-label="Resume interrupted turn"
-                title="Resume interrupted turn"
-                className={fieldActionClass}
-                onClick={() => void resume()}
-              >
-                <IconPlayerPlayFilled {...glyph} aria-hidden />
-              </Button>
-            ) : null}
-            {showStop ? (
-              <Button
-                variant="ghost"
-                type="button"
-                aria-label="Stop"
-                className={fieldActionClass}
-                onClick={() => void stop()}
-              >
-                <IconPlayerStopFilled {...glyph} aria-hidden />
-              </Button>
-            ) : null}
-          </PictureDrop>
-        </div>
-      </div>
-      {/* The live end of the tape's model lane: beside the input, where earlier models rest. */}
-      {session == null ? null : (
-        <div className="composer-lane">
-          <div className="composer-picks">
+      wrapDraftInert
+      cover={
+        ask == null
+          ? null
+          : {
+              leafId: ask.uuid,
+              headingRef,
+              heading,
+              isAck: kind !== "ask",
+              kicker: copy.kicker,
+              summary,
+              lede: copy.lede,
+              proposedOperation: ask instanceof ToolCallJob ? <AskReceipt ask={ask} projectPath={projectPath} /> : null,
+              ackBlock:
+                kind === "ask" ? null : (
+                  <AckBlock
+                    flags={ask.ackFlags}
+                    choices={choices}
+                    remember={remember.leafId === ask.uuid ? remember.key : ""}
+                    disabled={unavailable || !armed}
+                    onRemember={(key) => setRemember({ leafId: ask.uuid, key })}
+                  />
+                ),
+              comment: seat.leafId === ask.uuid ? comment : "",
+              disabled: unavailable || !armed,
+              armed,
+              copyYes: copy.yes,
+              copyNo: copy.no,
+              destructive: risk.destructive,
+              riskPhrase: risk.phrase,
+              alwaysAutoLabels: alwaysAutoClasses.map((id) => CLASS_LABELS[id].toLowerCase()),
+              onCommentChange: setComment,
+              onDeny: () => {
+                void writeApprove(false);
+              },
+              onAllow: () => {
+                void writeApprove(true);
+              },
+              onAlwaysAuto: (scope) => {
+                void writeAlwaysAuto(scope);
+              },
+            }
+      }
+      fieldRef={draftInputRef}
+      pillRef={fieldRef}
+      dropEnabled={!covered && session != null}
+      onDropFiles={adoptDrop}
+      pictures={state.pictures}
+      picturesDisabled={session == null || covered || state.sending}
+      onRemovePicture={(key) => {
+        state.pictures = state.pictures.filter((picture) => picture.key !== key);
+        state.revision += 1;
+        refresh();
+      }}
+      onPickPictures={(files) => {
+        void adoptPictureFiles(state, files, true, refresh);
+      }}
+      slashMenu={slash.menu}
+      slashFieldProps={slash.fieldProps}
+      draftLabel="Message draft"
+      draftDisabled={session == null}
+      draftPlaceholder={
+        canResume
+          ? "Interrupted · Enter to resume, or type a message"
+          : session?.root.head == null
+            ? "Ask or describe a change · / for skills"
+            : "Message · / for skills"
+      }
+      draft={state.draft}
+      onDraftChange={(value, element) => {
+        state.draft = value;
+        slash.track(element);
+        state.revision += 1;
+        refresh();
+      }}
+      onDraftKeyDown={onDraftKey}
+      onDraftPaste={(event) => {
+        const files = clipboardImageFiles(event.clipboardData);
+        if (files.length === 0) return;
+        if (event.clipboardData.getData("text/plain") === "") event.preventDefault();
+        void adoptPictureFiles(state, files, false, refresh);
+      }}
+      showSend={showEnter}
+      canSend={canSend}
+      onSend={() => {
+        void send();
+      }}
+      showResume={canResume}
+      onResume={() => {
+        void resume();
+      }}
+      showStop={showStop}
+      onStop={() => {
+        void stop();
+      }}
+      lane={
+        session == null ? null : (
+          <>
             {wires.length === 0 ? (
               <span className="truncate text-sm font-strong text-ink">
                 {shown.model.trim() === "" ? "None" : naturalName(shown.model)}
@@ -699,11 +583,11 @@ const SessionComposer = observer(function SessionComposerView({
               agentEffort={session.root.agent?.spec?.reasoningEffort ?? null}
               disabled={unavailable || state.choosing}
             />
-          </div>
-        </div>
-      )}
-      {session == null ? null : <PermissionMode />}
-    </form>
+          </>
+        )
+      }
+      footer={session == null ? null : <PermissionMode />}
+    />
   );
 });
 
@@ -732,9 +616,6 @@ export const AskReceipt = observer(function AskReceiptView({
   );
 });
 
-const fieldActionClass =
-  "absolute right-2 bottom-2 inline-flex size-8 min-h-0 p-0 items-center justify-center rounded-sm text-ink hover:bg-hover disabled:opacity-40 pointer-coarse:right-1 pointer-coarse:bottom-1 pointer-coarse:size-12";
-
 function isOk(result: unknown): boolean {
   return typeof result === "object" && result != null && "ok" in result && result.ok === true;
 }
@@ -760,34 +641,6 @@ function receiptShowsAct(body: ToolBody, args: ToolCallJob["args"]): boolean {
   // An empty tool body still prints its arguments, so that pre is the receipt.
   if (args == null) return false;
   return Object.values(args).some((value) => value != null && value !== "");
-}
-
-function ShortcutKeys({ yes, no }: { readonly yes: string; readonly no: string }) {
-  const apple = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-  return (
-    <span
-      className="composer-keys"
-      aria-label={
-        apple ? `Command Enter: ${yes}. Command Backspace: ${no}.` : `Control Enter: ${yes}. Control Backspace: ${no}.`
-      }
-    >
-      <span aria-hidden="true">
-        {apple ? (
-          <>
-            {" "}
-            <kbd>⌘</kbd>
-            <kbd>↩</kbd> {yes} · <kbd>⌘</kbd>
-            <kbd>⌫</kbd> {no}
-          </>
-        ) : (
-          <>
-            {" "}
-            <kbd>Ctrl</kbd> <kbd>Enter</kbd> {yes} · <kbd>Ctrl</kbd> <kbd>Backspace</kbd> {no}
-          </>
-        )}
-      </span>
-    </span>
-  );
 }
 
 /** Missing keys and the navigation fixture's bare root both read as empty. */

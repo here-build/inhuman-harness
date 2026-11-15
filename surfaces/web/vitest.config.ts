@@ -1,6 +1,8 @@
 import { defineConfig } from "vitest/config";
 
-const resolve = { dedupe: ["@inhuman.tools/model", "react", "react-dom", "mobx-react-lite"] };
+const resolve = {
+  dedupe: ["@inhuman.tools/harness-ui", "@inhuman.tools/model", "react", "react-dom", "mobx-react-lite"],
+};
 
 export default defineConfig({
   resolve,

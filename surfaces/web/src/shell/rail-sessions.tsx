@@ -1,25 +1,22 @@
 import { useEffect, useState } from "react";
 import { isConversationOverview, type SessionOverview, type SessionRoot } from "@inhuman.tools/harness-model";
 import type { ProjectDocument } from "@inhuman.tools/harness-peer";
-import { IconPlus } from "@tabler/icons-react";
+import { NEW_CONVERSATION, rowTitle } from "@inhuman.tools/harness-transcript/tape-read";
+import {
+  SessionRailBlock,
+  type RowLight,
+  type SessionRailBotGroup,
+  type SessionRailItem,
+} from "@inhuman.tools/harness-ui";
 import { observer } from "mobx-react-lite";
 
-import { rowLight, type RowLight } from "./light.js";
+import { rowLight } from "./light.js";
 import { LinkNotice } from "./link-notice.js";
 import { looseSessionHref, projectNames, sessionHref } from "./path.js";
 import { orderSessions, overviewList, shortAge } from "./session-order.js";
-import { NEW_CONVERSATION, rowTitle } from "./tape-read.js";
 import { useDial } from "../client/context.js";
-import { Button } from "../components/ui/button.js";
-import { FieldInput, Label, SearchField } from "../components/ui/form-controls.js";
-import { glyph } from "../components/ui/glyph.js";
-import { Link } from "../components/ui/navigation.js";
 
-export { orderSessions, OVERVIEW_RECENT_CAP, overviewList, shortAge } from "./session-order.js";
-
-const rowClass =
-  "touch-target flex min-h-8 w-full items-center gap-2 rounded-none border-l-2 border-transparent px-6 py-1 text-left text-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-focus aria-[current=page]:border-selection-marker aria-[current=page]:bg-selected aria-[current=page]:font-strong";
-
+/** Thin MobX adapter projecting overview, project, and bot session lists into SessionRailBlock. */
 export const SessionRail = observer(function SessionRailView({
   go,
   pane,
@@ -38,13 +35,13 @@ export const SessionRail = observer(function SessionRailView({
     const opening =
       dial.attaching && (dial.requestedTarget.kind === "session" || dial.requestedTarget.kind === "project-session");
     return (
-      <nav className="px-4 py-4" aria-label="All projects" aria-busy="true">
-        {opening ? (
-          <p className="text-sm text-muted" role="status">
-            Opening this session…
-          </p>
-        ) : null}
-      </nav>
+      <SessionRailBlock
+        mode="connecting"
+        navLabel="All projects"
+        busy
+        busyMessage={opening ? "Opening this session…" : null}
+        onNavigate={go}
+      />
     );
   }
   if (pane.kind === "bots") return <BotList go={go} selectedSessionId={selectedSessionId} />;
@@ -102,50 +99,45 @@ const OverviewSessions = observer(function OverviewSessionsView({
           );
         });
   const heldAny = paths.some((path) => heldOf(path) != null);
+  const now = Date.now();
+  const items: SessionRailItem[] = [];
+  for (const sessionId of shown) {
+    const row = byId.get(sessionId);
+    if (row == null) continue;
+    const attached = dial.session?.root.sessionId === sessionId ? dial.session.root : null;
+    const overview = kernel.root.sessions[sessionId];
+    items.push(
+      toRailItem({
+        sessionId,
+        selected: selectedSessionId === sessionId,
+        href: sessionHref(row.path, sessionId),
+        attached,
+        overview,
+        now,
+        project: row.project,
+      }),
+    );
+  }
   return (
-    <nav className="flex min-h-0 flex-1 flex-col" aria-label="All projects">
-      {ordered.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-subtle" role="status">
-          {paths.length === 0 ? "No projects yet." : heldAny ? "No sessions yet." : "Attaching…"}
-        </p>
-      ) : (
-        <>
-          <header className="flex min-h-12 shrink-0 items-center px-4 py-3">
-            <h2 className="text-base">{needsAttention ? "Needs attention" : "Recent"}</h2>
-          </header>
-          <div className="flex min-h-0 flex-1 flex-col gap-2 pb-3">
-            {ordered.length > 8 ? (
-              <SearchField className="mx-3" value={query} onChange={setQuery}>
-                <Label>Filter sessions</Label>
-                <FieldInput />
-              </SearchField>
-            ) : null}
-            {shown.length === 0 ? (
-              <p className="px-6 py-1 text-sm text-subtle">No sessions match.</p>
-            ) : (
-              <ul className="min-h-0 flex-1 overflow-y-auto">
-                {shown.map((sessionId) => {
-                  const row = byId.get(sessionId);
-                  if (row == null) return null;
-                  return (
-                    <SessionRow
-                      key={sessionId}
-                      sessionId={sessionId}
-                      selected={selectedSessionId === sessionId}
-                      href={sessionHref(row.path, sessionId)}
-                      go={go}
-                      attached={dial.session?.root.sessionId === sessionId ? dial.session.root : null}
-                      overview={kernel.root.sessions[sessionId]}
-                      project={row.project}
-                    />
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </>
-      )}
-    </nav>
+    <SessionRailBlock
+      mode="overview"
+      navLabel="All projects"
+      heading={ordered.length === 0 ? "" : needsAttention ? "Needs attention" : "Recent"}
+      showSearch={ordered.length > 8}
+      searchQuery={query}
+      onSearchChange={setQuery}
+      emptyMessage={
+        ordered.length === 0
+          ? paths.length === 0
+            ? "No projects yet."
+            : heldAny
+              ? "No sessions yet."
+              : "Attaching…"
+          : "No sessions match."
+      }
+      items={items}
+      onNavigate={go}
+    />
   );
 });
 
@@ -180,59 +172,41 @@ const ProjectSessions = observer(function ProjectSessionsView({
   const needle = query.trim().toLowerCase();
   const shown =
     needle === "" ? ordered : ordered.filter((id) => labelOf(dial, kernel, id).toLowerCase().includes(needle));
+  const now = Date.now();
+  const items = shown.map((sessionId) =>
+    toRailItem({
+      sessionId,
+      selected: selectedSessionId === sessionId,
+      href: sessionHref(path, sessionId),
+      attached: dial.session?.root.sessionId === sessionId ? dial.session.root : null,
+      overview: kernel.root.sessions[sessionId],
+      now,
+    }),
+  );
+  const attachingMessage =
+    held != null
+      ? null
+      : dial.requestedTarget.kind === "session" || dial.requestedTarget.kind === "project-session"
+        ? "Opening this session…"
+        : "Attaching…";
   return (
-    <nav className="flex min-h-0 flex-1 flex-col" aria-label="All projects">
-      <header className="flex min-h-12 shrink-0 items-center justify-between gap-2 px-4 py-3">
-        <h2 className="min-w-0 truncate text-base" title={path}>
-          {name}
-        </h2>
-        <Button
-          variant="ghost"
-          className="size-8 shrink-0 p-0 text-muted hover:text-ink"
-          aria-label={`New session in ${name}`}
-          disabled={held == null}
-          onClick={() => onMint(path)}
-        >
-          <IconPlus {...glyph} aria-hidden />
-        </Button>
-      </header>
-      {dial.session == null && dial.link != null ? <LinkNotice /> : null}
-      {held == null ? (
-        <p className="px-4 py-2 text-sm text-subtle" role="status">
-          {dial.requestedTarget.kind === "session" || dial.requestedTarget.kind === "project-session"
-            ? "Opening this session…"
-            : "Attaching…"}
-        </p>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-2 pb-3">
-          {sessions.length > 8 ? (
-            <SearchField className="mx-3" value={query} onChange={setQuery}>
-              <Label>Filter sessions</Label>
-              <FieldInput />
-            </SearchField>
-          ) : null}
-          {sessions.length === 0 ? (
-            <p className="px-6 py-1 text-sm text-subtle">No sessions yet.</p>
-          ) : shown.length === 0 ? (
-            <p className="px-6 py-1 text-sm text-subtle">No sessions match.</p>
-          ) : (
-            <ul className="min-h-0 flex-1 overflow-y-auto">
-              {shown.map((sessionId) => (
-                <SessionRow
-                  key={sessionId}
-                  sessionId={sessionId}
-                  selected={selectedSessionId === sessionId}
-                  href={sessionHref(path, sessionId)}
-                  go={go}
-                  attached={dial.session?.root.sessionId === sessionId ? dial.session.root : null}
-                  overview={kernel.root.sessions[sessionId]}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </nav>
+    <SessionRailBlock
+      mode="project"
+      navLabel="All projects"
+      heading={name}
+      headingTitle={path}
+      onMint={() => onMint(path)}
+      mintLabel={`New session in ${name}`}
+      mintDisabled={held == null}
+      notice={dial.session == null && dial.link != null ? <LinkNotice /> : null}
+      attachingMessage={attachingMessage}
+      showSearch={sessions.length > 8}
+      searchQuery={query}
+      onSearchChange={setQuery}
+      emptyMessage={sessions.length === 0 ? "No sessions yet." : "No sessions match."}
+      items={items}
+      onNavigate={go}
+    />
   );
 });
 
@@ -249,7 +223,7 @@ const BotList = observer(function BotListView({
   const projects = Object.keys(kernel.root.projects);
   const names = projectNames(projects);
   const held = (path: string) => dial.projects.get(path) ?? (dial.project?.root.path === path ? dial.project : null);
-  const groups = [
+  const groups: SessionRailBotGroup[] = [
     { key: "", name: "Global", bots: Object.entries(kernel.root.botsRoster), href: looseSessionHref },
     ...projects.map((path) => ({
       key: path,
@@ -257,42 +231,64 @@ const BotList = observer(function BotListView({
       bots: Object.entries(held(path)?.root.botsRoster ?? {}),
       href: (sessionId: string) => sessionHref(path, sessionId),
     })),
-  ].filter((group) => group.bots.length > 0);
-  const light = (sessionId: string) =>
-    rowLight(dial.session?.root.sessionId === sessionId ? dial.session.root : null, kernel.root.sessions[sessionId]);
+  ]
+    .filter((group) => group.bots.length > 0)
+    .map((group) => ({
+      key: group.key,
+      name: group.name,
+      rows: group.bots.map(([name, sessionId]) => ({
+        key: name,
+        href: group.href(sessionId),
+        label: name,
+        light: lightOf(dial, kernel, sessionId),
+        selected: selectedSessionId === sessionId,
+      })),
+    }));
   return (
-    <nav className="flex min-h-0 flex-1 flex-col" aria-label="All projects">
-      <header className="flex min-h-12 shrink-0 items-center px-4 py-3">
-        <h2 className="text-base">Bots</h2>
-      </header>
-      {groups.length === 0 ? (
-        <p className="px-4 py-2 text-sm text-subtle">No bots.</p>
-      ) : (
-        <ul className="min-h-0 flex-1 overflow-y-auto pb-3">
-          {groups.map((group) => (
-            <li key={group.key}>
-              <p className="truncate px-6 py-1 text-sm font-strong text-muted" title={group.key || undefined}>
-                {group.name}
-              </p>
-              <ul>
-                {group.bots.map(([name, sessionId]) => (
-                  <RailRow
-                    key={name}
-                    href={group.href(sessionId)}
-                    go={go}
-                    label={name}
-                    light={light(sessionId)}
-                    selected={selectedSessionId === sessionId}
-                  />
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      )}
-    </nav>
+    <SessionRailBlock
+      mode="bots"
+      navLabel="All projects"
+      heading="Bots"
+      emptyMessage="No bots."
+      botGroups={groups}
+      onNavigate={go}
+    />
   );
 });
+
+function toRailItem({
+  sessionId,
+  selected,
+  href,
+  attached,
+  overview,
+  now,
+  project,
+}: {
+  readonly sessionId: string;
+  readonly selected: boolean;
+  readonly href: string;
+  readonly attached: SessionRoot | null;
+  readonly overview: SessionOverview | undefined;
+  readonly now: number;
+  readonly project?: string;
+}): SessionRailItem {
+  const label = rowTitle({
+    live: attached?.title ?? "",
+    title: overview?.title ?? "",
+    lastPrompt: overview?.lastPrompt ?? "",
+  });
+  return {
+    key: sessionId,
+    href,
+    label,
+    light: rowLight(attached, overview),
+    selected,
+    title: label === NEW_CONVERSATION ? sessionId : label,
+    age: shortAge(overview?.lastMessageAt, now),
+    detail: project,
+  };
+}
 
 function listedConversation(overview: SessionOverview | undefined, force: boolean): boolean {
   if (force) return true;
@@ -339,84 +335,6 @@ function labelOf(
   });
 }
 
-const SessionRow = observer(function SessionRowView({
-  sessionId,
-  selected,
-  href,
-  go,
-  attached,
-  overview,
-  project,
-}: {
-  readonly sessionId: string;
-  readonly selected: boolean;
-  readonly href: string;
-  readonly go: (href: string) => void;
-  readonly attached: SessionRoot | null;
-  readonly overview: SessionOverview | undefined;
-  readonly project?: string;
-}) {
-  const label = rowTitle({
-    live: attached?.title ?? "",
-    title: overview?.title ?? "",
-    lastPrompt: overview?.lastPrompt ?? "",
-  });
-  const age = shortAge(overview?.lastMessageAt, Date.now());
-  return (
-    <RailRow
-      href={href}
-      go={go}
-      label={label}
-      light={rowLight(attached, overview)}
-      selected={selected}
-      title={label === NEW_CONVERSATION ? sessionId : label}
-      age={age}
-      detail={project}
-    />
-  );
-});
-
-function RailRow({
-  href,
-  go,
-  label,
-  light,
-  selected,
-  title = label,
-  age = "",
-  detail = "",
-}: {
-  readonly href: string;
-  readonly go: (href: string) => void;
-  readonly label: string;
-  readonly light: RowLight;
-  readonly selected: boolean;
-  readonly title?: string;
-  readonly age?: string;
-  readonly detail?: string;
-}) {
-  return (
-    <li>
-      <Link
-        className={`${rowClass} no-underline`}
-        href={href}
-        aria-current={selected ? "page" : undefined}
-        title={detail === "" ? title : `${title} — ${detail}`}
-        onClick={(event) => {
-          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          go(href);
-        }}
-      >
-        <Light light={light} />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
-        {detail === "" ? null : <span className="max-w-32 shrink-0 truncate text-muted">{detail}</span>}
-        {age === "" ? null : <time className="shrink-0 text-xs tabular-nums text-subtle">{age}</time>}
-      </Link>
-    </li>
-  );
-}
-
 function rowText(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -424,15 +342,4 @@ function rowText(value: unknown): string {
 /** No message yet means just minted: newest of its band. */
 function lastMessageAt(overview: SessionOverview | undefined): number {
   return overview?.lastMessageAt ?? Number.POSITIVE_INFINITY;
-}
-
-function Light({ light }: { readonly light: RowLight }) {
-  if (light === "idle") return <span aria-hidden className="size-2 shrink-0" />;
-  return (
-    <span
-      role="img"
-      aria-label={light === "waiting-for-you" ? "waiting for you" : light}
-      className={`inline-block size-2 shrink-0 rounded-xs ${light === "running" ? "bg-success" : "border-2 border-warning"}`}
-    />
-  );
 }

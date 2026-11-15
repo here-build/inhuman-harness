@@ -1,6 +1,5 @@
+import { resist, swipeRelease } from "@inhuman.tools/harness-ui";
 import { describe, expect, it } from "vitest";
-
-import { resist, swipeRelease } from "../row-swipe.js";
 
 const both = { leading: true, trailing: true };
 const trailingOnly = { leading: false, trailing: true };

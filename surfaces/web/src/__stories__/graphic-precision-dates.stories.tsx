@@ -1,9 +1,4 @@
 import { useState } from "react";
-import { CalendarDate, Time } from "@internationalized/date";
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Button, FieldError, Group, Heading, Label, Text } from "react-aria-components";
-
-import { Page, Schemes, Section } from "./brand-kit.js";
 import {
   Calendar,
   CalendarCell,
@@ -18,7 +13,12 @@ import {
   DateSegment,
   RangeCalendar,
   TimeField,
-} from "../components/ui/date-controls.js";
+} from "@inhuman.tools/harness-ui/primitives/date-controls";
+import { CalendarDate, Time } from "@internationalized/date";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Button, FieldError, Group, Heading, Label, Text } from "react-aria-components";
+
+import { Page, Schemes, Section } from "./brand-kit.js";
 
 const meta = {
   title: "Graphic Precision/Dates and times",
@@ -59,7 +59,6 @@ function CalendarContents() {
 export const SegmentedFields: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Date and time fields"
       lede="Persistent labels and ordinary Source Sans date values. Each segment can be edited without a calendar."
     >
@@ -115,11 +114,7 @@ function FieldExamples() {
 
 export const InlineCalendars: Story = {
   render: () => (
-    <Page
-      historical={false}
-      title="Inline calendars"
-      lede="Complete date and range selection without any floating layer."
-    >
+    <Page title="Inline calendars" lede="Complete date and range selection without any floating layer.">
       <Section
         title="Single date and date range"
         note="Arrow keys move by day or week, Page Up and Page Down change months. Enter or Space selects; for a range, select the start and then the end."
@@ -162,13 +157,12 @@ function CalendarExamples() {
 export const PickerRootBoundary: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Picker roots: adapter boundary"
       lede="These are non-positioning React Aria roots and editable input slots, not complete floating pickers."
     >
       <Section
         title="Field contexts only"
-        note="No calendar-opening button is offered here. A future native Popover API + CSS anchor adapter must supply the trigger, dialog semantics, dismissal, focus return, and synchronization with the root's open state. React Aria does not own placement. Use the inline calendars for complete selection today."
+        note="No calendar-opening button is rendered on the bare roots here. Use LabeledDatePicker or LabeledDateRangePicker in the Date pickers story for complete native top-layer popover fields."
       >
         <Schemes>
           <div className="flex max-w-lg flex-col gap-5">

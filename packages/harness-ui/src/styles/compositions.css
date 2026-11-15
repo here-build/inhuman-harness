@@ -1,0 +1,314 @@
+@layer blocks {
+  /* The rail's sections split its height fairly: each is owed an equal share, a short one takes only what it holds
+     and leaves the rest to the others, and one held to its share scrolls inside itself. */
+  .rail-section {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-block-size: 0;
+    max-block-size: max-content;
+  }
+
+  .rail-section + .rail-section {
+    border-block-start: 1px solid var(--line);
+  }
+
+  .rail-section > ul {
+    min-block-size: 0;
+    overflow-y: auto;
+  }
+
+  /* Project tabs. The strip's top rule is the tape's bottom edge and runs the full
+     frame. The corner under the rail is the cell that rule and the rail's right
+     rule close. The active tab carries a 2px ink bar on that top rule. */
+  .frame {
+    display: flex;
+    flex-direction: column;
+    block-size: 100dvh;
+    overflow: hidden;
+    background: var(--canvas);
+    color: var(--ink);
+  }
+
+  .frame-body {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  @media (width >= 64rem) {
+    .frame-body {
+      position: relative;
+      flex-direction: row;
+      /* The preview queries this row. `.tape` stays its own container, so the lane fold still measures the tape. */
+      container: preview-row / inline-size;
+    }
+  }
+
+  .project-strip {
+    display: flex;
+    flex: none;
+    align-items: stretch;
+    min-block-size: 2.5rem;
+    border-block-start: 1px solid var(--line);
+    background: var(--wash);
+  }
+
+  .rail-machines {
+    flex: none;
+    padding: calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 4);
+    border-block-end: 1px solid var(--line);
+    font-size: var(--text-sm);
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .rail-machines:hover {
+    text-decoration: underline;
+  }
+
+  .rail-brand {
+    display: flex;
+    flex: none;
+    align-items: center;
+    min-block-size: 3rem;
+    margin: 0;
+    padding-inline: calc(var(--spacing, 0.25rem) * 4);
+    border-block-end: 1px solid var(--line);
+    font-size: var(--text-base);
+  }
+
+  .project-corner {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: flex-start;
+    gap: calc(var(--spacing, 0.25rem) * 2);
+    padding-inline: calc(var(--spacing, 0.25rem) * 4);
+    border-inline-end: 1px solid var(--line);
+    color: var(--ink);
+    font-size: var(--text-sm);
+  }
+
+  .project-corner:hover {
+    background: var(--hover);
+  }
+
+  .settings-dialog {
+    display: flex;
+    flex-direction: column;
+    inline-size: min(56rem, calc(100vw - 2rem));
+    block-size: min(40rem, calc(100dvh - 2rem));
+    max-block-size: calc(100dvh - 2rem);
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--canvas);
+    color: var(--ink);
+    box-shadow: var(--overlay-shadow);
+  }
+
+  .settings-dialog::backdrop,
+  .picker-backdrop {
+    background: light-dark(rgb(0 0 0 / 0.25), rgb(0 0 0 / 0.55));
+  }
+
+  .picker-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
+
+  .settings-layout {
+    display: flex;
+    min-block-size: 0;
+    flex: 1;
+  }
+
+  .settings-nav {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    inline-size: 11rem;
+    background: var(--wash);
+  }
+
+  .settings-nav button {
+    min-block-size: 2rem;
+    padding: calc(var(--spacing, 0.25rem) * 2) calc(var(--spacing, 0.25rem) * 3);
+    border-radius: 0;
+    text-align: start;
+    font-size: var(--text-sm);
+  }
+
+  .settings-nav button:hover {
+    background: var(--hover);
+  }
+
+  .settings-nav button[aria-current="true"],
+  .settings-nav button[aria-current="true"]:hover {
+    background: var(--selected);
+    box-shadow: inset 3px 0 0 var(--selection-marker);
+    font-weight: var(--font-weight-strong);
+  }
+
+  .settings-body {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: calc(var(--spacing, 0.25rem) * 4);
+    padding: calc(var(--spacing, 0.25rem) * 5);
+    overflow: auto;
+  }
+
+  .settings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--spacing, 0.25rem) * 3);
+  }
+
+  @media (width < 40rem) {
+    .settings-layout {
+      flex-direction: column;
+    }
+
+    .settings-nav {
+      flex-direction: row;
+      inline-size: auto;
+      overflow-x: auto;
+    }
+  }
+
+  @media (width >= 64rem) {
+    .project-corner {
+      inline-size: 18rem;
+    }
+  }
+
+  .frame[data-embed] .tape {
+    padding-top: var(--embed-safe-top, 0px);
+    padding-bottom: var(--embed-safe-bottom, 0px);
+    scrollbar-gutter: auto;
+  }
+
+  .tape {
+    /* One geometry for transcript, annotations, sent messages and drafting.
+       The body owns its measure; equal gutters hold numbers and actions. */
+    --gutter-width: 3.5rem;
+    --status-gap: calc(var(--spacing, 0.25rem) * 4);
+    --body-width: min(48rem, 54cqw);
+    /* The selector row under the model lane; held model notes rest above it. */
+    --model-rest: 3.75rem;
+
+    /* Proximity is the grouping: a tool run touches, cells in a round sit apart, rounds sit further. */
+    --cell-gap: calc(var(--spacing, 0.25rem) * 4);
+    --round-gap: calc(var(--spacing, 0.25rem) * 8);
+    --note-gap: calc(var(--spacing, 0.25rem) * 6);
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: auto;
+    overflow-anchor: auto;
+    scrollbar-gutter: stable;
+    container-type: inline-size;
+  }
+
+  .tape > * {
+    overflow-anchor: none;
+  }
+
+  .tape > .anchor {
+    overflow-anchor: auto;
+    block-size: 1px;
+    flex: none;
+  }
+
+  .file-sidebar {
+    display: flex;
+    width: min(36rem, 40vw);
+    min-width: 18rem;
+    min-height: 0;
+    flex-shrink: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border-left: 1px solid var(--line);
+    background: var(--canvas);
+  }
+
+  @media (max-width: 767px) {
+    .file-sidebar {
+      position: fixed;
+      inset: 0 0 0 auto;
+      z-index: 30;
+      width: min(100%, 28rem);
+      min-width: 0;
+      height: 100dvh;
+      box-shadow: var(--overlay-shadow);
+    }
+  }
+
+  /* The row is the rail plus the tape plus the preview. Overlay under the 89rem tape-and-preview
+     floor (52rem lanes + 1rem gutter + 36rem cap) plus the 18rem rail, so the tape keeps the
+     width beside the rail and its lanes stay open. Phones keep the fixed sheet below. */
+  @container preview-row (max-width: calc(89rem + 18rem)) {
+    .file-sidebar {
+      position: absolute;
+      inset-block: 0;
+      right: 0;
+      z-index: 30;
+      width: min(36rem, max(18rem, 40vw));
+      background: var(--canvas);
+      border-left: 1px solid var(--line);
+    }
+  }
+
+  .file-sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--spacing, 0.25rem) * 4);
+    padding: calc(var(--spacing, 0.25rem) * 3) calc(var(--spacing, 0.25rem) * 4);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .file-sidebar-head h2 {
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--text-sm);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-sidebar-body {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    padding: calc(var(--spacing, 0.25rem) * 3);
+  }
+
+  .file-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .file-pdf {
+    width: 100%;
+    height: 100%;
+    min-height: 24rem;
+    border: 0;
+  }
+
+  /* Optional white-label top-header layout: docks workspace bar above the stage. */
+  .frame[data-layout="header-top"] > .project-strip {
+    order: -1;
+    border-block-start: 0;
+    border-block-end: 1px solid var(--line);
+  }
+}

@@ -1,9 +1,9 @@
 import { asSystemPrompt, type SystemPrompt } from "@inhuman.tools/harness-commons";
 import { agentNatureOf, reasoningEffortOf, type RecipeScope, type ReasoningEffort } from "@inhuman.tools/harness-model";
+import { turnVisualPayload } from "@inhuman.tools/harness-ui";
 
 import { cloneDraftPicture, type DraftPicture } from "./draft-slot.js";
 import type { ModelChoice } from "./model-choice.js";
-import { turnVisualPayload } from "./picture-draft.js";
 
 export type StagedPermission = "manual" | "auto" | "yolo";
 

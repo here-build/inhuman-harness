@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
 
+import { bindWindowFileDrop, dragCarriesFiles, type WindowDropPhase } from "@inhuman.tools/harness-ui";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import { bindWindowFileDrop, dragCarriesFiles, type WindowDropPhase } from "../window-drop.js";
 
 function drag(
   type: string,

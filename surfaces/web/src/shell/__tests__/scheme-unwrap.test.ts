@@ -10,12 +10,15 @@ import {
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
 import { BeatTimeline } from "@inhuman.tools/harness-transcript";
+import {
+  schemeExprReady,
+  schemeExprSettled,
+  schemeHostCallsOnly,
+} from "@inhuman.tools/harness-transcript/scheme-unwrap";
+import { groupBeats } from "@inhuman.tools/harness-transcript/tape-beats";
+import { tapeCells, type TapeCell } from "@inhuman.tools/harness-transcript/tape-read";
 import { autorun } from "mobx";
 import { describe, expect, it } from "vitest";
-
-import { schemeExprReady, schemeExprSettled, schemeHostCallsOnly } from "../scheme-unwrap.js";
-import { groupBeats } from "../tape-beats.js";
-import { tapeCells, type TapeCell } from "../tape-read.js";
 
 const CALLS = '(shell "cwd")\n(read_file "./readme.md")';
 

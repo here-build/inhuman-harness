@@ -36,12 +36,12 @@ import {
 } from "@inhuman.tools/harness-model";
 import { resolvedTip } from "@inhuman.tools/harness-model/session";
 import { ProjectDocument } from "@inhuman.tools/harness-peer";
+import { turnsOldestFirst } from "@inhuman.tools/harness-transcript/tape-read";
 import { makeObservable, observable, runInAction } from "mobx";
 
 import { serveWorkflow, type WorkflowRun } from "./workflow-world.js";
 import type { Dial, Link } from "../client/dial.js";
 import type { RouteTarget } from "../shell/path.js";
-import { turnsOldestFirst } from "../shell/tape-read.js";
 
 export const PROJECT = "/Users/ada/work/harness";
 export const OTHER_PROJECT = "/Users/ada/work/kley";

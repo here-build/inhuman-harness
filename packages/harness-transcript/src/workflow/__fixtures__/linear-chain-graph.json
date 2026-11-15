@@ -1,0 +1,123 @@
+{
+  "roots": [
+    {
+      "kind": "leaf",
+      "id": 76,
+      "label": "spark",
+      "scope": "spark@90:10",
+      "nodeKind": "prompt",
+      "meta": {
+        "kind": "prompt",
+        "path": "spark.prompt",
+        "model": "qwen3.5-9b",
+        "inputs": {
+          "topic": "a calmer morning routine"
+        },
+        "inputsProvenance": {
+          "topic": []
+        },
+        "reads": {
+          "topic": []
+        }
+      },
+      "value": {
+        "idea": "Wake before the house does and drink water in silence.",
+        "energy": 0.7
+      },
+      "state": "resolved"
+    },
+    {
+      "kind": "leaf",
+      "id": 77,
+      "label": "refine",
+      "scope": "refine@91:10",
+      "nodeKind": "prompt",
+      "meta": {
+        "kind": "prompt",
+        "path": "refine.prompt",
+        "model": "qwen3.5-9b",
+        "inputs": {
+          "idea": "Wake before the house does and drink water in silence."
+        },
+        "inputsProvenance": {
+          "idea": [
+            76
+          ]
+        },
+        "reads": {
+          "idea": []
+        }
+      },
+      "value": {
+        "idea": "Rise before the household; sip water in deliberate quiet.",
+        "improved": true
+      },
+      "state": "resolved"
+    },
+    {
+      "kind": "leaf",
+      "id": 83,
+      "label": "digest",
+      "scope": "digest@92:10",
+      "nodeKind": "prompt",
+      "meta": {
+        "kind": "prompt",
+        "path": "digest.prompt",
+        "model": "qwen3.5-9b",
+        "inputs": {
+          "ideas": [
+            {
+              "idea": "Rise before the household; sip water in deliberate quiet.",
+              "improved": true
+            }
+          ]
+        },
+        "inputsProvenance": {
+          "ideas": [
+            77
+          ]
+        },
+        "reads": {
+          "ideas": [
+            "idea"
+          ]
+        }
+      },
+      "value": {
+        "summary": "A calm, intentional start to the day.",
+        "count": 1
+      },
+      "state": "resolved"
+    },
+    {
+      "kind": "output",
+      "id": -1,
+      "value": {
+        "summary": "A calm, intentional start to the day.",
+        "count": 1
+      },
+      "state": "resolved"
+    }
+  ],
+  "edges": [
+    {
+      "from": 76,
+      "to": 77,
+      "kind": "data",
+      "field": "idea"
+    },
+    {
+      "from": 77,
+      "to": 83,
+      "kind": "data",
+      "field": "ideas",
+      "fromField": "idea"
+    },
+    {
+      "from": 83,
+      "to": -1,
+      "kind": "data"
+    }
+  ],
+  "warnings": []
+}

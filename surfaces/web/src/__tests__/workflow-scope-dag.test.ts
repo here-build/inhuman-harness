@@ -10,9 +10,8 @@
  *     `B→A` lifted — the same rule, just a 2-node loop body. No special case.
  */
 import type { Region, RegionGraph } from "@here.build/arrival-provenance";
+import { buildScopeDags, stacksOf } from "@inhuman.tools/harness-transcript/workflow/scope-dag";
 import { describe, expect, it } from "vitest";
-
-import { buildScopeDags, stacksOf } from "../workflow/scope-dag.js";
 
 const leaf = (id: number, scope: string, value?: unknown): Region => ({
   kind: "leaf",

@@ -10,11 +10,10 @@ import {
   type UserVisualIdentity,
 } from "@inhuman.tools/harness-model";
 import { BeatTimeline } from "@inhuman.tools/harness-transcript";
+import { groupBeats } from "@inhuman.tools/harness-transcript/tape-beats";
+import { projectUserTurn, type TapeCell } from "@inhuman.tools/harness-transcript/tape-read";
 import { runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { groupBeats } from "../tape-beats.js";
-import { projectUserTurn, type TapeCell } from "../tape-read.js";
 
 const request = vi.hoisted(() =>
   vi.fn<(method: string, params: unknown) => Promise<unknown>>(async () => ({ ok: true })),
@@ -27,6 +26,10 @@ const state = vi.hoisted(() => {
 
 vi.mock("../../client/context.js", () => ({
   useDial: () => state.dial,
+}));
+
+vi.mock("@inhuman.tools/harness-transcript/context", () => ({
+  useTranscriptHost: () => state.dial,
 }));
 
 const shot: UserVisualIdentity = {

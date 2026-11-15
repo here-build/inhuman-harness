@@ -11,11 +11,10 @@ import { EvalTrace, type RegionGraph, TraceRegionFold } from "@here.build/arriva
 import type { ToolCallJob } from "@inhuman.tools/harness-model";
 import { diffJson, type WorkflowFrame, type WorkflowLeafMeta } from "@inhuman.tools/harness-model/session";
 import { keywordsOf } from "@inhuman.tools/harness-scheme/keywords";
+import type { WorkflowCell } from "@inhuman.tools/harness-transcript/workflow/cell";
+import { type Feed, foldFrame } from "@inhuman.tools/harness-transcript/workflow/feed";
+import { indexRegions } from "@inhuman.tools/harness-transcript/workflow/region-nesting";
 import { observable, reaction, runInAction, type ObservableMap } from "mobx";
-
-import type { WorkflowCell } from "../workflow/cell.js";
-import { type Feed, foldFrame } from "../workflow/feed.js";
-import { indexRegions } from "../workflow/region-nesting.js";
 
 /* Clock: holds, by key, backed by deferreds. */
 

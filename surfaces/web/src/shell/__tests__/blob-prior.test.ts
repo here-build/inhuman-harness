@@ -8,13 +8,12 @@ import {
   storedBlobJson,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
+import { bindBlobCache } from "@inhuman.tools/harness-transcript/blob-cache";
+import { turnBeats } from "@inhuman.tools/harness-transcript/tape-live";
+import { tapeCells, type TapeCell, turnsOldestFirst } from "@inhuman.tools/harness-transcript/tape-read";
+import { fileFact, toolReceipt } from "@inhuman.tools/harness-transcript/tool-receipt";
 import { autorun } from "mobx";
 import { afterEach, describe, expect, it } from "vitest";
-
-import { bindBlobCache } from "../blob-cache.js";
-import { turnBeats } from "../tape-live.js";
-import { tapeCells, type TapeCell, turnsOldestFirst } from "../tape-read.js";
-import { fileFact, toolReceipt } from "../tool-receipt.js";
 
 const SHA = "a".repeat(64);
 const file = `${Array.from({ length: 40 }, (_, i) => `line-${String(i).padStart(2, "0")}`).join("\n")}\n`;

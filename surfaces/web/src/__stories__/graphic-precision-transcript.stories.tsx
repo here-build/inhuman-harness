@@ -1,12 +1,11 @@
-/* eslint-disable import-x/no-relative-packages -- Story fixture renders the workspace transcript. */
 import { FailureOutcome } from "@inhuman.tools/harness-model";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { agents, agentWorkers, agentWorkerTapes, looks } from "./scenes.js";
 import { sessionStage } from "./story-app.js";
+import { TranscriptStage } from "./transcript-stage.js";
 import { agent, session, speech } from "./world.js";
-import { TranscriptStage } from "../../../../packages/harness-transcript/src/stage.js";
 
 const meta = {
   title: "Graphic Precision/Working transcript",

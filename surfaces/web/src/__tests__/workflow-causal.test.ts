@@ -1,7 +1,6 @@
 import type { Region, RegionGraph } from "@here.build/arrival-provenance";
+import { causalGraph, hasTools } from "@inhuman.tools/harness-transcript/workflow/causal";
 import { describe, expect, it } from "vitest";
-
-import { causalGraph, hasTools } from "../workflow/causal.js";
 
 const leaf = (id: number, kind: "agent" | "tool"): Region => ({
   kind: "leaf",

@@ -15,7 +15,7 @@ type Story = StoryObj<typeof meta>;
 
 const neighbours = () => [
   quiet("n1", "Hide context_need calls in the web UI"),
-  quiet("n2", "у нас небольшая ошибка в реализации UI-слоя, давай разберёмся"),
+  quiet("n2", "Fix dropdown toggle dismissal on pointer up"),
   quiet("n3", "Compact is greedy and the 5s is chokidar, not the fold"),
 ];
 
@@ -35,7 +35,7 @@ export const Overview: Story = {
               at: Date.now() - 5 * 60_000,
             },
             stale: {
-              title: "Выкидываю обёртки liveness",
+              title: "Remove redundant liveness wrappers",
               unfinished: "tools",
               openTurn: false,
               at: Date.now() - 26 * 24 * 60 * 60_000,

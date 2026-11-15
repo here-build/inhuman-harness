@@ -1,7 +1,3 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { FieldError, Label, Text } from "react-aria-components";
-
-import { Page, Schemes, Section } from "./brand-kit.js";
 import {
   CheckboxField,
   CheckboxButton,
@@ -9,8 +5,12 @@ import {
   RadioButton,
   SwitchField,
   SwitchButton,
-} from "../components/ui/choice-fields.js";
-import { RadioGroup } from "../components/ui/radio-group.js";
+} from "@inhuman.tools/harness-ui/primitives/choice-fields";
+import { RadioGroup } from "@inhuman.tools/harness-ui/primitives/radio-group";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { FieldError, Label, Text } from "react-aria-components";
+
+import { Page, Schemes, Section } from "./brand-kit.js";
 
 const meta = { title: "Graphic Precision/Choice fields", parameters: { layout: "fullscreen" } } satisfies Meta;
 export default meta;
@@ -19,7 +19,6 @@ type Story = StoryObj<typeof meta>;
 export const FieldsAndDescriptions: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Choice fields"
       lede="A field owns validation and supporting information; its button owns the click target. Labels are content, not commands."
     >

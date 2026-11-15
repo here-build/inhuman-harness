@@ -1,8 +1,4 @@
 import { useState } from "react";
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Button as AriaButton, Header, Text } from "react-aria-components";
-
-import { Page, Schemes, Section } from "./brand-kit.js";
 import {
   Autocomplete,
   Dialog,
@@ -15,8 +11,13 @@ import {
   SubmenuTrigger,
   Tooltip,
   type AnchoredOption,
-} from "../components/ui/anchored.js";
-import { Button } from "../components/ui/button.js";
+} from "@inhuman.tools/harness-ui/primitives/anchored";
+import { Button } from "@inhuman.tools/harness-ui/primitives/button";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Button as AriaButton, Header, Text } from "react-aria-components";
+import { expect, userEvent, within } from "storybook/test";
+
+import { Page, Schemes, Section } from "./brand-kit.js";
 
 const meta = {
   title: "Graphic Precision/Anchored",
@@ -35,13 +36,12 @@ const options: AnchoredOption[] = [
 export const Selection: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Anchored selection"
-      lede="Native top-layer popovers stay attached with CSS anchors. React Aria owns keyboard navigation, typeahead, labels, and native form integration."
+      lede="Native top-layer popovers stay positioned within the viewport without CSS Anchor Positioning (Safari 18.7+). React Aria owns keyboard navigation, typeahead, labels, and native form integration."
     >
       <Section
         title="Select and autocomplete"
-        note="Use Tab, ArrowDown, typeahead, Enter, and Escape. Submit or reset the form to inspect its native values. Requires a browser with CSS anchor positioning and Popover API; no JavaScript positioning library is loaded."
+        note="Use pointer click or Tab, ArrowDown, typeahead, Enter, and Escape. Clicking a trigger toggles the menu cleanly; clicking outside or pressing Escape dismisses it."
       >
         <Schemes>
           <SelectionExample />
@@ -49,6 +49,19 @@ export const Selection: Story = {
       </Section>
     </Page>
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const body = within(canvasElement.ownerDocument.body);
+    const statusTrigger = canvas.getAllByRole("button", { name: /Status/ })[0]!;
+    await userEvent.click(statusTrigger);
+    await expect(body.getByRole("listbox")).toBeTruthy();
+    await userEvent.click(statusTrigger);
+    await expect(body.queryByRole("listbox")).toBeNull();
+    await userEvent.click(statusTrigger);
+    await userEvent.click(within(body.getByRole("listbox")).getByRole("option", { name: "Published" }));
+    await expect(body.queryByRole("listbox")).toBeNull();
+    await expect(statusTrigger.textContent).toContain("Published");
+  },
 };
 
 function SelectionExample() {
@@ -99,7 +112,6 @@ function SelectionExample() {
 export const States: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Selection states"
       lede="Availability and errors stay explicit; focus is an outline, never an accent-colored surface."
     >
@@ -136,7 +148,6 @@ export const States: Story = {
 export const Menus: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Anchored commands"
       lede="Menu items, sections, and submenus retain React Aria semantics in native popovers, without RAC positioning."
     >
@@ -200,9 +211,8 @@ function MenuExample() {
 export const NativeOverlays: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Native hints and dialogs"
-      lede="Hints use the native popover top layer and CSS anchors; dialogs use showModal, browser focus return, and React Aria labelling."
+      lede="Hints use the native popover top layer with viewport-clamped placement; dialogs use showModal, browser focus return, and React Aria labelling."
     >
       <Section
         title="Description and confirmation"
@@ -242,13 +252,12 @@ function OverlayExample() {
 export const EdgePlacement: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Viewport edge placement"
-      lede="CSS position-try-fallbacks flip the native top-layer surface when its preferred position does not fit."
+      lede="Floating collision detection flips the native top-layer surface when its preferred position does not fit."
     >
       <Section
         title="Bottom and inline edges"
-        note="Scroll this frame, open the control near its lower edge, and resize the viewport. These are native CSS anchors, not measured coordinates."
+        note="Scroll this frame, open the control near its lower edge, and resize the viewport. Positioning uses live floating coordinates inside a native top-layer popover."
       >
         <div className="flex min-h-[65vh] items-end justify-end p-4">
           <DropdownSelect label="Status at the edge" options={options} />

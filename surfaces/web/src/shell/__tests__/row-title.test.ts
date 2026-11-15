@@ -1,6 +1,5 @@
+import { rowTitle } from "@inhuman.tools/harness-transcript/tape-read";
 import { describe, expect, it } from "vitest";
-
-import { rowTitle } from "../tape-read.js";
 
 describe("row title", () => {
   it("prefers the live title, then the overview title, then the prompt", () => {

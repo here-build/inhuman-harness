@@ -1,5 +1,9 @@
 import { useEffect } from "react";
 import { traceToRegions, type RegionGraph } from "@here.build/arrival-provenance";
+import type { AgentState } from "@inhuman.tools/harness-transcript/tape-read";
+import type { WorkflowCell } from "@inhuman.tools/harness-transcript/workflow/cell";
+import { useRegionGraph } from "@inhuman.tools/harness-transcript/workflow/use-region-graph";
+import { WorkflowGraph } from "@inhuman.tools/harness-transcript/workflow/workflow-graph";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
@@ -12,10 +16,6 @@ import {
   type WorkflowScript,
   runWorkflow,
 } from "./workflow-world.js";
-import type { AgentState } from "../shell/tape-read.js";
-import type { WorkflowCell } from "../workflow/cell.js";
-import { useRegionGraph } from "../workflow/use-region-graph.js";
-import { WorkflowGraph } from "../workflow/workflow-graph.js";
 
 const meta = { title: "Workflow/Graph" } satisfies Meta;
 

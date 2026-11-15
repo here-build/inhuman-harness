@@ -1,9 +1,15 @@
 import { AgentCallJob, FailureOutcome, SessionOverview, SuccessfulOutcome } from "@inhuman.tools/harness-model";
+import {
+  agentSpans,
+  groupBeats,
+  modelSpans,
+  stickyBeats,
+  type TapeBeat,
+} from "@inhuman.tools/harness-transcript/tape-beats";
+import { agentCell, agentFace, type AgentCell } from "@inhuman.tools/harness-transcript/tape-read";
 import { describe, expect, it } from "vitest";
 
 import { session } from "../../__stories__/world.js";
-import { agentSpans, groupBeats, modelSpans, stickyBeats, type TapeBeat } from "../tape-beats.js";
-import { agentCell, agentFace, type AgentCell } from "../tape-read.js";
 
 function beat(id: string, title = false, thought = false, model = ""): TapeBeat {
   return {

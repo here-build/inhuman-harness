@@ -12,16 +12,14 @@ import { fileURLToPath } from "node:url";
 import { composeStories, setProjectAnnotations } from "@storybook/react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import * as transcriptStories from "../../../../packages/harness-transcript/src/tape.stories.js";
 import preview from "../../.storybook/preview.js";
 
 type StoryModule = Parameters<typeof composeStories>[0];
 type Playable = { run(context: { readonly canvasElement: HTMLElement }): Promise<void> };
 
-const modules: Record<string, StoryModule> = {
-  ...import.meta.glob<StoryModule>("../__stories__/*.stories.tsx", { eager: true }),
-  "transcript/tape.stories.tsx": transcriptStories,
-};
+const modules: Record<string, StoryModule> = import.meta.glob<StoryModule>("../__stories__/*.stories.tsx", {
+  eager: true,
+});
 
 // happy-dom has no popover API. The platform owns open and dismiss; stories only need the calls to land.
 for (const name of ["showPopover", "hidePopover", "togglePopover"] as const) {
@@ -41,7 +39,7 @@ afterEach(() => {
 });
 
 // Keep the inventory check beside the eager glob: changing the catalog must
-// invalidate cached glob transforms before mounting newly added stories (including Markdown alignment).
+// invalidate cached glob transforms before mounting newly added stories (including Lego compositions).
 it("includes every story file in the current catalog", () => {
   const files = readdirSync(resolvePath(dirname(fileURLToPath(import.meta.url)), "../__stories__")).filter((path) =>
     path.endsWith(".stories.tsx"),

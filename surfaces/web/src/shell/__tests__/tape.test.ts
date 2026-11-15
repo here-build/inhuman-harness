@@ -3,11 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { prompt } from "@inhuman.tools/harness-commons";
 import { SessionDocument, SessionRoot, SessionSystemPrompt, SessionTurn } from "@inhuman.tools/harness-model";
 import { BeatTimeline, Tape } from "@inhuman.tools/harness-transcript";
+import { groupBeats } from "@inhuman.tools/harness-transcript/tape-beats";
+import type { TapeCell } from "@inhuman.tools/harness-transcript/tape-read";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FilePreviewProvider } from "../file-sidebar.js";
-import { groupBeats } from "../tape-beats.js";
-import type { TapeCell } from "../tape-read.js";
+import { LinkNotice } from "../link-notice.js";
 
 const state = vi.hoisted(() => ({
   dial: {
@@ -21,7 +22,11 @@ const state = vi.hoisted(() => ({
     requestedTarget: { kind: "kernel" } as { kind: string; path?: string; sessionId?: string },
   },
 }));
+vi.mock("@tanstack/react-router", () => ({ useRouter: () => ({ navigate: vi.fn() }) }));
 vi.mock("../../client/context.js", () => ({ useDial: () => state.dial }));
+vi.mock("@inhuman.tools/harness-transcript/context", () => ({
+  useTranscriptHost: () => ({ ...state.dial, renderLinkNotice: () => createElement(LinkNotice) }),
+}));
 
 const render = (): string =>
   renderToStaticMarkup(createElement(FilePreviewProvider, { resetKey: null }, createElement(Tape)));
@@ -444,8 +449,8 @@ describe("Tape", () => {
       ["Grok 4.7", "grok"],
       ["GPT 6.1 Sol", "chatgpt"],
     ]);
-    expect(html).toContain("--annotation-end:anchor(--beat-2 bottom)");
-    expect(html).toContain("--annotation-end:anchor(--beat-3 bottom)");
+    expect(html).toContain('data-model-last-row="2"');
+    expect(html).toContain('data-model-last-row="3"');
   });
 
   it("keeps thought-only rounds outside the center body and separates later rounds", () => {
@@ -504,13 +509,15 @@ describe("Tape", () => {
     ]);
     expect(html.match(/class="side-pane side-left"/g)).toHaveLength(1);
     expect(html.match(/class="side-pane side-right"/g)).toHaveLength(1);
-    expect(html).toContain("--note-anchor:--left-note-1;--previous-note:0px;--annotation-end:anchor(--beat-3 top)");
-    expect(html).toContain("--note-anchor:--right-note-1;--previous-note:0px;--annotation-end:anchor(--beat-2 top)");
+    expect(html).toContain('class="annotation-slot side-left" data-beat-row="1" data-end-row="3" style="--beat-row:1"');
     expect(html).toContain(
-      "--note-anchor:--right-note-2;--previous-note:calc(anchor(--right-note-1 bottom) + var(--note-gap));--annotation-end:0px",
+      'class="annotation-slot side-right" data-beat-row="1" data-end-row="2" style="--beat-row:1"',
     );
     expect(html).toContain(
-      "--note-anchor:--left-note-3;--previous-note:calc(anchor(--left-note-1 bottom) + var(--note-gap));--annotation-end:0px",
+      'class="annotation-slot side-right" data-beat-row="2" data-prev-row="1" style="--beat-row:2"',
+    );
+    expect(html).toContain(
+      'class="annotation-slot side-left" data-beat-row="3" data-prev-row="1" style="--beat-row:3"',
     );
     expect(html.match(/First title/g)).toHaveLength(1);
     expect(html.match(/First thought/g)).toHaveLength(1);

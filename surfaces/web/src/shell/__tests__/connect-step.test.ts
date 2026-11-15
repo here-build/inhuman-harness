@@ -2,9 +2,9 @@
 
 import { act, createElement, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { connectError } from "@inhuman.tools/harness-ui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { connectError } from "../connect-error.js";
 import { ConnectStep } from "../connect-step.js";
 
 const START = { driver: "openai-compat", name: "Groq", settings: { baseUrl: "https://api.groq.com/openai/v1" } };
@@ -105,10 +105,12 @@ async function type(field: HTMLInputElement, value: string) {
     field.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
-async function press(node: Element, key: string) {
+async function press(node: Element, key: string, init: KeyboardEventInit = {}): Promise<KeyboardEvent> {
+  const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
   await act(async () => {
-    node.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+    node.dispatchEvent(event);
   });
+  return event;
 }
 
 beforeEach(() => {
@@ -226,6 +228,9 @@ describe("connect step", () => {
     expect(field.getAttribute("autocomplete")).toBe("off");
     expect(text()).toContain("Paste your key.");
     await type(field, "gsk_abc");
+    const composing = await press(field, "Enter", { isComposing: true });
+    expect(composing.defaultPrevented).toBe(false);
+    expect(d.calls.some((call) => call.method === "ui/resolve")).toBe(false);
     await press(field, "Enter");
     expect(d.calls.at(-1)).toEqual({ method: "ui/resolve", params: { pending: "p1", kind: "text", input: "gsk_abc" } });
     expect(container.querySelector('[role="status"]')?.textContent).toContain("Connecting…");

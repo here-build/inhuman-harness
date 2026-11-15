@@ -3,9 +3,9 @@
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { FileMutateToolJob, storedBlobJson } from "@inhuman.tools/harness-model";
+import { bindBlobCache } from "@inhuman.tools/harness-transcript/blob-cache";
 import { afterEach, expect, it } from "vitest";
 
-import { bindBlobCache } from "../blob-cache.js";
 import { AskReceipt } from "../composer.js";
 
 const SHA = "b".repeat(64);

@@ -1,6 +1,5 @@
+import { Markdown } from "@inhuman.tools/harness-ui/blocks/markdown-block";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-
-import { Markdown } from "../shell/markdown.js";
 
 const meta = {
   title: "Graphic Precision/Markdown alignment",

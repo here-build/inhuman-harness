@@ -1,5 +1,3 @@
-import { describe, expect, it } from "vitest";
-
 import {
   accountAnnotation,
   accountLow,
@@ -7,7 +5,8 @@ import {
   quotaLine,
   spellRemaining,
   wireAccount,
-} from "../wire-account.js";
+} from "@inhuman.tools/harness-ui";
+import { describe, expect, it } from "vitest";
 
 const NOW = 1_792_424_000_000;
 const inSec = (sec: number): number => NOW / 1000 + sec;

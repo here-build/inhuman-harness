@@ -14,36 +14,22 @@ document, so scenes build fresh jobs on every call.
 The toolbar's **Scheme** pins `data-scheme` on the root; every token is a
 `light-dark()` pair, so the page follows.
 
-## Graphic Precision
+## Graphic Precision & White-Label Catalog
 
-The normative system is [`docs/graphic-precision.md`](../../../../docs/graphic-precision.md).
-The **Graphic Precision › System › Guidelines** story renders that file directly;
-Meaning and Typography, Visual and Verbal Language, and Implementation Contract
-show its application using the same primitives and tokens as the product.
-The phased rebuild and acceptance gates live in
-[`docs/graphic-precision-web-rebuild.md`](../../../../docs/graphic-precision-web-rebuild.md).
-React Aria supplies reusable control semantics; floating blocks retain native
-Popover API + CSS Anchor Positioning.
+The normative system lives across:
+- [`docs/brand/brand-core.md`](../../../../docs/brand/brand-core.md)
+- [`docs/brand/text-brandbook.md`](../../../../docs/brand/text-brandbook.md)
+- [`docs/brand/design-direction.md`](../../../../docs/brand/design-direction.md)
+- [`docs/brand/design-system.md`](../../../../docs/brand/design-system.md)
 
-The expanded catalog includes **Forms**, **Collections**, **Dates and times**,
+The **Graphic Precision › System › Guidelines** story renders those documents directly;
+Meaning and Typography, Tokens and Surfaces, Status Language, Visual and Verbal Language, and Implementation Contract
+demonstrate them using `@inhuman.tools/harness-ui` tokens and primitives. React Aria supplies reusable control semantics;
+floating overlays use native HTML Popover API with `useFloatingPosition` (Safari `>= 18.7`, zero CSS Anchor Positioning).
+
+The catalog includes **System**, **White-label system**, **Forms**, **Collections**, **Dates and times**,
 **Date pickers**, **Choice fields**, **Navigation**, **Anchored**, **Advanced**,
-**Composition**, and **Working editor** (actual staged agent/skill flows). See the [component coverage matrix](../../../../docs/graphic-precision-component-coverage.md)
-and [UI authoring guide](../components/ui/README.md) for public APIs, intentional
-native adapters, and version-sensitive anchor integration.
-
-## Brandbook (historical product examples)
-
-`brand-*.stories.tsx` are pages, not scenes: the visual identity drawn in the app's own tokens and classes.
-`brand-kit.tsx` reads the color pairs from `styles.css`, so a token change shows here without an edit.
-
-| Page | What it holds |
-| --- | --- |
-| Brandbook › Foundations › Principles | the proposition: two surfaces and the bridge, the whiteboard, character, laws, the name, what was rejected |
-| Brandbook › Foundations › Color, Typography, Space and shape, Motion | the scales, each in both schemes, with do / don't |
-| Brandbook › Patterns › Status language | the four states across rail, lanes, calls, workflow, and the daemon line |
-| Brandbook › Patterns › Components, Voice | the kit and the copy rules, from the strings the app says |
-| Brandbook › Journeys › Map | eight user flows, each step linked to the scene below that shows it |
-| Brandbook › Journeys › Findings | where the live app departs from its journeys or its rules |
+**Composition**, and **Working editor** (staged agent/skill flows). See the [`@inhuman.tools/harness-ui` README](../../../../packages/harness-ui/README.md) for public APIs and native adapter conventions.
 
 ## Features and their states
 

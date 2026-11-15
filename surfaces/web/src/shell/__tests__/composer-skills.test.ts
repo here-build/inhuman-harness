@@ -2,11 +2,11 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import type { SkillSlashRow } from "@inhuman.tools/harness-ui";
 import { makeObservable, observable, runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Composer } from "../composer.js";
-import type { SkillSlashRow } from "../skill-slash.js";
 
 const request = vi.hoisted(() =>
   vi.fn<(method: string, params: unknown) => Promise<unknown>>(async () => ({ ok: true })),
@@ -244,5 +244,36 @@ describe("session composer skill interactions", () => {
     expect(field().value).toBe("/");
     expect(options()).toHaveLength(2);
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it("inserts literal HTML-like skill invocations on pointer selection without losing focus and dismisses on selection", async () => {
+    const literalSkill: SkillSlashRow = {
+      name: "exact",
+      invoke: 'Team:<Review>&"Exact"',
+      description: "Literal invoke",
+      location: "/work/.agents/skills/exact/SKILL.md",
+    };
+    await change(() => {
+      dial().session = dial().room("exact", [literalSkill]);
+    });
+    await type("/");
+    const item = options()[0] as HTMLElement;
+    const pointerDown = new PointerEvent("pointerdown", { bubbles: true, cancelable: true });
+    await act(async () => {
+      item.dispatchEvent(pointerDown);
+      item.click();
+    });
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(field().value).toBe('/Team:<Review>&"Exact" ');
+    expect(document.activeElement).toBe(field());
+    expect(request).not.toHaveBeenCalled();
+
+    await type("/");
+    expect(menu()).not.toBeNull();
+    await act(async () => {
+      field().setSelectionRange(0, 1);
+      document.dispatchEvent(new Event("selectionchange"));
+    });
+    expect(menu()).toBeNull();
   });
 });

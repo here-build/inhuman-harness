@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { LabeledDatePicker, LabeledDateRangePicker } from "@inhuman.tools/harness-ui/primitives/anchored-dates";
+import { Button } from "@inhuman.tools/harness-ui/primitives/button";
 import { CalendarDate } from "@internationalized/date";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { Page, Schemes, Section } from "./brand-kit.js";
-import { LabeledDatePicker, LabeledDateRangePicker } from "../components/ui/anchored-dates.js";
-import { Button } from "../components/ui/button.js";
 
 const meta = {
   title: "Graphic Precision/Date pickers",
@@ -19,9 +19,8 @@ const range = { start: date, end: date.add({ days: 3 }) };
 export const DateAndRange: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Anchored date pickers"
-      lede="Edit date segments directly or choose from a calendar in a native, CSS-anchored popover. React Aria owns date values, keyboard navigation, and form integration."
+      lede="Edit date segments directly or choose from a calendar in a native top-layer popover. React Aria owns date values, keyboard navigation, and form integration."
     >
       <Section
         title="Single date and date range"
@@ -82,7 +81,6 @@ function PickerForm() {
 export const ValidationAndAvailability: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Date picker states"
       lede="Persistent labels, associated errors, and disabled controls remain explicit in both themes."
     >

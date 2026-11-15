@@ -1,6 +1,5 @@
+import { detectInlineScript } from "@inhuman.tools/harness-ui/blocks/inline-script";
 import { describe, expect, it } from "vitest";
-
-import { detectInlineScript } from "../inline-script.js";
 
 describe("inline scripts", () => {
   it.each([

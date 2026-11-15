@@ -1,11 +1,11 @@
 import type { SessionOverview, SessionRoot, SessionTurn } from "@inhuman.tools/harness-model";
+import { readListParts, type ReadPart } from "@inhuman.tools/harness-ui/blocks/read-line";
 
+import type { TranscriptHost } from "./context.js";
 import { pluginProgress, type PluginSnapshot } from "./plugin-progress.js";
-import type { Dial } from "../../../surfaces/web/src/client/dial.js";
-import { readListParts, type ReadPart } from "../../../surfaces/web/src/shell/read-line.js";
-import { agentSpans, modelSpans, stickyBeats } from "../../../surfaces/web/src/shell/tape-beats.js";
-import { turnOutline } from "../../../surfaces/web/src/shell/tape-live.js";
-import { turnsOldestFirst, type LookItem, type LookVerb } from "../../../surfaces/web/src/shell/tape-read.js";
+import { agentSpans, modelSpans, stickyBeats } from "./tape-beats.js";
+import { turnOutline } from "./tape-live.js";
+import { turnsOldestFirst, type LookItem, type LookVerb } from "./tape-read.js";
 
 // Keep cumulative historical logs out of the streaming render hot path. Cache only
 // strings and projected items; this must not retain the session document.
@@ -90,8 +90,8 @@ export function sessionBeats(root: SessionRoot) {
 }
 
 /** The kernel's glance of a session, when it lists one. */
-export function glanceOf(dial: Pick<Dial, "kernel">, sessionId: string): SessionOverview | null {
-  const sessions = dial.kernel?.root.sessions;
+export function glanceOf(host: Pick<TranscriptHost, "kernel">, sessionId: string): SessionOverview | null {
+  const sessions = host.kernel?.root.sessions;
   return sessions != null && Object.hasOwn(sessions, sessionId) ? sessions[sessionId] : null;
 }
 

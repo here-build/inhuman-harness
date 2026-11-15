@@ -1,9 +1,15 @@
-import { createElement } from "react";
+// @vitest-environment happy-dom
+
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { resolverWords } from "@inhuman.tools/harness-model/session";
+import { within } from "storybook/test";
 import { describe, expect, it, vi } from "vitest";
 
-import { ExplainResult, PermissionsBody } from "../permissions-panel.js";
+import { kernel as storyKernel, StoryDial } from "../../__stories__/world.js";
+import { DialProvider } from "../../client/context.js";
+import { ExplainResult, PermissionsBody, PermissionsPanel } from "../permissions-panel.js";
 import {
   cellText,
   explain,
@@ -192,5 +198,37 @@ describe("explain", () => {
     const html = renderToStaticMarkup(createElement(ExplainResult, { lines: explainLines(reply)! }));
     expect(html).toContain("needs your acknowledgement");
     expect(explainLines("nope")).toBeNull();
+  });
+
+  it("disables Explain and shows session help in PermissionsPanel without an open session", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const dial = new StoryDial({ kernel: storyKernel({ wires: [] }) });
+    try {
+      await act(async () => {
+        root.render(
+          createElement(DialProvider, {
+            dial: dial.asDial,
+            children: createElement(PermissionsPanel),
+          }),
+        );
+      });
+      const input = within(container).getByLabelText("Command, path or mcp:server/tool");
+      const described = (input.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .map((id) => document.querySelector(`#${CSS.escape(id)}`)?.textContent ?? "")
+        .join(" ");
+      expect(described).toContain("Open a session to explain a call.");
+      expect(within(container).getByRole<HTMLButtonElement>("button", { name: "Explain" }).disabled).toBe(true);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      container.remove();
+      dial.kernel?.destroy();
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -22,37 +22,38 @@ import {
   type SessionTurn,
 } from "@inhuman.tools/harness-model";
 import { isWorkflowLeafMeta } from "@inhuman.tools/harness-model/session";
-import { IconBinaryTree2, IconInfoCircle, IconLoader2, IconX } from "@tabler/icons-react";
+import { parseVtLines } from "@inhuman.tools/harness-model/vt-text";
+import {
+  Button,
+  CodeView,
+  Disclosure,
+  FieldButton,
+  fileFace,
+  glyph,
+  LinkNoticeBlock,
+  Markdown,
+  type OpenFile,
+  readListParts,
+  searchLabels,
+  SessionStatusBlock,
+  TerminalBlock,
+  TranscriptDisclosurePanel,
+  useFilePreview,
+  useFloatingPosition,
+  useLaneLayout,
+} from "@inhuman.tools/harness-ui";
+import { IconBinaryTree2, IconInfoCircle, IconX } from "@tabler/icons-react";
 import { observer } from "mobx-react-lite";
 import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
 
+import { type TranscriptHost, useTranscriptHost } from "./context.js";
+import { DiffView } from "./diff-view.js";
+import { naturalName, projectNames, projectSessionStatus, readStoredVisual, wireName } from "./names.js";
+import { Outcome } from "./outcome.js";
 import { glanceOf, LOOK_VERB, lookSentences, sessionBeats } from "./session-beats.js";
-import { useDial } from "../../../surfaces/web/src/client/context.js";
-import { Button } from "../../../surfaces/web/src/components/ui/button.js";
-import { glyph } from "../../../surfaces/web/src/components/ui/glyph.js";
-import { Disclosure, FieldButton } from "../../../surfaces/web/src/components/ui/navigation.js";
-import { CodeView } from "../../../surfaces/web/src/shell/code-view.js";
-import { DiffView } from "../../../surfaces/web/src/shell/diff-view.js";
-import { canEditMessages, editMessage } from "../../../surfaces/web/src/shell/edit-message.js";
-import { type OpenFile, useFilePreview } from "../../../surfaces/web/src/shell/file-sidebar.js";
-import { LinkNotice } from "../../../surfaces/web/src/shell/link-notice.js";
-import { Markdown } from "../../../surfaces/web/src/shell/markdown.js";
-import { naturalName, wireName } from "../../../surfaces/web/src/shell/model-choice.js";
-import { projectNames } from "../../../surfaces/web/src/shell/path.js";
-import { readStoredVisual } from "../../../surfaces/web/src/shell/picture-draft.js";
-import { fileFace, readListParts, searchLabels } from "../../../surfaces/web/src/shell/read-line.js";
-import { ShellTerm } from "../../../surfaces/web/src/shell/shell-term.js";
-import { SessionStatus } from "../../../surfaces/web/src/shell/session-status.js";
-import {
-  type AgentSpan,
-  agentSpans,
-  type ModelSpan,
-  modelSpans,
-  stickyBeats,
-  type TapeBeat,
-} from "../../../surfaces/web/src/shell/tape-beats.js";
-import { turnBeats } from "../../../surfaces/web/src/shell/tape-live.js";
+import { type AgentSpan, agentSpans, type ModelSpan, modelSpans, stickyBeats, type TapeBeat } from "./tape-beats.js";
+import { turnBeats } from "./tape-live.js";
 import {
   type AgentCell,
   agentCell,
@@ -62,18 +63,14 @@ import {
   type TapeBodyCell,
   type ToolBody,
   userPictureLine,
-} from "../../../surfaces/web/src/shell/tape-read.js";
-import { toolLabel } from "../../../surfaces/web/src/shell/tool-label.js";
-import {
-  outcomeOf,
-  schemeHead,
-  schemeSummary,
-  type ToolOutcome,
-} from "../../../surfaces/web/src/shell/tool-receipt.js";
-import { TranscriptDisclosurePanel } from "../../../surfaces/web/src/shell/transcript-disclosure.js";
-import { jobCells } from "../../../surfaces/web/src/workflow/cell.js";
-import { useWorkflowGraph } from "../../../surfaces/web/src/workflow/use-workflow-graph.js";
-import { WorkflowGraph } from "../../../surfaces/web/src/workflow/workflow-graph.js";
+} from "./tape-read.js";
+import { toolLabel } from "./tool-label.js";
+import { outcomeOf, schemeHead, schemeSummary, type ToolOutcome } from "./tool-receipt.js";
+import { jobCells } from "./workflow/cell.js";
+import { useWorkflowGraph } from "./workflow/use-workflow-graph.js";
+import { WorkflowGraph } from "./workflow/workflow-graph.js";
+
+export { Outcome } from "./outcome.js";
 
 /** The session whose tape this is. A program's graph is addressed by it. */
 const SessionIdContext = createContext("");
@@ -228,13 +225,13 @@ const UserPicture = observer(function UserPictureView({
   readonly visual: UserVisual;
   readonly index: number;
 }) {
-  const dial = useDial();
+  const host = useTranscriptHost();
   const [bytes, setBytes] = useState<string | null>(null);
   const [mime, setMime] = useState(visual.mime);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    const rpc = dial.sessionRpc;
+    const rpc = host.sessionRpc;
     if (rpc == null) {
       setFailed(true);
       setBytes(null);
@@ -261,7 +258,7 @@ const UserPicture = observer(function UserPictureView({
     return () => {
       cancelled = true;
     };
-  }, [dial.sessionRpc, visual.id]);
+  }, [host.sessionRpc, visual.id]);
   const label = userPictureLine(index, visual);
   const src = bytes == null ? null : `data:${mime};base64,${bytes}`;
   return (
@@ -423,21 +420,15 @@ function LookTarget({ item, onOpen }: { readonly item: LookItem; readonly onOpen
   );
 }
 
-export function Outcome({ outcome }: { readonly outcome: ToolOutcome }) {
-  if (outcome === "ok") return null;
-  if (outcome === "live") {
-    return (
-      <span className="tool-outcome" data-outcome="live" role="status">
-        <IconLoader2 className="tool-spinner" {...glyph} aria-label="in progress" />
-      </span>
-    );
-  }
-  return (
-    <span className="tool-outcome label" data-outcome="failed">
-      failed
-    </span>
-  );
-}
+const TranscriptSessionStatus = observer(function TranscriptSessionStatusView({
+  session,
+}: {
+  readonly session: SessionRoot | null;
+}) {
+  const host = useTranscriptHost();
+  const status = projectSessionStatus(session, host.kernel?.root);
+  return status == null ? null : <SessionStatusBlock {...status} />;
+});
 
 function FailLine({
   body,
@@ -478,10 +469,19 @@ const TIP_HIDE_MS = 120;
 /** Why a call failed, one hover or focus away. A popover, so the tape's scrollport cannot clip it. */
 function FailInfo({ label, detail }: { readonly label: string; readonly detail: string }) {
   const tipId = useId();
-  const anchor = `--fail-${tipId.replaceAll(/[^\w-]/g, "")}`;
   const tip = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [open, setOpen] = useState(false);
+
+  useFloatingPosition({
+    triggerRef: trigger,
+    floatingRef: tip,
+    isOpen: open,
+    placement: "bottom-end",
+    offset: 6,
+  });
+
   useEffect(() => {
     // Manual popovers do not get the browser's Escape dismissal. Leave native
     // positioning and pointer/focus ownership intact, including the crossing delay.
@@ -489,6 +489,7 @@ function FailInfo({ label, detail }: { readonly label: string; readonly detail: 
       if (event.key !== "Escape" || !tip.current?.matches(":popover-open")) return;
       clearTimeout(hideTimer.current);
       tip.current.hidePopover();
+      setOpen(false);
       event.preventDefault();
     };
     document.addEventListener("keydown", escape);
@@ -501,6 +502,7 @@ function FailInfo({ label, detail }: { readonly label: string; readonly detail: 
     clearTimeout(hideTimer.current);
     const node = tip.current;
     if (node?.matches(":popover-open") === false) node.showPopover();
+    setOpen(true);
   };
   const hide = (): void => {
     clearTimeout(hideTimer.current);
@@ -518,10 +520,11 @@ function FailInfo({ label, detail }: { readonly label: string; readonly detail: 
         return;
       }
       if (node.matches(":popover-open")) node.hidePopover();
+      setOpen(false);
     }, TIP_HIDE_MS);
   };
   return (
-    <span className="fail-info" style={{ "--fail-anchor": anchor } as CSSProperties}>
+    <span className="fail-info">
       <Button
         variant="content"
         ref={trigger}
@@ -547,6 +550,7 @@ function FailInfo({ label, detail }: { readonly label: string; readonly detail: 
         onPointerLeave={hide}
         onFocus={show}
         onBlur={hide}
+        onToggle={(event) => setOpen(event.newState === "open")}
       >
         {detail}
       </span>
@@ -597,7 +601,19 @@ export function ToolBodyView({
       </div>
     );
   }
-  if (body.kind === "shell") return <ShellTerm body={body} expanded={expanded} outcome={outcome} />;
+  if (body.kind === "shell") {
+    return (
+      <TerminalBlock
+        command={body.command}
+        {...(body.directory === undefined ? {} : { directory: body.directory })}
+        output={body.output}
+        {...(body.exitCode === undefined ? {} : { exitCode: body.exitCode })}
+        expanded={expanded}
+        outcome={outcome}
+        parseOutput={parseVtLines}
+      />
+    );
+  }
   return (
     <div className="tool-parts">
       {body.parts.map((part, index) =>
@@ -618,9 +634,51 @@ export function ToolBodyView({
 /** Leave the compact note untouched and render a separate anchored hover preview. */
 function AuxiliaryPreview({ children }: { readonly children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [openPreview, setOpenPreview] = useState(false);
-  const anchor = `--auxiliary-${useId().replaceAll(":", "")}`;
+
+  useFloatingPosition({
+    triggerRef: ref,
+    floatingRef: popupRef,
+    isOpen: openPreview,
+    placement: "bottom-start",
+    offset: 0,
+    viewportMargin: 16,
+  });
+
+  useIsomorphicLayoutEffect(() => {
+    if (!openPreview || typeof window === "undefined") return;
+    const popup = popupRef.current;
+    const host = ref.current;
+    if (!popup || !host) return;
+    const updateBounds = () => {
+      const main = host.closest(".timeline")?.querySelector<HTMLElement>(".timeline-main");
+      const hostRect = host.getBoundingClientRect();
+      const mainRect = main?.getBoundingClientRect();
+      const vw = window.innerWidth > 0 ? window.innerWidth : 1024;
+      const vh = window.innerHeight > 0 ? window.innerHeight : 768;
+      const margin = 16;
+      if (mainRect && mainRect.width > 0) {
+        popup.style.setProperty("--rt-aux-left", `${Math.round(mainRect.left)}px`);
+        popup.style.setProperty("--rt-aux-width", `${Math.round(mainRect.width)}px`);
+      } else {
+        popup.style.setProperty("--rt-aux-left", `${margin}px`);
+        popup.style.setProperty("--rt-aux-width", `${Math.max(240, vw - margin * 2)}px`);
+      }
+      const clampedTop = Math.max(margin, Math.min(hostRect.top, Math.max(margin, vh - margin - popup.offsetHeight)));
+      popup.style.setProperty("--rt-aux-top", `${Math.round(clampedTop)}px`);
+      popup.style.setProperty("--rt-y", `${Math.round(clampedTop)}px`);
+    };
+    updateBounds();
+    window.addEventListener("resize", updateBounds);
+    window.addEventListener("scroll", updateBounds, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("resize", updateBounds);
+      window.removeEventListener("scroll", updateBounds, { capture: true });
+    };
+  }, [openPreview, children]);
+
   const cancelClose = () => {
     if (closeTimer.current != null) clearTimeout(closeTimer.current);
   };
@@ -673,7 +731,6 @@ function AuxiliaryPreview({ children }: { readonly children: ReactNode }) {
       className="auxiliary-preview"
       tabIndex={0}
       data-preview-open={openPreview ? "" : undefined}
-      style={{ anchorName: anchor } as CSSProperties}
       onMouseEnter={open}
       onMouseLeave={close}
       onFocus={open}
@@ -692,7 +749,7 @@ function AuxiliaryPreview({ children }: { readonly children: ReactNode }) {
     >
       <div className="auxiliary-content">{children}</div>
       {openPreview ? (
-        <div className="auxiliary-popup" style={{ positionAnchor: anchor } as CSSProperties}>
+        <div ref={popupRef} className="auxiliary-popup">
           {children}
         </div>
       ) : null}
@@ -898,7 +955,7 @@ const AgentPeek = observer(function AgentPeekView({
   readonly cell: AgentCell;
   readonly onClose: () => void;
 }) {
-  const dial = useDial();
+  const host = useTranscriptHost();
   const preview = useFilePreview();
   const dialog = useRef<HTMLDialogElement>(null);
   const tape = useRef<HTMLDivElement>(null);
@@ -912,7 +969,7 @@ const AgentPeek = observer(function AgentPeekView({
     let release: (() => void) | null = null;
     void (async () => {
       try {
-        const opened = await dial.peek(cell.sessionId, abort.signal);
+        const opened = await host.peek(cell.sessionId, abort.signal);
         if (abort.signal.aborted) {
           opened.release();
           return;
@@ -927,8 +984,8 @@ const AgentPeek = observer(function AgentPeekView({
       abort.abort();
       release?.();
     };
-  }, [dial, cell.sessionId]);
-  const face = agentFace(cell, glanceOf(dial, cell.sessionId));
+  }, [host, cell.sessionId]);
+  const face = agentFace(cell, glanceOf(host, cell.sessionId));
   const root = peeked == null || peeked === "failed" ? null : peeked.doc.root;
   const beats = root == null ? [] : sessionBeats(root);
   return (
@@ -951,7 +1008,7 @@ const AgentPeek = observer(function AgentPeekView({
       }
       onClose={onClose}
     >
-      <SessionStatus session={root} />
+      <TranscriptSessionStatus session={root} />
       <div ref={tape} className="tape agent-peek-tape" tabIndex={-1}>
         <div className="transcript">
           {cell.detail == null || cell.outcome !== "ok" ? null : (
@@ -1023,7 +1080,7 @@ const WorkflowPeek = observer(function WorkflowPeekView({
   readonly sessionId: string;
   readonly onClose: () => void;
 }) {
-  const dial = useDial();
+  const host = useTranscriptHost();
   const dialog = useRef<HTMLDialogElement>(null);
   const { graph, done } = useWorkflowGraph(sessionId, program);
   const [picked, setPicked] = useState<AgentCell | null>(null);
@@ -1034,9 +1091,9 @@ const WorkflowPeek = observer(function WorkflowPeekView({
         : jobCells(
             graph,
             () => program.toolCalls,
-            (id) => glanceOf(dial, id),
+            (id) => glanceOf(host, id),
           ),
-    [graph, program, dial],
+    [graph, program, host],
   );
   const outcome = outcomeOf(program.completed, program.outcomeSnap);
   return (
@@ -1175,6 +1232,7 @@ function TimelineLayout<T extends TimelineItem>({
   /** The composer's selector stands for this span; its note shows only once the choice moves on. */
   readonly live?: { readonly model: string; readonly connection: string };
 }) {
+  const timelineRef = useRef<HTMLDivElement>(null);
   const spans = beats.filter((beat) => beat.modelSpan != null);
   const last = spans.at(-1)?.modelSpan;
   const shown =
@@ -1186,14 +1244,12 @@ function TimelineLayout<T extends TimelineItem>({
       <li
         className="annotation-slot side-left model-slot"
         key={`${beat.id}:model`}
+        data-beat-row={beat.row}
+        data-model-last-row={span.lastRow}
         style={
           {
             "--beat-row": beat.row,
             "--model-last-row": span.lastRow,
-            "--beat-anchor": `--beat-${beat.row}`,
-            "--note-anchor": `--model-note-${beat.row}`,
-            "--previous-note": "0px",
-            "--annotation-end": `anchor(--beat-${span.lastRow} bottom)`,
           } as CSSProperties
         }
       >
@@ -1211,6 +1267,11 @@ function TimelineLayout<T extends TimelineItem>({
         })),
       )
     : [];
+  const annotationCount =
+    shown.length +
+    beats.filter((beat) => beat.mark != null).length +
+    beats.filter((beat) => beat.thoughts.length > 0).length;
+  useLaneLayout({ timelineRef, version: `${beats.length}:${agents.length}:${annotationCount}` });
   const pane = (side: "left" | "right") => {
     const notes = beats.filter((beat) => (side === "left" ? beat.mark != null : beat.thoughts.length > 0));
     return (
@@ -1226,16 +1287,12 @@ function TimelineLayout<T extends TimelineItem>({
               <li
                 className={`annotation-slot side-${side}`}
                 key={beat.id}
+                data-beat-row={beat.row}
+                data-end-row={end <= beats.length ? end : undefined}
+                data-prev-row={previous?.row}
                 style={
                   {
                     "--beat-row": beat.row,
-                    "--beat-anchor": `--beat-${beat.row}`,
-                    "--note-anchor": `--${side}-note-${beat.row}`,
-                    "--previous-note":
-                      previous == null
-                        ? "0px"
-                        : `calc(anchor(--${side}-note-${previous.row} bottom) + var(--note-gap))`,
-                    "--annotation-end": end > beats.length ? "0px" : `anchor(--beat-${end} top)`,
                   } as CSSProperties
                 }
               >
@@ -1249,7 +1306,7 @@ function TimelineLayout<T extends TimelineItem>({
     );
   };
   return (
-    <div className="timeline">
+    <div className="timeline" ref={timelineRef}>
       <div className="timeline-main">
         {beats.map((beat) => (
           <Fragment key={beat.id}>{renderBeat(beat, "body")}</Fragment>
@@ -1281,7 +1338,8 @@ function BeatSection({
     <section
       aria-labelledby={beat.mark == null || beat.mark.title === "" ? undefined : `${beat.id}-title`}
       className="beat"
-      style={{ "--beat-row": row, "--beat-anchor": `--beat-${row}` } as CSSProperties}
+      data-beat-row={row}
+      style={{ "--beat-row": row } as CSSProperties}
     >
       <div className="beat-body">
         {beat.cells.map((cell) => (
@@ -1355,21 +1413,21 @@ const LiveBeat = observer(function LiveBeatView({
   readonly delegatedBriefId?: string;
   readonly onOpen: (file: OpenFile) => void;
 }) {
-  const dial = useDial();
+  const host = useTranscriptHost();
   const beat = turnBeats(turn, projectPath).find((item) => item.id === beatId);
-  const editable = canEditMessages(dial);
+  const editable = host.canEditMessages?.() ?? false;
   if (part === "title") return <TitleNote beat={{ id: beatId, mark }} />;
   if (beat == null) {
     // A plugin can change before the first completion. Its status-only round
     // still needs a body anchor for the desktop annotation layout.
     return part === "body" && mark != null ? (
-      <section className="beat" style={{ "--beat-row": row, "--beat-anchor": `--beat-${row}` } as CSSProperties} />
+      <section className="beat" data-beat-row={row} style={{ "--beat-row": row } as CSSProperties} />
     ) : null;
   }
   if (part === "agent") {
     const cell = beat.agents.find((item) => item.id === agent);
     if (cell == null) return null;
-    return <AgentNote cell={cell} glance={glanceOf(dial, cell.sessionId)} />;
+    return <AgentNote cell={cell} glance={glanceOf(host, cell.sessionId)} />;
   }
   if (part === "thoughts") return <ThoughtNotes beat={beat} />;
   return (
@@ -1382,7 +1440,7 @@ const LiveBeat = observer(function LiveBeatView({
       {...(editable
         ? {
             onEdit: (cellId: string) => {
-              if (cellId === `${turn.uuid}:user`) void editMessage(dial, turn);
+              if (cellId === `${turn.uuid}:user`) void host.editMessage?.(turn);
             },
           }
         : {})}
@@ -1425,12 +1483,12 @@ function SessionTimeline({
   readonly delegatedBriefId?: string;
   readonly onOpen: (file: OpenFile) => void;
 }) {
-  const dial = useDial();
+  const host = useTranscriptHost();
   return (
     <SessionIdContext.Provider value={root.sessionId}>
       <TimelineLayout
         beats={beats}
-        nameWire={(connection) => wireName(dial.kernel?.root.connections[connection], connection)}
+        nameWire={(connection) => wireName(host.kernel?.root.connections[connection], connection)}
         {...(live == null ? {} : { live })}
         dock={dock}
         renderBeat={(beat, part, agent) => (
@@ -1455,31 +1513,35 @@ function SessionTimeline({
 }
 
 export const Tape = observer(function TapeView() {
-  const dial = useDial();
+  const host = useTranscriptHost();
   const preview = useFilePreview();
-  const root = dial.session?.root ?? null;
-  const project = dial.project?.root ?? null;
+  const root = host.session?.root ?? null;
+  const project = host.project?.root ?? null;
   const kvs: Readonly<Record<string, string | undefined>> = root?.kvs ?? {};
   const laid = root == null ? [] : sessionBeats(root);
   return (
     <div className="transcript">
-      {root == null && dial.kernel == null ? (
+      {root == null && host.kernel == null ? (
         // Before the first kernel the notice is the page; after it, it sits by the composer.
-        dial.link == null ? (
+        host.link == null ? (
           <Connecting />
         ) : (
           <section className="transcript-empty transcript-column">
-            <LinkNotice />
+            {host.renderLinkNotice ? (
+              host.renderLinkNotice()
+            ) : (
+              <LinkNoticeBlock mode="needs" message="Daemon connection unavailable." />
+            )}
           </section>
         )
       ) : root == null ? (
-        <WorkspaceHome dial={dial} project={project} />
+        <WorkspaceHome host={host} project={project} />
       ) : laid.length === 0 ? (
         // Nothing to title yet. The page names where the work happens; the composer is the rest.
         <section className="transcript-fresh transcript-column" aria-label="New conversation">
           <h2>
             {root.title.trim() === ""
-              ? (projectNames(Object.keys(dial.kernel?.root.projects ?? {})).get(root.path) ?? root.path)
+              ? (projectNames(Object.keys(host.kernel?.root.projects ?? {})).get(root.path) ?? root.path)
               : root.title}
           </h2>
           {/* Break only between segments. `<wbr>` adds no character, so a copied path stays exact. */}
@@ -1511,13 +1573,13 @@ export const Tape = observer(function TapeView() {
 
 /** Overview, or the selected project when no session is open. The route wins over a room that has not committed. */
 const WorkspaceHome = observer(function WorkspaceHomeView({
-  dial,
+  host,
   project,
 }: {
-  readonly dial: ReturnType<typeof useDial>;
+  readonly host: TranscriptHost;
   readonly project: { readonly path: string; readonly sessions: Readonly<Record<string, string>> } | null;
 }) {
-  const routed = dial.requestedTarget;
+  const routed = host.requestedTarget;
   const routedPath = routed.kind === "project" || routed.kind === "project-session" ? routed.path : null;
   const path = routedPath ?? project?.path ?? null;
   if (path == null) {
@@ -1528,9 +1590,9 @@ const WorkspaceHome = observer(function WorkspaceHomeView({
       </section>
     );
   }
-  const known = Object.keys(dial.kernel?.root.projects ?? {});
+  const known = Object.keys(host.kernel?.root.projects ?? {});
   const name = projectNames(known.includes(path) ? known : [...known, path]).get(path) ?? path;
-  const sessions = project?.path === path ? project.sessions : (dial.projects.get(path)?.root.sessions ?? {});
+  const sessions = project?.path === path ? project.sessions : (host.projects.get(path)?.root.sessions ?? {});
   return (
     <section className="transcript-empty transcript-column">
       <h2>{name}</h2>

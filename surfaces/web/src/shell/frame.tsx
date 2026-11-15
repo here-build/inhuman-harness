@@ -1,4 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  ConversationStage,
+  SessionSidebar,
+  WorkspaceBar,
+  WorkspaceShell,
+  needsOnboarding,
+} from "@inhuman.tools/harness-ui";
+import { Button } from "@inhuman.tools/harness-ui/primitives/button";
+import { glyph } from "@inhuman.tools/harness-ui/primitives/glyph";
+import { Link } from "@inhuman.tools/harness-ui/primitives/navigation";
 import { IconSettings } from "@tabler/icons-react";
 import { Outlet, useRouter } from "@tanstack/react-router";
 import { observer } from "mobx-react-lite";
@@ -10,18 +20,15 @@ import { LinkNotice } from "./link-notice.js";
 import { focusStage } from "./new-session.js";
 import { projectHref } from "./path.js";
 import { botIdsOf, ProjectTabs, railPane } from "./project-tabs.js";
-import { needsOnboarding } from "./provider-list.js";
 import { SessionRail } from "./rail-sessions.js";
 import { SettingsDialog } from "./settings.js";
 import { Splash } from "./splash.js";
 import { useDial } from "../client/context.js";
 import { appLocation } from "../client/location.js";
-import { Button } from "../components/ui/button.js";
-import { glyph } from "../components/ui/glyph.js";
-import { Link } from "../components/ui/navigation.js";
 
 const remote = appLocation(globalThis.location).remote;
 
+/** Reference operator workspace frame assembled from white-label Lego compositions. */
 export const Frame = observer(function Shell() {
   const dial = useDial();
   const router = useRouter();
@@ -82,7 +89,7 @@ export const Frame = observer(function Shell() {
     focusStage();
     go(projectHref(path));
   };
-  const isRemote = dial.where?.remote ?? remote;
+  const isRemote = Boolean((dial as { readonly where?: { readonly remote?: boolean } }).where?.remote) || remote;
   const addProject = (): void => {
     const rpc = dial.kernelRpc;
     if (isRemote || rpc == null || adding) return;
@@ -110,21 +117,24 @@ export const Frame = observer(function Shell() {
     } as CSSProperties;
     return (
       <FilePreviewProvider resetKey={sessionId}>
-        <div className="frame" data-embed="" style={inset}>
-          <main ref={scrollport} onScroll={saveScroll} className="tape" aria-label="Conversation">
-            {sessionId != null && attached == null ? (
-              <div className="transcript">
-                <section className="transcript-empty transcript-column">
-                  <LinkNotice />
-                </section>
-              </div>
-            ) : (
-              <Outlet />
-            )}
-            <div className="anchor" />
-          </main>
-          <FilePreviewPane projectPath={attached?.path ?? targetPath ?? ""} />
-        </div>
+        <WorkspaceShell
+          embed
+          style={inset}
+          stage={
+            <ConversationStage scrollRef={scrollport} onScroll={saveScroll}>
+              {sessionId != null && attached == null ? (
+                <div className="transcript">
+                  <section className="transcript-empty transcript-column">
+                    <LinkNotice />
+                  </section>
+                </div>
+              ) : (
+                <Outlet />
+              )}
+            </ConversationStage>
+          }
+          inspector={<FilePreviewPane projectPath={attached?.path ?? targetPath ?? ""} />}
+        />
       </FilePreviewProvider>
     );
   }
@@ -136,66 +146,66 @@ export const Frame = observer(function Shell() {
 
   return (
     <FilePreviewProvider resetKey={sessionId}>
-      <div className="frame" data-picking={adding ? "" : undefined}>
-        <div className="frame-body">
-          <aside
-            id="navigation-rail"
-            aria-label="Projects and sessions"
-            className={`rail w-full shrink-0 flex-col overflow-y-auto bg-wash max-[63.999rem]:max-h-[70dvh] min-[64rem]:w-72 min-[64rem]:max-h-none min-[64rem]:overflow-hidden min-[64rem]:border-r min-[64rem]:border-line ${railOpen ? "flex max-[63.999rem]:border-b max-[63.999rem]:border-line" : "hidden min-[64rem]:flex"}`}
+      <WorkspaceShell
+        picking={adding}
+        sidebar={
+          <SessionSidebar
+            open={railOpen}
+            ariaLabel="Projects and sessions"
+            brand="Inhuman"
+            headerAction={
+              isRemote ? (
+                <Link className="rail-machines" href="/">
+                  All machines
+                </Link>
+              ) : null
+            }
           >
-            <h1 className="rail-brand">Inhuman</h1>
-            {isRemote ? (
-              <Link className="rail-machines" href="/">
-                All machines
-              </Link>
-            ) : null}
-            <div className="flex flex-col min-[64rem]:min-h-0 min-[64rem]:flex-1">
-              <SessionRail go={go} pane={pane} selectedSessionId={sessionId} onMint={openStage} />
-            </div>
-          </aside>
-          <main ref={scrollport} onScroll={saveScroll} className="tape" aria-label="Conversation">
+            <SessionRail go={go} pane={pane} selectedSessionId={sessionId} onMint={openStage} />
+          </SessionSidebar>
+        }
+        stage={
+          <ConversationStage scrollRef={scrollport} onScroll={saveScroll} composer={<Composer />}>
             <Outlet />
-            <div className="anchor" />
-            <Composer />
-          </main>
-          <FilePreviewPane projectPath={attached?.path ?? targetPath ?? ""} />
-        </div>
-        <div className="project-strip">
-          <Button
-            variant="content"
-            type="button"
-            className="project-corner touch-target"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <IconSettings {...glyph} aria-hidden />
-            Settings
-          </Button>
-          <Button
-            variant="ghost"
-            className="min-[64rem]:hidden"
-            aria-label={railOpen ? "Close navigation" : "Open navigation"}
-            aria-controls="navigation-rail"
-            aria-expanded={railOpen}
-            onClick={() => setRailOpen((open) => !open)}
-          >
-            {railOpen ? "Close" : "Browse"}
-          </Button>
-          <ProjectTabs
-            projectSessions={projectSessions}
-            go={go}
-            pane={pane}
-            onBrowseBots={() => {
-              setBrowsingBots(true);
-              setRailOpen(true);
+          </ConversationStage>
+        }
+        inspector={<FilePreviewPane projectPath={attached?.path ?? targetPath ?? ""} />}
+        workspaceBar={
+          <WorkspaceBar
+            leadingAction={
+              <Button
+                variant="content"
+                type="button"
+                className="project-corner touch-target"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <IconSettings {...glyph} aria-hidden />
+                Settings
+              </Button>
+            }
+            mobileNavToggle={{
+              open: railOpen,
+              openAriaLabel: "Open navigation",
+              closeAriaLabel: "Close navigation",
+              onToggle: () => setRailOpen((open) => !open),
             }}
-            onAdd={isRemote ? undefined : addProject}
-            adding={adding}
-            onMint={openStage}
-          />
-        </div>
-        {adding ? <div className="picker-backdrop" aria-hidden="true" /> : null}
-        {settingsOpen ? <SettingsDialog onDismiss={() => setSettingsOpen(false)} /> : null}
-      </div>
+          >
+            <ProjectTabs
+              projectSessions={projectSessions}
+              go={go}
+              pane={pane}
+              onBrowseBots={() => {
+                setBrowsingBots(true);
+                setRailOpen(true);
+              }}
+              onAdd={isRemote ? undefined : addProject}
+              adding={adding}
+              onMint={openStage}
+            />
+          </WorkspaceBar>
+        }
+        overlay={settingsOpen ? <SettingsDialog onDismiss={() => setSettingsOpen(false)} /> : null}
+      />
     </FilePreviewProvider>
   );
 });

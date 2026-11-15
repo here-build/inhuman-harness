@@ -1,8 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { AckBlock } from "@inhuman.tools/harness-ui";
 import { describe, expect, it } from "vitest";
 
-import { AckBlock } from "../ack-block.js";
 import { ackCopy, answerRequest, choiceByKey, promptKind, storeChoices, ttlText } from "../ack-prompt.js";
 
 const SEND = { kind: "mcp", server: "gmail", tool: "send_email" } as const;

@@ -15,7 +15,14 @@ import { runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { bindDraft, type DraftPicture, type DraftPocket, fillDraft } from "../draft-slot.js";
-import { editCut, editMessage, restoreMessages, restoreTarget, type EditClient } from "../edit-message.js";
+import {
+  canEditMessages,
+  editCut,
+  editMessage,
+  restoreMessages,
+  restoreTarget,
+  type EditClient,
+} from "../edit-message.js";
 import { FilePreviewProvider } from "../file-sidebar.js";
 
 const request = vi.hoisted(() =>
@@ -37,6 +44,14 @@ const state = vi.hoisted(() => ({
 
 vi.mock("../../client/context.js", () => ({
   useDial: () => state.dial,
+}));
+
+vi.mock("@inhuman.tools/harness-transcript/context", () => ({
+  useTranscriptHost: () => ({
+    ...state.dial,
+    canEditMessages: () => canEditMessages(state.dial as never),
+    editMessage: (turn: SessionTurn) => editMessage(state.dial as never, turn),
+  }),
 }));
 
 function pin(tail: SessionTurn | SessionSystemPrompt, text: string, live = false): SessionTurn {
@@ -117,6 +132,8 @@ describe("edit cut", () => {
   afterEach(() => {
     release?.();
     release = null;
+    Reflect.deleteProperty(window, "ReactNativeWebView");
+    window.history.replaceState(null, "", "/");
   });
 
   function hold(sessionId: string): void {
@@ -275,6 +292,8 @@ describe("edit control", () => {
     (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     request.mockReset();
     request.mockResolvedValue({ ok: true });
+    Reflect.deleteProperty(window, "ReactNativeWebView");
+    window.history.replaceState(null, "", "/");
     state.dial.attaching = false;
     state.dial.link = null;
     state.dial.sessionRpc = { request };
@@ -335,5 +354,40 @@ describe("edit control", () => {
     });
     expect(container.querySelector("button.message-edit")).toBeNull();
     expect(container.textContent).toContain("second");
+  });
+
+  it("keeps the message on the tape when rewind is refused or no draft slot is bound", async () => {
+    const { doc } = seat();
+    open = doc;
+    state.dial.session = { root: doc.root };
+    await act(async () => {
+      view.render(createElement(FilePreviewProvider, { resetKey: "edit" }, createElement(Tape)));
+    });
+
+    const editButton = () => [...container.querySelectorAll<HTMLButtonElement>("button.message-edit")].at(1);
+    await act(async () => {
+      editButton()?.click();
+    });
+    expect(request).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("second");
+
+    const pocket: DraftPocket = { draft: "keep", pictures: [], revision: 0, status: "" };
+    const unbind = bindDraft(doc.root.uuid, {
+      state: pocket,
+      refresh: () => undefined,
+      focus: () => undefined,
+    });
+    try {
+      request.mockRejectedValueOnce(new Error("Rewind refused."));
+      await act(async () => {
+        editButton()?.click();
+        await Promise.resolve();
+      });
+      expect(request).toHaveBeenCalledTimes(1);
+      expect(pocket).toEqual({ draft: "keep", pictures: [], revision: 0, status: "Rewind refused." });
+      expect(container.textContent).toContain("second");
+    } finally {
+      unbind();
+    }
   });
 });

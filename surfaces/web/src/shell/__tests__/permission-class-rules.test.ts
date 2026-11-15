@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, createElement as h } from "react";
+import { act, createElement as h, useState, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { runInAction } from "mobx";
 import { userEvent, within } from "storybook/test";
@@ -112,5 +112,83 @@ describe("per-class rules", () => {
     expect(dial.calls.filter((call) => call.method === "policy/class-mode")).toEqual([
       { method: "policy/class-mode", params: { class: "package-install", mode: "always", scope: "project" } },
     ]);
+  });
+
+  it("keeps staged/seed precedence local without RPCs and disables live controls when disconnected", async () => {
+    type Mode = NonNullable<ComponentProps<typeof PermissionMode>["staged"]>;
+    const onStage = vi.fn();
+    function Staged() {
+      const [staged, setStaged] = useState<Mode | null>(null);
+      return h(PermissionMode, {
+        seed: "auto",
+        staged,
+        onStage: (mode) => {
+          onStage(mode);
+          setStaged(mode);
+        },
+      });
+    }
+
+    const user = userEvent.setup({ document });
+    await act(async () => root.render(h(PermissionMode, { staged: "yolo", seed: "auto", onStage: vi.fn() })));
+    expect(within(container).queryByRole("button", { name: /Adjust auto permissions/ })).toBeNull();
+    expect(within(container).getByRole<HTMLInputElement>("radio", { name: "approve all" }).checked).toBe(true);
+
+    await act(async () => root.render(h(Staged)));
+    await act(async () => user.click(within(container).getByRole("radio", { name: "approve all" })));
+    expect(onStage).toHaveBeenCalledExactlyOnceWith("yolo");
+    expect(dial.calls).toEqual([]);
+
+    dial.kernel?.destroy();
+    dial = new StoryDial({ kernel: null, portless: true });
+    await act(async () => root.render(h(PermissionMode)));
+    expect(within(container).getByRole<HTMLInputElement>("radio", { name: "auto" }).disabled).toBe(true);
+    await act(async () => user.click(within(container).getByRole("radio", { name: "manual" })));
+    expect(dial.calls).toEqual([]);
+
+    const offlineStage = vi.fn();
+    await act(async () => root.render(h(PermissionMode, { seed: "yolo", onStage: offlineStage })));
+    expect(within(container).getByRole<HTMLInputElement>("radio", { name: "auto" }).disabled).toBe(false);
+    await act(async () => user.click(within(container).getByRole("radio", { name: "auto" })));
+    expect(offlineStage).toHaveBeenCalledExactlyOnceWith("auto");
+    expect(dial.calls).toEqual([]);
+  });
+
+  it("routes live mode changes to session vs kernel and follows external MobX updates", async () => {
+    const opened = dial.session!;
+    runInAction(() => {
+      opened.root.permissionMode = "manual";
+      dial.kernel!.root.defaultPermissionMode = "yolo";
+    });
+    const sessionRequest = vi.spyOn(dial.sessionRpc!, "request");
+    const kernelRequest = vi.spyOn(dial.kernelRpc!, "request");
+    const user = userEvent.setup({ document });
+
+    await act(async () => root.render(h(PermissionMode)));
+    await act(async () => user.click(within(container).getByRole("radio", { name: "approve all" })));
+    expect(sessionRequest).toHaveBeenCalledExactlyOnceWith("policy/set", { policy: "yolo" });
+    expect(kernelRequest).not.toHaveBeenCalled();
+
+    await act(async () =>
+      runInAction(() => {
+        opened.root.permissionMode = "auto";
+      }),
+    );
+    expect(within(container).getByRole<HTMLInputElement>("radio", { name: "auto" }).checked).toBe(true);
+
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    dial.session?.destroy();
+    for (const project of dial.projects.values()) project.destroy();
+    dial.kernel?.destroy();
+    dial = new StoryDial({ kernel: kernel({ wires: [] }) });
+    runInAction(() => {
+      dial.kernel!.root.defaultPermissionMode = "manual";
+    });
+    await act(async () => root.render(h(PermissionMode)));
+    await act(async () => user.tab());
+    await act(async () => user.keyboard("{ArrowRight}"));
+    expect(dial.calls).toEqual([{ method: "config/set", params: { defaultPermissionMode: "auto" } }]);
+    expect(within(container).getByRole<HTMLInputElement>("radio", { name: "auto" }).checked).toBe(true);
   });
 });

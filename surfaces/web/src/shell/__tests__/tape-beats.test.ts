@@ -8,11 +8,10 @@ import {
   SessionTurn,
   SystemToolJob,
 } from "@inhuman.tools/harness-model";
+import { schemeExprReady, schemeExprSettled } from "@inhuman.tools/harness-transcript/scheme-unwrap";
+import { agentSpans, groupBeats } from "@inhuman.tools/harness-transcript/tape-beats";
+import { metadataMark, tapeCells, type TapeCell } from "@inhuman.tools/harness-transcript/tape-read";
 import { describe, expect, it } from "vitest";
-
-import { schemeExprReady, schemeExprSettled } from "../scheme-unwrap.js";
-import { agentSpans, groupBeats } from "../tape-beats.js";
-import { metadataMark, tapeCells, type TapeCell } from "../tape-read.js";
 
 describe("progress marks", () => {
   it("keeps failed task receipts visible without inventing a status transition", () => {

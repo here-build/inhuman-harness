@@ -1,8 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { Markdown } from "@inhuman.tools/harness-ui/blocks/markdown-block";
 import { describe, expect, it } from "vitest";
-
-import { Markdown } from "../markdown.js";
 
 const render = (text: string): string => renderToStaticMarkup(createElement(Markdown, { text }));
 

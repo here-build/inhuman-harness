@@ -1,6 +1,5 @@
+import { connectError } from "@inhuman.tools/harness-ui";
 import { describe, expect, it } from "vitest";
-
-import { connectError } from "../connect-error.js";
 
 describe("connect errors", () => {
   it("says a refused connection did not answer, and keeps the daemon line", () => {

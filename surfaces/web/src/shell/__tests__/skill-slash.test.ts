@@ -1,6 +1,5 @@
+import { completeSkillSlash, matchingSkills, skillSlashToken } from "@inhuman.tools/harness-ui";
 import { describe, expect, it } from "vitest";
-
-import { completeSkillSlash, matchingSkills, skillSlashToken } from "../skill-slash.js";
 
 const rows = [
   { name: "review", invoke: "project:review", description: "Review changes" },

@@ -1,12 +1,36 @@
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
+import { parseColor } from "react-aria-components";
+import {
+  Button,
+  Checkbox,
+  ColorArea,
+  ColorSlider,
+  ColorSliderTrack,
+  ColorSwatchPicker,
+  ColorSwatchPickerItem,
+  ColorThumb,
+  ColorWheel,
+  ColorWheelTrack,
+  Dialog,
+  DropdownSelect,
+  Label,
+  Radio,
+  RadioGroup,
+  Slider,
+  SliderThumb,
+  SliderTrack,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+} from "@inhuman.tools/harness-ui";
 import "@fontsource/monaspace-krypton/400.css";
 import "@fontsource/monaspace-krypton/700.css";
 import { ToolBodyView } from "@inhuman.tools/harness-transcript";
 
 import { agentActivity, agents, agentWorkers, approval, autoUnavailable, conversation } from "../__stories__/scenes.js";
 import { sessionStage, StoryApp } from "../__stories__/story-app.js";
-import { Dialog, DropdownSelect } from "../components/ui/anchored.js";
 import "../styles.css";
 
 function face(node: HTMLElement) {
@@ -43,12 +67,36 @@ function focus(node: HTMLElement) {
   return face(node);
 }
 
+async function cdpClick(node: Element) {
+  const rect = node.getBoundingClientRect();
+  delete document.documentElement.dataset.cdpClickDone;
+  document.documentElement.dataset.cdpClick = JSON.stringify({
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  });
+  const until = Date.now() + 5_000;
+  while (Date.now() < until) {
+    if (document.documentElement.dataset.cdpClickDone === "1") {
+      delete document.documentElement.dataset.cdpClickDone;
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`CDP click did not complete on ${node.outerHTML}`);
+}
+
 async function approve() {
   const query = new URL(location.href).searchParams;
   const scenario = query.get("scene") ?? "composer";
-  const scheme = query.get("scheme");
+  const scheme = query.get("scheme") ?? (scenario === "design-system-light" ? "light" : "dark");
   document.documentElement.dataset.scheme = scheme === "light" ? "light" : "dark";
-  if (scenario.startsWith("fallback-")) return approveFallback(scenario, query.get("hold") === "1");
+  if (scenario.startsWith("fallback-") || scenario === "native-popover") {
+    return approvePopover(scenario, query.get("hold") === "1");
+  }
+  if (scenario === "design-system" || scenario === "design-system-light") {
+    return approveDesignSystem();
+  }
   const stage = scenario.startsWith("agent-activity")
     ? () => {
         const { parent, worker } = agentActivity();
@@ -178,20 +226,10 @@ async function approve() {
   };
 }
 
-async function approveFallback(scenario: string, hold: boolean) {
+async function approvePopover(scenario: string, hold: boolean) {
+  const nativePopover = scenario === "native-popover";
   const manual = scenario === "fallback-popover";
   if (manual) Reflect.deleteProperty(HTMLElement.prototype, "showPopover");
-  else {
-    // Current Chromium no longer honors the removed CSSAnchorPositioning runtime
-    // flag. Emulate only capability detection; layout and interaction remain real.
-    const supports = CSS.supports.bind(CSS);
-    CSS.supports = ((...args: Parameters<typeof CSS.supports>) =>
-      args[0].startsWith("position-anchor") || args[0].startsWith("position-area")
-        ? false
-        : supports(...args)) as typeof CSS.supports;
-  }
-  const anchors = CSS.supports("position-anchor: --gp-anchor");
-  if (!manual && anchors) throw new Error("Anchor fallback check requires anchor capability emulated unavailable");
   const root = createRoot(document.querySelector("#app")!);
   root.render(
     createElement(Dialog, {
@@ -200,7 +238,7 @@ async function approveFallback(scenario: string, hold: boolean) {
       label: "Settings",
       children: createElement(DropdownSelect, {
         label: "Provider",
-        defaultValue: "one",
+        defaultSelectedKey: "one",
         options: [
           { id: "one", label: "First provider" },
           { id: "two", label: "Second provider" },
@@ -210,9 +248,17 @@ async function approveFallback(scenario: string, hold: boolean) {
   );
   const trigger = await present<HTMLButtonElement>(".gp-anchored-trigger");
   trigger.focus();
-  trigger.click();
-  const panel = await present<HTMLElement>(".gp-native-popover");
+  if (nativePopover) {
+    await cdpClick(trigger);
+  } else {
+    trigger.click();
+  }
+  let panel = await present<HTMLElement>(".gp-native-popover");
   await document.fonts.ready;
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  if (!document.querySelector(".gp-native-popover")) {
+    throw new Error("Popover dismissed immediately after pointer click open");
+  }
   const box = panel.getBoundingClientRect();
   if (
     box.width <= 0 ||
@@ -222,23 +268,213 @@ async function approveFallback(scenario: string, hold: boolean) {
     box.right > innerWidth ||
     box.bottom > innerHeight
   ) {
-    throw new Error(`Fallback panel escapes viewport: ${JSON.stringify(box.toJSON())}`);
+    throw new Error(`Popover panel escapes viewport: ${JSON.stringify(box.toJSON())}`);
   }
-  if (panel.closest("dialog[open]") == null) throw new Error("Fallback escaped the modal's non-inert subtree");
-  const frame = { anchors, manual, contained: true, insideModal: true, position: getComputedStyle(panel).position };
+  if (panel.closest("dialog[open]") == null) throw new Error("Popover escaped the modal's non-inert subtree");
+
+  let toggledClosedOnSecondClick = false;
+  if (nativePopover) {
+    await cdpClick(trigger);
+    const closedUntil = Date.now() + 2_000;
+    while (Date.now() < closedUntil && document.querySelector(".gp-native-popover")) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    if (document.querySelector(".gp-native-popover")) {
+      throw new Error("Second click on trigger did not toggle native popover closed");
+    }
+    toggledClosedOnSecondClick = true;
+    await cdpClick(trigger);
+    panel = await present<HTMLElement>(".gp-native-popover");
+  }
+
+  const frame = nativePopover
+    ? { nativePopover: true, toggledClosedOnSecondClick, insideModal: true, position: getComputedStyle(panel).position }
+    : { anchors: false, manual, contained: true, insideModal: true, position: getComputedStyle(panel).position };
   if (!hold) {
-    (await present<HTMLElement>('[role="option"][data-key="two"]')).click();
+    const optionTwo = await present<HTMLElement>('[role="option"][data-key="two"]');
+    if (nativePopover) {
+      await cdpClick(optionTwo);
+    } else {
+      optionTwo.click();
+    }
     const until = Date.now() + 5_000;
     while (Date.now() < until && (document.activeElement !== trigger || document.querySelector(".gp-native-popover"))) {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
     if (!trigger.textContent?.includes("Second provider") || document.querySelector(".gp-native-popover")) {
-      throw new Error("Fallback provider selection did not close and update the field");
+      throw new Error("Popover provider selection did not close and update the field");
     }
     if (document.activeElement !== trigger)
-      throw new Error(`Fallback did not restore focus: ${document.activeElement?.outerHTML}`);
+      throw new Error(`Popover did not restore focus: ${document.activeElement?.outerHTML}`);
   }
   return { ...frame, selected: hold ? "panel held open for review" : "Second provider" };
+}
+
+async function approveDesignSystem() {
+  const initialColor = parseColor("#267fd9").toFormat("hsl");
+  const root = createRoot(document.querySelector("#app")!);
+  root.render(
+    createElement(
+      "div",
+      { className: "p-6 bg-canvas text-ink flex flex-col gap-6" },
+      createElement(
+        "div",
+        { className: "flex flex-wrap gap-3" },
+        createElement(Button, { type: "button" }, "ALLOW"),
+        createElement(Button, { type: "button", disabled: true }, "DISABLED"),
+        createElement(Button, { type: "button", variant: "secondary" }, "DENY"),
+        createElement(Button, { type: "button", variant: "ghost" }, "BROWSE"),
+      ),
+      createElement(
+        "div",
+        { className: "flex flex-col items-start gap-2" },
+        createElement(Checkbox, { defaultSelected: true, children: "Include completed tasks" }),
+        createElement(Checkbox, { children: "Include archived tasks" }),
+      ),
+      createElement(RadioGroup, {
+        label: "Export format",
+        defaultValue: "csv",
+        children: [
+          createElement(Radio, { key: "csv", value: "csv", children: "CSV" }),
+          createElement(Radio, { key: "json", value: "json", children: "JSON" }),
+        ],
+      }),
+      createElement(
+        Tabs,
+        { defaultSelectedKey: "overview" },
+        createElement(
+          TabList,
+          { "aria-label": "Project sections" },
+          createElement(Tab, { id: "overview" }, "Overview"),
+          createElement(Tab, { id: "activity" }, "Activity"),
+        ),
+        createElement(TabPanel, { id: "overview" }, "Overview panel"),
+        createElement(TabPanel, { id: "activity" }, "Activity panel"),
+      ),
+      createElement(
+        Tabs,
+        { orientation: "vertical", defaultSelectedKey: "profile" },
+        createElement(
+          TabList,
+          { "aria-label": "Settings sections" },
+          createElement(Tab, { id: "profile" }, "Profile"),
+          createElement(Tab, { id: "preferences" }, "Preferences"),
+        ),
+        createElement(TabPanel, { id: "profile" }, "Profile panel"),
+        createElement(TabPanel, { id: "preferences" }, "Preferences panel"),
+      ),
+      createElement(
+        Slider,
+        { defaultValue: 40, minValue: 0, maxValue: 100 },
+        createElement(Label, null, "Temperature"),
+        createElement(SliderTrack, null, createElement(SliderThumb)),
+      ),
+      createElement(
+        ColorSlider,
+        { channel: "hue", colorSpace: "hsl", defaultValue: initialColor },
+        createElement(Label, null, "Hue"),
+        createElement(ColorSliderTrack, null, createElement(ColorThumb)),
+      ),
+      createElement(
+        ColorArea,
+        {
+          "aria-label": "Category color",
+          colorSpace: "hsl",
+          xChannel: "saturation",
+          yChannel: "lightness",
+          defaultValue: initialColor,
+        },
+        createElement(ColorThumb),
+      ),
+      createElement(
+        ColorWheel,
+        { "aria-label": "Category hue", outerRadius: 80, innerRadius: 56, defaultValue: initialColor },
+        createElement(ColorWheelTrack),
+        createElement(ColorThumb),
+      ),
+      createElement(
+        ColorSwatchPicker,
+        { "aria-label": "Suggested colors", value: initialColor },
+        createElement(ColorSwatchPickerItem, { color: "#267fd9" }),
+        createElement(ColorSwatchPickerItem, { color: "#9058c8" }),
+        createElement(ColorSwatchPickerItem, { color: "#288263" }),
+      ),
+    ),
+  );
+
+  const allowBtn = await present<HTMLButtonElement>('[data-ui="button"]:not(:disabled)');
+  await document.fonts.ready;
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const disabledBtn = document.querySelector<HTMLButtonElement>('[data-ui="button"]:disabled');
+  if (!disabledBtn) throw new Error("Disabled button missing in design-system scene");
+  const allowFace = face(allowBtn);
+  const disabledFace = face(disabledBtn);
+  if (allowFace.background === disabledFace.background) {
+    throw new Error(`Disabled button matches active accent background: ${disabledFace.background}`);
+  }
+
+  const indicators = [...document.querySelectorAll<HTMLElement>(".gp-choice-indicator")];
+  if (indicators.length < 4) throw new Error(`Expected >= 4 choice indicators, found ${indicators.length}`);
+  const indicatorSizes = indicators.map((el) => {
+    const rect = el.getBoundingClientRect();
+    return `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+  });
+  if (indicatorSizes.some((size) => size !== "16x16")) {
+    throw new Error(`Collapsed or oversized choice indicator detected: ${indicatorSizes.join(", ")}`);
+  }
+
+  const hSelectedTab = document.querySelector<HTMLElement>(
+    '[data-ui="tabs"]:not([data-orientation="vertical"]) [data-ui="tab"][data-selected]',
+  );
+  const hUnselectedTab = document.querySelector<HTMLElement>(
+    '[data-ui="tabs"]:not([data-orientation="vertical"]) [data-ui="tab"]:not([data-selected])',
+  );
+  const vSelectedTab = document.querySelector<HTMLElement>(
+    '[data-ui="tabs"][data-orientation="vertical"] [data-ui="tab"][data-selected]',
+  );
+  if (!hSelectedTab || !hUnselectedTab || !vSelectedTab) {
+    throw new Error("Missing horizontal or vertical tab elements");
+  }
+  const hSelStyle = getComputedStyle(hSelectedTab);
+  const hUnselStyle = getComputedStyle(hUnselectedTab);
+  const vSelStyle = getComputedStyle(vSelectedTab);
+  if (Number.parseFloat(hSelStyle.borderBottomWidth) < 2 || hSelStyle.backgroundColor === hUnselStyle.backgroundColor) {
+    throw new Error("Horizontal selected tab lacks active highlight");
+  }
+  if (Number.parseFloat(vSelStyle.borderRightWidth) < 2) {
+    throw new Error("Vertical selected tab lacks active right indicator");
+  }
+
+  const sliderFill = document.querySelector<HTMLElement>(".gp-slider-fill")?.getBoundingClientRect();
+  const colorTrack = document.querySelector<HTMLElement>(".gp-color-slider-track")?.getBoundingClientRect();
+  const colorArea = document.querySelector<HTMLElement>(".gp-color-area")?.getBoundingClientRect();
+  const colorWheel = document.querySelector<HTMLElement>(".gp-color-wheel")?.getBoundingClientRect();
+  const selectedSwatch = document.querySelector<HTMLElement>(".gp-color-swatch-item[data-selected]");
+  if (!sliderFill || sliderFill.width <= 0 || sliderFill.height < 4) {
+    throw new Error(`Slider fill collapsed: ${JSON.stringify(sliderFill?.toJSON() ?? null)}`);
+  }
+  if (!colorTrack || colorTrack.height < 20 || colorTrack.width < 120) {
+    throw new Error(`Color slider track collapsed: ${JSON.stringify(colorTrack?.toJSON() ?? null)}`);
+  }
+  if (!colorArea || colorArea.width < 150 || colorArea.height < 120) {
+    throw new Error(`Color area collapsed: ${JSON.stringify(colorArea?.toJSON() ?? null)}`);
+  }
+  if (!colorWheel || colorWheel.width < 150 || colorWheel.height < 150) {
+    throw new Error(`Color wheel collapsed: ${JSON.stringify(colorWheel?.toJSON() ?? null)}`);
+  }
+  if (!selectedSwatch) throw new Error("Initial #267fd9 color swatch is not selected");
+
+  return {
+    allow: allowFace,
+    disabled: disabledFace,
+    indicatorSizes,
+    horizontalSelectedTab: face(hSelectedTab),
+    horizontalUnselectedTab: face(hUnselectedTab),
+    verticalSelectedTab: face(vSelectedTab),
+    selectedSwatchMatched: true,
+    colorControlsReady: true,
+  };
 }
 
 async function publishApproval() {

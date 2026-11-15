@@ -1,6 +1,6 @@
+import { displayPath } from "@inhuman.tools/harness-transcript/read-line";
+import { fileFace, looksBinary, readListParts } from "@inhuman.tools/harness-ui/blocks/read-line";
 import { describe, expect, it } from "vitest";
-
-import { displayPath, fileFace, looksBinary, readListParts } from "../read-line.js";
 
 describe("read lines", () => {
   it("keeps in-project paths relative and outside paths absolute", () => {

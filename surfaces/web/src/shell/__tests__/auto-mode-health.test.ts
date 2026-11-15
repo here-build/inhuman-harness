@@ -1,8 +1,7 @@
 import { ConnectionSpec, DriverSpec } from "@inhuman.tools/expectations";
 import { KernelRoot, SessionRoot } from "@inhuman.tools/harness-model";
+import { autoModeProblem } from "@inhuman.tools/harness-transcript/names";
 import { expect, it } from "vitest";
-
-import { autoModeProblem } from "../auto-mode-health.js";
 
 it("shows judge faults only for the selected wire and clears after a successful retry", () => {
   const session = new SessionRoot({ sessionId: "s", path: "/work" });

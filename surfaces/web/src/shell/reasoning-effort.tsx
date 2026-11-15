@@ -6,12 +6,11 @@ import {
   willEffortSwitchDropCache,
   type ReasoningEffort,
 } from "@inhuman.tools/harness-model";
+import { ReasoningEffortControl } from "@inhuman.tools/harness-ui";
 import { observer } from "mobx-react-lite";
-import { Button } from "react-aria-components";
 
 import type { ModelChoice, ModelWire } from "./model-choice.js";
 import { useDial } from "../client/context.js";
-import { Menu, MenuItem, MenuTrigger, NativePopover } from "../components/ui/anchored.js";
 
 /**
  * The session's reasoning effort override, as a word under the model picker.
@@ -52,7 +51,6 @@ export const ReasoningEffortPicker = observer(function ReasoningEffortPickerView
   const fallbackEffort = agentEffort ?? dial.session?.root.agent?.spec?.reasoningEffort ?? null;
   const effectiveEffort: ReasoningEffort | null = selected === "" ? fallbackEffort : selected;
   const triggerWord = formatReasoningEffortLabel(effectiveEffort);
-  const triggerLabel = `effort: ${triggerWord}`;
 
   const effortPort = dial.sessionRpc ?? dial.kernelRpc;
   const setEffort = (chosen: ReasoningEffort | ""): void => {
@@ -102,45 +100,23 @@ export const ReasoningEffortPicker = observer(function ReasoningEffortPickerView
   const selectedKey = selected === "" ? "default" : selected;
 
   return (
-    <MenuTrigger>
-      <Button
-        className="effort-trigger label touch-target"
-        isDisabled={disabled || (onStage == null && effortPort == null)}
-        aria-label={`Reasoning effort: ${triggerWord}`}
-      >
-        {triggerLabel}
-      </Button>
-      <NativePopover style={{ positionArea: "top span-left" }}>
-        <Menu
-          aria-label="Reasoning effort"
-          selectionMode="single"
-          disallowEmptySelection
-          selectedKeys={new Set([selectedKey])}
-          onAction={(key) => {
-            if (key === "default") {
-              setEffort("");
-            } else if (typeof key === "string" && isReasoningEffort(key)) {
-              setEffort(key);
-            }
-          }}
-        >
-          {items.map(({ id, label, targetEffective }) => {
-            const impact = willEffortSwitchDropCache(profile, effectiveCurrent, targetEffective, hasWarmTrajectory);
-            return (
-              <MenuItem
-                key={id}
-                id={id}
-                textValue={label}
-                className="flex items-center justify-between"
-                shouldCloseOnSelect
-              >
-                <span>{label}</span>
-                {impact !== "preserve" ? <span className="ml-3 text-xs text-muted">drops cache</span> : null}
-              </MenuItem>
-            );
-          })}
-        </Menu>
-      </NativePopover>
-    </MenuTrigger>
+    <ReasoningEffortControl
+      triggerWord={triggerWord}
+      selectedKey={selectedKey}
+      disabled={disabled || (onStage == null && effortPort == null)}
+      options={items.map(({ id, label, targetEffective }) => ({
+        id,
+        label,
+        dropsCache:
+          willEffortSwitchDropCache(profile, effectiveCurrent, targetEffective, hasWarmTrajectory) !== "preserve",
+      }))}
+      onSelect={(key) => {
+        if (key === "default") {
+          setEffort("");
+        } else if (isReasoningEffort(key)) {
+          setEffort(key);
+        }
+      }}
+    />
   );
 });

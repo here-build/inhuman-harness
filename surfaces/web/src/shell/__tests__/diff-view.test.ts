@@ -2,10 +2,11 @@
 
 import { act, createElement, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { paintTokenColors } from "@inhuman.tools/harness-transcript/diff-view";
 import type { ThemedDiffResult } from "@pierre/diffs";
 import { expect, it, vi } from "vitest";
 
-import { DiffView, paintTokenColors } from "../diff-view.js";
+import { DiffView } from "../diff-view.js";
 
 function themed(text: string, type: string, line: string, light: string, dark: string): ThemedDiffResult {
   return {

@@ -1,11 +1,11 @@
 import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
+import { connectError } from "@inhuman.tools/harness-ui";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { userEvent, waitFor, within } from "storybook/test";
 
 import { fresh } from "./scenes.js";
 import { sessionStage, StoryApp } from "./story-app.js";
 import { type ConnectScripts, PROJECT, WIRES, worldOf } from "./world.js";
-import { connectError } from "../shell/connect-error.js";
 import { projectHref } from "../shell/path.js";
 
 const meta = {

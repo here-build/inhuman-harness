@@ -10,9 +10,8 @@
  *     value (`b` / `(list b)`) IS, and packs `map>{inf>inf>inf}` densely.
  */
 import type { Region, RegionGraph } from "@here.build/arrival-provenance";
+import { planNesting } from "@inhuman.tools/harness-transcript/workflow/region-nesting";
 import { describe, expect, it } from "vitest";
-
-import { planNesting } from "../workflow/region-nesting.js";
 
 const leaf = (id: number, inputs: Record<string, unknown>, value: unknown): Region => ({
   kind: "leaf",

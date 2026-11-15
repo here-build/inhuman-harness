@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { railPane } from "../project-tabs.js";
-import { orderSessions, overviewList, shortAge } from "../rail-sessions.js";
+import { orderSessions, overviewList, shortAge } from "../session-order.js";
 
 describe("shortAge", () => {
   const now = 1_700_000_000_000;

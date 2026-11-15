@@ -1,6 +1,7 @@
+import { langFromPath, resolveLang } from "@inhuman.tools/harness-ui/blocks/lang";
 import { describe, expect, it } from "vitest";
 
-import { detectShellEmbeds, guessLang, langFromPath, resolveLang } from "../lang.js";
+import { wasmDetectShellEmbeds as detectShellEmbeds, wasmGuessLang as guessLang } from "../syntax-wasm.js";
 
 describe("language ids", () => {
   it("maps tape aliases onto shiki languages", () => {

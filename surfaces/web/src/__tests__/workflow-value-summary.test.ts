@@ -1,7 +1,6 @@
+import { valueJson, valueSummary } from "@inhuman.tools/harness-transcript/workflow/value-summary";
+import { verbLabel } from "@inhuman.tools/harness-transcript/workflow/verb-label";
 import { describe, expect, it } from "vitest";
-
-import { valueJson, valueSummary } from "../workflow/value-summary.js";
-import { verbLabel } from "../workflow/verb-label.js";
 
 describe("valueSummary", () => {
   it("keeps a string as prose", () => {

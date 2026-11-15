@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { sessionMintPermissionMode, type ReasoningEffort } from "@inhuman.tools/harness-model";
-import { IconCornerDownLeft } from "@tabler/icons-react";
+import { StageComposerBlock, adoptPictureFiles, clipboardImageFiles, useSkillSlash } from "@inhuman.tools/harness-ui";
 import { useRouter } from "@tanstack/react-router";
 import { observer } from "mobx-react-lite";
 
@@ -20,20 +20,9 @@ import {
 } from "./new-session.js";
 import { sessionHref } from "./path.js";
 import { PermissionMode } from "./permission-mode.js";
-import { PictureChips } from "./picture-chips.js";
-import { adoptPictureFiles, clipboardImageFiles } from "./picture-draft.js";
-import { PictureDrop } from "./picture-drop.js";
 import { useProjectSkills } from "./project-skills.js";
 import { ReasoningEffortPicker } from "./reasoning-effort.js";
-import { SkillSlashMenu } from "./skill-slash-menu.js";
-import { useSkillSlash } from "./use-skill-slash.js";
 import { useDial } from "../client/context.js";
-import { Button } from "../components/ui/button.js";
-import { fieldGlyph } from "../components/ui/glyph.js";
-import { Textarea } from "../components/ui/input.js";
-
-const fieldActionClass =
-  "absolute right-2 bottom-2 inline-flex size-8 min-h-0 p-0 items-center justify-center rounded-sm text-ink hover:bg-hover disabled:opacity-40 pointer-coarse:right-1 pointer-coarse:bottom-1 pointer-coarse:size-12";
 
 /**
  * The project page before a session exists. The field, model, and permission
@@ -56,8 +45,6 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
     [stage],
   );
   const [focusTick, setFocusTick] = useState(0);
-  const draftId = useId();
-  const statusId = useId();
   const held = dial.project?.root.path === path ? dial.project.root : dial.projects.get(path)?.root;
   const seeded = mintedModel(dial.kernel?.root.kvs, held?.kvs);
   const shown = stage.model ?? seeded;
@@ -156,78 +143,49 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
   }
 
   return (
-    <form
-      className="composer sticky bottom-0 z-10"
+    <StageComposerBlock
       hidden={dial.kernel == null}
-      onSubmit={(event) => {
-        event.preventDefault();
+      topNotices={dial.kernel == null ? null : <LinkNotice />}
+      notice={stage.status}
+      fieldRef={fieldRef}
+      pillRef={pillRef}
+      dropEnabled={!blocked && !stage.sending}
+      onDropFiles={adoptDrop}
+      pictures={stage.pictures}
+      picturesDisabled={blocked || stage.sending}
+      onRemovePicture={(key) => {
+        stage.pictures = stage.pictures.filter((picture) => picture.key !== key);
+        stage.revision += 1;
+        refresh();
       }}
-    >
-      <div className="composer-column">
-        {dial.kernel == null ? null : <LinkNotice />}
-        <output
-          id={statusId}
-          className={stage.status === "" ? "block text-sm text-muted" : "mb-2 block text-sm text-muted"}
-          role="status"
-        >
-          {stage.status}
-        </output>
-        <PictureDrop fieldRef={pillRef} enabled={!blocked && !stage.sending} onDrop={adoptDrop}>
-          <PictureChips
-            disabled={blocked || stage.sending}
-            pictures={stage.pictures}
-            onRemove={(key) => {
-              stage.pictures = stage.pictures.filter((picture) => picture.key !== key);
-              stage.revision += 1;
-              refresh();
-            }}
-            onPick={(files) => {
-              void adoptPictureFiles(stage, files, true, refresh);
-            }}
-          />
-          <SkillSlashMenu menu={slash.menu} />
-          <Textarea
-            {...slash.fieldProps}
-            ref={fieldRef}
-            id={draftId}
-            aria-label="Message draft"
-            aria-describedby={statusId}
-            className="composer-draft rounded-none border-0 bg-transparent px-4 py-3 pr-12 text-base pointer-coarse:py-4 pointer-coarse:pr-14"
-            placeholder="Ask or describe a change. / for skills"
-            rows={1}
-            value={stage.draft}
-            onChange={(event) => {
-              stage.draft = event.target.value;
-              stage.revision += 1;
-              slash.track(event.currentTarget);
-              refresh();
-            }}
-            onKeyDown={onDraftKey}
-            onPaste={(event) => {
-              const files = clipboardImageFiles(event.clipboardData);
-              if (files.length === 0) return;
-              if (event.clipboardData.getData("text/plain") === "") event.preventDefault();
-              void adoptPictureFiles(stage, files, false, refresh);
-            }}
-          />
-          {!hasBody ? null : (
-            <Button
-              variant="ghost"
-              type="button"
-              aria-label="Send"
-              className={fieldActionClass}
-              disabled={!canSend}
-              onClick={() => {
-                void send();
-              }}
-            >
-              <IconCornerDownLeft {...fieldGlyph} aria-hidden />
-            </Button>
-          )}
-        </PictureDrop>
-      </div>
-      <div className="composer-lane">
-        <div className="composer-picks">
+      onPickPictures={(files) => {
+        void adoptPictureFiles(stage, files, true, refresh);
+      }}
+      slashMenu={slash.menu}
+      slashFieldProps={slash.fieldProps}
+      draftLabel="Message draft"
+      draftPlaceholder="Ask or describe a change. / for skills"
+      draft={stage.draft}
+      onDraftChange={(value, element) => {
+        stage.draft = value;
+        stage.revision += 1;
+        slash.track(element);
+        refresh();
+      }}
+      onDraftKeyDown={onDraftKey}
+      onDraftPaste={(event) => {
+        const files = clipboardImageFiles(event.clipboardData);
+        if (files.length === 0) return;
+        if (event.clipboardData.getData("text/plain") === "") event.preventDefault();
+        void adoptPictureFiles(stage, files, false, refresh);
+      }}
+      showSend={hasBody}
+      canSend={canSend}
+      onSend={() => {
+        void send();
+      }}
+      lane={
+        <>
           {wires.length === 0 ? (
             <span className="truncate text-sm font-strong text-ink">
               {shown.model.trim() === "" ? "None" : naturalName(shown.model)}
@@ -251,9 +209,9 @@ export const StageComposer = observer(function StageComposerView({ path }: { rea
             disabled={blocked}
             onStage={chooseEffort}
           />
-        </div>
-      </div>
-      <PermissionMode staged={stage.permission} seed={seedPermission} onStage={choosePermission} />
-    </form>
+        </>
+      }
+      footer={<PermissionMode staged={stage.permission} seed={seedPermission} onStage={choosePermission} />}
+    />
   );
 });

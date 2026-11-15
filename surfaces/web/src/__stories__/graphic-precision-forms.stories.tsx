@@ -1,9 +1,5 @@
 import { useId, useState } from "react";
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { parseColor } from "react-aria-components";
-
-import { Page, Schemes, Section } from "./brand-kit.js";
-import { Checkbox } from "../components/ui/checkbox.js";
+import { Checkbox } from "@inhuman.tools/harness-ui/primitives/checkbox";
 import {
   CheckboxGroup,
   ColorArea,
@@ -33,7 +29,12 @@ import {
   SliderTrack,
   ToggleButton,
   ToggleButtonGroup,
-} from "../components/ui/form-controls.js";
+} from "@inhuman.tools/harness-ui/primitives/form-controls";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { parseColor } from "react-aria-components";
+import { expect, userEvent, within } from "storybook/test";
+
+import { Page, Schemes, Section } from "./brand-kit.js";
 
 const meta = {
   title: "Graphic Precision/Forms",
@@ -45,7 +46,6 @@ type Story = StoryObj<typeof meta>;
 export const Editing: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Form controls"
       lede="Compose persistent labels, descriptions, and recovery messages around real inputs."
     >
@@ -117,7 +117,6 @@ function EditingExamples() {
 export const Measurements: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Values and progress"
       lede="Ordinary numbers remain in the content face, with tabular figures where they aid comparison."
     >
@@ -187,7 +186,6 @@ function MeasurementExamples() {
 export const Choices: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Choices and modes"
       lede="Field labels remain natural case. Commands and modes use petite caps, with explicit selection markers."
     >
@@ -256,7 +254,6 @@ function ChoiceExamples() {
 export const Colors: Story = {
   render: () => (
     <Page
-      historical={false}
       title="Color editing"
       lede="The edited color appears only in the preview and editing surfaces; surrounding controls and keyboard focus stay neutral."
     >
@@ -270,11 +267,22 @@ export const Colors: Story = {
       </Section>
     </Page>
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const picker = canvas.getAllByRole("listbox", { name: "Suggested colors" })[0]!;
+    const swatches = within(picker).getAllByRole("option");
+    await expect(swatches[0]?.getAttribute("aria-selected")).toBe("true");
+    await expect(swatches[0]?.dataset.selected).toBeDefined();
+    await userEvent.click(swatches[2]!);
+    await expect(swatches[2]?.getAttribute("aria-selected")).toBe("true");
+    await expect(swatches[2]?.dataset.selected).toBeDefined();
+    await expect(canvas.getAllByText(/Current color: #288263/i).length).toBeGreaterThan(0);
+  },
 };
 
 function ColorExamples() {
   const paletteLabel = useId();
-  const [color, setColor] = useState(parseColor("hsl(210, 70%, 50%)"));
+  const [color, setColor] = useState(() => parseColor("#267fd9").toFormat("hsl"));
   return (
     <div className="flex flex-col gap-5">
       <ColorField

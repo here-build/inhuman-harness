@@ -1,27 +1,12 @@
-import { resolveLang } from "./lang.js";
-import { wasmHighlightLines } from "./syntax-wasm.js";
+import { resolveLang } from "@inhuman.tools/harness-ui/blocks/lang";
+import {
+  type ColorScheme,
+  type HighlightLine,
+  MAX_HIGHLIGHT_CHARS,
+  type SyntaxHighlighter,
+} from "@inhuman.tools/harness-ui/blocks/syntax";
 
-export type ColorScheme = "light" | "dark";
-
-export type TokenRun = {
-  text: string;
-  color?: string;
-  bold?: boolean;
-  italic?: boolean;
-};
-
-export type HighlightLine = TokenRun[];
-
-/** Skip coloring a huge open diff. The plain source stays readable. */
-const MAX_CHARS = 128 * 1024;
-
-/** The page's scheme: `data-scheme` on the root when something pins it, else the OS preference. */
-export function pageScheme(): ColorScheme {
-  const pinned = typeof document === "undefined" ? undefined : document.documentElement.dataset.scheme;
-  if (pinned === "light" || pinned === "dark") return pinned;
-  if (typeof globalThis.matchMedia !== "function") return "light";
-  return globalThis.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
+import { wasmDetectShellEmbeds, wasmGuessLang, wasmHighlightDiff, wasmHighlightLines } from "./syntax-wasm.js";
 
 /** Token lines, or null when coloring should stay off and the plain source show. */
 export async function highlightLines(
@@ -31,6 +16,14 @@ export async function highlightLines(
   guess = false,
 ): Promise<HighlightLine[] | null> {
   const resolved = resolveLang(lang);
-  if ((!guess && resolved === "text") || code.length === 0 || code.length > MAX_CHARS) return null;
+  if ((!guess && resolved === "text") || code.length === 0 || code.length > MAX_HIGHLIGHT_CHARS) return null;
   return wasmHighlightLines(code, resolved, scheme, guess);
 }
+
+/** WASM-backed syntax highlighter connected through {@link SyntaxHighlightProvider}. */
+export const wasmSyntaxHighlighter: SyntaxHighlighter = {
+  highlightLines,
+  highlightDiff: wasmHighlightDiff,
+  guessLang: wasmGuessLang,
+  detectShellEmbeds: wasmDetectShellEmbeds,
+};

@@ -4,9 +4,8 @@
  * Mirrors the gepa `evolve` shape.
  */
 import type { Region } from "@here.build/arrival-provenance";
+import { fanoutOrder, recurrenceSource } from "@inhuman.tools/harness-transcript/workflow/iteration-flow";
 import { describe, expect, it } from "vitest";
-
-import { fanoutOrder, recurrenceSource } from "../workflow/iteration-flow.js";
 
 const leaf = (id: number): Region => ({
   kind: "leaf",

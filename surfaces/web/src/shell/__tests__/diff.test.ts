@@ -1,8 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { projectDiff } from "@inhuman.tools/harness-transcript/diff-model";
 import { describe, expect, it } from "vitest";
 
-import { projectDiff } from "../diff-model.js";
 import { DiffView } from "../diff-view.js";
 
 const project = (oldText: string, newText: string, lineStart?: number) =>

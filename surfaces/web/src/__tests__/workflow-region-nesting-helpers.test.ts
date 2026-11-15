@@ -5,8 +5,6 @@
  * topology gate, and the post-plan tree prune).
  */
 import type { Region, RegionGraph } from "@here.build/arrival-provenance";
-import { describe, expect, it } from "vitest";
-
 import {
   absorbableHops,
   containerPathOf,
@@ -15,7 +13,8 @@ import {
   indexScopes,
   pruneRegions,
   wholeValueFlow,
-} from "../workflow/region-nesting.js";
+} from "@inhuman.tools/harness-transcript/workflow/region-nesting";
+import { describe, expect, it } from "vitest";
 
 const leaf = (
   id: number,

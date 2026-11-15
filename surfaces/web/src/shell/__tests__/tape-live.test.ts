@@ -11,11 +11,11 @@ import {
   SessionTurn,
 } from "@inhuman.tools/harness-model";
 import { Tape } from "@inhuman.tools/harness-transcript";
+import * as tapeRead from "@inhuman.tools/harness-transcript/tape-read";
 import { runInAction } from "mobx";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FilePreviewProvider } from "../file-sidebar.js";
-import * as tapeRead from "../tape-read.js";
 
 const seen = vi.hoisted(() => ({ texts: [] as string[] }));
 
@@ -28,6 +28,10 @@ vi.mock("remend", () => ({
 
 vi.mock("../../client/context.js", () => ({
   useDial: () => state.dial,
+}));
+
+vi.mock("@inhuman.tools/harness-transcript/context", () => ({
+  useTranscriptHost: () => state.dial,
 }));
 
 const state = vi.hoisted(() => ({
@@ -129,7 +133,7 @@ describe("tape projection", () => {
       view.render(createElement(FilePreviewProvider, { resetKey: "s" }, createElement(Tape)));
     });
     expect(container.querySelector(".side-left .progress-items")?.textContent).toContain("Early goal");
-    expect(container.querySelector(".timeline-main .beat")?.getAttribute("style")).toContain("--beat-anchor");
+    expect(container.querySelector<HTMLElement>(".timeline-main .beat")?.dataset.beatRow).toBe("1");
   });
 
   it("reparses only the speech whose text changed", async () => {
