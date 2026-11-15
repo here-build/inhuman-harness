@@ -48,7 +48,7 @@ import {
 import { applyKv, type KvProposal, type PermissionMode } from "@inhuman.tools/harness-model/shared";
 import { runWithBlobReader, runWithVisualReader } from "@inhuman.tools/harness-provider-sdk";
 import { daemonSocketPath } from "@inhuman.tools/harness-sdk/paths";
-import type { DocumentContainer } from "@inhuman.tools/model";
+import type { DocumentContainer, ModelNodeDelta, SerializedModelRow } from "@inhuman.tools/model";
 import type { InhumanPlugin } from "@inhuman.tools/plugin-sdk";
 import {
   CommitDiffShapeSource,
@@ -2181,12 +2181,7 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
     options?: { readonly force?: boolean; readonly checkpoint?: SessionCheckpoint },
   ): Promise<void> {
     if (options?.checkpoint != null) {
-      await this.commitCheckpoint(options.checkpoint, { force: options.force });
-      session.commitNodeDelta({
-        revision: options.checkpoint.revision,
-        upserts: options.checkpoint.upsertedNodes,
-        deletes: options.checkpoint.deletedNodeIds,
-      });
+      await this.commitCheckpoint(options.checkpoint, { force: options.force, session });
       return;
     }
     await this.#flushSession(session, options);
@@ -2194,31 +2189,54 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   async commitCheckpoint(
     checkpoint: SessionCheckpoint,
-    options?: { readonly force?: boolean },
+    options?: { readonly force?: boolean; readonly session?: SessionDocument },
   ): Promise<SessionReceipt> {
     await this.#enqueueWrite(`session:${checkpoint.sessionId}`, "checkpoint commit", async () => {
       const row = checkpoint.sessionRow;
       const prev =
         this.#sessionsCache.get(checkpoint.sessionId) ?? (await this.db.get("sessions", checkpoint.sessionId));
       const now = Date.now();
-      const nextSessionRow: SessionRow = {
-        sessionId: checkpoint.sessionId,
-        kernelId: this.kernelId,
-        projectId: row.projectId ?? prev?.projectId ?? "",
-        title: row.title ?? prev?.title ?? "",
-        workspacePath: row.workspacePath ?? prev?.workspacePath ?? "",
-        mode: row.mode ?? prev?.mode ?? "assistant",
-        permissionMode: row.permissionMode ?? prev?.permissionMode ?? "manual",
-        running: row.running ?? prev?.running ?? false,
-        headTurnId: row.headTurnId !== undefined ? row.headTurnId : (prev?.headTurnId ?? null),
-        parentSessionId: row.parentSessionId !== undefined ? row.parentSessionId : (prev?.parentSessionId ?? null),
-        parentCallId: row.parentCallId !== undefined ? row.parentCallId : (prev?.parentCallId ?? null),
-        depth: row.depth ?? prev?.depth ?? 0,
-        revision: checkpoint.revision,
-        createdAtMs: row.createdAtMs ?? prev?.createdAtMs ?? now,
-        lastActiveAtMs: row.lastActiveAtMs ?? now,
-        archivedAtMs: row.archivedAtMs !== undefined ? row.archivedAtMs : (prev?.archivedAtMs ?? null),
-      };
+      const sessionDoc = options?.session != null && !options.session.isDestroyed ? options.session : undefined;
+      const isStale = options?.force !== true && prev !== undefined && prev.revision > checkpoint.revision;
+      const nextSessionRow: SessionRow =
+        isStale && prev !== undefined
+          ? {
+              ...prev,
+              ...(sessionDoc !== undefined
+                ? {
+                    ...sessionColumns(sessionDoc.root),
+                    revision: Math.max(prev.revision, sessionDoc.revision),
+                  }
+                : {}),
+              lastActiveAtMs: now,
+            }
+          : {
+              sessionId: checkpoint.sessionId,
+              kernelId: this.kernelId,
+              projectId: row.projectId ?? prev?.projectId ?? "",
+              title: row.title ?? prev?.title ?? "",
+              workspacePath: row.workspacePath ?? prev?.workspacePath ?? "",
+              mode: row.mode ?? prev?.mode ?? "assistant",
+              permissionMode: row.permissionMode ?? prev?.permissionMode ?? "manual",
+              running: row.running ?? prev?.running ?? false,
+              headTurnId: row.headTurnId !== undefined ? row.headTurnId : (prev?.headTurnId ?? null),
+              parentSessionId: row.parentSessionId !== undefined ? row.parentSessionId : (prev?.parentSessionId ?? null),
+              parentCallId: row.parentCallId !== undefined ? row.parentCallId : (prev?.parentCallId ?? null),
+              depth: row.depth ?? prev?.depth ?? 0,
+              revision: checkpoint.revision,
+              createdAtMs: row.createdAtMs ?? prev?.createdAtMs ?? now,
+              lastActiveAtMs: row.lastActiveAtMs ?? now,
+              archivedAtMs: row.archivedAtMs !== undefined ? row.archivedAtMs : (prev?.archivedAtMs ?? null),
+            };
+      const deletedNodeIds =
+        isStale && sessionDoc !== undefined
+          ? checkpoint.deletedNodeIds.filter((id) => sessionDoc.getNode(id) === undefined)
+          : checkpoint.deletedNodeIds;
+      const pendingAsks = isStale
+        ? sessionDoc !== undefined
+          ? collectPendingAsks(sessionDoc.root, now, this.kernelId)
+          : undefined
+        : checkpoint.pendingAsks;
 
       await this.db.batch((tx) => {
         tx.set("sessions", nextSessionRow);
@@ -2229,21 +2247,26 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
             rootId: checkpoint.rootNodeId,
             revision: checkpoint.revision,
             upserts: checkpoint.upsertedNodes,
-            deletes: checkpoint.deletedNodeIds,
+            deletes: deletedNodeIds,
             replaceAll: options?.force === true,
+            monotonicRevision: options?.force !== true,
           },
           this.kernelId,
         );
-        for (const turn of checkpoint.dirtyTurns) {
-          tx.set("session_turns", turn);
+        if (!isStale) {
+          for (const turn of checkpoint.dirtyTurns) {
+            tx.set("session_turns", turn);
+          }
         }
-        tx.retainOnly(
-          "pending_asks",
-          { sessionId: checkpoint.sessionId },
-          checkpoint.pendingAsks.map((ask) => ask.jobId),
-        );
-        if (checkpoint.pendingAsks.length > 0) {
-          tx.setMany("pending_asks", checkpoint.pendingAsks);
+        if (pendingAsks !== undefined) {
+          tx.retainOnly(
+            "pending_asks",
+            { sessionId: checkpoint.sessionId },
+            pendingAsks.map((ask) => ask.jobId),
+          );
+          if (pendingAsks.length > 0) {
+            tx.setMany("pending_asks", pendingAsks);
+          }
         }
         for (const eff of checkpoint.effectRecords) {
           upsertSessionEffectInBatch(tx, eff, this.kernelId);
@@ -2254,8 +2277,15 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       this.#storedSessionIds.add(checkpoint.sessionId);
       this.#recordSessionNodeRows(checkpoint.sessionId, checkpoint.upsertedNodes, {
         replaceAll: options?.force === true,
-        deletes: checkpoint.deletedNodeIds,
+        deletes: deletedNodeIds,
       });
+      if (sessionDoc !== undefined) {
+        sessionDoc.commitNodeDelta({
+          revision: checkpoint.revision,
+          upserts: checkpoint.upsertedNodes,
+          deletes: deletedNodeIds,
+        });
+      }
     });
 
     return {
@@ -2404,73 +2434,36 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
   }
 
   #flushSession(session: SessionDocument, options?: { readonly force?: boolean }): Promise<void> {
-    const root = session.root;
-    const sessionId = root.sessionId;
-    const now = Date.now();
-    const face = sessionColumns(root);
-    const pendingAsks = collectPendingAsks(root, now, this.kernelId);
-
-    if (options?.force === true) {
-      session.pruneUnreachableNodes();
-      const capturedRevision = session.revision;
-      const rows = session.toNodeRows();
-      const revision = Math.max(capturedRevision, 1);
-      return this.#enqueueWrite(`session:${sessionId}`, "session flush", async () => {
-        const prev = this.#sessionsCache.get(sessionId);
-        const sessionRow: SessionRow = {
-          archivedAtMs: prev?.archivedAtMs ?? null,
-          parentSessionId: prev?.parentSessionId ?? null,
-          parentCallId: prev?.parentCallId ?? null,
-          depth: prev?.depth ?? 0,
-          ...face,
-          sessionId,
-          kernelId: this.kernelId,
-          projectId: root.projectId,
-          revision,
-          createdAtMs: prev?.createdAtMs ?? now,
-          lastActiveAtMs: now,
-        };
-        await this.db.batch((tx) => {
-          tx.set("sessions", sessionRow);
-          commitSessionNodesInBatch(
-            tx,
-            sessionId,
-            {
-              rootId: root.uuid,
-              revision,
-              upserts: rows,
-              deletes: [],
-              replaceAll: true,
-            },
-            this.kernelId,
-          );
-          tx.retainOnly(
-            "pending_asks",
-            { sessionId },
-            pendingAsks.map((ask) => ask.jobId),
-          );
-          if (pendingAsks.length > 0) {
-            tx.setMany("pending_asks", pendingAsks);
-          }
-        });
-        this.#sessionsCache.set(sessionId, sessionRow);
-        this.#storedSessionIds.add(sessionId);
-        this.#recordSessionNodeRows(sessionId, rows, { replaceAll: true });
-        if (!session.isDestroyed) {
-          session.commitSnapshot({
-            revision: capturedRevision,
-            upserts: rows,
-            replaceAll: true,
-          });
-        }
-      });
-    }
-
-    const delta = session.peekNodeDelta();
-    const revision = delta.revision;
-    const hasNodeDelta = delta.upserts.length > 0 || delta.deletes.length > 0;
+    if (session.isDestroyed) return Promise.resolve();
+    const sessionId = session.root.sessionId;
+    const force = options?.force === true;
     return this.#enqueueWrite(`session:${sessionId}`, "session flush", async () => {
+      if (session.isDestroyed) return;
+      const root = session.root;
+      const now = Date.now();
+      const face = sessionColumns(root);
+      const pendingAsks = collectPendingAsks(root, now, this.kernelId);
+
+      let revision: number;
+      let capturedRevision = session.revision;
+      let forceRows: SerializedModelRow[] = [];
+      let nodeDelta: ModelNodeDelta | undefined;
+      if (force) {
+        session.pruneUnreachableNodes();
+        capturedRevision = session.revision;
+        forceRows = session.toNodeRows();
+        revision = Math.max(capturedRevision, 1);
+      } else {
+        nodeDelta = session.peekNodeDelta();
+        revision = nodeDelta.revision;
+      }
+      const hasNodeDelta =
+        !force && nodeDelta !== undefined && (nodeDelta.upserts.length > 0 || nodeDelta.deletes.length > 0);
+
       const prev = this.#sessionsCache.get(sessionId);
+      if (!force) {
+        revision = Math.max(revision, prev?.revision ?? 0);
+      }
       const sessionRow: SessionRow = {
         archivedAtMs: prev?.archivedAtMs ?? null,
         parentSessionId: prev?.parentSessionId ?? null,
@@ -2486,8 +2479,21 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       };
       await this.db.batch((tx) => {
         tx.set("sessions", sessionRow);
-        if (hasNodeDelta) {
-          commitSessionNodesInBatch(tx, sessionId, delta, this.kernelId);
+        if (force) {
+          commitSessionNodesInBatch(
+            tx,
+            sessionId,
+            {
+              rootId: root.uuid,
+              revision,
+              upserts: forceRows,
+              deletes: [],
+              replaceAll: true,
+            },
+            this.kernelId,
+          );
+        } else if (hasNodeDelta && nodeDelta !== undefined) {
+          commitSessionNodesInBatch(tx, sessionId, { ...nodeDelta, monotonicRevision: true }, this.kernelId);
         }
         tx.retainOnly(
           "pending_asks",
@@ -2500,10 +2506,19 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
       });
       this.#sessionsCache.set(sessionId, sessionRow);
       this.#storedSessionIds.add(sessionId);
-      if (hasNodeDelta) {
-        this.#recordSessionNodeRows(sessionId, delta.upserts, { deletes: delta.deletes });
+      if (force) {
+        this.#recordSessionNodeRows(sessionId, forceRows, { replaceAll: true });
         if (!session.isDestroyed) {
-          session.commitNodeDelta(delta);
+          session.commitSnapshot({
+            revision: capturedRevision,
+            upserts: forceRows,
+            replaceAll: true,
+          });
+        }
+      } else if (hasNodeDelta && nodeDelta !== undefined) {
+        this.#recordSessionNodeRows(sessionId, nodeDelta.upserts, { deletes: nodeDelta.deletes });
+        if (!session.isDestroyed) {
+          session.commitNodeDelta(nodeDelta);
         }
       }
     });

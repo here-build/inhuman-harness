@@ -6,8 +6,17 @@ import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { prompt } from "@inhuman.tools/harness-commons";
+import {
+  SessionDocument,
+  SessionSystemPrompt,
+  SessionTurn,
+  SystemToolJob,
+} from "@inhuman.tools/harness-model";
+import { loadSessionNodesFromKv } from "@inhuman.tools/scope-plane";
 import { SqliteKvStore } from "@inhuman.tools/scope-plane-sqlite";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { runInAction } from "mobx";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { KernelDaemon } from "../kernel/KernelDaemon.js";
 import { ProjectDaemon } from "../project/ProjectDaemon.js";
@@ -189,5 +198,81 @@ describe("local SQLite/runtime integration", () => {
       marks: ["left", "right"],
       dbs: false,
     });
+  });
+
+  it("overlapping flushSession and stale checkpoint commit never regress humanApprove or pending_asks", async () => {
+    const system = await openKernel("race-k");
+    const workspace = await openKernel("race-p");
+    const kernel = new KernelDaemon(system);
+    onTestFinished(() => kernel[Symbol.dispose]());
+    await kernel.ready;
+    const project = new ProjectDaemon(kernel, workspace);
+    await project.ready;
+    const session = await project.session("race");
+
+    const leaf = new SystemToolJob({
+      toolCallId: "race-call-1",
+      name: "write_file",
+      argsJson: JSON.stringify({ path: "src/a.ts", content: "x" }),
+    });
+    runInAction(() => {
+      session.root.head = new SessionTurn({
+        turnTail: new SessionSystemPrompt(),
+        prompt: prompt.user`go`,
+        queue: [leaf],
+      });
+      leaf.stampPolicy("ask", null, null, {
+        classesJson: '["workspace-write"]',
+        votesJson: JSON.stringify([
+          { disposition: "ask", class: "workspace-write", ruleId: "w", path: { cluster: "write", path: "src/a.ts" } },
+        ]),
+      });
+    });
+    await kernel.flushSession(session.doc);
+
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let gateArmed = true;
+    const originalBatch = kernel.db.batch.bind(kernel.db);
+    vi.spyOn(kernel.db, "batch").mockImplementation(async (fn) => {
+      if (gateArmed) {
+        gateArmed = false;
+        entered.resolve();
+        await release.promise;
+      }
+      return originalBatch(fn);
+    });
+
+    session.root.applyKvs([{ form: "kv-set", key: "step", value: "1" }]);
+    const flush1 = kernel.flushSession(session.doc);
+    await entered.promise;
+
+    // While flush1 holds the batch gate, queue flush2, capture a pre-approval checkpoint,
+    // and then approve the leaf so flush2 sees live state and staleCheckpoint is older.
+    session.root.applyKvs([{ form: "kv-set", key: "step", value: "2" }]);
+    const flush2 = kernel.flushSession(session.doc);
+    const staleCheckpoint = session.sessionRuntime.checkpoint();
+    runInAction(() => {
+      leaf.humanApprove = true;
+    });
+
+    release.resolve();
+    await Promise.all([flush1, flush2]);
+
+    await kernel.flushSession(session.doc, { checkpoint: staleCheckpoint });
+
+    const pendingAsks = await kernel.db.scan("pending_asks", { where: { sessionId: "race" } });
+    const loaded = await loadSessionNodesFromKv(kernel.db, "race");
+    if (loaded === undefined) throw new Error("missing session rows");
+    const restored = SessionDocument.fromNodeRows(loaded.rows, {
+      rootId: loaded.rootId,
+      sessionId: "race",
+      revision: loaded.revision,
+    });
+    onTestFinished(() => restored.destroy());
+    const restoredLeaf = restored.getNode(leaf.uuid);
+    expect(pendingAsks).toEqual([]);
+    expect(restoredLeaf instanceof SystemToolJob ? restoredLeaf.humanApprove : undefined).toBe(true);
+    expect(restored.root.findRunningTurn()?.approvalHead ?? null).toBeNull();
   });
 });
