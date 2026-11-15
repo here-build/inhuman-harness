@@ -59,7 +59,7 @@ import { scopes } from "@/policy-processor/scope";
 import { isMcpDriver } from "@/providers/mcp";
 import { bindCompletionFace, bindSessionMediaReaders, OpenAiCompatActor } from "@/providers/openai-compat";
 import { type SessionCommandHost } from "@/session";
-import { behaviorEntriesOf, bindSessionCatalog } from "@/tool-catalog";
+import { behaviorEntriesOf, bindSessionCatalog, type KernelToolCatalog } from "@/tool-catalog";
 import { bindWorkspaceEnv, resolveEvalPermissionMode, unattendedFailureText } from "@/tool-runtime";
 
 import { cancelAgentCall } from "./agent-calls-operator.js";
@@ -156,6 +156,7 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
   #statuslineGitWatch: ReturnType<typeof watchGitStatusline> | undefined;
   #statuslineGitShellStop: IReactionDisposer | undefined;
   #mcpBlockStamp = "";
+  #mcpCatalogStamp = "";
   #behaviorStamp = "";
   #actionChain: Promise<void> = Promise.resolve();
   readonly #hydrated: boolean;
@@ -287,6 +288,9 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
         }
       }
       const visuals = incoming.length === 0 ? undefined : this.#seatVisuals(incoming);
+      if (this.root.findRunningTurn() == null) {
+        await this.#warmMcpConnections();
+      }
       const result = await this.sessionRuntime.admit(this.#commandHost(), {
         prompt: args.prompt,
         kind,
@@ -334,6 +338,7 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
         };
       }
       RpcInvalidParams.invariant(this.root.findRunningTurn() == null, "already running");
+      await this.#warmMcpConnections();
       const constitution = this.#constitution();
       const tail =
         this.root.head ??
@@ -482,6 +487,7 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
       if (!result.ok) return result;
       // A grant just stored may cover other asks that are already waiting.
       if (result.grant !== undefined || args.ackStore !== undefined) scopes.get(this.root).reconcileGrants();
+      this.#flushAnsweredSession(args.sessionId);
       return result;
     }),
     DaemonRpcMethod.fromContract(contract.session.ack.pending, (args) => {
@@ -520,6 +526,7 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
       if (!result.ok) return result;
       // An ack just stored may satisfy other calls that are already waiting.
       if (result.ack !== undefined) scopes.get(this.root).reconcileGrants();
+      this.#flushAnsweredSession(args.sessionId);
       return result;
     }),
     DaemonRpcMethod.fromContract(contract.session.resident.set, (args) => {
@@ -849,6 +856,17 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
     return namedWorkerIds(this.root).includes(sessionId) ? this.kernel.sessionDoc(sessionId)?.root : undefined;
   }
 
+  /** Persist a human ask/ack answer immediately instead of waiting for the debounced patch timer. */
+  #flushAnsweredSession(sessionId: string): void {
+    const targetDoc = sessionId === this.sessionId ? this.doc : this.kernel.sessionDoc(sessionId);
+    if (targetDoc != null) {
+      void this.kernel.flushSession(targetDoc).catch((error: unknown) => fail("session flush", error));
+    }
+    if (targetDoc !== this.doc) {
+      void this.kernel.flushSession(this.doc).catch((error: unknown) => fail("session flush", error));
+    }
+  }
+
   #commandHost(): SessionCommandHost {
     return {
       session: this.root,
@@ -1135,6 +1153,39 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
     return ids;
   }
 
+  #computeMcpCatalogStamp(catalog: KernelToolCatalog, mcpIds: ReadonlySet<string>): string {
+    const out: string[] = [];
+    for (const entry of catalog.catalogEntries()) {
+      if (entry.source.kind === "connection" && mcpIds.has(entry.source.connectionKey)) {
+        out.push(`${entry.source.connectionKey}\0${entry.wireName}`);
+      }
+    }
+    return out.sort().join("\n");
+  }
+
+  /**
+   * Warm enabled MCP connections before snapshotting turn tools so the very first
+   * turn already sees their tools inside `scheme_repl`. Bounded so an unreachable
+   * external MCP never blocks turn admission indefinitely.
+   */
+  async #warmMcpConnections(timeoutMs = 5_000): Promise<void> {
+    if (this.#closed || this.#parked) return;
+    const ids = this.#mcpConnectionIds();
+    if (ids.length === 0) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        Promise.allSettled(ids.map((id) => this.orchestrator.ensure(id))),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, timeoutMs);
+          timer.unref?.();
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
   /** Size of this session's stored SQLite rows; 0 before it is first written. */
   #imageBytes(): number {
     return this.kernel.sessionStoredBytes(this.sessionId);
@@ -1162,25 +1213,29 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
 
   /**
    * First turn always snapshots. Later turns snapshot when the tail asked
-   * (`reloadTools`, compact), kernel MCP ids drifted from the frozen set,
-   * or the session tool blocklist changed.
+   * (`reloadTools`, compact), kernel MCP ids or discovered MCP tools drifted
+   * from the frozen set, or the session tool blocklist changed.
    */
   #toolsDefinitionFor(tail: SessionSystemPrompt | SessionTurn | null): RegisteredToolsSet | null {
     const stamp = mcpToolListStamp(this.root.toolBlocklist);
     const behavior = this.#behaviorToolStamp();
+    const mcpIdList = this.#mcpConnectionIds();
+    const mcpIds = new Set(mcpIdList);
+    const catalog = sessionCatalog(this.root) ?? this.kernel.catalog;
+    const mcpCatalog = this.#computeMcpCatalogStamp(catalog, mcpIds);
     if (
       tail instanceof SessionTurn &&
       !tail.reloadTools &&
-      mcpConnectionsEqual(tail.tools.mcpConnections, this.#mcpConnectionIds()) &&
+      mcpConnectionsEqual(tail.tools.mcpConnections, mcpIdList) &&
       this.#mcpBlockStamp === stamp &&
+      this.#mcpCatalogStamp === mcpCatalog &&
       this.#behaviorStamp === behavior
     ) {
       return null;
     }
     this.#mcpBlockStamp = stamp;
+    this.#mcpCatalogStamp = mcpCatalog;
     this.#behaviorStamp = behavior;
-    const mcpIds = new Set(this.#mcpConnectionIds());
-    const catalog = sessionCatalog(this.root) ?? this.kernel.catalog;
     const kernelRoot = this.kernel.doc.root;
     const connections: CompletionFace[] = [];
     for (const [id, spec] of Object.entries(kernelRoot.connections)) {
@@ -1205,7 +1260,7 @@ export class SessionDaemon extends RequestHost implements Disposable, AsyncDispo
               mutates: entry.class === "write",
             }),
         ),
-      mcpConnections: this.#mcpConnectionIds(),
+      mcpConnections: mcpIdList,
       addendum: catalog.TOOLS_SYSTEM_ADDENDUM,
     });
   }
