@@ -1,44 +1,152 @@
 {
   "name": "@inhuman.tools/harness-transcript",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.4.1",
   "description": "The session transcript: the tape, without a composer or a model picker.",
   "type": "module",
   "exports": {
-    ".": "./src/tape.tsx",
-    "./blob-cache": "./src/blob-cache.ts",
-    "./context": "./src/context.tsx",
-    "./diff-model": "./src/diff-model.ts",
-    "./diff-view": "./src/diff-view.tsx",
-    "./names": "./src/names.ts",
-    "./plugin-progress": "./src/plugin-progress.ts",
-    "./read-line": "./src/read-line.ts",
-    "./row-title": "./src/row-title.ts",
-    "./scheme-unwrap": "./src/scheme-unwrap.ts",
-    "./session-beats": "./src/session-beats.ts",
-    "./session-reducer": "./src/session-reducer.ts",
-    "./tape-beats": "./src/tape-beats.ts",
-    "./tape-live": "./src/tape-live.ts",
-    "./tape-read": "./src/tape-read.ts",
-    "./tool-label": "./src/tool-label.ts",
-    "./tool-receipt": "./src/tool-receipt.ts",
-    "./workflow/causal": "./src/workflow/causal.ts",
-    "./workflow/cell": "./src/workflow/cell.ts",
-    "./workflow/elk": "./src/workflow/elk.ts",
-    "./workflow/feed": "./src/workflow/feed.ts",
-    "./workflow/iteration-flow": "./src/workflow/iteration-flow.ts",
-    "./workflow/leaf-card": "./src/workflow/leaf-card.tsx",
-    "./workflow/region-elk-layout": "./src/workflow/region-elk-layout.ts",
-    "./workflow/region-geometry": "./src/workflow/region-geometry.ts",
-    "./workflow/region-nesting": "./src/workflow/region-nesting.ts",
-    "./workflow/scope-dag": "./src/workflow/scope-dag.ts",
-    "./workflow/use-region-graph": "./src/workflow/use-region-graph.ts",
-    "./workflow/use-workflow-graph": "./src/workflow/use-workflow-graph.ts",
-    "./workflow/value-summary": "./src/workflow/value-summary.ts",
-    "./workflow/verb-label": "./src/workflow/verb-label.ts",
-    "./workflow/workflow-graph": "./src/workflow/workflow-graph.tsx"
+    ".": {
+      "types": "./dist/tape.d.ts",
+      "import": "./dist/tape.js"
+    },
+    "./blob-cache": {
+      "types": "./dist/blob-cache.d.ts",
+      "import": "./dist/blob-cache.js"
+    },
+    "./context": {
+      "types": "./dist/context.d.ts",
+      "import": "./dist/context.js"
+    },
+    "./diff-model": {
+      "types": "./dist/diff-model.d.ts",
+      "import": "./dist/diff-model.js"
+    },
+    "./diff-view": {
+      "types": "./dist/diff-view.d.ts",
+      "import": "./dist/diff-view.js"
+    },
+    "./names": {
+      "types": "./dist/names.d.ts",
+      "import": "./dist/names.js"
+    },
+    "./outcome": {
+      "types": "./dist/outcome.d.ts",
+      "import": "./dist/outcome.js"
+    },
+    "./plugin-progress": {
+      "types": "./dist/plugin-progress.d.ts",
+      "import": "./dist/plugin-progress.js"
+    },
+    "./read-line": {
+      "types": "./dist/read-line.d.ts",
+      "import": "./dist/read-line.js"
+    },
+    "./row-title": {
+      "types": "./dist/row-title.d.ts",
+      "import": "./dist/row-title.js"
+    },
+    "./scheme-unwrap": {
+      "types": "./dist/scheme-unwrap.d.ts",
+      "import": "./dist/scheme-unwrap.js"
+    },
+    "./session-beats": {
+      "types": "./dist/session-beats.d.ts",
+      "import": "./dist/session-beats.js"
+    },
+    "./session-reducer": {
+      "types": "./dist/session-reducer.d.ts",
+      "import": "./dist/session-reducer.js"
+    },
+    "./tape-beats": {
+      "types": "./dist/tape-beats.d.ts",
+      "import": "./dist/tape-beats.js"
+    },
+    "./tape-live": {
+      "types": "./dist/tape-live.d.ts",
+      "import": "./dist/tape-live.js"
+    },
+    "./tape-read": {
+      "types": "./dist/tape-read.d.ts",
+      "import": "./dist/tape-read.js"
+    },
+    "./tool-label": {
+      "types": "./dist/tool-label.d.ts",
+      "import": "./dist/tool-label.js"
+    },
+    "./tool-receipt": {
+      "types": "./dist/tool-receipt.d.ts",
+      "import": "./dist/tool-receipt.js"
+    },
+    "./workflow/causal": {
+      "types": "./dist/workflow/causal.d.ts",
+      "import": "./dist/workflow/causal.js"
+    },
+    "./workflow/cell": {
+      "types": "./dist/workflow/cell.d.ts",
+      "import": "./dist/workflow/cell.js"
+    },
+    "./workflow/elk": {
+      "types": "./dist/workflow/elk.d.ts",
+      "import": "./dist/workflow/elk.js"
+    },
+    "./workflow/feed": {
+      "types": "./dist/workflow/feed.d.ts",
+      "import": "./dist/workflow/feed.js"
+    },
+    "./workflow/iteration-flow": {
+      "types": "./dist/workflow/iteration-flow.d.ts",
+      "import": "./dist/workflow/iteration-flow.js"
+    },
+    "./workflow/leaf-card": {
+      "types": "./dist/workflow/leaf-card.d.ts",
+      "import": "./dist/workflow/leaf-card.js"
+    },
+    "./workflow/region-elk-layout": {
+      "types": "./dist/workflow/region-elk-layout.d.ts",
+      "import": "./dist/workflow/region-elk-layout.js"
+    },
+    "./workflow/region-geometry": {
+      "types": "./dist/workflow/region-geometry.d.ts",
+      "import": "./dist/workflow/region-geometry.js"
+    },
+    "./workflow/region-nesting": {
+      "types": "./dist/workflow/region-nesting.d.ts",
+      "import": "./dist/workflow/region-nesting.js"
+    },
+    "./workflow/scope-dag": {
+      "types": "./dist/workflow/scope-dag.d.ts",
+      "import": "./dist/workflow/scope-dag.js"
+    },
+    "./workflow/use-region-graph": {
+      "types": "./dist/workflow/use-region-graph.d.ts",
+      "import": "./dist/workflow/use-region-graph.js"
+    },
+    "./workflow/use-workflow-graph": {
+      "types": "./dist/workflow/use-workflow-graph.d.ts",
+      "import": "./dist/workflow/use-workflow-graph.js"
+    },
+    "./workflow/value-summary": {
+      "types": "./dist/workflow/value-summary.d.ts",
+      "import": "./dist/workflow/value-summary.js"
+    },
+    "./workflow/verb-label": {
+      "types": "./dist/workflow/verb-label.d.ts",
+      "import": "./dist/workflow/verb-label.js"
+    },
+    "./workflow/workflow-graph": {
+      "types": "./dist/workflow/workflow-graph.d.ts",
+      "import": "./dist/workflow/workflow-graph.js"
+    }
   },
+  "files": [
+    "dist",
+    "src",
+    "!**/__tests__",
+    "!**/__fixtures__",
+    "!**/*.test.*"
+  ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
@@ -59,11 +167,12 @@
     "micromark-extension-gfm": "^3.0.0",
     "mobx": "6.16.1",
     "mobx-react-lite": "^4.1.1",
-    "react": "^19.3.1",
     "react-aria-components": "^1.22.1",
-    "react-dom": "^19.3.1",
-    "remend": "^1.4.0",
-    "sonner": "^2.0.8"
+    "remend": "^1.4.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@-internal-/eslint-configs": "workspace:*",
@@ -72,11 +181,19 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "10.13.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "storybook": "10.6.3",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
   },
   "license": "MIT",
+  "author": "Merkle Bonsai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/here-build/inhuman-harness.git",
+    "directory": "packages/harness-transcript"
+  },
   "browserslist": {
     "browser": [
       "last 2 chrome versions",
@@ -87,5 +204,8 @@
     "node": [
       "node >= 22"
     ]
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
