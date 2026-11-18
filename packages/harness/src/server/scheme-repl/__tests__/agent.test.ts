@@ -16,6 +16,7 @@ import {
   ProgrammaticJob,
   SessionSystemPrompt,
   SessionTurn,
+  SystemToolJob,
 } from "@inhuman.tools/harness-model";
 import { mkdtemp, writeJson } from "fs-extra";
 import { when } from "mobx";
@@ -303,36 +304,219 @@ describe("scheme_repl agent mixer", () => {
     });
   });
 
-  it("eval timeout cancels an owned child and force-stops its worker", async () => {
+  it("eval timeout keeps child workers running in background, reports finished work, and allows log reading, continuation, and explicit job_stop", async () => {
     const { project, session } = await openHarness();
+
+    // Case A: parallel program (`map`) hits timeout while Worker A finished and Worker B is still running.
     const send = new ProgrammaticJob({
-      toolCallId: "p1",
+      toolCallId: "p-parallel",
       argsJson: JSON.stringify({
-        expr: '(agent/call \'flash "once")',
-        description: "test",
-        timeoutMs: 2_000,
+        expr: `(map (lambda (pair) (agent/ask 'flash (car pair) :description (cdr pair))) '(("SECRET_BRIEF_A" . "Map alpha.") ("SECRET_BRIEF_B" . "Map beta.")))`,
+        description: "parallel research",
+        timeoutMs: 2_500,
       }),
     });
-    runOn(session.root, send);
-    const { call } = await deliveredCall(send, project);
-    expect(call).toBeInstanceOf(AgentCallJob);
-    const worker = project.sessions[call.workerSessionId]!;
-    await when(() => send.completed && call.completed, { timeout: TIMEOUT });
-    const outcome = call.outcome;
+    const callerTurn = runOn(session.root, send);
+    const hasBothDelivered = (): boolean =>
+      send.toolCalls.filter(
+        (row): row is AgentCallJob =>
+          row instanceof AgentCallJob &&
+          row.workerSessionId !== "" &&
+          project.sessions[row.workerSessionId]?.root.agentCallbacks[row.uuid] === session.root.sessionId,
+      ).length === 2;
+    await when(hasBothDelivered, { timeout: TIMEOUT });
+
+    const callA = send.toolCalls.find(
+      (row): row is AgentCallJob => row instanceof AgentCallJob && row.argString("description") === "Map alpha.",
+    );
+    const callB = send.toolCalls.find(
+      (row): row is AgentCallJob => row instanceof AgentCallJob && row.argString("description") === "Map beta.",
+    );
+    if (callA == null || callB == null) throw new Error("expected both parallel calls");
+
+    const workerA = project.sessions[callA.workerSessionId];
+    const workerB = project.sessions[callB.workerSessionId];
+    if (workerA == null || workerB == null) throw new Error("expected both worker sessions");
+
+    const replyA = respondJson(workerA.root, callA.uuid, "alpha report");
+    await when(() => replyA.completed && callA.completed, { timeout: TIMEOUT });
+    await when(() => send.completed, { timeout: TIMEOUT });
+
+    const timeoutSnap = JSON.parse(send.receiptJson ?? "null") as { ok: boolean; text: string };
+    const workerBFirstTurn = workerB.root.head;
+    if (timeoutSnap.ok) throw new Error(`expected timeout, got ok: ${JSON.stringify(timeoutSnap)}`);
+
+    // Parent reads logs (owned worker live log, completed job log, paged slice) and unowned worker is refused.
+    const readLogs = program(
+      `(agent/log "${workerB.sessionId}")\n(context_recall "job:${callA.uuid.slice(0, 8)}#log")\n(agent/log "${workerB.sessionId}" :offset 0 :length 40)`,
+    );
+    runOn(session.root, readLogs);
+    await when(() => readLogs.completed, { timeout: TIMEOUT });
+
+    const unownedLog = program('(agent/log "00000000-0000-0000-0000-000000000000")');
+    runOn(session.root, unownedLog);
+    await when(() => unownedLog.completed, { timeout: TIMEOUT });
+
+    // Parent awaits running Worker B without a new message, then Worker B responds.
+    const awaitB = program(`(agent/continue "${workerB.sessionId}")`);
+    runOn(session.root, awaitB);
+    await when(() => awaitB.toolCalls.some((row) => row instanceof AgentCallJob), { timeout: TIMEOUT });
+    const replyB = respondJson(workerB.root, callB.uuid, "beta report");
+    await when(() => replyB.completed && callB.completed && awaitB.completed, { timeout: TIMEOUT });
+
+    // Parent sends a follow-up turn to the SAME Worker B session (preserving turnTail history).
+    const followUp = program(`(agent/continue "${workerB.sessionId}" "Now check gamma.")`);
+    runOn(session.root, followUp);
+    const followCallDelivered = (): AgentCallJob | undefined =>
+      followUp.toolCalls.find(
+        (row): row is AgentCallJob =>
+          row instanceof AgentCallJob &&
+          row.workerSessionId === workerB.sessionId &&
+          row.uuid !== callB.uuid &&
+          workerB.root.agentCallbacks[row.uuid] === session.root.sessionId,
+      );
+    await when(() => followCallDelivered() != null, { timeout: TIMEOUT });
+    const followCall = followCallDelivered();
+    if (followCall == null) throw new Error("expected follow-up call");
+    const workerBSecondTurn = workerB.root.head;
+    const replyGamma = respondJson(workerB.root, followCall.uuid, "gamma report");
+    await when(() => replyGamma.completed && followUp.completed, { timeout: TIMEOUT });
+
+    // Case B: explicit job_stop cancels a background worker, and agent/continue without message resumes it.
+    const timedOutC = new ProgrammaticJob({
+      toolCallId: "p-stop",
+      argsJson: JSON.stringify({
+        expr: '(agent/ask \'flash "Brief C" :description "Scout C.")',
+        description: "scout C",
+        timeoutMs: 1_000,
+      }),
+    });
+    runOn(session.root, timedOutC);
+    const { call: callC } = await deliveredCall(timedOutC, project);
+    const workerC = project.sessions[callC.workerSessionId];
+    if (workerC == null) throw new Error("expected workerC session");
+    await when(() => timedOutC.completed, { timeout: TIMEOUT });
+
+    const listBg = new SystemToolJob({
+      toolCallId: "stop-list",
+      name: "job_stop",
+      argsJson: JSON.stringify({}),
+      humanApprove: true,
+    });
+    session.root.head = new SessionTurn({
+      turnTail: session.root.head ?? new SessionSystemPrompt(),
+      queue: [listBg],
+    });
+    await when(() => listBg.completed, { timeout: TIMEOUT });
+
+    const cancelC = new SystemToolJob({
+      toolCallId: "stop-c",
+      name: "job_stop",
+      argsJson: JSON.stringify({ job_id: callC.toolCallId }),
+      humanApprove: true,
+    });
+    session.root.head = new SessionTurn({
+      turnTail: session.root.head ?? new SessionSystemPrompt(),
+      queue: [cancelC],
+    });
+    await when(() => cancelC.completed && callC.completed, { timeout: TIMEOUT });
+
+    const workerCStoppedTurn = workerC.root.head;
+    const resumeC = program(`(agent/continue "${workerC.sessionId}")`);
+    runOn(session.root, resumeC);
+    await when(
+      () =>
+        resumeC.toolCalls.some(
+          (row) =>
+            row instanceof AgentCallJob &&
+            row.workerSessionId === workerC.sessionId &&
+            workerC.root.agentCallbacks[row.uuid] === session.root.sessionId,
+        ),
+      { timeout: TIMEOUT },
+    );
+    const resumeCall = resumeC.toolCalls.find(
+      (row): row is AgentCallJob => row instanceof AgentCallJob && row.workerSessionId === workerC.sessionId,
+    );
+    if (resumeCall == null) throw new Error("expected resume call");
+    const workerCResumedTurn = workerC.root.head;
+    const replyC = respondJson(workerC.root, resumeCall.uuid, "resumed report");
+    await when(() => replyC.completed && resumeC.completed, { timeout: TIMEOUT });
+
+    const turnInChain = (head: SessionTurn | null, target: SessionTurn | null): boolean => {
+      for (let t: unknown = head; t instanceof SessionTurn; t = t.turnTail) {
+        if (t === target) return true;
+      }
+      return false;
+    };
+    const logValues = (JSON.parse(readLogs.receiptJson ?? "null") as { ok: boolean; value: unknown[] }).value;
     expect({
-      bag: JSON.parse(send.receiptJson ?? "null"),
-      call: {
-        completed: call.completed,
-        cancelled: call.cancelled,
-        code: outcome instanceof FailureOutcome ? outcome.code : null,
+      timeoutOk: timeoutSnap.ok,
+      hasTimeoutHeader: timeoutSnap.text.includes("timed out after 2500ms"),
+      hasInnerHeader: timeoutSnap.text.includes("Inner calls at timeout:"),
+      hasCompletedAlpha: timeoutSnap.text.includes("status=completed") && timeoutSnap.text.includes("alpha report"),
+      hasRunningBeta:
+        timeoutSnap.text.includes("status=running_in_background") && timeoutSnap.text.includes(workerB.sessionId),
+      leaksBriefA: timeoutSnap.text.includes("SECRET_BRIEF_A"),
+      leaksBriefB: timeoutSnap.text.includes("SECRET_BRIEF_B"),
+      callBAtTimeout: {
+        background: callB.background,
+        walkBoundary: callB.walkBoundary,
       },
-      row: worker.root.agentCallbacks[call.uuid],
-      workerClosed: worker.root.head?.reducerExited === true,
+      callerTurnOpenWork: callerTurn.openWork,
+      workerBLogText: {
+        hasWorkerId: String(logValues[0]).includes(workerB.sessionId),
+        leaksBriefB: String(logValues[0]).includes("SECRET_BRIEF_B"),
+      },
+      workerALogText: {
+        hasResult: String(logValues[1]).includes("alpha report"),
+        leaksBriefA: String(logValues[1]).includes("SECRET_BRIEF_A"),
+      },
+      pagedSlice: String(logValues[2]).includes("chars 0-40 of "),
+      unownedOk: JSON.parse(unownedLog.receiptJson ?? "null").ok,
+      awaitB: JSON.parse(awaitB.receiptJson ?? "null"),
+      followUp: JSON.parse(followUp.receiptJson ?? "null"),
+      sameSessionMultiTurn: workerBSecondTurn !== workerBFirstTurn && turnInChain(workerBSecondTurn, workerBFirstTurn),
+      listedIds: (JSON.parse(listBg.receiptJson ?? "null").value.jobs as Array<{ jobId: string }>).map((j) => j.jobId),
+      cancelStatus: JSON.parse(cancelC.receiptJson ?? "null").value.status,
+      callCCode: callC.outcome instanceof FailureOutcome ? callC.outcome.code : null,
+      workerCStopped: workerCStoppedTurn?.reducerExited === true,
+      resumeSameSession:
+        workerCResumedTurn !== workerCStoppedTurn && turnInChain(workerCResumedTurn, workerCStoppedTurn),
+      resumePromptHasContinue: workerCResumedTurn?.prompt.includes("Continue") ?? false,
+      resumeC: JSON.parse(resumeC.receiptJson ?? "null"),
     }).toEqual({
-      bag: { ok: false, text: expect.stringMatching(/timed out after 2000ms/) },
-      call: { completed: true, cancelled: true, code: "cancelled" },
-      row: undefined,
-      workerClosed: true,
+      timeoutOk: false,
+      hasTimeoutHeader: true,
+      hasInnerHeader: true,
+      hasCompletedAlpha: true,
+      hasRunningBeta: true,
+      leaksBriefA: false,
+      leaksBriefB: false,
+      callBAtTimeout: {
+        background: true,
+        walkBoundary: true,
+      },
+      callerTurnOpenWork: false,
+      workerBLogText: {
+        hasWorkerId: true,
+        leaksBriefB: false,
+      },
+      workerALogText: {
+        hasResult: true,
+        leaksBriefA: false,
+      },
+      pagedSlice: true,
+      unownedOk: false,
+      awaitB: { ok: true, value: ["beta report"] },
+      followUp: { ok: true, value: ["gamma report"] },
+      sameSessionMultiTurn: true,
+      listedIds: [callC.toolCallId],
+      cancelStatus: "cancelled",
+      callCCode: "cancelled",
+      workerCStopped: true,
+      resumeSameSession: true,
+      resumePromptHasContinue: true,
+      resumeC: { ok: true, value: ["resumed report"] },
     });
   }, 60_000);
 });

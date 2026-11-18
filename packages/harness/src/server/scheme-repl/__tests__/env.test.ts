@@ -293,6 +293,13 @@ describe("harness/scheme-repl", () => {
     const oneShotRoOff = await run('(agent/ask \'reviewer "look at the diff" :readonly #f)', calls);
     const modelSent = await run('(agent/call \'reviewer "look" :model "openai/chatgpt-5.6-luna")', calls);
     const modelAsked = await run('(agent/ask \'reviewer "look" :readonly #t :model "openai/chatgpt-5.6-luna")', calls);
+    const continuedAwait = await run("(agent/continue 'worker-1)", calls);
+    const continuedMsg = await run(
+      '(agent/continue "worker-1" "follow up" (dict :answer (s/enum "yes" "no")) :readonly #t :model "openai/chatgpt-5.6-luna" :description "Continue check.")',
+      calls,
+    );
+    const logged = await run('(agent/log "worker-1" :offset 10 :length 200)', calls);
+    const recalled = await run('(context_recall "agent:worker-1" :offset 0 :length 500)', calls);
     const listed = await run("(connection/models 'openai)", calls);
     const notifiedSelf = await run('(self/notify "merged #412")', calls);
 
@@ -305,6 +312,10 @@ describe("harness/scheme-repl", () => {
     const oneShotStray = await door(() => run('(agent/ask \'reviewer :readonly "look")', calls));
     const oneShotMissing = await door(() => run("(agent/ask :readonly #t)", calls));
     const oneShotMisplaced = await door(() => run('(agent/ask :readonly "classify")', calls));
+    const continueMissing = await door(() => run("(agent/continue)", calls));
+    const continueMisplaced = await door(() => run("(agent/continue :readonly #t)", calls));
+    const logBadOffset = await door(() => run('(agent/log "worker-1" :offset "ten")', calls));
+    const logMissing = await door(() => run("(agent/log :offset 0)", calls));
     const askStray = await door(() => run('(bot/ask \'reviewer :readonly "look")', calls));
     const askMissing = await door(() => run("(bot/ask :readonly #t)", calls));
     const askMisplaced = await door(() => run('(bot/ask :readonly "classify")', calls));
@@ -454,6 +465,10 @@ describe("harness/scheme-repl", () => {
         oneShotRoOff,
         modelSent,
         modelAsked,
+        continuedAwait,
+        continuedMsg,
+        logged,
+        recalled,
         listed,
       },
       notify: { value: notifiedSelf, notes: calls.filter((row) => row.kind === "notify") },
@@ -480,6 +495,7 @@ describe("harness/scheme-repl", () => {
         deskSend: readonlyDesk.has("mcp__mail__send"),
         deskSearch: readonlyDesk.has("mcp__mail__search"),
         askSig: open.get("agent__ask")?.signature().signatureText,
+        recallSig: open.get("context_recall")?.signature().signatureText,
       },
       wires: {
         callEcho: recipeCatalog.catalogEntry("call__echo__ping"),
@@ -510,6 +526,10 @@ describe("harness/scheme-repl", () => {
         oneShotStray,
         oneShotMissing,
         oneShotMisplaced,
+        continueMissing,
+        continueMisplaced,
+        logBadOffset,
+        logMissing,
         askStray,
         askMissing,
         askMisplaced,
@@ -559,6 +579,15 @@ describe("harness/scheme-repl", () => {
         oneShotRoOff: joined(AGENT_ASK, { spec: "reviewer", message: "look at the diff" }),
         modelSent: joined(AGENT_SEND, { spec: "reviewer", message: "look", model: "openai/chatgpt-5.6-luna" }),
         modelAsked: joined(AGENT_ASK, { spec: "reviewer", message: "look", model: "openai/chatgpt-5.6-luna" }),
+        continuedAwait: joined(AGENT_ASK, { target: "worker-1" }),
+        continuedMsg: joined(AGENT_ASK, {
+          target: "worker-1",
+          message: "follow up",
+          description: "Continue check.",
+          model: "openai/chatgpt-5.6-luna",
+        }),
+        logged: 'context_recall:{"ref":"agent:worker-1","offset":10,"length":200}',
+        recalled: 'context_recall:{"ref":"agent:worker-1","offset":0,"length":500}',
         listed: ["chatgpt-5.6-luna", "chatgpt-5.6-terra"],
       },
       notify: { value: undefined, notes: [{ kind: "notify", payload: "merged #412" }] },
@@ -581,7 +610,8 @@ describe("harness/scheme-repl", () => {
         deskSend: false,
         deskSearch: true,
         askSig:
-          "(bot/ask spec message :readonly) | (bot/ask message [schema] :readonly) | (agent/ask spec message [schema] :readonly :model :description)",
+          "(bot/ask spec message :readonly) | (bot/ask message [schema] :readonly) | (agent/ask spec message [schema] :readonly :model :description) | (agent/continue target [message] [schema] :readonly :model :description)",
+        recallSig: "(context_recall ref :offset :length) | (agent/log target :offset :length)",
       },
       wires: {
         callEcho: undefined,
@@ -629,6 +659,18 @@ describe("harness/scheme-repl", () => {
           { spec: "reviewer", message: "look", model: "openai/chatgpt-5.6-luna" },
           { desk: true },
         ),
+        spawned(AGENT_ASK, "agent", { target: "worker-1" }),
+        spawned(
+          AGENT_ASK,
+          "agent",
+          {
+            target: "worker-1",
+            message: "follow up",
+            description: "Continue check.",
+            model: "openai/chatgpt-5.6-luna",
+          },
+          { desk: true, schema: YES_NO },
+        ),
       ],
       modelCalls: [
         { kind: "connectionModels", payload: { connection: "openai" } },
@@ -644,6 +686,10 @@ describe("harness/scheme-repl", () => {
         oneShotStray: expect.stringMatching(/agent\/ask: arguments rejected[\s\S]*arg 2 — expected AString/),
         oneShotMissing: expect.stringMatching(/agent\/ask: arguments rejected[\s\S]*arg 2 — expected AString/),
         oneShotMisplaced: "agent/ask: the worker spec comes before keywords, got :readonly",
+        continueMissing: expect.stringMatching(/agent\/continue: (?:arguments rejected|a target is required)/),
+        continueMisplaced: "agent/continue: the target comes before keywords, got :readonly",
+        logBadOffset: expect.stringMatching(/agent\/log: :offset/),
+        logMissing: "agent/log: the target comes before keywords, got :offset",
         askStray: "bot/ask: :readonly — Invalid input: expected ABool, received AString",
         askMissing: "bot/ask: a message comes before keywords",
         askMisplaced: "bot/ask: a message comes before keywords",

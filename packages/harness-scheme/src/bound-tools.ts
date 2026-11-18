@@ -80,7 +80,12 @@ export function boundToolsOf(
             }
             case AGENT_ASK: {
               signatureText =
-                "(bot/ask spec message :readonly) | (bot/ask message [schema] :readonly) | (agent/ask spec message [schema] :readonly :model :description)";
+                "(bot/ask spec message :readonly) | (bot/ask message [schema] :readonly) | (agent/ask spec message [schema] :readonly :model :description) | (agent/continue target [message] [schema] :readonly :model :description)";
+
+              break;
+            }
+            case "context_recall": {
+              signatureText = "(context_recall ref :offset :length) | (agent/log target :offset :length)";
 
               break;
             }

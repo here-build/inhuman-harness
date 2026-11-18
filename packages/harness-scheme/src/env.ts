@@ -100,11 +100,12 @@ import { z } from "zod";
 
 import { boundToolsOf } from "./bound-tools.js";
 import { stampFilePath } from "./file-path.js";
-import { isKeyword, keywordsOf, splitKeywords } from "./keywords.js";
+import { isKeyword, keywordsOf, type KeywordShape, splitKeywords } from "./keywords.js";
 import { DEFAULT_SCHEME_REPL_LIMITS } from "./limits.js";
 
 /** Wire name. Do not import the builtin roster just for this token. */
 const SHELL_TOOL_NAME = "shell";
+const CONTEXT_RECALL_TOOL_NAME = "context_recall";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -317,11 +318,44 @@ function metadataRecord(record: Record<string, unknown>): Record<string, unknown
   return out;
 }
 
+function recallArgs(slots: readonly unknown[], recallKeywords: KeywordShape): Record<string, unknown> {
+  if (slots.length === 1) {
+    const sole = toJsValue(slots[0]);
+    if (isPlainRecord(sole)) {
+      if (typeof sole.ref !== "string" || sole.ref.trim() === "") {
+        throw new TypeError("context_recall: ref must be a non-empty string");
+      }
+      return argsOf({ ref: sole.ref.trim(), offset: sole.offset, length: sole.length });
+    }
+  }
+  const { positionals, keywords } = splitKeywords(CONTEXT_RECALL_TOOL_NAME, slots, recallKeywords);
+  if (positionals.length !== 1) {
+    throw new Error("context_recall: expected ref followed by optional :offset and :length");
+  }
+  const ref = stringOf(positionals[0]).trim();
+  if (ref === "") throw new Error("context_recall: ref is required");
+  return argsOf({ ref, offset: keywords.offset, length: keywords.length });
+}
+
 function workerSpec(verb: string, slot: unknown): string {
   if (isKeyword(slot)) throw new Error(`${verb}: the worker spec comes before keywords, got ${String(slot)}`);
   const spec = stringOf(slot).trim();
   if (spec === "") throw new Error(`${verb}: a worker spec is required`);
   return spec;
+}
+
+function workerTarget(verb: string, slot: unknown): string {
+  if (slot === undefined) throw new Error(`${verb}: a target is required`);
+  if (isKeyword(slot)) throw new Error(`${verb}: the target comes before keywords, got ${String(slot)}`);
+  const target = stringOf(slot).trim();
+  if (target === "") throw new Error(`${verb}: a target is required`);
+  return target;
+}
+
+function agentLogRef(target: string): string {
+  if (target.startsWith("agent:")) return target;
+  if (target.startsWith("job:")) return target.endsWith("#log") ? target : `${target}#log`;
+  return `agent:${target}`;
 }
 
 function shellCwd(rest: readonly unknown[]): string {
@@ -650,7 +684,7 @@ function spawnCall(
   name: typeof AGENT_SEND | typeof AGENT_ASK,
   standing: boolean,
   spec: string | undefined,
-  message: string,
+  message: string | undefined,
   flags: {
     /** The verb the program wrote; `name` is the wire it lowers to. */
     readonly verb: string;
@@ -658,14 +692,17 @@ function spawnCall(
     readonly schema?: Record<string, unknown>;
     readonly model?: string;
     readonly description?: string;
+    readonly target?: string;
   },
 ): Promise<unknown> {
   const { job, host, rig } = replBag(ctx);
   const raw = spec ?? "";
   const trimmed = raw.trim();
+  const target = flags.target?.trim() ?? "";
   const args: Record<string, unknown> = {};
   if (trimmed !== "") args.spec = raw;
-  args.message = message;
+  if (target !== "") args.target = target;
+  if (message !== undefined) args.message = message;
   if (flags.description?.trim()) args.description = flags.description.trim();
   const model = flags.model?.trim() ?? "";
   if (model !== "") args.model = model;
@@ -680,9 +717,9 @@ function spawnCall(
   const cross = crossing(ctx, {
     kind: bot ? "bot" : "agent",
     verb: flags.verb,
-    name: trimmed,
+    name: trimmed || target,
     ...(model === "" ? {} : { model }),
-    message,
+    ...(message === undefined ? {} : { message }),
     ...(job.background ? { background: true } : {}),
   });
   return joinMinted(job, host, rig, name, cross, ctx, () => {
@@ -706,365 +743,450 @@ export const schemeReplCapability = EnvCapability.define("harness/scheme-repl", 
   /** Arrival s/* tagged lists. Ask lowers them; do not mint a second type wire. */
   deps: [schemaCapability],
   configuration: replConfiguration,
-  symbols: (symbol, sz) => ({
-    read_file: symbol.native`read_file: read a UTF-8 text file under the project root`(
-      {
-        input: [sz.string],
-        inputRest: { offset: sz.integer.optional(), limit: sz.integer.optional() },
-        output: [sz.string],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      async function (path, ...rest: unknown[]) {
-        invariant(path !== undefined, "read_file: path is required");
-        const pathText = stringOf(path);
-        // native contour does not fold record rest into a kwargs object.
-        const raw = await call(this, "read_file", argsOf({ path: pathText, ...restKwargs(rest, "read_file") }));
-        return stampFilePath(new AString(typeof raw === "string" ? raw : String(raw ?? "")), pathText);
-      },
-    ),
-
-    [UPDATE_METADATA_TOOL_NAME]:
-      symbol.rosetta`update_metadata: record this turn's session-list title and an optional description`(
+  symbols: (symbol, sz) => {
+    const recallKeywords = {
+      offset: sz.integer.optional(),
+      length: sz.integer.optional(),
+    };
+    return {
+      read_file: symbol.native`read_file: read a UTF-8 text file under the project root`(
         {
-          input: [],
+          input: [sz.string],
+          inputRest: { offset: sz.integer.optional(), limit: sz.integer.optional() },
+          output: [sz.string],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        async function (path, ...rest: unknown[]) {
+          invariant(path !== undefined, "read_file: path is required");
+          const pathText = stringOf(path);
+          // native contour does not fold record rest into a kwargs object.
+          const raw = await call(this, "read_file", argsOf({ path: pathText, ...restKwargs(rest, "read_file") }));
+          return stampFilePath(new AString(typeof raw === "string" ? raw : String(raw ?? "")), pathText);
+        },
+      ),
+
+      [UPDATE_METADATA_TOOL_NAME]:
+        symbol.rosetta`update_metadata: record this turn's session-list title and an optional description`(
+          {
+            input: [],
+            inputRest: sz.dynamic,
+            output: [sz.dynamic],
+            provenance: "source",
+            requiresConfig: ["host"],
+          },
+          function (...slots: unknown[]) {
+            return call(this, UPDATE_METADATA_TOOL_NAME, metadataArgs(slots));
+          },
+        ),
+
+      [CONTEXT_RECALL_TOOL_NAME]:
+        symbol.rosetta`context_recall: read a paged sealed result or owned worker log back from this session`(
+          {
+            input: [],
+            inputRest: sz.dynamic,
+            output: [sz.dynamic],
+            provenance: "source",
+            requiresConfig: ["host"],
+          },
+          function (...slots: unknown[]) {
+            return call(this, CONTEXT_RECALL_TOOL_NAME, recallArgs(slots, recallKeywords));
+          },
+        ),
+
+      list_dir: symbol.rosetta`list_dir: list a directory under the project root`(
+        {
+          input: [sz.string],
+          inputRest: sz.dynamic,
+          output: [sz.list(sz.string)],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (path, ...rest: unknown[]) {
+          const { depth } = keywordsOf("list_dir", rest, { depth: sz.integer.optional() });
+          return call(this, "list_dir", argsOf({ path, depth })) as Promise<string[]>;
+        },
+      ),
+
+      grep: symbol.rosetta`grep: search file contents under the project root`(
+        {
+          input: [sz.string],
+          inputRest: sz.dynamic,
+          output: [sz.list(sz.string)],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (pattern, ...rest: unknown[]) {
+          const kwargs = keywordsOf("grep", rest, {
+            path: sz.string.optional(),
+            glob: sz.string.optional(),
+            mode: sz.string.optional(),
+            limit: sz.integer.optional(),
+            before: sz.integer.optional(),
+            after: sz.integer.optional(),
+          });
+          return call(this, "grep", argsOf({ pattern, ...kwargs })) as Promise<string[]>;
+        },
+      ),
+
+      glob: symbol.rosetta`glob: find paths under the project root matching a glob`(
+        {
+          input: [
+            sz.string,
+            sz.dict({ cwd: sz.string.optional(), path: sz.string.optional(), limit: sz.integer.optional() }).optional(),
+          ],
+          output: [sz.list(sz.string)],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (pattern, opts) {
+          return call(this, "glob", argsOf({ pattern, ...opts })) as Promise<string[]>;
+        },
+      ),
+
+      fff_search: symbol.alias`glob`,
+
+      write_file: symbol.rosetta`write_file: create a file, or replace one with overwriteExisting`(
+        {
+          input: [sz.string, sz.string],
+          inputRest: sz.dynamic,
+          output: [sz.string],
+          provenance: "source",
+          queries: (path: string) => fsPath(path),
+          effects: (path: string) => fsPath(path),
+          requiresConfig: ["host", "writable"],
+        },
+        function (path, content, ...rest: unknown[]) {
+          const { overwriteExisting } = keywordsOf("write_file", rest, {
+            overwriteExisting: sz.boolean.optional(),
+          });
+          return call(this, "write_file", argsOf({ path, content, overwriteExisting })) as Promise<string>;
+        },
+      ),
+
+      edit_file: symbol.rosetta`edit_file: replace an exact stretch of text in a file`(
+        {
+          input: [sz.string, sz.string, sz.string],
+          inputRest: sz.dynamic,
+          output: [sz.string],
+          provenance: "source",
+          queries: (path: string) => fsPath(path),
+          effects: (path: string) => fsPath(path),
+          requiresConfig: ["host", "writable"],
+        },
+        function (path, old_string, new_string, ...rest: unknown[]) {
+          const { replace_all } = keywordsOf("edit_file", rest, { replace_all: sz.boolean.optional() });
+          return call(this, "edit_file", argsOf({ path, old_string, new_string, replace_all })) as Promise<string>;
+        },
+      ),
+
+      [SHELL_TOOL_NAME]: symbol.rosetta`shell: run a command in the project workspace`(
+        {
+          input: [sz.string],
+          inputRest: sz.dynamic,
+          output: [sz.box],
+          provenance: "source",
+          queries: (_command: string, ...rest: unknown[]) => [["shell", shellCwd(rest)]],
+          effects: (_command: string, ...rest: unknown[]) => [["shell", shellCwd(rest)]],
+          requiresConfig: ["host"],
+        },
+        function (command, ...rest: unknown[]) {
+          const kwargs = keywordsOf(SHELL_TOOL_NAME, rest, {
+            cwd: sz.string.optional(),
+            timeoutMs: sz.integer.optional(),
+          });
+          return call(this, SHELL_TOOL_NAME, argsOf({ command, ...kwargs })) as Promise<object>;
+        },
+      ),
+
+      [WEB_SEARCH_TOOL_NAME]: symbol.rosetta`web_search: search the public web`(
+        {
+          input: [sz.string],
           inputRest: sz.dynamic,
           output: [sz.dynamic],
           provenance: "source",
           requiresConfig: ["host"],
         },
-        function (...slots: unknown[]) {
-          return call(this, UPDATE_METADATA_TOOL_NAME, metadataArgs(slots));
+        function (query, ...rest: unknown[]) {
+          const { numResults } = keywordsOf(WEB_SEARCH_TOOL_NAME, rest, { numResults: sz.integer.optional() });
+          return call(this, WEB_SEARCH_TOOL_NAME, argsOf({ query, numResults }));
         },
       ),
 
-    list_dir: symbol.rosetta`list_dir: list a directory under the project root`(
-      {
-        input: [sz.string],
-        inputRest: sz.dynamic,
-        output: [sz.list(sz.string)],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (path, ...rest: unknown[]) {
-        const { depth } = keywordsOf("list_dir", rest, { depth: sz.integer.optional() });
-        return call(this, "list_dir", argsOf({ path, depth })) as Promise<string[]>;
-      },
-    ),
+      [WEB_EXTRACT_TOOL_NAME]: symbol.rosetta`web_extract: fetch a public URL as markdown`(
+        {
+          input: [sz.string],
+          inputRest: sz.dynamic,
+          output: [sz.dynamic],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (url, ...rest: unknown[]) {
+          const { charLimit } = keywordsOf(WEB_EXTRACT_TOOL_NAME, rest, { charLimit: sz.integer.optional() });
+          return call(this, WEB_EXTRACT_TOOL_NAME, argsOf({ url, charLimit }));
+        },
+      ),
 
-    grep: symbol.rosetta`grep: search file contents under the project root`(
-      {
-        input: [sz.string],
-        inputRest: sz.dynamic,
-        output: [sz.list(sz.string)],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (pattern, ...rest: unknown[]) {
-        const kwargs = keywordsOf("grep", rest, {
-          path: sz.string.optional(),
-          glob: sz.string.optional(),
-          mode: sz.string.optional(),
-          limit: sz.integer.optional(),
-          before: sz.integer.optional(),
-          after: sz.integer.optional(),
-        });
-        return call(this, "grep", argsOf({ pattern, ...kwargs })) as Promise<string[]>;
-      },
-    ),
+      "mcp/call": symbol.rosetta`mcp/call: invoke a live MCP tool; connection and tool are data`(
+        {
+          input: [sz.foldName, sz.foldName],
+          inputRest: sz.dynamic,
+          output: [sz.dynamic],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (connection: string, tool: string, ...rest: unknown[]) {
+          const { host, tools } = replBag(this);
+          const args = restKwargs(rest, "mcp/call");
+          if (host.replayOnly === true) return call(this, "mcp/call", args, "mcp/call");
+          return call(this, resolveToolName(host, tools, connection, tool), args, "mcp/call");
+        },
+      ),
 
-    glob: symbol.rosetta`glob: find paths under the project root matching a glob`(
-      {
-        input: [
-          sz.string,
-          sz.dict({ cwd: sz.string.optional(), path: sz.string.optional(), limit: sz.integer.optional() }).optional(),
-        ],
-        output: [sz.list(sz.string)],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (pattern, opts) {
-        return call(this, "glob", argsOf({ pattern, ...opts })) as Promise<string[]>;
-      },
-    ),
+      "bot/send": symbol.rosetta`bot/send: wait for a standing bot to respond or finish without a response`(
+        {
+          input: [sz.foldName, sz.string],
+          output: [sz.string],
+          provenance: "source",
+          queries: (spec: string) => [["agent", spec]],
+          requiresConfig: ["host"],
+        },
+        function (spec: string, message: string) {
+          return spawnCall(this, AGENT_SEND, true, spec, message, { verb: "bot/send" }) as Promise<string>;
+        },
+      ),
 
-    fff_search: symbol.alias`glob`,
+      "bot/ask": symbol.rosetta`bot/ask: wait for a standing bot's response; finishing without a response is an error`(
+        {
+          input: [sz.dynamic],
+          inputRest: sz.dynamic,
+          output: [sz.dynamic],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (...slots) {
+          if (isKeyword(slots[0])) throw new Error("bot/ask: a message comes before keywords");
+          const { positionals, keywords } = splitKeywords("bot/ask", slots, { readonly: sz.boolean.optional() });
+          if (positionals.length > 3) throw new Error("bot/ask: at most spec, message, and schema before keywords");
+          const [specSlot, messageSlot, schemaSlot] = positionals;
+          const { readonly } = keywords;
+          const hasSpec = schemaSlot !== undefined || isStringLike(messageSlot);
+          const spec = hasSpec ? stringOf(specSlot) : undefined;
+          const message = stringOf(hasSpec ? messageSlot : specSlot);
+          const schema = hasSpec ? schemaSlot : messageSlot;
+          return spawnCall(this, AGENT_ASK, true, spec, message, {
+            verb: "bot/ask",
+            deskReadonly: readonly === true,
+            schema: compiledAskSchema(schema),
+          });
+        },
+      ),
 
-    write_file: symbol.rosetta`write_file: create a file, or replace one with overwriteExisting`(
-      {
-        input: [sz.string, sz.string],
-        inputRest: sz.dynamic,
-        output: [sz.string],
-        provenance: "source",
-        queries: (path: string) => fsPath(path),
-        effects: (path: string) => fsPath(path),
-        requiresConfig: ["host", "writable"],
-      },
-      function (path, content, ...rest: unknown[]) {
-        const { overwriteExisting } = keywordsOf("write_file", rest, {
-          overwriteExisting: sz.boolean.optional(),
-        });
-        return call(this, "write_file", argsOf({ path, content, overwriteExisting })) as Promise<string>;
-      },
-    ),
+      "agent/call":
+        symbol.rosetta`agent/call: create a disposable worker and wait for it to finish, with or without a response`(
+          {
+            input: [sz.dynamic, sz.string],
+            inputRest: sz.dynamic,
+            output: [sz.string],
+            provenance: "source",
+            requiresConfig: ["host"],
+          },
+          function (slot, message, ...rest) {
+            const spec = workerSpec("agent/call", slot);
+            const { model, description } = keywordsOf("agent/call", rest, {
+              model: sz.string.optional(),
+              description: sz.string.optional(),
+            });
+            return spawnCall(this, AGENT_SEND, false, spec, stringOf(message), {
+              verb: "agent/call",
+              model,
+              description,
+            }) as Promise<string>;
+          },
+        ),
 
-    edit_file: symbol.rosetta`edit_file: replace an exact stretch of text in a file`(
-      {
-        input: [sz.string, sz.string, sz.string],
-        inputRest: sz.dynamic,
-        output: [sz.string],
-        provenance: "source",
-        queries: (path: string) => fsPath(path),
-        effects: (path: string) => fsPath(path),
-        requiresConfig: ["host", "writable"],
-      },
-      function (path, old_string, new_string, ...rest: unknown[]) {
-        const { replace_all } = keywordsOf("edit_file", rest, { replace_all: sz.boolean.optional() });
-        return call(this, "edit_file", argsOf({ path, old_string, new_string, replace_all })) as Promise<string>;
-      },
-    ),
-
-    [SHELL_TOOL_NAME]: symbol.rosetta`shell: run a command in the project workspace`(
-      {
-        input: [sz.string],
-        inputRest: sz.dynamic,
-        output: [sz.box],
-        provenance: "source",
-        queries: (_command: string, ...rest: unknown[]) => [["shell", shellCwd(rest)]],
-        effects: (_command: string, ...rest: unknown[]) => [["shell", shellCwd(rest)]],
-        requiresConfig: ["host"],
-      },
-      function (command, ...rest: unknown[]) {
-        const kwargs = keywordsOf(SHELL_TOOL_NAME, rest, {
-          cwd: sz.string.optional(),
-          timeoutMs: sz.integer.optional(),
-        });
-        return call(this, SHELL_TOOL_NAME, argsOf({ command, ...kwargs })) as Promise<object>;
-      },
-    ),
-
-    [WEB_SEARCH_TOOL_NAME]: symbol.rosetta`web_search: search the public web`(
-      {
-        input: [sz.string],
-        inputRest: sz.dynamic,
-        output: [sz.dynamic],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (query, ...rest: unknown[]) {
-        const { numResults } = keywordsOf(WEB_SEARCH_TOOL_NAME, rest, { numResults: sz.integer.optional() });
-        return call(this, WEB_SEARCH_TOOL_NAME, argsOf({ query, numResults }));
-      },
-    ),
-
-    [WEB_EXTRACT_TOOL_NAME]: symbol.rosetta`web_extract: fetch a public URL as markdown`(
-      {
-        input: [sz.string],
-        inputRest: sz.dynamic,
-        output: [sz.dynamic],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (url, ...rest: unknown[]) {
-        const { charLimit } = keywordsOf(WEB_EXTRACT_TOOL_NAME, rest, { charLimit: sz.integer.optional() });
-        return call(this, WEB_EXTRACT_TOOL_NAME, argsOf({ url, charLimit }));
-      },
-    ),
-
-    "mcp/call": symbol.rosetta`mcp/call: invoke a live MCP tool; connection and tool are data`(
-      {
-        input: [sz.foldName, sz.foldName],
-        inputRest: sz.dynamic,
-        output: [sz.dynamic],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (connection: string, tool: string, ...rest: unknown[]) {
-        const { host, tools } = replBag(this);
-        const args = restKwargs(rest, "mcp/call");
-        if (host.replayOnly === true) return call(this, "mcp/call", args, "mcp/call");
-        return call(this, resolveToolName(host, tools, connection, tool), args, "mcp/call");
-      },
-    ),
-
-    "bot/send": symbol.rosetta`bot/send: wait for a standing bot to respond or finish without a response`(
-      {
-        input: [sz.foldName, sz.string],
-        output: [sz.string],
-        provenance: "source",
-        queries: (spec: string) => [["agent", spec]],
-        requiresConfig: ["host"],
-      },
-      function (spec: string, message: string) {
-        return spawnCall(this, AGENT_SEND, true, spec, message, { verb: "bot/send" }) as Promise<string>;
-      },
-    ),
-
-    "bot/ask": symbol.rosetta`bot/ask: wait for a standing bot's response; finishing without a response is an error`(
-      {
-        input: [sz.dynamic],
-        inputRest: sz.dynamic,
-        output: [sz.dynamic],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (...slots) {
-        if (isKeyword(slots[0])) throw new Error("bot/ask: a message comes before keywords");
-        const { positionals, keywords } = splitKeywords("bot/ask", slots, { readonly: sz.boolean.optional() });
-        if (positionals.length > 3) throw new Error("bot/ask: at most spec, message, and schema before keywords");
-        const [specSlot, messageSlot, schemaSlot] = positionals;
-        const { readonly } = keywords;
-        const hasSpec = schemaSlot !== undefined || isStringLike(messageSlot);
-        const spec = hasSpec ? stringOf(specSlot) : undefined;
-        const message = stringOf(hasSpec ? messageSlot : specSlot);
-        const schema = hasSpec ? schemaSlot : messageSlot;
-        return spawnCall(this, AGENT_ASK, true, spec, message, {
-          verb: "bot/ask",
-          deskReadonly: readonly === true,
-          schema: compiledAskSchema(schema),
-        });
-      },
-    ),
-
-    "agent/call":
-      symbol.rosetta`agent/call: create a disposable worker and wait for it to finish, with or without a response`(
+      "agent/ask": symbol.rosetta`agent/ask: create a disposable worker and wait for its required response`(
         {
           input: [sz.dynamic, sz.string],
           inputRest: sz.dynamic,
-          output: [sz.string],
+          output: [sz.dynamic],
           provenance: "source",
           requiresConfig: ["host"],
         },
         function (slot, message, ...rest) {
-          const spec = workerSpec("agent/call", slot);
-          const { model, description } = keywordsOf("agent/call", rest, {
+          const spec = workerSpec("agent/ask", slot);
+          const { positionals, keywords } = splitKeywords("agent/ask", rest, {
+            readonly: sz.boolean.optional(),
             model: sz.string.optional(),
             description: sz.string.optional(),
           });
-          return spawnCall(this, AGENT_SEND, false, spec, stringOf(message), {
-            verb: "agent/call",
+          if (positionals.length > 1) throw new Error("agent/ask: at most a schema after the message");
+          const schemaSlot = positionals[0];
+          const { readonly, model, description } = keywords;
+          return spawnCall(this, AGENT_ASK, false, spec, stringOf(message), {
+            verb: "agent/ask",
+            deskReadonly: readonly === true,
+            schema: compiledAskSchema(schemaSlot),
             model,
             description,
-          }) as Promise<string>;
+          });
         },
       ),
 
-    "agent/ask": symbol.rosetta`agent/ask: create a disposable worker and wait for its required response`(
-      {
-        input: [sz.dynamic, sz.string],
-        inputRest: sz.dynamic,
-        output: [sz.dynamic],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (slot, message, ...rest) {
-        const spec = workerSpec("agent/ask", slot);
-        const { positionals, keywords } = splitKeywords("agent/ask", rest, {
-          readonly: sz.boolean.optional(),
-          model: sz.string.optional(),
-          description: sz.string.optional(),
-        });
-        if (positionals.length > 1) throw new Error("agent/ask: at most a schema after the message");
-        const schemaSlot = positionals[0];
-        const { readonly, model, description } = keywords;
-        return spawnCall(this, AGENT_ASK, false, spec, stringOf(message), {
-          verb: "agent/ask",
-          deskReadonly: readonly === true,
-          schema: compiledAskSchema(schemaSlot),
-          model,
-          description,
-        });
-      },
-    ),
+      "agent/continue":
+        symbol.rosetta`agent/continue: await an active worker or continue an existing owned worker session with preserved history`(
+          {
+            input: [sz.dynamic],
+            inputRest: sz.dynamic,
+            output: [sz.dynamic],
+            provenance: "source",
+            requiresConfig: ["host"],
+          },
+          function (slot, ...rest) {
+            const target = workerTarget("agent/continue", slot);
+            const { positionals, keywords } = splitKeywords("agent/continue", rest, {
+              readonly: sz.boolean.optional(),
+              model: sz.string.optional(),
+              description: sz.string.optional(),
+            });
+            if (positionals.length > 2) {
+              throw new Error("agent/continue: at most message and schema after target");
+            }
+            let message: string | undefined;
+            let schemaSlot: unknown;
+            if (positionals.length === 1) {
+              if (isStringLike(positionals[0])) message = stringOf(positionals[0]);
+              else schemaSlot = positionals[0];
+            } else if (positionals.length === 2) {
+              if (!isStringLike(positionals[0])) throw new Error("agent/continue: message must be a string");
+              message = stringOf(positionals[0]);
+              schemaSlot = positionals[1];
+            }
+            const { readonly, model, description } = keywords;
+            return spawnCall(this, AGENT_ASK, false, undefined, message, {
+              verb: "agent/continue",
+              target,
+              deskReadonly: readonly === true,
+              schema: compiledAskSchema(schemaSlot),
+              model,
+              description,
+            });
+          },
+        ),
 
-    "connection/models": symbol.rosetta`connection/models: live model ids on a completion connection`(
-      {
-        input: [sz.foldName],
-        output: [sz.list(sz.string)],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (connection: string) {
-        const { job, host } = replBag(this);
-        const emission = this.runCtx.emission;
-        if (job.trackMatch && emission != null) {
-          const path = claimCrossing(emission, crossingWindow(this));
-          const recorded = job.world[path];
-          if (recorded !== undefined) return stringList(recorded);
-          if (host.replayOnly === true || isReplaying(emission)) {
-            throw new Error("replay: connection/models was not recorded");
-          }
-          const list = host.connectionModels;
-          invariant(list != null, "connection/models: host is not configured");
-          const ids = [...list(stringOf(connection))];
-          runInAction(() => (job.world[path] = JSON.stringify(ids)));
-          return ids;
-        }
-        const list = host.connectionModels;
-        invariant(list != null, "connection/models: host is not configured");
-        return [...list(stringOf(connection))];
-      },
-    ),
-
-    "agent/message": symbol.rosetta`agent/message: deliver a message; does not wait for a reply`(
-      {
-        input: [sz.foldName, sz.string],
-        output: [sz.dynamic],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (target, message) {
-        const id = UUID_RE.test(target);
-        return call(this, AGENT_MESSAGE, argsOf(id ? { targetId: target, message } : { targetName: target, message }));
-      },
-    ),
-
-    "agent/respond": symbol.notImplemented`agent/respond: close an open worker call with the agent__respond JSON tool — this Scheme symbol is not invocable`,
-
-    "agent/void": symbol.rosetta`agent/void: complete a worker request without a response message`(
-      {
-        input: [sz.string],
-        output: [sz.dynamic],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (requestId) {
-        return call(this, AGENT_VOID, argsOf({ requestId }));
-      },
-    ),
-
-    "agent/notify": symbol.rosetta`agent/notify: send an update without completing the worker request`(
-      {
-        input: [sz.string, sz.string],
-        output: [sz.dynamic],
-        provenance: "source",
-        requiresConfig: ["host"],
-      },
-      function (requestId, message) {
-        return call(this, AGENT_NOTIFY, argsOf({ requestId, message }));
-      },
-    ),
-
-    "self/notify":
-      symbol.rosetta`self/notify: send an update from this program or worker request without completing it`(
+      "agent/log": symbol.rosetta`agent/log: read an owned worker's status and execution log, paged`(
         {
-          input: [sz.string],
-          output: [sz.undefinedResult],
+          input: [sz.dynamic],
+          inputRest: sz.dynamic,
+          output: [sz.dynamic],
           provenance: "source",
           requiresConfig: ["host"],
         },
-        function (message) {
-          const { job, host } = replBag(this);
-          if (host.replayOnly === true) return undefined;
-          appendNotify(job, host, stringOf(message));
-          return undefined;
+        function (slot, ...rest) {
+          const target = workerTarget("agent/log", slot);
+          const { offset, length } = keywordsOf("agent/log", rest, recallKeywords);
+          return call(
+            this,
+            CONTEXT_RECALL_TOOL_NAME,
+            argsOf({ ref: agentLogRef(target), offset, length }),
+            "agent/log",
+          );
         },
       ),
-  }),
+
+      "connection/models": symbol.rosetta`connection/models: live model ids on a completion connection`(
+        {
+          input: [sz.foldName],
+          output: [sz.list(sz.string)],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (connection: string) {
+          const { job, host } = replBag(this);
+          const emission = this.runCtx.emission;
+          if (job.trackMatch && emission != null) {
+            const path = claimCrossing(emission, crossingWindow(this));
+            const recorded = job.world[path];
+            if (recorded !== undefined) return stringList(recorded);
+            if (host.replayOnly === true || isReplaying(emission)) {
+              throw new Error("replay: connection/models was not recorded");
+            }
+            const list = host.connectionModels;
+            invariant(list != null, "connection/models: host is not configured");
+            const ids = [...list(stringOf(connection))];
+            runInAction(() => (job.world[path] = JSON.stringify(ids)));
+            return ids;
+          }
+          const list = host.connectionModels;
+          invariant(list != null, "connection/models: host is not configured");
+          return [...list(stringOf(connection))];
+        },
+      ),
+
+      "agent/message": symbol.rosetta`agent/message: deliver a message; does not wait for a reply`(
+        {
+          input: [sz.foldName, sz.string],
+          output: [sz.dynamic],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (target, message) {
+          const id = UUID_RE.test(target);
+          return call(
+            this,
+            AGENT_MESSAGE,
+            argsOf(id ? { targetId: target, message } : { targetName: target, message }),
+          );
+        },
+      ),
+
+      "agent/respond": symbol.notImplemented`agent/respond: close an open worker call with the agent__respond JSON tool — this Scheme symbol is not invocable`,
+
+      "agent/void": symbol.rosetta`agent/void: complete a worker request without a response message`(
+        {
+          input: [sz.string],
+          output: [sz.dynamic],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (requestId) {
+          return call(this, AGENT_VOID, argsOf({ requestId }));
+        },
+      ),
+
+      "agent/notify": symbol.rosetta`agent/notify: send an update without completing the worker request`(
+        {
+          input: [sz.string, sz.string],
+          output: [sz.dynamic],
+          provenance: "source",
+          requiresConfig: ["host"],
+        },
+        function (requestId, message) {
+          return call(this, AGENT_NOTIFY, argsOf({ requestId, message }));
+        },
+      ),
+
+      "self/notify":
+        symbol.rosetta`self/notify: send an update from this program or worker request without completing it`(
+          {
+            input: [sz.string],
+            output: [sz.undefinedResult],
+            provenance: "source",
+            requiresConfig: ["host"],
+          },
+          function (message) {
+            const { job, host } = replBag(this);
+            if (host.replayOnly === true) return undefined;
+            appendNotify(job, host, stringOf(message));
+            return undefined;
+          },
+        ),
+    };
+  },
 });
 
 function extraToolNames(tools: ReadonlyMap<string, BoundTool>): string[] {
-  const skip = new Set<string>([UPDATE_METADATA_TOOL_NAME]);
+  const skip = new Set<string>([UPDATE_METADATA_TOOL_NAME, CONTEXT_RECALL_TOOL_NAME]);
   const own = schemeReplCapability.spec.symbols;
   if (own != null && typeof own !== "function") for (const name of Object.keys(own)) skip.add(name);
   const schemaSymbols = schemaCapability.spec.symbols;

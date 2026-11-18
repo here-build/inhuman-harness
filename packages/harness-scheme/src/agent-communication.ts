@@ -4,7 +4,7 @@ export const AGENT_BRIEF_GUIDANCE =
   "State the goal, relevant context and constraints, owned scope, and completion criteria. " +
   "Include exact paths, identifiers, and useful evidence; do not assume a new worker has the caller's history. " +
   "For a continuation, distinguish verified progress, remaining work, and the observed failure or interruption. " +
-  "A timeout or exhausted budget does not establish completion or prove the worker stopped; check its current state before assigning overlapping work. " +
+  "A timeout or exhausted budget does not establish completion or prove the worker stopped; inspect its progress with (agent/log target) or context_recall and await or resume it with (agent/continue target [message]) before assigning overlapping work. " +
   "Keep briefs concise by removing repetition, not by joining words or dropping relationships. Preserve literal values and quoted user text.";
 
 export const AGENT_STATUS_GUIDANCE =
