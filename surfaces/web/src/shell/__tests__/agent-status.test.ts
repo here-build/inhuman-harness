@@ -10,7 +10,8 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { agentActivity } from "../../__stories__/scenes.js";
 import { agent, session, speech, worldOf } from "../../__stories__/world.js";
-import { DialProvider } from "../../client/context.js";
+import { DialProvider, createDialTranscriptHost } from "../../client/context.js";
+import { TranscriptProvider } from "@inhuman.tools/harness-transcript/context";
 import { FilePreviewProvider } from "../file-sidebar.js";
 
 let view: Root | null = null;
@@ -198,4 +199,67 @@ it("collapses long delegated briefs on cancelled subagents and waits for close a
   await act(async () => finish());
   expect(document.body.contains(dialog)).toBe(false);
   expect(release).toHaveBeenCalledTimes(1);
+});
+
+it("renders host-supplied controls inside AgentPeek when TranscriptHost.peek returns controls", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) {
+    this.open = true;
+  });
+
+  const worker = session({
+    id: "controls-worker",
+    turns: [{ prompt: "Inspect item", work: [speech("Worker note.")] }],
+  });
+  const call = agent("Helper", "Check item", {
+    worker: worker.root.sessionId,
+    background: false,
+    live: true,
+  });
+  const parent = session({
+    id: "controls-parent",
+    turns: [{ prompt: "Delegate", live: true, work: [call] }],
+  });
+  const dial = worldOf([parent], { peeks: () => [worker] });
+  dispose = () => {
+    parent.destroy();
+    worker.destroy();
+    for (const project of dial.projects.values()) project.destroy();
+    dial.kernel?.destroy();
+  };
+  await dial.follow({ kind: "session", sessionId: parent.root.sessionId });
+
+  const baseHost = createDialTranscriptHost(dial.asDial);
+  const host = {
+    ...baseHost,
+    peek: async () => ({
+      doc: worker,
+      release: () => undefined,
+      controls: createElement("div", { "data-testid": "host-peek-controls" }, "Host controls"),
+    }),
+  };
+
+  container = document.createElement("div");
+  document.body.append(container);
+  view = createRoot(container);
+  await act(async () =>
+    view?.render(
+      createElement(DialProvider, {
+        dial: dial.asDial,
+        children: createElement(
+          TranscriptProvider,
+          { host },
+          createElement(FilePreviewProvider, { resetKey: parent.root.sessionId }, createElement(Tape)),
+        ),
+      }),
+    ),
+  );
+
+  const user = userEvent.setup({ document });
+  const note = await waitFor(() => within(document.body).getByRole("button", { name: /Helper.*Check item/i }));
+  await act(async () => user.click(note));
+  const dialog = within(document.body).getByRole("dialog");
+  await waitFor(() => {
+    expect(within(dialog).getByTestId("host-peek-controls").textContent).toBe("Host controls");
+  });
 });

@@ -1332,39 +1332,27 @@
     font-size: var(--text-xs);
   }
 
-  /* Spawned agents dock at the window's lower right: an always-open toast stack
-     nobody can collapse or swipe away. It narrows from 22rem to 16rem as the tape
-     does, and while it holds a toast the conversation's right lane is at least as
-     wide as it, so the body squeezes instead of sliding under it. Where even a
-     squeezed body would fall under 20rem there is no dock. */
-  .tape {
-    --dock-width: clamp(16rem, calc(100cqw - 2 * var(--gutter-width) - 21rem), 22rem);
+  /* The workers a call sent read directly under it, in the body's own measure.
+     The list holds to the top of the tape while its round scrolls past, then
+     leaves with the round; a settled agent stays as part of the record. One
+     frame for the whole list, a hairline between notes, the state bar on each. */
+  .agent-list {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow: clip;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--canvas);
   }
 
-  .tape:has([data-sonner-toast]) :is(.transcript, .composer) {
-    --conversation-grid: minmax(0, 1fr) var(--gutter-width) minmax(0, var(--body-width)) var(--gutter-width)
-      minmax(calc(var(--dock-width) + 1rem), 1fr);
-  }
-
-  .agent-dock {
-    z-index: 20;
-    --normal-font: var(--font-sans);
-    font-family: var(--font-sans);
-  }
-
-  .agent-toast {
-    width: var(--width);
-  }
-
-  @container (max-width: 44rem) {
-    .agent-dock {
-      display: none;
-    }
-
-    .tape:has([data-sonner-toast]) :is(.transcript, .composer) {
-      --conversation-grid: minmax(0, 1fr) var(--gutter-width) minmax(0, var(--body-width)) var(--gutter-width)
-        minmax(0, 1fr);
-    }
+  .agent-list > li + li {
+    border-top: 1px solid var(--line);
   }
 
   /* The bar is the agent's state: working, asking, settled, failed. The note, its peek, and a workflow card share it. */
@@ -2652,6 +2640,13 @@
 
   .tool-summary {
     min-width: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .tool-subtitle {
+    display: block;
+    color: var(--muted);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

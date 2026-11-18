@@ -80,6 +80,8 @@ describe("scheme batch unwrap", () => {
 
   it.each([
     ["agent/ask", '(agent/ask \'explore "map")', "agent__ask", {}],
+    ["agent/continue", '(agent/continue "w-1")', "agent__ask", {}],
+    ["agent/log", '(agent/log "w-1")', "context_recall", { ref: "agent:w-1" }],
     ["bot/send", '(bot/send \'reviewer "look")', "agent__send", {}],
     ["fff_search", '(fff_search "*.md")', "glob", { pattern: "*.md" }],
     ["mcp/call", "(mcp/call 'srv 'tool)", "srv__tool", {}],

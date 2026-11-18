@@ -75,7 +75,10 @@ export function groupBeats(cells: readonly TapeCell[]): TapeBeat[] {
         break;
       }
       case "agent": {
+        // The note reads inline, under the call that sent it; the round also keeps
+        // its agents as marks, for the span pass and the live outline.
         agents.push(cell);
+        bucket.push(cell);
 
         break;
       }

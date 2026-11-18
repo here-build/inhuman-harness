@@ -41,11 +41,11 @@ import {
   useFilePreview,
   useFloatingPosition,
   useLaneLayout,
+  useVoice,
 } from "@inhuman.tools/harness-ui";
 import { IconBinaryTree2, IconInfoCircle, IconX } from "@tabler/icons-react";
 import { observer } from "mobx-react-lite";
 import { createPortal } from "react-dom";
-import { toast, Toaster } from "sonner";
 
 import { type TranscriptHost, useTranscriptHost } from "./context.js";
 import { DiffView } from "./diff-view.js";
@@ -58,6 +58,7 @@ import {
   type AgentCell,
   agentCell,
   agentFace,
+  type AgentFaceCopy,
   type AgentState,
   type LookItem,
   type TapeBodyCell,
@@ -78,7 +79,21 @@ const SessionIdContext = createContext("");
 /** Measure before paint on the client; a no-op useEffect on the server (no warning). */
 const useIsomorphicLayoutEffect = typeof document !== "undefined" ? useLayoutEffect : useEffect;
 
-class CellFence extends Component<{ readonly children: ReactNode }, { readonly failed: boolean }> {
+function agentStatusCopy(transcript: ReturnType<typeof useVoice>["transcript"]): AgentFaceCopy {
+  return {
+    workingStatus: transcript.agentWorkingStatus,
+    cancelledStatus: transcript.agentCancelledStatus,
+    failedStatus: transcript.agentFailedStatus,
+    completedStatus: transcript.agentCompletedStatus,
+    askingApprovalStatus: transcript.agentAskingApprovalStatus,
+    askingQuestionStatus: transcript.agentAskingQuestionStatus,
+  };
+}
+
+class CellFence extends Component<
+  { readonly children: ReactNode; readonly fallbackText?: string },
+  { readonly failed: boolean }
+> {
   override state = { failed: false };
 
   static getDerivedStateFromError(): { failed: boolean } {
@@ -86,7 +101,11 @@ class CellFence extends Component<{ readonly children: ReactNode }, { readonly f
   }
 
   override render(): ReactNode {
-    if (this.state.failed) return <p className="tool-empty">This part of the conversation could not be shown.</p>;
+    if (this.state.failed) {
+      return (
+        <p className="tool-empty">{this.props.fallbackText ?? "This part of the conversation could not be shown."}</p>
+      );
+    }
     return this.props.children;
   }
 }
@@ -122,6 +141,8 @@ function CellView({
   readonly onOpen: (file: OpenFile) => void;
   readonly onEdit?: () => void;
 }) {
+  const host = useTranscriptHost();
+  const voice = useVoice();
   if (cell.kind === "user") {
     if (delegatedBrief) return <DelegatedBrief cell={{ ...cell, text: delegatedBriefText ?? cell.text }} />;
     const visuals = cell.visuals ?? [];
@@ -145,24 +166,34 @@ function CellView({
     );
   }
   if (cell.kind === "reads") return <ReadLine cell={cell} onOpen={onOpen} />;
+  if (cell.kind === "agent") return <AgentList cells={[cell]} />;
   if (cell.body.kind === "diff" || cell.body.kind === "shell" || cell.body.kind === "fail-line") {
     return <ToolBodyView body={cell.body} onOpen={onOpen} outcome={cell.outcome} />;
   }
+  const custom = cell.call && host.formatToolCall ? host.formatToolCall(cell.call) : null;
+  const body = custom?.body ?? cell.body;
   return (
     <Disclosure className="tape-tool">
       <FieldButton slot="trigger" className="tool-disclosure-trigger">
-        <ToolSummary summary={cell.summary} />
+        {custom?.title === undefined ? (
+          <ToolSummary summary={cell.summary} />
+        ) : (
+          <span className="tool-summary">
+            {custom.title}
+            {custom.subtitle === undefined ? null : <span className="tool-subtitle">{custom.subtitle}</span>}
+          </span>
+        )}
         <Outcome outcome={cell.outcome} />
       </FieldButton>
       <TranscriptDisclosurePanel className="tool-disclosure" data-hidden="until-found">
         {cell.program == null ? null : <GraphButton program={cell.program} />}
-        <ToolBodyView body={cell.body} />
+        <ToolBodyView body={body} />
         {cell.nested == null || cell.nested.length === 0
           ? null
           : cell.nested
               .filter((inner): inner is TapeBodyCell => inner.kind !== "round" && inner.kind !== "progress")
               .map((inner) => (
-                <CellFence key={inner.id}>
+                <CellFence key={inner.id} fallbackText={voice.transcript.cellErrorNotice}>
                   <CellView cell={inner} onOpen={onOpen} />
                 </CellFence>
               ))}
@@ -173,11 +204,12 @@ function CellView({
 
 /** Only the initial agent instruction folds; ordinary conversation messages stay in sequence. */
 function DelegatedBrief({ cell }: { readonly cell: Extract<TapeBodyCell, { kind: "user" }> }) {
+  const voice = useVoice();
   const [copy, setCopy] = useState("");
   return (
     <Disclosure className="agent-brief">
       <FieldButton slot="trigger" className="agent-brief-trigger">
-        Delegated brief
+        {voice.transcript.delegatedBriefLabel}
       </FieldButton>
       <TranscriptDisclosurePanel className="agent-brief-panel">
         <Button
@@ -186,17 +218,21 @@ function DelegatedBrief({ cell }: { readonly cell: Extract<TapeBodyCell, { kind:
             void (async () => {
               try {
                 await navigator.clipboard.writeText(cell.text);
-                setCopy("Brief copied.");
+                setCopy(voice.transcript.briefCopiedNotice);
               } catch {
-                setCopy("Could not copy. Select the brief text to copy it.");
+                setCopy(voice.transcript.briefCopyErrorNotice);
               }
             })();
           }}
         >
-          Copy brief
+          {voice.transcript.copyBriefLabel}
         </Button>
         <span role="status">{copy}</span>
-        <section className="tape-message tape-user" aria-label="Delegated brief" data-copy={cell.text}>
+        <section
+          className="tape-message tape-user"
+          aria-label={voice.transcript.delegatedBriefLabel}
+          data-copy={cell.text}
+        >
           <p className="user-text">{cell.text}</p>
           {(cell.visuals?.length ?? 0) === 0 ? null : <UserPictures visuals={cell.visuals!} />}
         </section>
@@ -226,6 +262,7 @@ const UserPicture = observer(function UserPictureView({
   readonly index: number;
 }) {
   const host = useTranscriptHost();
+  const voice = useVoice();
   const [bytes, setBytes] = useState<string | null>(null);
   const [mime, setMime] = useState(visual.mime);
   const [failed, setFailed] = useState(false);
@@ -263,7 +300,7 @@ const UserPicture = observer(function UserPictureView({
   const src = bytes == null ? null : `data:${mime};base64,${bytes}`;
   return (
     <figure className="user-picture" title={label}>
-      {failed ? <p className="user-picture-miss">The picture could not be loaded.</p> : null}
+      {failed ? <p className="user-picture-miss">{voice.transcript.pictureLoadErrorNotice}</p> : null}
       {src == null ? null : (
         <>
           <Button
@@ -570,8 +607,9 @@ export function ToolBodyView({
   readonly onOpen?: (file: OpenFile) => void;
   readonly expanded?: boolean;
 }) {
+  const voice = useVoice();
   if (body.kind === "fail-line") return <FailLine body={body} onOpen={onOpen} />;
-  if (body.kind === "empty") return <p className="tool-empty">No result yet.</p>;
+  if (body.kind === "empty") return <p className="tool-empty">{voice.transcript.emptyResultNotice}</p>;
   if (body.kind === "text") {
     return (
       <pre className="tool-body">
@@ -814,6 +852,7 @@ function TitleNote({ beat }: { readonly beat: Pick<TapeBeat, "id" | "mark"> }) {
 }
 
 function ThoughtNotes({ beat }: { readonly beat: TapeBeat }) {
+  const voice = useVoice();
   const ref = useRef<HTMLDivElement>(null);
   const [wide, setWide] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -844,7 +883,7 @@ function ThoughtNotes({ beat }: { readonly beat: TapeBeat }) {
       onExpandedChange={setExpanded}
     >
       <FieldButton slot="trigger" className="thoughts-disclosure-trigger">
-        Reasoning
+        {voice.transcript.reasoningLabel}
       </FieldButton>
       <TranscriptDisclosurePanel className="thoughts-disclosure-panel">
         <AuxiliaryPreview>
@@ -864,11 +903,12 @@ function ThoughtNotes({ beat }: { readonly beat: TapeBeat }) {
  * is going. The worker's transcript is behind it, not in it.
  */
 function AgentNote({ cell, glance }: { readonly cell: AgentCell; readonly glance: SessionOverview | null }) {
-  const face = agentFace(cell, glance);
+  const voice = useVoice();
+  const face = agentFace(cell, glance, agentStatusCopy(voice.transcript));
   const [peeking, setPeeking] = useState(false);
   return (
     <>
-      {/* No hover preview: a dock toast sits in a transformed Sonner box, and a click already opens the peek. */}
+      {/* No hover preview: the note is compact by design, and a click already opens the peek. */}
       <Button
         variant="content"
         type="button"
@@ -896,7 +936,7 @@ function AgentNote({ cell, glance }: { readonly cell: AgentCell; readonly glance
   );
 }
 
-type Peeked = { readonly doc: SessionDocument } | "failed" | null;
+type Peeked = { readonly doc: SessionDocument; readonly controls?: ReactNode } | "failed" | null;
 
 /**
  * The note opened up: a modal that keeps the note's bar down its edge. Leaving plays the exit
@@ -921,6 +961,7 @@ function PeekDialog({
   readonly onClose: () => void;
   readonly children: ReactNode;
 }) {
+  const voice = useVoice();
   const whoId = useId();
   const titleId = useId();
   useEffect(() => {
@@ -963,7 +1004,7 @@ function PeekDialog({
           {status === "" ? null : <p className="agent-peek-status">{status}</p>}
         </div>
         <form method="dialog">
-          <Button variant="ghost" type="submit" className="agent-peek-close" aria-label="Close">
+          <Button variant="ghost" type="submit" className="agent-peek-close" aria-label={voice.common.close}>
             <IconX {...glyph} aria-hidden />
           </Button>
         </form>
@@ -983,6 +1024,7 @@ const AgentPeek = observer(function AgentPeekView({
 }) {
   const host = useTranscriptHost();
   const preview = useFilePreview();
+  const voice = useVoice();
   const dialog = useRef<HTMLDialogElement>(null);
   const tape = useRef<HTMLDivElement>(null);
   const [peeked, setPeeked] = useState<Peeked>(null);
@@ -1001,7 +1043,7 @@ const AgentPeek = observer(function AgentPeekView({
           return;
         }
         release = opened.release;
-        setPeeked({ doc: opened.doc });
+        setPeeked({ doc: opened.doc, ...(opened.controls === undefined ? {} : { controls: opened.controls }) });
       } catch {
         if (!abort.signal.aborted) setPeeked("failed");
       }
@@ -1011,9 +1053,10 @@ const AgentPeek = observer(function AgentPeekView({
       release?.();
     };
   }, [host, cell.sessionId]);
-  const face = agentFace(cell, glanceOf(host, cell.sessionId));
+  const face = agentFace(cell, glanceOf(host, cell.sessionId), agentStatusCopy(voice.transcript));
   const root = peeked == null || peeked === "failed" ? null : peeked.doc.root;
   const beats = root == null ? [] : sessionBeats(root);
+  const resultHeading = face.state === "ok" ? voice.transcript.agentResultHeading : voice.transcript.agentReasonHeading;
   return (
     <PeekDialog
       dialogRef={dialog}
@@ -1038,22 +1081,19 @@ const AgentPeek = observer(function AgentPeekView({
       <div ref={tape} className="tape agent-peek-tape" tabIndex={-1}>
         <div className="transcript">
           {cell.detail == null || cell.outcome !== "ok" ? null : (
-            <section
-              className="agent-peek-result transcript-column"
-              aria-label={face.state === "ok" ? "Agent result" : "Agent reason"}
-            >
-              <h3>{face.state === "ok" ? "Result" : "Reason"}</h3>
+            <section className="agent-peek-result transcript-column" aria-label={resultHeading}>
+              <h3>{resultHeading}</h3>
               <p className="agent-peek-result-text">{cell.detail}</p>
             </section>
           )}
           {peeked === "failed" ? (
-            <p className="transcript-empty transcript-column">This agent's session could not be opened.</p>
+            <p className="transcript-empty transcript-column">{voice.transcript.agentOpenFailedNotice}</p>
           ) : root == null ? (
             <p className="transcript-empty transcript-column" role="status">
-              Opening the agent's session…
+              {voice.transcript.agentOpeningNotice}
             </p>
           ) : beats.length === 0 ? (
-            <p className="transcript-empty transcript-column">Nothing yet.</p>
+            <p className="transcript-empty transcript-column">{voice.transcript.agentEmptyNotice}</p>
           ) : (
             <SessionTimeline
               beats={beats}
@@ -1069,15 +1109,17 @@ const AgentPeek = observer(function AgentPeekView({
         </div>
         <div className="anchor" />
       </div>
+      {peeked == null || peeked === "failed" ? null : peeked.controls}
     </PeekDialog>
   );
 });
 
 /** A program's graph is one click inside its disclosure. Not in the summary: that is already a button. */
 function GraphButton({ program }: { readonly program: ProgrammaticJob }) {
+  const host = useTranscriptHost();
   const sessionId = useContext(SessionIdContext);
   const [open, setOpen] = useState(false);
-  if (sessionId === "") return null;
+  if (sessionId === "" || host.workflow === undefined) return null;
   return (
     <>
       <Button variant="ghost" className="tool-graph" aria-haspopup="dialog" onClick={() => setOpen(true)}>
@@ -1154,7 +1196,7 @@ const WorkflowPeek = observer(function WorkflowPeekView({
   );
 });
 
-type BeatPart = "body" | "title" | "thoughts" | "agent";
+type BeatPart = "body" | "title" | "thoughts";
 
 type TimelineItem = {
   readonly id: string;
@@ -1177,65 +1219,23 @@ function ModelNote({ span, wire }: { readonly span: ModelSpan; readonly wire: st
   );
 }
 
-const AGENT_DOCK = "agents";
-/** How long a call that came back while watched keeps its note, so the outcome reads. */
-const SETTLED_LINGER_MS = 8000;
-
-type DockedAgent = { readonly id: string; readonly live: boolean; readonly render: () => ReactNode };
-
 /**
- * Spawned agents as a toast stack held open at the lower right. A call still out
- * keeps its toast; one that comes back while watched lingers, then leaves. Calls
- * that settled before this mount never show. The note renders itself live, so a
- * toast is pushed only when it appears or settles.
+ * The workers a call sent, listed directly under it. The list holds to the top
+ * of the tape while its round scrolls past, then leaves with the round. Each
+ * note reads its worker live; a settled agent stays as part of the record.
  */
-function AgentDock({ agents }: { readonly agents: readonly DockedAgent[] }) {
-  const docked = useRef(new Map<string, boolean>());
-  useEffect(() => {
-    const present = new Set<string>();
-    for (const agent of agents) {
-      present.add(agent.id);
-      const was = docked.current.get(agent.id);
-      if (was === agent.live || (was === undefined && !agent.live)) continue;
-      docked.current.set(agent.id, agent.live);
-      toast.custom(() => <>{agent.render()}</>, {
-        id: agent.id,
-        toasterId: AGENT_DOCK,
-        dismissible: false,
-        duration: agent.live ? Infinity : SETTLED_LINGER_MS,
-      });
-    }
-    for (const id of docked.current.keys()) {
-      if (present.has(id)) continue;
-      toast.dismiss(id);
-      docked.current.delete(id);
-    }
-  });
-  useEffect(() => {
-    const ids = docked.current;
-    return () => {
-      for (const id of ids.keys()) toast.dismiss(id);
-      ids.clear();
-    };
-  }, []);
+const AgentList = observer(function AgentListView({ cells }: { readonly cells: readonly AgentCell[] }) {
+  const host = useTranscriptHost();
   return (
-    <Toaster
-      id={AGENT_DOCK}
-      className="agent-dock"
-      // Sonner sets its own width inline; the tape decides this one.
-      style={{ "--width": "var(--dock-width)" } as CSSProperties}
-      position="bottom-right"
-      expand
-      visibleToasts={Number.MAX_SAFE_INTEGER}
-      gap={8}
-      // The lane's foot: level with the model note's rest on the other side.
-      offset={{ right: "1rem", bottom: "var(--model-rest)" }}
-      mobileOffset={{ right: "1rem", bottom: "var(--model-rest)" }}
-      toastOptions={{ unstyled: true, className: "agent-toast" }}
-      containerAriaLabel="Agents"
-    />
+    <ol className="agent-list" role="list" aria-label="Spawned agents">
+      {cells.map((cell) => (
+        <li key={cell.id}>
+          <AgentNote cell={cell} glance={glanceOf(host, cell.sessionId)} />
+        </li>
+      ))}
+    </ol>
   );
-}
+});
 
 /**
  * The panes own annotation order; only the center column sizes the timeline.
@@ -1247,18 +1247,17 @@ function TimelineLayout<T extends TimelineItem>({
   renderBeat,
   nameWire,
   live,
-  dock = false,
 }: {
   readonly beats: readonly T[];
-  /** Spawned agents go to the dock at the window's lower right. A peeked timeline has none. */
-  readonly dock?: boolean;
-  /** `agent` names the call; the other parts are the beat's own. */
-  readonly renderBeat: (beat: T, part: BeatPart, agent?: string) => ReactNode;
+  readonly renderBeat: (beat: T, part: BeatPart) => ReactNode;
   readonly nameWire: (connection: string) => string;
   /** The composer's selector stands for this span; its note shows only once the choice moves on. */
   readonly live?: { readonly model: string; readonly connection: string };
 }) {
+  const host = useTranscriptHost();
   const timelineRef = useRef<HTMLDivElement>(null);
+  const hasVisibleMark = (mark: TapeBeat["mark"]): boolean =>
+    mark != null && (mark.title !== "" || mark.description !== "" || mark.items.length > 0);
   const spans = beats.filter((beat) => beat.modelSpan != null);
   const last = spans.at(-1)?.modelSpan;
   const shown =
@@ -1283,23 +1282,15 @@ function TimelineLayout<T extends TimelineItem>({
       </li>
     );
   });
-  // Agents leave the lanes for the dock. A span with no closing round is a call still out.
-  const agents = dock
-    ? beats.flatMap((beat) =>
-        beat.agentSpans.map((span) => ({
-          id: span.id,
-          live: span.lastRow == null,
-          render: () => renderBeat(beat, "agent", span.id),
-        })),
-      )
-    : [];
   const annotationCount =
     shown.length +
-    beats.filter((beat) => beat.mark != null).length +
+    beats.filter((beat) => hasVisibleMark(beat.mark)).length +
     beats.filter((beat) => beat.thoughts.length > 0).length;
-  useLaneLayout({ timelineRef, version: `${beats.length}:${agents.length}:${annotationCount}` });
+  useLaneLayout({ timelineRef, version: `${beats.length}:${annotationCount}` });
   const pane = (side: "left" | "right") => {
-    const notes = beats.filter((beat) => (side === "left" ? beat.mark != null : beat.thoughts.length > 0));
+    const notes = beats.filter((beat) => (side === "left" ? hasVisibleMark(beat.mark) : beat.thoughts.length > 0));
+    const kind = side === "left" ? "progress" : "thoughts";
+    const part = side === "left" ? "title" : "thoughts";
     return (
       <aside
         className={`side-pane side-${side}`}
@@ -1309,6 +1300,8 @@ function TimelineLayout<T extends TimelineItem>({
           {notes.map((beat, index) => {
             const previous = index === 0 ? null : notes[index - 1];
             const end = side === "left" ? beat.titleEnd : beat.thoughtsEnd;
+            const content = renderBeat(beat, part);
+            const rendered = content != null && host.renderAnnotation ? host.renderAnnotation(kind, content) : content;
             return (
               <li
                 className={`annotation-slot side-${side}`}
@@ -1322,7 +1315,7 @@ function TimelineLayout<T extends TimelineItem>({
                   } as CSSProperties
                 }
               >
-                {renderBeat(beat, side === "left" ? "title" : "thoughts")}
+                {rendered}
               </li>
             );
           })}
@@ -1340,9 +1333,23 @@ function TimelineLayout<T extends TimelineItem>({
       </div>
       {pane("left")}
       {pane("right")}
-      {dock ? <AgentDock agents={agents} /> : null}
     </div>
   );
+}
+
+/** Consecutive agents become one list under the call that sent them; everything else keeps its own slot. */
+function bodyRuns(cells: readonly TapeBodyCell[]): (TapeBodyCell | AgentCell[])[] {
+  const runs: (TapeBodyCell | AgentCell[])[] = [];
+  for (const cell of cells) {
+    const last = runs.at(-1);
+    if (cell.kind === "agent") {
+      if (Array.isArray(last)) last.push(cell);
+      else runs.push([cell]);
+    } else {
+      runs.push(cell);
+    }
+  }
+  return runs;
 }
 
 function BeatSection({
@@ -1360,6 +1367,7 @@ function BeatSection({
   readonly onOpen: (file: OpenFile) => void;
   readonly onEdit?: (cellId: string) => void;
 }) {
+  const voice = useVoice();
   return (
     <section
       aria-labelledby={beat.mark == null || beat.mark.title === "" ? undefined : `${beat.id}-title`}
@@ -1368,17 +1376,23 @@ function BeatSection({
       style={{ "--beat-row": row } as CSSProperties}
     >
       <div className="beat-body">
-        {beat.cells.map((cell) => (
-          <CellFence key={cell.id}>
-            <CellView
-              cell={cell}
-              delegatedBrief={cell.id === delegatedBriefId}
-              delegatedBriefText={delegatedBriefText}
-              onOpen={onOpen}
-              {...(onEdit == null || cell.kind !== "user" ? {} : { onEdit: () => onEdit(cell.id) })}
-            />
-          </CellFence>
-        ))}
+        {bodyRuns(beat.cells).map((run) =>
+          Array.isArray(run) ? (
+            <CellFence key={run[0].id} fallbackText={voice.transcript.cellErrorNotice}>
+              <AgentList cells={run} />
+            </CellFence>
+          ) : (
+            <CellFence key={run.id} fallbackText={voice.transcript.cellErrorNotice}>
+              <CellView
+                cell={run}
+                delegatedBrief={run.id === delegatedBriefId}
+                delegatedBriefText={delegatedBriefText}
+                onOpen={onOpen}
+                {...(onEdit == null || run.kind !== "user" ? {} : { onEdit: () => onEdit(run.id) })}
+              />
+            </CellFence>
+          ),
+        )}
       </div>
     </section>
   );
@@ -1402,11 +1416,8 @@ export function BeatTimeline({
         ),
       )}
       nameWire={(connection) => connection}
-      dock
-      renderBeat={(beat, part, agent) =>
-        part === "agent" ? (
-          <AgentNote cell={beat.agents.find((item) => item.id === agent)!} glance={null} />
-        ) : part === "title" ? (
+      renderBeat={(beat, part) =>
+        part === "title" ? (
           <TitleNote beat={beat} />
         ) : part === "thoughts" ? (
           <ThoughtNotes beat={beat} />
@@ -1425,7 +1436,6 @@ const LiveBeat = observer(function LiveBeatView({
   mark,
   row,
   part,
-  agent,
   onOpen,
   delegatedBriefId,
 }: {
@@ -1435,7 +1445,6 @@ const LiveBeat = observer(function LiveBeatView({
   readonly mark: TapeBeat["mark"];
   readonly row: number;
   readonly part: BeatPart;
-  readonly agent?: string;
   readonly delegatedBriefId?: string;
   readonly onOpen: (file: OpenFile) => void;
 }) {
@@ -1449,11 +1458,6 @@ const LiveBeat = observer(function LiveBeatView({
     return part === "body" && mark != null ? (
       <section className="beat" data-beat-row={row} style={{ "--beat-row": row } as CSSProperties} />
     ) : null;
-  }
-  if (part === "agent") {
-    const cell = beat.agents.find((item) => item.id === agent);
-    if (cell == null) return null;
-    return <AgentNote cell={cell} glance={glanceOf(host, cell.sessionId)} />;
   }
   if (part === "thoughts") return <ThoughtNotes beat={beat} />;
   return (
@@ -1500,11 +1504,9 @@ function SessionTimeline({
   live,
   onOpen,
   delegatedBriefId,
-  dock = false,
 }: {
   readonly beats: ReturnType<typeof sessionBeats>;
   readonly root: SessionRoot;
-  readonly dock?: boolean;
   readonly live?: { readonly model: string; readonly connection: string };
   readonly delegatedBriefId?: string;
   readonly onOpen: (file: OpenFile) => void;
@@ -1516,12 +1518,10 @@ function SessionTimeline({
         beats={beats}
         nameWire={(connection) => wireName(host.kernel?.root.connections[connection], connection)}
         {...(live == null ? {} : { live })}
-        dock={dock}
-        renderBeat={(beat, part, agent) => (
+        renderBeat={(beat, part) => (
           // A beat that cannot render costs that beat, not the session.
           <CellFence>
             <LiveBeat
-              agent={agent}
               delegatedBriefId={delegatedBriefId}
               beatId={beat.id}
               mark={beat.mark}
@@ -1588,7 +1588,6 @@ export const Tape = observer(function TapeView() {
         <SessionTimeline
           beats={laid}
           live={{ model: kvs.model ?? "", connection: kvs.connection ?? "" }}
-          dock
           onOpen={preview.open}
           root={root}
         />

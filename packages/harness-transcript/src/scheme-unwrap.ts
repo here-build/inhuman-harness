@@ -7,7 +7,17 @@
  * and `[]`). A `let` or `define` around a call is still one statement and
  * stays in the batch.
  */
+import { SCHEME_REPL_TOOL_NAME, type ProgrammaticJob } from "@inhuman.tools/harness-model";
 import { observable, runInAction } from "mobx";
+
+/** Keep the program until at least one visible call exists and the async reader settles. */
+export function schemeProgramUnwrap(program: ProgrammaticJob, visibleCalls: number): boolean {
+  return (
+    program.toolName === SCHEME_REPL_TOOL_NAME &&
+    visibleCalls > 0 &&
+    schemeHostCallsOnly(program.expr, new Set(program.toolCalls.map((tool) => tool.name)))
+  );
+}
 
 /**
  * Scheme symbols that mint a tape cell under a different job name, plus the
@@ -27,10 +37,13 @@ const HOST_SYMBOLS = new Set([
   "web_extract",
   "mcp/call",
   "update_metadata",
+  "context_recall",
   "bot/send",
   "bot/ask",
   "agent/call",
   "agent/ask",
+  "agent/continue",
+  "agent/log",
   "agent/message",
   "agent/void",
   "agent/notify",
@@ -40,7 +53,7 @@ type SExpr =
   | { readonly kind: "string"; readonly value: string }
   | { readonly kind: "atom"; readonly text: string }
   | { readonly kind: "quote"; readonly inner: SExpr }
-  | { readonly kind: "list"; readonly items: readonly SExpr[]; readonly bracket: "(" | "[" };
+  | { readonly kind: "list"; readonly items: readonly SExpr[]; readonly bracket: "(" | "[" | "{" };
 
 const formsOf = observable.map<string, readonly SExpr[] | "error">([], { deep: false });
 const pending = new Map<string, Promise<void>>();
@@ -142,10 +155,10 @@ function readForms(input: string): readonly SExpr[] | null {
     skipWs();
     if (pos >= len) return null;
     const ch = input[pos]!;
-    if (ch === ")" || ch === "]") return null;
-    if (ch === "(" || ch === "[") {
+    if (ch === ")" || ch === "]" || ch === "}") return null;
+    if (ch === "(" || ch === "[" || ch === "{") {
       const open = ch;
-      const close = open === "(" ? ")" : "]";
+      const close = open === "(" ? ")" : open === "[" ? "]" : "}";
       pos++;
       const items: SExpr[] = [];
       for (;;) {
@@ -155,7 +168,7 @@ function readForms(input: string): readonly SExpr[] | null {
           pos++;
           return { kind: "list", items, bracket: open };
         }
-        if (input[pos] === ")" || input[pos] === "]") return null;
+        if (input[pos] === ")" || input[pos] === "]" || input[pos] === "}") return null;
         const item = readOne();
         if (item === null) return null;
         items.push(item);
@@ -201,6 +214,8 @@ function readForms(input: string): readonly SExpr[] | null {
         c === ")" ||
         c === "[" ||
         c === "]" ||
+        c === "{" ||
+        c === "}" ||
         c === '"' ||
         c === ";"
       ) {

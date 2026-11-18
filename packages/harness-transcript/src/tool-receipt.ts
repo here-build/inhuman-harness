@@ -100,24 +100,46 @@ export function fileFact(job: ToolCallJob, blobs: BlobPeek | undefined = seatedB
  * `blobs` defaults to the cache the dial seated. A diff whose prior text is still in a blob paints without it,
  * as for a replica that never had the prior, until the text lands.
  */
+export function toolReceiptWithKind(
+  job: ToolCallJob,
+  reads: readonly ToolCallJob[],
+  projectPath = "",
+  blobs: BlobPeek | undefined = seatedBlobs(),
+): { readonly body: ToolBody; readonly genericBody: boolean } {
+  if (job.name === "shell") return { body: shellBody(job, projectPath), genericBody: false };
+  const denial = denialText(job);
+  if (denial !== null) {
+    return { body: denial === "" ? { kind: "empty" } : { kind: "text", text: denial }, genericBody: false };
+  }
+  if ((job.name === "edit_file" || job.name === "write_file") && job.outcomeSnap?.ok === false) {
+    return { body: failLine(job, projectPath), genericBody: false };
+  }
+  if ((job.name === "edit_file" || job.name === "write_file") && !(job instanceof FileMutateToolJob)) {
+    return { body: generic(job), genericBody: true };
+  }
+  if (job.name === "edit_file") {
+    const diff = editDiff(job, reads, blobs);
+    return diff === null ? { body: generic(job), genericBody: true } : { body: diff, genericBody: false };
+  }
+  if (job.name === "write_file") {
+    const diff = writeDiff(job, reads, blobs);
+    return diff === null ? { body: generic(job), genericBody: true } : { body: diff, genericBody: false };
+  }
+  if (job.name === "read_file") return { body: readBody(job), genericBody: false };
+  return { body: generic(job), genericBody: true };
+}
+
+/**
+ * `blobs` defaults to the cache the dial seated. A diff whose prior text is still in a blob paints without it,
+ * as for a replica that never had the prior, until the text lands.
+ */
 export function toolReceipt(
   job: ToolCallJob,
   reads: readonly ToolCallJob[],
   projectPath = "",
   blobs: BlobPeek | undefined = seatedBlobs(),
 ): ToolBody {
-  if (job.name === "shell") return shellBody(job, projectPath);
-  const denial = denialText(job);
-  if (denial !== null) return denial === "" ? { kind: "empty" } : { kind: "text", text: denial };
-  if ((job.name === "edit_file" || job.name === "write_file") && job.outcomeSnap?.ok === false) {
-    return failLine(job, projectPath);
-  }
-  if ((job.name === "edit_file" || job.name === "write_file") && !(job instanceof FileMutateToolJob))
-    return generic(job);
-  if (job.name === "edit_file") return editDiff(job, reads, blobs) ?? generic(job);
-  if (job.name === "write_file") return writeDiff(job, reads, blobs) ?? generic(job);
-  if (job.name === "read_file") return readBody(job);
-  return generic(job);
+  return toolReceiptWithKind(job, reads, projectPath, blobs).body;
 }
 
 /** What the program says it does: its description, else its first line. */

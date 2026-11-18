@@ -9,7 +9,6 @@ import {
   SuccessfulOutcome,
   ProgrammaticJob,
   SESSION_DESCRIPTION_MAX_CHARS,
-  SCHEME_REPL_TOOL_NAME,
   SESSION_TITLE_MAX_CHARS,
   SessionTurn,
   type SessionRoot,
@@ -20,15 +19,16 @@ import {
   type UserVisualIdentity,
 } from "@inhuman.tools/harness-model";
 
+import type { ToolCallDescriptor } from "./context.js";
 import { displayPath } from "./read-line.js";
-import { schemeHostCallsOnly } from "./scheme-unwrap.js";
+import { schemeProgramUnwrap } from "./scheme-unwrap.js";
 import { reduceSession, type FileFact, type SessionEvent } from "./session-reducer.js";
 import {
   fileFact,
   outcomeOf,
   schemeReceipt,
   schemeSummary,
-  toolReceipt,
+  toolReceiptWithKind,
   type ToolBody,
   type ToolOutcome,
 } from "./tool-receipt.js";
@@ -41,6 +41,7 @@ export type ToolCell = {
   readonly outcome: ToolOutcome;
   readonly body: ToolBody;
   readonly file?: FileFact;
+  readonly call?: ToolCallDescriptor;
   /** A call of the read family. Presence, not a successful fact, is what folds the row. */
   readonly look?: Look;
   readonly edits?: { readonly mutationIds: readonly string[]; readonly roundIds: readonly string[] };
@@ -84,12 +85,12 @@ export type ReadLineCell = {
   readonly items: readonly LookItem[];
 };
 
-export type TapeBodyCell = Exclude<TapeCell, { kind: "progress" | "round" | "agent" | "settle" }>;
+export type TapeBodyCell = Exclude<TapeCell, { kind: "progress" | "round" | "settle" }>;
 
 /** How a spawned agent's call ended. A running background call already holds an `ok` ack, so this reads the call's own outcome. */
 export type AgentOutcome = "live" | "ok" | "failed" | "cancelled";
 
-/** An agent this session spawned. Its note lives beside the tape from the spawn until the result comes back. */
+/** An agent this session spawned. Its note follows the call that sent it and holds to the top of the tape while the round scrolls. */
 export type AgentCell = {
   readonly kind: "agent";
   readonly id: string;
@@ -241,29 +242,31 @@ export function projectUserTurn(turn: SessionTurn, projectPath: string, blobs?: 
     } else if (chunk instanceof ToolCallJob) {
       pushTool(roundCells, chunk, tools, projectPath, blobs);
     } else if (chunk instanceof ProgrammaticJob) {
-      const nested: TapeCell[] = [];
-      for (const tool of chunk.toolCalls) pushTool(nested, tool, tools, projectPath, blobs);
+      const nested = schemeProgramCells(chunk, projectPath, tools, blobs);
       // A program that only signals context_need has no tape row.
       if (chunk.toolCalls.length > 0 && chunk.toolCalls.every((tool) => tool.name === CONTEXT_NEED_TOOL_NAME)) {
         return;
       }
-      const admitted = new Set(chunk.toolCalls.map((tool) => tool.name));
-      if (chunk.toolName === SCHEME_REPL_TOOL_NAME && nested.length > 0 && schemeHostCallsOnly(chunk.expr, admitted)) {
+      if (schemeProgramUnwrap(chunk, nested.length)) {
         roundCells.push(...nested);
         return;
       }
       const nestedMark = mergeProgress(nested.filter((cell) => cell.kind === "progress"));
       if (nestedMark != null) roundCells.push(nestedMark);
-      // An agent the program spawned is the round's, like its progress: it lives beside the tape, not in the receipt.
-      roundCells.push(...nested.filter((cell) => cell.kind === "agent"), {
-        kind: "tool",
-        id: chunk.uuid,
-        summary: schemeSummary(chunk),
-        outcome: outcomeOf(chunk.completed, chunk.outcomeSnap),
-        body: schemeReceipt(chunk),
-        nested: nested.filter((cell) => cell.kind !== "agent"),
-        ...(chunk.toolCalls.length > 0 ? { program: chunk } : {}),
-      });
+      // Agents the program spawned follow its row on the tape, not inside its receipt:
+      // the list of sent workers reads directly under the call that sent them.
+      roundCells.push(
+        {
+          kind: "tool",
+          id: chunk.uuid,
+          summary: schemeSummary(chunk),
+          outcome: outcomeOf(chunk.completed, chunk.outcomeSnap),
+          body: schemeReceipt(chunk),
+          nested: nested.filter((cell) => cell.kind !== "agent"),
+          ...(chunk.toolCalls.length > 0 ? { program: chunk } : {}),
+        },
+        ...nested.filter((cell) => cell.kind === "agent"),
+      );
     } else if (chunk instanceof TurnNotificationChunk) {
       const calls = chunk.notifications
         .filter((note) => note.result && note.parent instanceof CallJob)
@@ -271,6 +274,18 @@ export function projectUserTurn(turn: SessionTurn, projectPath: string, blobs?: 
       if (calls.length > 0) roundCells.push({ kind: "settle", id: chunk.uuid, calls });
     }
   }
+}
+
+/** Inner tape cells emitted by a programmatic job's tool invocations (side-channel calls may emit none). */
+export function schemeProgramCells(
+  program: ProgrammaticJob,
+  projectPath = "",
+  tools: ToolCallJob[] = [],
+  blobs?: BlobPeek,
+): TapeCell[] {
+  const nested: TapeCell[] = [];
+  for (const tool of program.toolCalls) pushTool(nested, tool, tools, projectPath, blobs);
+  return nested;
 }
 
 export function tapeCells(root: SessionRoot, blobs?: BlobPeek): TapeCell[] {
@@ -426,13 +441,23 @@ function pushTool(
     return;
   }
   const look = lookOf(job);
+  const outcome = outcomeOf(job.completed, job.outcomeSnap);
+  const receipt = toolReceiptWithKind(job, tools, projectPath, blobs);
   cells.push({
     kind: "tool",
     id: job.uuid,
     summary: toolSummary(job),
-    outcome: outcomeOf(job.completed, job.outcomeSnap),
-    body: toolReceipt(job, tools, projectPath, blobs),
+    outcome,
+    body: receipt.body,
     file: fileFact(job, blobs),
+    call: {
+      name: job.name,
+      args: job.args,
+      completed: job.completed,
+      outcome,
+      outcomeSnap: job.outcomeSnap,
+      genericBody: receipt.genericBody,
+    },
     ...(look === undefined ? {} : { look }),
   });
   tools.push(job);
@@ -458,6 +483,7 @@ export { type ToolBody } from "./tool-receipt.js";
 
 export function agentCell(job: CallJob): AgentCell {
   const message = job instanceof AgentCallJob ? job.description : job.argString("message");
+  const spec = job.argString("spec").trim() || (job instanceof AgentCallJob ? job.faceName.trim() : "");
   const failure = job.outcome instanceof FailureOutcome ? job.outcome : null;
   const success = job.outcome instanceof SuccessfulOutcome ? job.outcome : null;
   const detail =
@@ -471,7 +497,7 @@ export function agentCell(job: CallJob): AgentCell {
     kind: "agent",
     id: job.uuid,
     sessionId: job.workerSessionId.trim(),
-    spec: job.argString("spec").trim(),
+    spec,
     message:
       message
         .split(/\r?\n/)
@@ -499,8 +525,18 @@ export type AgentFace = {
   readonly state: AgentState;
 };
 
+/** Optional localized fallback status strings for {@link agentFace}. */
+export interface AgentFaceCopy {
+  readonly workingStatus?: string;
+  readonly cancelledStatus?: string;
+  readonly failedStatus?: string;
+  readonly completedStatus?: string;
+  readonly askingApprovalStatus?: string;
+  readonly askingQuestionStatus?: string;
+}
+
 /** The note: who, on which model, doing what, and how it is going. The live half is the kernel's glance of the worker. */
-export function agentFace(cell: AgentCell, glance: SessionOverview | null): AgentFace {
+export function agentFace(cell: AgentCell, glance: SessionOverview | null, copy: AgentFaceCopy = {}): AgentFace {
   const asking =
     cell.outcome === "live" &&
     glance != null &&
@@ -510,15 +546,15 @@ export function agentFace(cell: AgentCell, glance: SessionOverview | null): Agen
   const status =
     state === "asking"
       ? glance?.unfinished === "question"
-        ? glance.questionLine.trim() || "has a question"
-        : glance?.askLine.trim() || "awaiting approval"
+        ? glance.questionLine.trim() || copy.askingQuestionStatus || "has a question"
+        : glance?.askLine.trim() || copy.askingApprovalStatus || "awaiting approval"
       : state === "live"
-        ? glance?.status.trim() || "Working"
+        ? glance?.status.trim() || copy.workingStatus || "Working"
         : state === "cancelled"
-          ? "Cancelled"
+          ? copy.cancelledStatus || "Cancelled"
           : state === "failed"
-            ? "Failed"
-            : "Completed";
+            ? copy.failedStatus || "Failed"
+            : copy.completedStatus || "Completed";
   return {
     name: cell.spec || glance?.specName.trim() || "agent",
     model: glance?.model.trim() ?? "",

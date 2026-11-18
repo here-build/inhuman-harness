@@ -64,6 +64,27 @@ export interface VoiceCatalog {
     readonly statusIdle: string;
     readonly statusStopped: string;
     readonly statusFailed: string;
+    readonly reasoningLabel: string;
+    readonly emptyResultNotice: string;
+    readonly cellErrorNotice: string;
+    readonly pictureLoadErrorNotice: string;
+    readonly outcomeLiveLabel: string;
+    readonly outcomeFailedLabel: string;
+    readonly delegatedBriefLabel: string;
+    readonly copyBriefLabel: string;
+    readonly briefCopiedNotice: string;
+    readonly briefCopyErrorNotice: string;
+    readonly agentOpeningNotice: string;
+    readonly agentOpenFailedNotice: string;
+    readonly agentEmptyNotice: string;
+    readonly agentResultHeading: string;
+    readonly agentReasonHeading: string;
+    readonly agentWorkingStatus: string;
+    readonly agentCancelledStatus: string;
+    readonly agentFailedStatus: string;
+    readonly agentCompletedStatus: string;
+    readonly agentAskingApprovalStatus: string;
+    readonly agentAskingQuestionStatus: string;
   };
   readonly composer: {
     readonly promptLabel: string;
@@ -189,6 +210,27 @@ export const enVoiceCatalog: VoiceCatalog = {
     statusIdle: "Idle",
     statusStopped: "Stopped",
     statusFailed: "Failed",
+    reasoningLabel: "Reasoning",
+    emptyResultNotice: "No result yet.",
+    cellErrorNotice: "This part of the conversation could not be shown.",
+    pictureLoadErrorNotice: "The picture could not be loaded.",
+    outcomeLiveLabel: "in progress",
+    outcomeFailedLabel: "failed",
+    delegatedBriefLabel: "Delegated brief",
+    copyBriefLabel: "Copy brief",
+    briefCopiedNotice: "Brief copied.",
+    briefCopyErrorNotice: "Could not copy. Select the brief text to copy it.",
+    agentOpeningNotice: "Opening the agent's session…",
+    agentOpenFailedNotice: "This agent's session could not be opened.",
+    agentEmptyNotice: "Nothing yet.",
+    agentResultHeading: "Result",
+    agentReasonHeading: "Reason",
+    agentWorkingStatus: "Working",
+    agentCancelledStatus: "Cancelled",
+    agentFailedStatus: "Failed",
+    agentCompletedStatus: "Completed",
+    agentAskingApprovalStatus: "awaiting approval",
+    agentAskingQuestionStatus: "has a question",
   },
   composer: {
     promptLabel: "Message",
