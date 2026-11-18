@@ -1,6 +1,6 @@
 {
   "name": "@inhuman.tools/harness-ui",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "White-label primitives, contextual axes, voice catalogs, and Safari 18.7+ positioning helpers for Inhuman Harness.",
   "type": "module",
   "exports": {
