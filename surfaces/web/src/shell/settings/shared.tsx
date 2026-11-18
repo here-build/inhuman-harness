@@ -12,6 +12,7 @@ import type { Request } from "../connect-step.js";
 export const SECTIONS = [
   ["connections", "Connections"],
   ["models", "Models"],
+  ["web", "Web"],
   ["mcp", "MCP"],
   ["plugins", "Plugins"],
   ["skills", "Skills"],
@@ -108,6 +109,18 @@ export function openProject(dial: ReturnType<typeof useDial>): string | null {
 
 export function isMcp(spec: Conn): boolean {
   return spec.driver?.abilityClaim?.includes("mcp") === true;
+}
+
+/** A connection that serves web search or page extract, possibly among other abilities. */
+export function isWeb(spec: Conn): boolean {
+  const can = spec.driver?.abilityClaim ?? [];
+  return can.includes("web-search") || can.includes("web-extract");
+}
+
+/** Web-only connections live in the Web section, not the model or MCP lists. */
+export function isWebOnly(spec: Conn): boolean {
+  const can = spec.driver?.abilityClaim ?? [];
+  return isWeb(spec) && !can.includes("completion") && !can.includes("mcp");
 }
 
 export function connectionDetail(

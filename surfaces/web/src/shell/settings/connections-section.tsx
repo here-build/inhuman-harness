@@ -22,6 +22,7 @@ import {
   failureOf,
   isMcp,
   isRecord,
+  isWebOnly,
   listedConnections,
   Notice,
   ParkFollow,
@@ -45,7 +46,7 @@ export const AllConnections = observer(function AllConnectionsView() {
   const [endpoint, setEndpoint] = useState("");
   const [adopting, setAdopting] = useState(false);
   const [park, setPark] = useState<Park | null>(null);
-  const rows = listedConnections(dial);
+  const rows = listedConnections(dial).filter(([, spec]) => !isWebOnly(spec));
   const closeAdd = () => {
     setAdding("");
     setEndpoint("");
@@ -271,7 +272,7 @@ export const Connections = observer(function ConnectionsView() {
   const dial = useDial();
   const { request, notice, success, run, reconnect, flow } = useConnectionRun();
   const [adding, setAdding] = useState(false);
-  const models = listedConnections(dial).filter(([, spec]) => !isMcp(spec));
+  const models = listedConnections(dial).filter(([, spec]) => !isMcp(spec) && !isWebOnly(spec));
   if (flow != null) return flow;
   if (adding) return <AddModel onDone={() => setAdding(false)} />;
   return (

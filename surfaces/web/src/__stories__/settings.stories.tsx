@@ -98,7 +98,7 @@ export const Connections: Story = {
     const dialog = await open(canvasElement, "Connections");
     await expect(dialog.getByText("ChatGPT")).toBeVisible();
     await expect(dialog.getByText("Sentry")).toBeVisible();
-    await expect(dialog.getByText("6 connections.")).toBeVisible();
+    await expect(dialog.getByText("5 connections.")).toBeVisible();
     await expect(dialog.queryByText("Always allowed")).toBeNull();
     const enabled = dialog.getAllByRole("checkbox", { name: "Enabled" })[0]!;
     await expect(enabled).toBeChecked();
@@ -120,6 +120,20 @@ export const Models: Story = {
     await expect(chat).toBeChecked();
     await userEvent.click(chat);
     await expect(chat).not.toBeChecked();
+  },
+};
+
+/** Web search and page extract: routing pins, the provider inventory, and the keyless fallback. */
+export const Web: Story = {
+  args: { stage },
+  play: async ({ canvasElement }) => {
+    const dialog = await open(canvasElement, "Web");
+    await expect(dialog.getByText("Search provider")).toBeVisible();
+    await expect(dialog.getByText("Extract provider")).toBeVisible();
+    await expect(dialog.getByText("Keyless ring")).toBeVisible();
+    await expect(dialog.getAllByText("Web search").length).toBeGreaterThan(0);
+    // No open session in this world: routing reads stay visible, writes wait for a port.
+    await expect(dialog.getByText("Open a session to change routing and fallback.")).toBeVisible();
   },
 };
 

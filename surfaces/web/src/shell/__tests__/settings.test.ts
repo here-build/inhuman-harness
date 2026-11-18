@@ -2,10 +2,13 @@
 
 import { act, createElement as h } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { DriverSpec } from "@inhuman.tools/expectations";
+import { encodeUiDefinition } from "@inhuman.tools/harness-contract";
+import { runInAction } from "mobx";
 import { userEvent, within } from "storybook/test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { kernel, StoryDial } from "../../__stories__/world.js";
+import { kernel, session, StoryDial, type ConnectScripts, type WireSpec } from "../../__stories__/world.js";
 import { SettingsDialog } from "../settings.js";
 
 let dial: StoryDial;
@@ -105,5 +108,119 @@ describe("SettingsDialog", () => {
     expect(failure.textContent).toBe("Could not save runtime settings.");
     expect(failure.classList.contains("text-danger")).toBe(true);
     expect(within(container).getByLabelText<HTMLInputElement>("Turns to keep").value).toBe("13");
+  });
+});
+
+const WEB_WIRES: readonly WireSpec[] = [
+  { id: "tavily", name: "Tavily", models: [], can: ["web-search", "web-extract"], keyMask: "tvly-…9" },
+  { id: "grok", name: "Grok", models: ["grok-4.7"], can: ["completion", "web-search"] },
+  { id: "web-keyless", name: "web-keyless", models: [], can: ["web-search", "web-extract"] },
+];
+
+/** A world with an open session, so kernel-scope KV writes have a port. */
+async function openWebWorld(wires: readonly WireSpec[], connect?: ConnectScripts) {
+  dial.kernel?.destroy();
+  const opened = session({ id: "web-session", turns: [] });
+  dial = new StoryDial({ kernel: kernel({ wires }), sessions: [opened], connect });
+  await dial.follow({ kind: "session", sessionId: opened.root.sessionId });
+}
+
+async function chooseOption(label: string, option: string) {
+  const trigger = within(container).getByLabelText(label);
+  await act(async () => user.click(trigger));
+  await act(async () => user.click(within(container).getByRole("option", { name: option })));
+}
+
+describe("Web section", () => {
+  it("pins search and extract independently and returns to Auto", async () => {
+    await openWebWorld(WEB_WIRES);
+    await act(async () => root.render(h(SettingsDialog, { onDismiss: vi.fn() })));
+    await click("Web");
+
+    await chooseOption("Search provider", "Tavily");
+    expect(dial.calls.find((call) => call.method === "kv/set")?.params).toEqual({
+      key: "web-search-connection",
+      value: "tavily",
+      scope: "kernel",
+    });
+    expect(dial.kernel!.root.kvs["web-search-connection"]).toBe("tavily");
+
+    // Grok claims completion + web-search: it is a search candidate, never an extract one.
+    const extract = within(container).getByLabelText("Extract provider");
+    await act(async () => user.click(extract));
+    expect(within(container).queryByRole("option", { name: "Grok" })).toBeNull();
+    await act(async () => user.click(within(container).getByRole("option", { name: "web-keyless" })));
+    expect(dial.kernel!.root.kvs["web-extract-connection"]).toBe("web-keyless");
+    expect(dial.kernel!.root.kvs["web-search-connection"]).toBe("tavily");
+
+    await chooseOption("Search provider", "Auto");
+    expect(dial.kernel!.root.kvs["web-search-connection"]).toBe("");
+  });
+
+  it("toggles the keyless fallback in kernel scope and warns when nothing else serves web", async () => {
+    await openWebWorld([WEB_WIRES[2]]);
+    await act(async () => root.render(h(SettingsDialog, { onDismiss: vi.fn() })));
+    await click("Web");
+
+    const toggle = within(container).getByRole("checkbox", { name: "Use as fallback" }) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    await act(async () => user.click(toggle));
+    expect(dial.calls.find((call) => call.method === "kv/set")?.params).toEqual({
+      key: "web.keyless_fallback",
+      value: "false",
+      scope: "kernel",
+    });
+    expect(within(container).getByRole("status").textContent).toContain("No other web provider is connected");
+
+    await act(async () => user.click(toggle));
+    expect(dial.kernel!.root.kvs["web.keyless_fallback"]).toBe("true");
+    expect(within(container).queryByRole("status")).toBeNull();
+  });
+
+  it("adopts a keyed vendor through the parked API-key step", async () => {
+    await openWebWorld(WEB_WIRES, {
+      exa: [
+        encodeUiDefinition({ kind: "input", name: "Exa API key", secret: true }),
+        { done: "exa", wire: { id: "exa", name: "Exa", models: [], can: ["web-search", "web-extract"] } },
+      ],
+    });
+    runInAction(() => {
+      dial.kernel!.root.drivers["exa"] = new DriverSpec({
+        name: "exa",
+        description: "Exa neural search",
+        abilityClaim: ["web-search", "web-extract"],
+      });
+    });
+    await act(async () => root.render(h(SettingsDialog, { onDismiss: vi.fn() })));
+    await click("Web");
+    await click("Add API key");
+    await act(async () => user.click(within(container).getByRole("button", { name: /Exa neural search/ })));
+
+    expect(dial.calls.find((call) => call.method === "connect/adopt")?.params).toEqual({ driver: "exa" });
+    await fill("Exa API key", "exa-key-123");
+    await click("Continue");
+    expect(dial.calls.find((call) => call.method === "ui/resolve")?.params).toMatchObject({
+      kind: "text",
+      input: "exa-key-123",
+    });
+    expect(dial.kernel!.root.connections["exa"]).toBeDefined();
+    expect(within(container).getAllByText("Exa").length).toBeGreaterThan(0);
+    expect(within(container).queryByLabelText("Exa API key")).toBeNull();
+  });
+
+  it("keeps web-only providers out of Connections and Models", async () => {
+    await openWebWorld(WEB_WIRES);
+    await act(async () => root.render(h(SettingsDialog, { onDismiss: vi.fn() })));
+
+    await click("Connections");
+    expect(within(container).queryByText("Tavily")).toBeNull();
+    expect(within(container).getByText("Grok")).toBeTruthy();
+
+    await click("Models");
+    expect(within(container).queryByText("Tavily")).toBeNull();
+    expect(within(container).getByText("Grok")).toBeTruthy();
+
+    await click("Web");
+    expect(within(container).getAllByText("Tavily").length).toBeGreaterThan(0);
   });
 });

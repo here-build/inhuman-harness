@@ -9,6 +9,7 @@ import { Plugins } from "./settings/plugins-section.js";
 import { Runtime } from "./settings/runtime-section.js";
 import { SECTIONS, type Section } from "./settings/shared.js";
 import { Skills } from "./settings/skills-section.js";
+import { Web } from "./settings/web-section.js";
 
 const NAV_ITEMS = SECTIONS.map(([id, label]) => ({ id, label }));
 
@@ -25,6 +26,7 @@ export function SettingsDialog({ onDismiss }: { readonly onDismiss: () => void }
     >
       {section === "connections" ? <AllConnections /> : null}
       {section === "models" ? <Connections /> : null}
+      {section === "web" ? <Web /> : null}
       {section === "mcp" ? <McpServers /> : null}
       {section === "plugins" ? <Plugins /> : null}
       {section === "skills" ? <Skills /> : null}

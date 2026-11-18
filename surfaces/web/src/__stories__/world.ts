@@ -774,7 +774,10 @@ export class StoryDial {
     runInAction(() => {
       const root = opened.root;
       if (method === "kv/set" && typeof args.key === "string" && typeof args.value === "string") {
-        root.applyKvs([{ form: "kv-set", key: args.key, value: args.value }]);
+        const proposal = { form: "kv-set" as const, key: args.key, value: args.value };
+        if (args.scope === "kernel") this.kernel?.root.applyKvs([proposal]);
+        else if (args.scope === "project") this.project?.root.applyKvs([proposal]);
+        else root.applyKvs([proposal]);
       }
       if (method === "turn" && typeof args.prompt === "string") {
         root.head = turn({ prompt: args.prompt, work: [], live: true }, root.head ?? new SessionSystemPrompt());
