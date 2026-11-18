@@ -74,7 +74,7 @@ import {
   type SessionSummary,
 } from "@inhuman.tools/turn/runtime";
 import type { SessionCheckpoint, SessionReceipt } from "@inhuman.tools/turn/session-runtime";
-import { runWithBlobWriter } from "@inhuman.tools/turn/tool-runtime";
+import { bindWorkerSessionLoader, runWithBlobWriter } from "@inhuman.tools/turn/tool-runtime";
 import fs from "fs-extra";
 import { autorun, comparer, observable, reaction, runInAction, type IReactionDisposer } from "mobx";
 
@@ -1989,6 +1989,10 @@ export class KernelDaemon extends RequestHost implements Disposable, AsyncDispos
 
   internSession(sessionId: string, session: SessionDocument, daemon?: SessionDaemon): void {
     bindSessionProjections(session.root, this.projections);
+    bindWorkerSessionLoader(session.root, {
+      peek: (id) => this.sessionDoc(id)?.root,
+      load: async (id) => this.sessionDoc(id) ?? (await this.acquireSession(id)),
+    });
     this.runtime.intern(sessionId, session);
     this.sessionRoom(sessionId, session.awareness);
     this.#bindSessionFlush(sessionId, session);

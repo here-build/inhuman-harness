@@ -12,7 +12,16 @@ export { extraRootAllowed } from "./extra-root.js";
 export { peelAgentCallArgs } from "./peel.js";
 export { agentCallFromWire, ToolCallHandler } from "./handler.js";
 export { executeSystemTool, sealToolCall } from "./run-system-tool.js";
-export { CONTEXT_RECALL_TOOL_NAME, recallContext } from "./recall.js";
+export { CONTEXT_RECALL_TOOL_NAME, recallContext, recallContextAsync } from "./recall.js";
+export {
+  bindWorkerSessionLoader,
+  renderWorkerLog,
+  resolveOwnedWorker,
+  workerSessionLoaderOf,
+  type ResolvedOwnedWorker,
+  type WorkerSessionHandle,
+  type WorkerSessionLoader,
+} from "./worker-log.js";
 export { ToolError } from "./tool-error.js";
 export { workerToolAllowed } from "./worker-tools.js";
 export { isModelOriginContext, pluginCallContextOf } from "./plugin-context.js";

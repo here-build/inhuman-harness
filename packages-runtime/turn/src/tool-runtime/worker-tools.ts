@@ -15,6 +15,7 @@ import {
   SessionRoot,
 } from "@inhuman.tools/harness-model";
 
+import { CONTEXT_RECALL_TOOL_NAME } from "./recall.js";
 import { behaviorEntriesOf, type KernelToolCatalog } from "../tool-catalog/index.js";
 
 function isAgentComms(wire: string): boolean {
@@ -33,6 +34,7 @@ function askWorkerToolAllowed(catalog: KernelToolCatalog, wire: string): boolean
   return (
     wire === SCHEME_REPL_TOOL_NAME ||
     wire === SCHEME_WATCH_TOOL_NAME ||
+    wire === CONTEXT_RECALL_TOOL_NAME ||
     catalog.catalogEntry(wire)?.isSideChannel === true ||
     isAgentComms(wire)
   );
@@ -67,6 +69,7 @@ export function workerToolAllowed(
   if (
     wire === SCHEME_REPL_TOOL_NAME ||
     wire === SCHEME_WATCH_TOOL_NAME ||
+    wire === CONTEXT_RECALL_TOOL_NAME ||
     entry.isSideChannel === true ||
     isAgentComms(wire)
   ) {
