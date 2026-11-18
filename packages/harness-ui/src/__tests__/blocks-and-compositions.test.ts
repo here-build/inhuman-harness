@@ -9,6 +9,8 @@ import {
   AckBlock,
   ComposerBlock,
   ConversationStage,
+  FilePreviewPane,
+  FilePreviewProvider,
   InspectorDrawer,
   PermissionModeControl,
   PictureChipsBlock,
@@ -25,6 +27,9 @@ import {
   WorkspaceShell,
   defineVoiceCatalog,
   enVoiceCatalog,
+  pageScheme,
+  useFilePreview,
+  useScheme,
   type DraftPicture,
 } from "../index.js";
 
@@ -505,4 +510,57 @@ describe("blocks and compositions", () => {
       outsidePreserved: true,
     });
   });
+
+  it("delegates FilePreviewProvider.open to host onOpen without opening built-in drawer and tracks data-theme scheme", async () => {
+    const onOpen = vi.fn();
+    function Probe() {
+      const preview = useFilePreview();
+      const scheme = useScheme();
+      return h(
+        "button",
+        {
+          type: "button",
+          "data-scheme-probe": scheme,
+          onClick: () => preview.open({ path: "notes/summary.md", label: "summary.md" }),
+        },
+        "Open doc",
+      );
+    }
+
+    document.documentElement.dataset.theme = "dark";
+    try {
+      await render(
+        h(FilePreviewProvider, { resetKey: "s1", onOpen }, h(Probe), h(FilePreviewPane, { projectPath: "/workspace" })),
+      );
+      const btn = container.querySelector<HTMLButtonElement>("[data-scheme-probe]")!;
+      expect(btn.dataset.schemeProbe).toBe("dark");
+      expect(pageScheme()).toBe("dark");
+
+      await interact(() => btn.click());
+      expect(onOpen).toHaveBeenCalledWith({ path: "notes/summary.md", label: "summary.md" });
+      expect(container.querySelector(".file-sidebar")).toBeNull();
+
+      await interact(() => {
+        document.documentElement.dataset.theme = "light";
+      });
+      await waitForScheme(btn, "light");
+      expect(pageScheme()).toBe("light");
+    } finally {
+      await interact(() => {
+        delete document.documentElement.dataset.theme;
+      });
+    }
+  });
 });
+
+async function waitForScheme(node: HTMLElement, expected: string): Promise<void> {
+  await act(async () => {
+    await Promise.resolve();
+  });
+  for (let i = 0; i < 10 && node.dataset.schemeProbe !== expected; i += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
+  expect(node.dataset.schemeProbe).toBe(expected);
+}

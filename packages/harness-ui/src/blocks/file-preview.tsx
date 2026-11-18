@@ -33,6 +33,8 @@ export interface FilePreviewProviderProps {
   readonly resetKey: string | null;
   /** Maps an absolute workspace file path to an HTTP endpoint for fetching or media display. */
   readonly resolveFileUrl?: (absolutePath: string) => string;
+  /** Optional host handler taking over file opening instead of mounting the built-in preview drawer. */
+  readonly onOpen?: (file: OpenFile) => void;
 }
 
 /** Manages the open file preview drawer state across session/workspace switches. */
@@ -40,6 +42,7 @@ export function FilePreviewProvider({
   children,
   resetKey,
   resolveFileUrl = defaultResolveUrl,
+  onOpen,
 }: FilePreviewProviderProps) {
   const [file, setFile] = useState<OpenFile | null>(null);
   useEffect(() => {
@@ -51,6 +54,10 @@ export function FilePreviewProvider({
         file,
         resolveFileUrl,
         open: (next) => {
+          if (onOpen !== undefined) {
+            onOpen(next);
+            return;
+          }
           if (fileFace(next.path) === "binary") return;
           setFile(next);
         },

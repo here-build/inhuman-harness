@@ -46,15 +46,18 @@ export interface SyntaxHighlighter {
 /** Character cap above which syntax coloring stays off to keep frames responsive. */
 export const MAX_HIGHLIGHT_CHARS = 128 * 1024;
 
-/** Resolves the active scheme from `document.documentElement.dataset.scheme` or OS preference. */
+/** Resolves the active scheme from `data-scheme` / `data-theme` on `<html>` or OS preference. */
 export function pageScheme(): ColorScheme {
-  const pinned = typeof document === "undefined" ? undefined : document.documentElement.dataset.scheme;
+  const pinned =
+    typeof document === "undefined"
+      ? undefined
+      : (document.documentElement.dataset.scheme ?? document.documentElement.dataset.theme);
   if (pinned === "light" || pinned === "dark") return pinned;
   if (typeof globalThis.matchMedia !== "function") return "light";
   return globalThis.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-/** Reactively tracks the OS color scheme and pinned `data-scheme` attribute on `<html>`. */
+/** Reactively tracks the OS color scheme and pinned `data-scheme` / `data-theme` attribute on `<html>`. */
 export function useScheme(): ColorScheme {
   const [scheme, setScheme] = useState<ColorScheme>(pageScheme);
   useEffect(() => {
@@ -64,7 +67,7 @@ export function useScheme(): ColorScheme {
       typeof globalThis.matchMedia === "function" ? globalThis.matchMedia("(prefers-color-scheme: dark)") : null;
     query?.addEventListener("change", apply);
     const pin = new MutationObserver(apply);
-    pin.observe(document.documentElement, { attributes: true, attributeFilter: ["data-scheme"] });
+    pin.observe(document.documentElement, { attributes: true, attributeFilter: ["data-scheme", "data-theme"] });
     return () => {
       query?.removeEventListener("change", apply);
       pin.disconnect();
