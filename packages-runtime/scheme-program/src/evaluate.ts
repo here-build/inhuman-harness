@@ -8,7 +8,9 @@ import { EvalTrace } from "@here.build/arrival/provenance";
 import { AString, AVoid } from "@here.build/arrival/reflect-internals";
 import { toSExprString } from "@here.build/arrival-serializer";
 import {
+  AgentCallJob,
   armCrossings,
+  BotCallJob,
   crossingEpoch,
   markReplaying,
   CallJob,
@@ -27,7 +29,7 @@ import {
 import { isTopLevelDisplay, stripTopLevelDisplay } from "@inhuman.tools/substrate";
 import { importDoor, unboundInExprDoor } from "@inhuman.tools/substrate/doors";
 import { type TopLevelSplice } from "@inhuman.tools/substrate/unwrap-begin";
-import { action } from "mobx";
+import { action, runInAction } from "mobx";
 
 import { extendEmission, harnessEmission, type ProgramEmission } from "./emission.js";
 import { failureCodeOf } from "./failure.js";
@@ -159,12 +161,81 @@ export function canApplyProgramResults(host: ProgramHost): boolean {
   return host.canApplyResults?.() !== false;
 }
 
+const TIMEOUT_PREVIEW_CHARS = 1200;
+
+function safeJobRef(job: ToolCallJob): string | undefined {
+  try {
+    const id = job.uuid;
+    return id.length >= 8 ? `job:${id.slice(0, 8)}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function boundedPreview(value: unknown): string {
+  const raw = typeof value === "string" ? value : (JSON.stringify(value) ?? "");
+  return raw.length <= TIMEOUT_PREVIEW_CHARS
+    ? raw
+    : `${raw.slice(0, TIMEOUT_PREVIEW_CHARS)}…(+${raw.length - TIMEOUT_PREVIEW_CHARS} chars)`;
+}
+
+function formatTimeoutResult(base: FailResult, chunk: ProgrammaticJob): FailResult {
+  const calls = chunk.toolCalls;
+  if (calls.length === 0) return base;
+  const lines = calls.map((inner) => {
+    const ref = safeJobRef(inner);
+    const label = `[${ref ?? (inner.toolCallId || inner.name)}] ${inner.name}`;
+    if (inner instanceof CallJob) {
+      const spec = inner.argString("spec").trim() || (inner instanceof BotCallJob ? inner.botName.trim() : "");
+      const meta: string[] = [];
+      if (spec !== "") meta.push(`spec=${spec}`);
+      if (inner.workerSessionId !== "") meta.push(`workerSessionId=${inner.workerSessionId}`);
+      if (inner.toolCallId !== "") meta.push(`job_id=${inner.toolCallId}`);
+      if (inner instanceof AgentCallJob) meta.push(`description=${JSON.stringify(inner.description)}`);
+      const metaText = meta.length > 0 ? ` (${meta.join(", ")})` : "";
+      if (inner.completed) {
+        const snap = inner.outcomeSnap;
+        if (snap?.ok === true) {
+          const recall = ref != null ? ` (full result: context_recall ${JSON.stringify({ ref })})` : "";
+          return `- ${label}${metaText}: status=completed${recall} — result: ${boundedPreview(inner.observationPayload())}`;
+        }
+        return `- ${label}${metaText}: status=failed — ${snap?.text ?? "failed"}`;
+      }
+      const handle = inner.workerSessionId || (ref ?? inner.toolCallId);
+      const recallAgent =
+        inner.workerSessionId !== ""
+          ? ` or context_recall ${JSON.stringify({ ref: `agent:${inner.workerSessionId}` })}`
+          : "";
+      const stopHint =
+        inner.toolCallId !== "" ? `, or stop with (job_stop :job_id ${JSON.stringify(inner.toolCallId)})` : "";
+      return `- ${label}${metaText}: status=running_in_background — inspect log with (agent/log ${JSON.stringify(handle)})${recallAgent}, await or continue with (agent/continue ${JSON.stringify(handle)})${stopHint}`;
+    }
+    if (inner.completed) {
+      const state = inner.outcomeSnap?.ok === false ? "failed" : "completed";
+      const recall = ref != null && !inner.regenerateable ? ` (recall ${ref})` : "";
+      return `- ${label}: status=${state}${recall}`;
+    }
+    return `- ${label}: status=cancelled`;
+  });
+  return fail(`${base.text}\nInner calls at timeout:\n${lines.join("\n")}`, base.code);
+}
+
 export function cancelLiveInvocations(job: ProgrammaticJob, host: ProgramHost, reason?: unknown): void {
   if (!canApplyProgramResults(host)) return;
+  const timedOut = isTimeoutAbortReason(reason);
   for (const inner of job.children) {
     if (!(inner instanceof ToolCallJob)) continue;
     if (inner.completed || inner.cancelled) continue;
     if (inner instanceof MCPToolJob && inner.dispatched) continue; // on-wire mutation — do not cancel a dispatched call
+
+    // Timeout ends the parent wrapper wait, not live subagents: promote started Calls to background.
+    if (timedOut && inner instanceof CallJob && (inner.orchestrated || inner.workerSessionId !== "")) {
+      runInAction(() => {
+        inner.background = true;
+        inner.walkBoundary = true;
+      });
+      continue;
+    }
 
     if (inner.orchestrated) {
       host.abort?.(inner, reason);
@@ -237,12 +308,15 @@ function handleEvaluationStop(
   if (cancelled(host)) {
     const reason = hostAbortReason(host);
     cancelLiveInvocations(chunk, host, reason);
-    return { kind: "halt", result: fail(reason == null ? "Error: Scheme REPL call cancelled" : errorText(reason)) };
+    const result = fail(reason == null ? "Error: Scheme REPL call cancelled" : errorText(reason));
+    return { kind: "halt", result: isTimeoutAbortReason(reason) ? formatTimeoutResult(result, chunk) : result };
   }
   const halt = haltResult(signal, timeoutMs, error);
   if (halt) {
-    cancelLiveInvocations(chunk, host, signal.reason);
-    return { kind: "halt", result: halt };
+    const timedOut = isTimeoutAbortReason(signal.reason) || /timed out/.test(halt.text);
+    const stopReason = signal.aborted ? signal.reason : timedOut ? new Error(halt.text) : undefined;
+    cancelLiveInvocations(chunk, host, stopReason);
+    return { kind: "halt", result: timedOut ? formatTimeoutResult(halt, chunk) : halt };
   }
   return undefined;
 }
@@ -402,14 +476,16 @@ export async function guardProgram(
   } catch (error) {
     if (canApplyProgramResults(host) && !chunk.completed && !parked(host) && !cancelled(host)) {
       cancelLiveInvocations(chunk, host, error);
-      sealChunk(chunk, fail(errorText(error)));
+      const base = fail(errorText(error));
+      sealChunk(chunk, isTimeoutAbortReason(error) ? formatTimeoutResult(base, chunk) : base);
     }
   } finally {
     if (canApplyProgramResults(host) && !chunk.completed && !parked(host)) {
       const reason = hostAbortReason(host);
       cancelLiveInvocations(chunk, host, reason);
       if (cancelled(host)) chunk.cancelled = true;
-      sealChunk(chunk, fail(reason == null ? "Error: Scheme REPL call cancelled" : errorText(reason)));
+      const base = fail(reason == null ? "Error: Scheme REPL call cancelled" : errorText(reason));
+      sealChunk(chunk, isTimeoutAbortReason(reason) ? formatTimeoutResult(base, chunk) : base);
     }
   }
 }

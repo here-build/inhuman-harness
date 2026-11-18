@@ -551,11 +551,11 @@ export class SessionTurn extends SequenceJob {
       }
       const completion = tapeCompletion(chunk);
       if (completion != null && completion.outcome == null) return true;
-      if (chunk instanceof ToolCallJob && !chunk.completed && chunk.receiptJson == null) return true;
+      if (chunk instanceof ToolCallJob && !chunk.completed && chunk.sealedOutcomeJson() == null) return true;
       if (chunk instanceof ProgrammaticJob) {
         if (!chunk.completed && chunk.receiptJson == null) return true;
         for (const inner of chunk.toolCalls) {
-          if (!inner.completed && inner.receiptJson == null) return true;
+          if (!inner.completed && inner.sealedOutcomeJson() == null) return true;
         }
       }
     }
