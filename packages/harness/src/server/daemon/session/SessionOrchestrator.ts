@@ -64,6 +64,7 @@ import {
   type TurnEnding,
 } from "@inhuman.tools/turn/agent-calls";
 import { createTurnResolvers, SessionOwnershipError } from "@inhuman.tools/turn/runtime";
+import { resolveOwnedWorker } from "@inhuman.tools/turn/tool-runtime";
 import { autorun, comparer, computed, reaction, runInAction, when } from "mobx";
 import invariant from "tiny-invariant";
 
@@ -379,7 +380,7 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
       (job) => this.#guardTool(job),
       async (job, signal) => {
         try {
-          await executeAgentCall(job, this.#agentHost(), this.#agentTools.get(job));
+          await executeAgentCall(job, this.#agentHost(), this.#agentTools.get(job), signal);
         } catch (error) {
           if (this.canApplyResults) sealCall(job, "error", error instanceof Error ? error.message : String(error));
         } finally {
@@ -1038,9 +1039,18 @@ export class SessionOrchestrator extends Orchestrator implements Disposable {
     }
     if (!(job instanceof AgentCallJob)) return guardedCallOf(job, this.session.root.path);
     if (job.name !== AGENT_ASK && job.name !== AGENT_SEND) return null;
-    const spec = job.argString("spec").trim();
-    const fresh = job.workerSessionId === "";
+    const continueTarget = job.argString("target").trim();
+    let spec = job.argString("spec").trim();
+    const fresh = job.workerSessionId === "" && continueTarget === "";
     const catalog = sessionCatalog(this.session.root) ?? this.sessionDaemon.kernel.catalog;
+    if (spec === "" && continueTarget !== "") {
+      const resolved = resolveOwnedWorker(this.session.root, continueTarget);
+      if (resolved.ok && resolved.workerSessionId !== "") {
+        const continuedSpec =
+          this.sessionDaemon.kernel.sessionDoc(resolved.workerSessionId)?.root.agent.spec.name ?? "";
+        if (continuedSpec !== "" && catalog.recipe(continuedSpec) != null) spec = continuedSpec;
+      }
+    }
     if (spec === "") {
       const tools = job.inheritCallerTools ? catalog.catalogWireNames() : job.tools;
       return agentGuardedCall(job, "", tools, fresh);

@@ -113,6 +113,10 @@ export class AgentCallJob extends CallJob {
   @computed
   get description(): string {
     const authored = this.argString("description").trim();
+    if (authored === "" && this.speech.trim() === "") {
+      const target = this.argString("target").trim();
+      if (target !== "") return `Continue agent ${target.slice(0, 120)}.`;
+    }
     const text = (authored || this.speech).replaceAll(/\s+/g, " ").trim();
     const sentence = text.split(/(?<=[.!?。！？])(?:\s|$)/u)[0] ?? "";
     if (sentence === "") return "Delegated agent task.";

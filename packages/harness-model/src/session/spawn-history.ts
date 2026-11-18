@@ -8,9 +8,11 @@ import { ToolCallJob } from "./jobs/ToolCallJob.js";
 /** Caller-facing identity and description; never the worker's full brief. */
 export function spawnDescriptionArgs(job: AgentCallJob): Record<string, string> {
   const args = job.args ?? {};
+  const target = typeof args.target === "string" ? args.target.trim() : "";
   return {
     description: job.description,
     ...(typeof args.spec === "string" ? { spec: args.spec } : {}),
+    ...(target === "" ? {} : { target }),
     ...(job.faceName === "" ? {} : { faceName: job.faceName }),
     ...(job.workerSessionId === "" ? {} : { workerSessionId: job.workerSessionId }),
   };

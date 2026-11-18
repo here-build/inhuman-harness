@@ -18,6 +18,7 @@ import {
   AgentMessageJob,
   AgentNotifyJob,
   AskAgentSpec,
+  assertResponseMatchesSchema,
   AutonomousToolError,
   BotCallJob,
   CallJob,
@@ -29,6 +30,7 @@ import {
   projectWorkerPermissions,
   type SessionDocument,
   type SessionRoot,
+  SuccessfulOutcome,
   ToolCallJob,
 } from "@inhuman.tools/harness-model";
 import { oneShotModelError, parseModelRef } from "@inhuman.tools/harness-scheme";
@@ -43,7 +45,8 @@ import {
   type AgentRuntimeHost as AgentCallHost,
 } from "@inhuman.tools/turn/agent-calls";
 import { SessionOwnershipError } from "@inhuman.tools/turn/runtime";
-import { runInAction } from "mobx";
+import { resolveOwnedWorker } from "@inhuman.tools/turn/tool-runtime";
+import { runInAction, when } from "mobx";
 
 import { agentCallSupportsNotify, type CatalogRecipe, invokeDenied } from "@/tool-catalog";
 import { isModelOriginContext, pluginCallContextOf } from "@/tool-runtime";
@@ -356,16 +359,218 @@ function refuseDeep(job: CallJob, depth: number, limit: number, kind: "agent" | 
   return true;
 }
 
+const DEFAULT_CONTINUE_PROMPT =
+  "Continue from your verified progress in this session, complete any remaining work, and finish with agent__respond.";
+
+function settleContinuedOutcome(job: AgentCallJob, prior: SuccessfulOutcome): void {
+  if (job.responseSchema != null) {
+    const text = typeof prior.value === "string" ? prior.value : JSON.stringify(prior.value ?? null);
+    try {
+      assertResponseMatchesSchema(text, JSON.stringify(job.responseSchema));
+    } catch (error) {
+      sealCall(job, "response_schema", error instanceof Error ? error.message : String(error));
+      return;
+    }
+    const settled = new SuccessfulOutcome();
+    settled.value = JSON.parse(text);
+    job.settleResult(settled);
+    return;
+  }
+  const settled = new SuccessfulOutcome();
+  settled.value = prior.value;
+  job.settleResult(settled);
+}
+
+async function waitForOpenWorkerCall(
+  openCall: CallJob,
+  job: AgentCallJob,
+  host: AgentRuntimeHost,
+  signal?: AbortSignal,
+): Promise<void> {
+  const joined = when(
+    () =>
+      openCall.completed ||
+      openCall.cancelled ||
+      job.completed ||
+      job.cancelled ||
+      host.canApplyResults?.() === false ||
+      signal?.aborted === true ||
+      host.ownershipSignal?.aborted === true,
+  );
+  const aborts: Array<{ readonly target: AbortSignal; readonly onAbort: () => void }> = [];
+  const racers: Array<Promise<void>> = [joined];
+  for (const target of [signal, host.ownershipSignal]) {
+    if (target == null) continue;
+    racers.push(
+      new Promise<void>((resolve) => {
+        if (target.aborted) {
+          resolve();
+          return;
+        }
+        const onAbort = () => resolve();
+        target.addEventListener("abort", onAbort, { once: true });
+        aborts.push({ target, onAbort });
+      }),
+    );
+  }
+  try {
+    await Promise.race(racers);
+  } finally {
+    joined.cancel();
+    for (const { target, onAbort } of aborts) {
+      target.removeEventListener("abort", onAbort);
+    }
+  }
+}
+
+async function continueAgentCall(
+  job: AgentCallJob,
+  continueTarget: string,
+  host: AgentRuntimeHost,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (refuseDeep(job, host.caller.agent.spec.depth + 1, host.kernel.doc.root.maxDepth, "agent")) return;
+  const modelRef = job.argString("model").trim();
+  let parsedModel: { readonly connection: string; readonly model: string } | undefined;
+  if (modelRef !== "") {
+    const modelErr = oneShotModelError(modelRef, host.kernel.doc.root.connections);
+    if (modelErr !== "") {
+      sealCall(job, "bad_model", modelErr);
+      return;
+    }
+    parsedModel = parseModelRef(modelRef);
+    if (parsedModel == null) {
+      sealCall(job, "bad_model", 'model must be "connection/model"');
+      return;
+    }
+  }
+  const resolved = resolveOwnedWorker(host.caller, continueTarget);
+  if (!resolved.ok || resolved.workerSessionId === "") {
+    sealCall(job, "worker_missing", resolved.ok ? "worker session not started" : resolved.error);
+    return;
+  }
+  const workerId = resolved.workerSessionId;
+  const worker = host.kernel.sessionDoc(workerId) ?? (await host.kernel.acquireSession(workerId));
+  assertHostCurrent(host);
+  if (worker == null) {
+    sealCall(job, "worker_missing", `worker session ${workerId} missing`);
+    return;
+  }
+  const namedCatalog = sessionCatalog(host.caller) ?? host.kernel.catalog;
+  const workerSpecName = worker.root.agent.spec.name;
+  const isAsk = worker.root.agent.spec instanceof AskAgentSpec;
+  if (workerSpecName !== "" && (!isAsk || namedCatalog.recipe(workerSpecName) != null)) {
+    const denied = invokeDenied(namedCatalog.allRecipes(), host.caller.agent.spec.name, workerSpecName);
+    if (denied != null) {
+      sealCall(job, "denied", denied);
+      return;
+    }
+  }
+  if (job.responseSchema != null && !isAsk && workerSpecName !== "") {
+    sealCall(job, "schema_requires_one_shot", SCHEMA_REQUIRES_ONE_SHOT_ASK);
+    return;
+  }
+  runInAction(() => {
+    job.workerSessionId = workerId;
+  });
+
+  if (worker.root.findTurnByAgentRequestId(job.uuid) != null) {
+    stampWorker(job, worker, host.caller.sessionId, () => {
+      job.workerSessionId = workerId;
+    });
+    if (host.kernel.liveSession(workerId) == null) {
+      if (worker.root.agent.spec.recipeScope === "global") await host.kernel.globalSession(workerId);
+      else await host.kernel.project(worker.root.path).session(workerId);
+    }
+    return;
+  }
+
+  const hasMessage = job.speech.trim() !== "";
+  if (!hasMessage) {
+    const openCall = resolved.calls.find(
+      (call) =>
+        call !== job &&
+        !call.completed &&
+        !call.cancelled &&
+        worker.root.agentCallbacks[call.uuid] === host.caller.sessionId,
+    );
+    if (openCall != null) {
+      if (host.kernel.liveSession(workerId) == null) {
+        if (worker.root.agent.spec.recipeScope === "global") await host.kernel.globalSession(workerId);
+        else await host.kernel.project(worker.root.path).session(workerId);
+      }
+      assertHostCurrent(host);
+      await waitForOpenWorkerCall(openCall, job, host, signal);
+      assertHostCurrent(host);
+      if (job.completed || job.cancelled || signal?.aborted === true) return;
+      if (openCall.outcome instanceof SuccessfulOutcome) {
+        settleContinuedOutcome(job, openCall.outcome);
+        return;
+      }
+      if (openCall.outcome instanceof FailureOutcome) {
+        sealCall(job, openCall.outcome.code || "error", openCall.outcome.message);
+        return;
+      }
+      if (openCall.cancelled) {
+        sealCall(job, "cancelled", "cancelled");
+        return;
+      }
+      return;
+    }
+
+    const latestCall = resolved.calls.findLast((call) => call !== job);
+    if (
+      !worker.root.midMotion &&
+      latestCall?.outcome instanceof SuccessfulOutcome &&
+      (worker.root.head?.broke ?? "") === "" &&
+      worker.root.head?.cancelled !== true
+    ) {
+      settleContinuedOutcome(job, latestCall.outcome);
+      return;
+    }
+  }
+
+  const promptText = hasMessage ? job.speech : DEFAULT_CONTINUE_PROMPT;
+  runInAction(() => {
+    inheritWorkerRuntimeKv(worker.root, host);
+    if (worker.root.agent.spec instanceof AskAgentSpec) {
+      worker.root.agent.spec.voidLegal = false;
+      if (job.readonly) worker.root.agent.spec.readonly = true;
+      const hop = lineage(job, host.caller);
+      worker.root.agent.spec.depth = hop.depth;
+      worker.root.agent.spec.botDepth = hop.botDepth;
+    }
+    if (parsedModel != null) {
+      worker.root.applyKvs([
+        { form: "kv-set", key: "connection", value: parsedModel.connection },
+        { form: "kv-set", key: "model", value: parsedModel.model },
+      ]);
+    }
+  });
+  stampWorker(job, worker, host.caller.sessionId, () => {
+    job.workerSessionId = workerId;
+  });
+  await host.kernel.broadcastAgentRequest(workerId, job.uuid, host.caller.sessionId, promptText);
+  const delivered = host.kernel.sessionDoc(workerId) ?? worker;
+  if (delivered != null) await host.kernel.flushSession(delivered);
+}
+
 /** An agent call owns a disposable child, including when its recipe is named. */
 export async function executeAgentCall(
   job: AgentCallJob,
   host: AgentRuntimeHost,
   /** Tools an agent guard narrowed a one-shot recipe call to. */
   tools?: readonly string[],
+  signal?: AbortSignal,
 ): Promise<void> {
   assertHostCurrent(host);
   if (job.completed) return;
   if (job.name === AGENT_ASK || job.name === AGENT_SEND) {
+    const continueTarget = job.argString("target").trim();
+    if (continueTarget !== "") {
+      await continueAgentCall(job, continueTarget, host, signal);
+      return;
+    }
     if (refuseDeep(job, host.caller.agent.spec.depth + 1, host.kernel.doc.root.maxDepth, "agent")) return;
     const spec = job.argString("spec").trim();
     if (job.name === AGENT_SEND && spec === "") {
